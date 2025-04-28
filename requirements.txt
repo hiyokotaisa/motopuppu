@@ -1,0 +1,10 @@
+Flask>=2.0
+Flask-SQLAlchemy>=3.0
+python-dotenv>=0.20
+requests>=2.20
+# Flask-WTF>=1.0 # フォーム処理・検証に便利
+# Flask-Login>=0.6 # ログイン管理の補助に (Authlibや自前でも可)
+# Flask-Migrate>=4.0 # DBスキーマ変更の管理に
+# Flask-Uploads-Fork # ファイルアップロード処理に (代替ライブラリも検討可)
+# Pillow # 画像処理に (ファイルタイプ検証などで必要になる場合あり)
+# gunicorn # 本番環境用WSGIサーバー (例)
