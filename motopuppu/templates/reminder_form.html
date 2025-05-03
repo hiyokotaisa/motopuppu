@@ -1,0 +1,90 @@
+{# motopuppu/templates/reminder_form.html #}
+{% extends "base.html" %}
+
+{% set page_title = "リマインダーの追加" if form_action == 'add' else "リマインダーの編集" %}
+{% block title %}{{ page_title }} ({{ motorcycle.name }}) - motopuppu{% endblock %}
+
+{% block content %}
+<h2>{{ page_title }}</h2>
+<h4 class="text-muted mb-4">{{ motorcycle.name }}</h4> {# 対象車両名を表示 #}
+
+{# --- フラッシュメッセージ表示 --- #}
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+            {# cycle エラーは別途表示済みなのでここでは無視しても良い #}
+            {% if 'サイクルは設定してください' not in message %}
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+            {% endif %}
+        {% endfor %}
+    {% endif %}
+{% endwith %}
+{# --- フラッシュメッセージ表示 ここまで --- #}
+
+{# 送信先URLを action で切り替え #}
+<form method="POST" action="{{ url_for('vehicle.add_reminder', vehicle_id=motorcycle.id) if form_action == 'add' else url_for('vehicle.edit_reminder', reminder_id=reminder.id) }}">
+    {# CSRFトークンが必要な場合は {{ form.csrf_token }} などを追加 #}
+
+    {# リマインド内容 #}
+    <div class="mb-3">
+        <label for="task_description" class="form-label">リマインド内容 <span class="text-danger">*</span></label>
+        {# エラー時(dict)と編集時(obj)で値の取得方法を分ける #}
+        <input type="text" class="form-control" id="task_description" name="task_description"
+               value="{{ reminder.get('task_description') if reminder is mapping else (reminder.task_description if reminder else '') }}" required>
+        <div class="form-text">例: エンジンオイル交換, タイヤ空気圧チェック</div>
+    </div>
+
+    {# サイクル設定 #}
+    <div class="row g-3">
+        <div class="col-md-6 mb-3">
+            <label for="interval_km" class="form-label">距離サイクル (kmごと)</label>
+            <input type="number" class="form-control" id="interval_km" name="interval_km"
+                   value="{{ reminder.get('interval_km') if reminder is mapping else (reminder.interval_km if reminder and reminder.interval_km is not none else '') }}" min="1">
+            <div class="form-text">この距離を走行するごとにお知らせします。</div>
+        </div>
+        <div class="col-md-6 mb-3">
+            <label for="interval_months" class="form-label">期間サイクル (ヶ月ごと)</label>
+            <input type="number" class="form-control" id="interval_months" name="interval_months"
+                   value="{{ reminder.get('interval_months') if reminder is mapping else (reminder.interval_months if reminder and reminder.interval_months is not none else '') }}" min="1">
+             <div class="form-text">この期間が経過するごとにお知らせします。</div>
+        </div>
+         <p class="text-muted small">距離または期間の少なくとも一方は入力してください。</p>
+    </div>
+
+    <hr> {# 区切り線 #}
+
+    {# 最終実施記録 #}
+    <h5 class="mt-4">最終実施記録 (任意)</h5>
+    <p class="text-muted small">このリマインダーに該当するメンテナンスを最後に実施した日付と、その時の総走行距離を入力します。整備記録を追加した際に自動で更新することも可能です（今後実装予定）。</p>
+
+     <div class="row g-3">
+        <div class="col-md-6 mb-3">
+            <label for="last_done_date" class="form-label">最終実施日</label>
+            {# is mapping で辞書(エラー時)かオブジェクト(編集時)か判定 #}
+            {% set date_val = reminder.get('last_done_date') if reminder is mapping else (reminder.last_done_date.isoformat() if reminder and reminder.last_done_date else '') %}
+            <input type="date" class="form-control" id="last_done_date" name="last_done_date" value="{{ date_val }}">
+        </div>
+        <div class="col-md-6 mb-3">
+            <label for="last_done_km" class="form-label">最終実施時の総走行距離 (km)</label>
+            <input type="number" class="form-control" id="last_done_km" name="last_done_km"
+                   value="{{ reminder.get('last_done_km') if reminder is mapping else (reminder.last_done_km if reminder and reminder.last_done_km is not none else '') }}" min="0">
+        </div>
+    </div>
+
+    {# 送信・キャンセルボタン #}
+    <div class="mt-4">
+        <button type="submit" class="btn btn-primary">
+            <i class="fas fa-save me-1"></i> {{ '追加する' if form_action == 'add' else '更新する' }}
+        </button>
+        {# キャンセルは車両編集画面に戻る #}
+        <a href="{{ url_for('vehicle.edit_vehicle', vehicle_id=motorcycle.id) }}" class="btn btn-secondary">
+             <i class="fas fa-times me-1"></i> キャンセル
+        </a>
+    </div>
+
+</form>
+
+{% endblock %}

@@ -20,7 +20,7 @@
 {% endwith %}
 {# --- フラッシュメッセージ表示 ここまで --- #}
 
-{# 送信先URLを action で切り替え #}
+{# --- 車両基本情報フォーム --- #}
 <form method="POST" action="{{ url_for('vehicle.add_vehicle') if form_action == 'add' else url_for('vehicle.edit_vehicle', vehicle_id=vehicle.id) }}">
     {# CSRFトークンが必要な場合は {{ form.csrf_token }} などを追加 #}
 
@@ -34,7 +34,9 @@
     </div>
     <div class="mb-3">
         <label for="year" class="form-label">年式</label>
-        <input type="number" class="form-control" id="year" name="year" value="{{ vehicle.year if vehicle and vehicle.year is not none else '' }}" min="1900" max="{{ current_year + 1 }}"> {# current_year はコンテキストプロセッサから #}
+        {# current_year は view 関数またはコンテキストプロセッサから渡される想定 #}
+        {% set current_year = now()|strftime('%Y')|int %} {# 仮にここで取得 (コンテキストプロセッサ推奨) #}
+        <input type="number" class="form-control" id="year" name="year" value="{{ vehicle.year if vehicle and vehicle.year is not none else '' }}" min="1900" max="{{ current_year + 1 }}">
         <div class="form-text">例: 2023</div>
     </div>
 
@@ -43,34 +45,121 @@
     </button>
     <a href="{{ url_for('vehicle.vehicle_list') }}" class="btn btn-secondary">キャンセル</a>
 </form>
+{# --- 車両基本情報フォーム ここまで --- #}
 
-{# --- 編集時のみODOメーターリセットフォームを表示 --- #}
+
+{# --- 編集時のみ表示されるセクション --- #}
 {% if form_action == 'edit' and vehicle %}
-<hr class="my-4">
-<h4>ODOメーターリセット記録</h4>
-<p>バイク本体のODOメーターをリセットした場合に記録します。</p>
-<p>現在の累積オフセット: <strong>{{ vehicle.odometer_offset }} km</strong></p>
 
-<form method="POST" action="{{ url_for('vehicle.record_reset', vehicle_id=vehicle.id) }}">
-    {# CSRFトークンが必要な場合は input を追加 #}
-    <div class="row g-3 align-items-end">
-        <div class="col-md">
-            <label for="reading_before_reset" class="form-label">リセット直前のメーター表示値 <span class="text-danger">*</span></label>
-            <input type="number" class="form-control" id="reading_before_reset" name="reading_before_reset" required min="0">
-             <div class="form-text">例: 30000</div>
+    {# --- ODOメーターリセットフォーム --- #}
+    <hr class="my-4">
+    <h4>ODOメーターリセット記録</h4>
+    <p>バイク本体のODOメーターをリセットした場合に記録します。</p>
+    <p>現在の累積オフセット: <strong>{{ vehicle.odometer_offset }} km</strong></p>
+
+    <form method="POST" action="{{ url_for('vehicle.record_reset', vehicle_id=vehicle.id) }}">
+        {# CSRFトークンが必要な場合は input を追加 #}
+        <div class="row g-3 align-items-end">
+            <div class="col-md">
+                <label for="reading_before_reset" class="form-label">リセット直前のメーター表示値 <span class="text-danger">*</span></label>
+                <input type="number" class="form-control" id="reading_before_reset" name="reading_before_reset" required min="0">
+                 <div class="form-text">例: 30000</div>
+            </div>
+            <div class="col-md">
+                <label for="reading_after_reset" class="form-label">リセット直後のメーター表示値</label>
+                <input type="number" class="form-control" id="reading_after_reset" name="reading_after_reset" value="0" min="0">
+                <div class="form-text">通常は 0</div>
+            </div>
+            <div class="col-md-auto">
+                <button type="submit" class="btn btn-info">リセットを記録</button>
+            </div>
         </div>
-        <div class="col-md">
-            <label for="reading_after_reset" class="form-label">リセット直後のメーター表示値</label>
-            <input type="number" class="form-control" id="reading_after_reset" name="reading_after_reset" value="0" min="0">
-            <div class="form-text">通常は 0</div>
-        </div>
-        <div class="col-md-auto">
-            <button type="submit" class="btn btn-info">リセットを記録</button>
-        </div>
+    </form>
+    {# --- ODOメーターリセットフォーム ここまで --- #}
+
+
+    {# ▼▼▼ リマインダーセクションを追加 ▼▼▼ #}
+    <hr class="my-4"> {# ODOリセットフォームとの区切り線 #}
+    <h4>メンテナンスリマインダー設定</h4>
+    <p class="text-muted">定期的に実施したいメンテナンス項目とそのサイクルを登録しておくと、ダッシュボードで目安を確認できます。</p>
+
+    {# --- 既存リマインダー一覧 --- #}
+    {# 'reminders' 変数は edit_vehicle 関数から渡される #}
+    {% if reminders %}
+    <div class="table-responsive mb-3">
+        <table class="table table-sm table-striped table-bordered">
+            <thead class="table-light">
+                <tr>
+                    <th>内容</th>
+                    <th>サイクル</th>
+                    <th>最終実施</th>
+                    <th style="width: 100px;">操作</th> {# 操作列の幅を少し確保 #}
+                </tr>
+            </thead>
+            <tbody>
+                {% for reminder in reminders %}
+                <tr>
+                    {# リマインド内容 #}
+                    <td>{{ reminder.task_description }}</td>
+                    {# サイクル表示 #}
+                    <td>
+                        {% if reminder.interval_km %}
+                            {{ reminder.interval_km }} kmごと
+                        {% endif %}
+                        {# 両方設定されている場合のみ区切り文字を表示 #}
+                        {% if reminder.interval_km and reminder.interval_months %} / {% endif %}
+                        {% if reminder.interval_months %}
+                            {{ reminder.interval_months }} ヶ月ごと
+                        {% endif %}
+                         {# どちらも未設定の場合 #}
+                         {% if not reminder.interval_km and not reminder.interval_months %}
+                            <span class="text-muted">サイクル未設定</span>
+                        {% endif %}
+                    </td>
+                    {# 最終実施記録表示 #}
+                    <td>
+                        {% if reminder.last_done_date %}
+                            {{ reminder.last_done_date.strftime('%Y-%m-%d') }}
+                        {% endif %}
+                        {% if reminder.last_done_km is not none %}
+                             <span class="text-muted">({{ reminder.last_done_km }} km)</span>
+                        {% endif %}
+                         {# どちらも記録がない場合 #}
+                         {% if not reminder.last_done_date and reminder.last_done_km is none %}
+                            <span class="text-muted">未実施</span>
+                        {% endif %}
+                    </td>
+                    {# 操作ボタン #}
+                    <td>
+                        {# 編集ボタン #}
+                        <a href="{{ url_for('vehicle.edit_reminder', reminder_id=reminder.id) }}" class="btn btn-sm btn-outline-primary me-1" title="編集">
+                            <i class="fas fa-pen"></i>
+                        </a>
+                        {# 削除ボタン (確認ダイアログ付き) #}
+                        <form action="{{ url_for('vehicle.delete_reminder', reminder_id=reminder.id) }}" method="POST" class="d-inline" onsubmit="return confirm('リマインダー「{{ reminder.task_description }}」を削除してもよろしいですか？');">
+                             {# CSRFトークンが必要な場合は input を追加 #}
+                            <button type="submit" class="btn btn-sm btn-outline-danger" title="削除">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
-</form>
-{% endif %}
-{# --- ODOメーターリセットフォーム ここまで --- #}
+    {% else %}
+    {# リマインダーが一つもない場合 #}
+    <p class="text-muted">この車両にはまだリマインダーが設定されていません。</p>
+    {% endif %}
 
+    {# --- 新規追加ボタン --- #}
+    <a href="{{ url_for('vehicle.add_reminder', vehicle_id=vehicle.id) }}" class="btn btn-success">
+        <i class="fas fa-plus me-1"></i> 新しいリマインダーを追加
+    </a>
+    {# ▲▲▲ リマインダーセクションここまで ▲▲▲ #}
+
+{% endif %} {# End of form_action == 'edit' check #}
+{# --- 編集時のみ表示されるセクション ここまで --- #}
 
 {% endblock %}
