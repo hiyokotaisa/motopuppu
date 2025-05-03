@@ -10,6 +10,8 @@ from dateutil.relativedelta import relativedelta
 from .auth import login_required_custom, get_current_user
 # ▼▼▼ MaintenanceReminder と db をインポート ▼▼▼
 from ..models import db, Motorcycle, FuelEntry, MaintenanceEntry, MaintenanceReminder
+# ▼▼▼ SQLAlchemyの集計関数などを使うために追加 ▼▼▼
+from sqlalchemy import func
 import math
 
 main_bp = Blueprint('main', __name__)
@@ -29,7 +31,6 @@ def get_latest_total_distance(motorcycle_id, offset):
     return max(latest_fuel_dist, latest_maint_dist, offset or 0) # offsetがNoneの場合も考慮
 
 # --- ヘルパー関数 (任意): 平均燃費計算 ---
-# (dashboard関数内にあったロジックを関数化する例)
 def calculate_average_kpl(motorcycle_id):
      """指定された車両IDの平均燃費を計算"""
      full_tank_entries = FuelEntry.query.filter(
@@ -49,7 +50,6 @@ def calculate_average_kpl(motorcycle_id):
              return None
 
 # --- ヘルパー関数 (任意): リマインダー通知取得 ---
-# (dashboard関数内にあったロジックを関数化する例)
 def get_upcoming_reminders(user_motorcycles, user_id):
     """ユーザーの車両に関連する警告リマインダーを取得"""
     upcoming_reminders = []
@@ -131,54 +131,74 @@ def index():
 @main_bp.route('/dashboard')
 @login_required_custom
 def dashboard():
-    """ログイン後のダッシュボードを表示 (フィルター付き直近記録、リマインダー通知付き)"""
+    """ログイン後のダッシュボードを表示 (フィルター付き直近記録、リマインダー通知、統計付き)"""
     # ユーザーの車両リスト取得
     user_motorcycles = Motorcycle.query.filter_by(user_id=g.user.id).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
     if not user_motorcycles:
-        flash('ようこそ！最初に利用する車両を登録してください。', 'info')
-        return redirect(url_for('vehicle.add_vehicle'))
-
+        flash('ようこそ！最初に利用する車両を登録してください。', 'info'); return redirect(url_for('vehicle.add_vehicle'))
     user_motorcycle_ids = [m.id for m in user_motorcycles]
 
-    # --- ▼▼▼ フィルター用車両IDを取得 ▼▼▼ ---
-    selected_fuel_vehicle_id_str = request.args.get('fuel_vehicle_id')
-    selected_maint_vehicle_id_str = request.args.get('maint_vehicle_id')
-
-    selected_fuel_vehicle_id = None
+    # --- フィルター用車両IDを取得 ---
+    selected_fuel_vehicle_id_str = request.args.get('fuel_vehicle_id'); selected_maint_vehicle_id_str = request.args.get('maint_vehicle_id')
+    selected_fuel_vehicle_id = None; selected_maint_vehicle_id = None
     if selected_fuel_vehicle_id_str:
-        try:
-            selected_fuel_vehicle_id = int(selected_fuel_vehicle_id_str)
-            if selected_fuel_vehicle_id not in user_motorcycle_ids: selected_fuel_vehicle_id = None
+        try: selected_fuel_vehicle_id = int(selected_fuel_vehicle_id_str);
+        if selected_fuel_vehicle_id not in user_motorcycle_ids: selected_fuel_vehicle_id = None
         except ValueError: selected_fuel_vehicle_id = None
-
-    selected_maint_vehicle_id = None
     if selected_maint_vehicle_id_str:
-        try:
-            selected_maint_vehicle_id = int(selected_maint_vehicle_id_str)
-            if selected_maint_vehicle_id not in user_motorcycle_ids: selected_maint_vehicle_id = None
+        try: selected_maint_vehicle_id = int(selected_maint_vehicle_id_str);
+        if selected_maint_vehicle_id not in user_motorcycle_ids: selected_maint_vehicle_id = None
         except ValueError: selected_maint_vehicle_id = None
-    # --- ▲▲▲ フィルター用車両ID取得ここまで ▲▲▲ ---
 
     # --- 直近の給油記録 (フィルター適用) ---
     fuel_query = FuelEntry.query.filter(FuelEntry.motorcycle_id.in_(user_motorcycle_ids))
-    if selected_fuel_vehicle_id:
-        fuel_query = fuel_query.filter(FuelEntry.motorcycle_id == selected_fuel_vehicle_id)
+    if selected_fuel_vehicle_id: fuel_query = fuel_query.filter(FuelEntry.motorcycle_id == selected_fuel_vehicle_id)
     recent_fuel_entries = fuel_query.order_by(FuelEntry.entry_date.desc(), FuelEntry.total_distance.desc()).limit(5).all()
 
     # --- 直近の整備記録 (フィルター適用) ---
     maint_query = MaintenanceEntry.query.filter(MaintenanceEntry.motorcycle_id.in_(user_motorcycle_ids))
-    if selected_maint_vehicle_id:
-        maint_query = maint_query.filter(MaintenanceEntry.motorcycle_id == selected_maint_vehicle_id)
+    if selected_maint_vehicle_id: maint_query = maint_query.filter(MaintenanceEntry.motorcycle_id == selected_maint_vehicle_id)
     recent_maintenance_entries = maint_query.order_by(MaintenanceEntry.maintenance_date.desc(), MaintenanceEntry.total_distance_at_maintenance.desc()).limit(5).all()
 
     # --- リマインダー通知取得 ---
-    # (ヘルパー関数を利用)
     upcoming_reminders = get_upcoming_reminders(user_motorcycles, g.user.id)
 
-    # --- 平均燃費計算 ---
-    # (ヘルパー関数を利用)
-    for m in user_motorcycles:
-        m._average_kpl = calculate_average_kpl(m.id)
+    # --- 平均燃費計算 (各車両用) ---
+    for m in user_motorcycles: m._average_kpl = calculate_average_kpl(m.id)
+
+
+    # --- ▼▼▼ 統計情報サマリー計算 ▼▼▼ ---
+    dashboard_stats = {
+        'default_vehicle_name': None,
+        'total_distance': 0,
+        'average_kpl': None,
+        'total_fuel_cost': 0,
+        'total_maint_cost': 0,
+    }
+    # デフォルト車両または最初の車両を取得
+    default_vehicle = next((m for m in user_motorcycles if m.is_default), user_motorcycles[0] if user_motorcycles else None)
+
+    if default_vehicle:
+        dashboard_stats['default_vehicle_name'] = default_vehicle.name
+        # デフォルト車両の総走行距離
+        dashboard_stats['total_distance'] = get_latest_total_distance(default_vehicle.id, default_vehicle.odometer_offset)
+        # デフォルト車両の平均燃費 (計算済み)
+        dashboard_stats['average_kpl'] = default_vehicle._average_kpl # 上のループで計算済み
+
+    # 全車両の累計給油費用
+    total_fuel_cost_query = db.session.query(func.sum(FuelEntry.total_cost))\
+                                      .filter(FuelEntry.motorcycle_id.in_(user_motorcycle_ids))\
+                                      .scalar()
+    dashboard_stats['total_fuel_cost'] = total_fuel_cost_query or 0
+
+    # 全車両の累計整備費用 (部品代 + 工賃、NULLは0として扱う)
+    total_maint_cost_query = db.session.query(func.sum(func.coalesce(MaintenanceEntry.parts_cost, 0) + func.coalesce(MaintenanceEntry.labor_cost, 0)))\
+                                        .filter(MaintenanceEntry.motorcycle_id.in_(user_motorcycle_ids))\
+                                        .scalar()
+    dashboard_stats['total_maint_cost'] = total_maint_cost_query or 0
+
+    # --- ▲▲▲ 統計情報サマリー計算ここまで ▲▲▲ ---
+
 
     # --- テンプレートへのデータ渡し ---
     return render_template(
@@ -187,9 +207,10 @@ def dashboard():
         recent_fuel_entries=recent_fuel_entries,
         recent_maintenance_entries=recent_maintenance_entries,
         upcoming_reminders=upcoming_reminders,
-        # 選択中のIDを渡す
         selected_fuel_vehicle_id=selected_fuel_vehicle_id,
-        selected_maint_vehicle_id=selected_maint_vehicle_id
+        selected_maint_vehicle_id=selected_maint_vehicle_id,
+        # ▼▼▼ 計算した統計情報を渡す ▼▼▼
+        dashboard_stats=dashboard_stats
     )
 
 
@@ -198,7 +219,7 @@ def dashboard():
 @login_required_custom
 def dashboard_events_api():
     """ダッシュボードのFullCalendarに表示するイベントデータを返すAPI (詳細情報付き)"""
-    # (この関数は変更なし)
+    # (変更なし)
     events = []
     user_motorcycle_ids = [m.id for m in Motorcycle.query.filter_by(user_id=g.user.id).all()]
     fuel_entries = FuelEntry.query.filter(FuelEntry.motorcycle_id.in_(user_motorcycle_ids)).all()

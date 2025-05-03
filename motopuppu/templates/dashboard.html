@@ -33,7 +33,7 @@
 {# --- フラッシュメッセージ表示 ここまで --- #}
 
 
-{# ▼▼▼ メンテナンス通知セクション (修正済み) ▼▼▼ #}
+{# ▼▼▼ メンテナンス通知セクション (変更なし) ▼▼▼ #}
 {% if upcoming_reminders %}
 <div class="card mb-4 border-danger">
     <div class="card-header bg-danger bg-opacity-10">
@@ -73,7 +73,7 @@
 {# ▲▲▲ メンテナンス通知セクションここまで ▲▲▲ #}
 
 
-{# --- ダッシュボードのコンテンツ表示 --- #}
+{# --- ダッシュボードのコンテンツ表示 (既存のカード群) --- #}
 <div class="row g-4">
     {# --- 車両一覧 (変更なし) --- #}
     <div class="col-md-12">
@@ -109,14 +109,12 @@
         </div>
     </div>
 
-    {# --- ▼▼▼ 直近の給油記録 (フィルター追加) ▼▼▼ --- #}
+    {# --- ▼▼▼ 直近の給油記録 (フィルター追加済み) ▼▼▼ --- #}
     <div class="col-md-6">
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
                 <span class="me-2"><i class="fas fa-gas-pump me-1"></i> 直近の給油記録</span>
-                {# フィルター用フォームを追加 #}
                 <form method="GET" action="{{ url_for('main.dashboard') }}" class="d-inline-block ms-auto" style="min-width: 150px;">
-                    {# 他のフィルター（整備記録側）の値を保持 #}
                     {% if selected_maint_vehicle_id %}
                     <input type="hidden" name="maint_vehicle_id" value="{{ selected_maint_vehicle_id }}">
                     {% endif %}
@@ -158,7 +156,7 @@
     </div>
     {# ▲▲▲ 直近の給油記録ここまで ▲▲▲ #}
 
-    {# --- ▼▼▼ 直近の整備記録 (フィルター追加) ▼▼▼ --- #}
+    {# --- ▼▼▼ 直近の整備記録 (フィルター追加済み) ▼▼▼ --- #}
     <div class="col-md-6">
         <div class="card">
              <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
@@ -206,6 +204,56 @@
 
 </div>{# End row #}
 
+
+{# ▼▼▼ 統計情報サマリーカードをここに移動 ▼▼▼ #}
+{% if dashboard_stats %} {# dashboard_stats が渡されているか確認 #}
+<div class="card my-4"> {# 上下のマージン調整 #}
+    <div class="card-header">
+        <i class="fas fa-chart-line me-1"></i> <strong>統計情報サマリー</strong>
+    </div>
+    <div class="card-body">
+        <div class="row text-center">
+            {# デフォルト車両の総走行距離 #}
+            <div class="col-md-3 col-6 mb-3 mb-md-0">
+                <h6 class="card-title text-muted small">総走行距離</h6>
+                {% if dashboard_stats.default_vehicle_name %}
+                    <p class="card-text fs-4 fw-bold mb-0">{{ "{:,.0f}".format(dashboard_stats.total_distance | int) }} km</p>
+                    <small class="text-muted">({{ dashboard_stats.default_vehicle_name }})</small>
+                {% else %}
+                     <p class="card-text fs-4 fw-bold mb-0">-</p>
+                     <small class="text-muted">(車両未登録)</small>
+                {% endif %}
+            </div>
+            {# デフォルト車両の平均燃費 #}
+            <div class="col-md-3 col-6 mb-3 mb-md-0">
+                 <h6 class="card-title text-muted small">平均燃費</h6>
+                 {% if dashboard_stats.average_kpl is not none %}
+                    <p class="card-text fs-4 fw-bold mb-0">{{ "%.2f"|format(dashboard_stats.average_kpl) }} km/L</p>
+                    <small class="text-muted">({{ dashboard_stats.default_vehicle_name }})</small>
+                 {% else %}
+                     <p class="card-text fs-4 fw-bold mb-0">-</p>
+                     <small class="text-muted">(計算不可)</small>
+                 {% endif %}
+            </div>
+             {# 全車両の累計給油費用 #}
+            <div class="col-md-3 col-6">
+                 <h6 class="card-title text-muted small">累計 給油費用</h6>
+                 <p class="card-text fs-4 fw-bold mb-0">{{ "{:,.0f}".format(dashboard_stats.total_fuel_cost | int) }} 円</p>
+                 <small class="text-muted">(全車両)</small>
+            </div>
+             {# 全車両の累計整備費用 #}
+            <div class="col-md-3 col-6">
+                 <h6 class="card-title text-muted small">累計 整備費用</h6>
+                  <p class="card-text fs-4 fw-bold mb-0">{{ "{:,.0f}".format(dashboard_stats.total_maint_cost | int) }} 円</p>
+                  <small class="text-muted">(全車両)</small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{# ▲▲▲ 統計情報サマリーカードここまで ▲▲▲ #}
+
+
 {# --- カレンダー表示用のコンテナ (変更なし) --- #}
 <div class="mt-4 pt-4 border-top">
     <h2>記録カレンダー</h2>
@@ -232,7 +280,7 @@
             if (info.event.extendedProps) {
               var props = info.event.extendedProps; var popoverTitle = ''; var popoverContent = '';
               var dateString = info.event.start ? info.event.start.toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' }) : '日付不明';
-              // (Popover 内容生成の詳細は省略 - 前の回答と同じ)
+              // (Popover 内容生成の詳細は省略)
               if (props.type === 'fuel') { popoverTitle = `⛽ 給油 (${props.motorcycleName||'車両不明'})`; popoverContent = `<strong>日付:</strong> ${dateString}<br><strong>メーター:</strong> ${props.odometer!=null?props.odometer+' km':'未記録'}<br><strong>給油量:</strong> ${props.fuelVolume!=null?props.fuelVolume.toFixed(2)+' L':'未記録'}<br><strong>燃費:</strong> ${props.kmPerLiter||'計算不可'}<br><strong>金額:</strong> ${props.totalCost!=null?props.totalCost+' 円':'未記録'}<br><strong>スタンド:</strong> ${props.stationName||'未記録'}<br>${props.notes?'<hr class="my-1"><strong>メモ:</strong><br>'+escapeHtml(props.notes).replace(/\n/g,'<br>').substring(0,150)+(props.notes.length>150?'...':''):''}`; }
               else if (props.type === 'maintenance') { popoverTitle = `🔧 ${props.category||'整備'} (${props.motorcycleName||'車両不明'})`; popoverContent = `<strong>日付:</strong> ${dateString}<br><strong>メーター:</strong> ${props.odometer!=null?props.odometer+' km':'未記録'}<br><strong>内容:</strong> ${props.description?escapeHtml(props.description).replace(/\n/g,'<br>'):'未記録'}<br><strong>費用:</strong> ${props.totalCost!=null?props.totalCost+' 円':'未記録'}<br><strong>場所:</strong> ${props.location||'未記録'}<br>${props.notes?'<hr class="my-1"><strong>メモ:</strong><br>'+escapeHtml(props.notes).replace(/\n/g,'<br>').substring(0,150)+(props.notes.length>150?'...':''):''}`; }
                if (popoverTitle && popoverContent) {
