@@ -10,16 +10,16 @@
     <div class="btn-toolbar mb-2 mb-md-0">
          {# 機能へのリンクボタン #}
          <div class="btn-group me-2">
-             {# ▼▼▼ クラス名を変更 ▼▼▼ #}
-            <a href="{{ url_for('fuel.add_fuel') }}" class="btn btn-sm btn-success"> {# ← btn-outline-success から変更 #}
+             {# 給油記録を追加: 背景=緑、文字=白 (btn-success) #}
+            <a href="{{ url_for('fuel.add_fuel') }}" class="btn btn-sm btn-success">
                 <i class="fas fa-gas-pump me-1"></i> 給油記録を追加
             </a>
-             {# ▼▼▼ クラス名を変更 ▼▼▼ #}
-            <a href="{{ url_for('maintenance.add_maintenance') }}" class="btn btn-sm btn-success"> {# ← btn-outline-warning から変更 #}
+             {# 整備記録を追加: 背景=黄、文字=白 (btn-warning text-white) #}
+            <a href="{{ url_for('maintenance.add_maintenance') }}" class="btn btn-sm btn-warning text-white"> {# 元のクラス 'btn-success' から変更 #}
                 <i class="fas fa-tools me-1"></i> 整備記録を追加
             </a>
-             {# 車両管理ボタンは変更なし #}
-             <a href="{{ url_for('vehicle.vehicle_list') }}" class="btn btn-sm btn-outline-info">
+             {# 車両管理: 背景=水色、文字=白 (btn-info) #}
+             <a href="{{ url_for('vehicle.vehicle_list') }}" class="btn btn-sm btn-info"> {# 元のクラス 'btn-outline-info' から変更 #}
                 <i class="fas fa-motorcycle me-1"></i> 車両管理
             </a>
         </div>
