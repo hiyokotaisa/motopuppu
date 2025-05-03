@@ -41,7 +41,71 @@
 {% endwith %}
 {# --- フラッシュメッセージ表示 ここまで --- #}
 
-{# --- ダッシュボードのコンテンツ表示 --- #}
+
+{# ▼▼▼ メンテナンス通知セクションを追加 ▼▼▼ #}
+{# 'upcoming_reminders' は dashboard 関数から渡されるリスト #}
+{% if upcoming_reminders %}
+<div class="card mb-4 border-danger"> {# カードを目立たせる (warning でも可) #}
+    <div class="card-header bg-danger bg-opacity-10"> {# ヘッダーに少し色付け #}
+        <i class="fas fa-bell text-danger me-1"></i> <strong>メンテナンス通知</strong>
+        <span class="badge rounded-pill bg-danger ms-1">{{ upcoming_reminders|length }}</span> {# 件数をバッジ表示 #}
+    </div>
+    <div class="card-body p-0"> {# リストをカードにぴったり表示 #}
+        <ul class="list-group list-group-flush">
+            {% for reminder in upcoming_reminders %}
+                {# ステータスに応じてリストアイテムの背景色を設定 #}
+                {% set item_class = 'list-group-item-danger bg-opacity-10' if reminder.status == 'danger' else 'list-group-item-warning bg-opacity-10' %}
+                <li class="list-group-item {{ item_class }}">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap"> {# レスポンシブ対応 #}
+                        {# 左側: 通知内容 #}
+                        <div class="mb-1 me-3"> {# 右側との間隔 #}
+                            {# ステータスバッジ #}
+                            <span class="badge bg-{{ reminder.status }} me-2 align-middle">
+                                <i class="fas {% if reminder.status == 'danger' %}fa-exclamation-triangle{% else %}fa-exclamation-circle{% endif %} fa-fw"></i>
+                                {{ '期限超過' if reminder.status == 'danger' else '時期接近' }}
+                            </span>
+                            {# 車両名とタスク内容 #}
+                            <strong class="align-middle">{{ reminder.motorcycle_name }}</strong>
+                            <span class="align-middle"> - {{ reminder.task }}</span>
+                            {# 状況メッセージ (改行考慮) #}
+                            {% if reminder.message %}
+                                <small class="d-block text-muted ms-4 ps-2 pt-1">↳ {{ reminder.message }}</small>
+                            {% endif %}
+                        </div>
+                        {# 右側: 詳細情報とリンク #}
+                        <div class="text-end small">
+                             <div class="text-muted">目安: {{ reminder.due_info if reminder.due_info else '未設定' }}</div>
+                             <div class="text-muted mb-1">最終実施: {{ reminder.last_done }}</div>
+                             {# リマインダー編集へのリンクボタン #}
+                             <a href="{{ url_for('vehicle.edit_reminder', reminder_id=reminder.reminder_id) }}" class="btn btn-sm btn-outline-secondary py-0 px-1 me-1" title="リマインダー設定を編集">
+                                 <i class="fas fa-cog fa-xs"></i> 設定
+                             </a>
+                             {# 整備記録追加へのリンクボタン (任意) #}
+                              <a href="{{ url_for('maintenance.add_maintenance', motorcycle_id=reminder.motorcycle_id) }}" class="btn btn-sm btn-outline-success py-0 px-1" title="この車両の整備記録を追加">
+                                 <i class="fas fa-tools fa-xs"></i> 記録追加
+                             </a>
+                        </div>
+                    </div>
+                </li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+{% else %}
+{# 通知がない場合は成功メッセージを表示 (任意) #}
+{#
+<div class="alert alert-success d-flex align-items-center" role="alert">
+  <i class="fas fa-check-circle me-2"></i>
+  <div>
+    現在、注意が必要なメンテナンス項目はありません。
+  </div>
+</div>
+#}
+{% endif %}
+{# ▲▲▲ メンテナンス通知セクションここまで ▲▲▲ #}
+
+
+{# --- ダッシュボードのコンテンツ表示 (既存のカード群) --- #}
 <div class="row g-4">
     {# --- 車両一覧 --- #}
     <div class="col-md-12">
@@ -60,12 +124,11 @@
                                     <small class="text-muted">({{ motorcycle.maker or 'メーカー不明' }} / {{ motorcycle.year or '年式不明' }})</small>
                                     <br>
                                     <small class="text-info">
-                                        {# 平均燃費は view 関数側で計算して渡す想定 (例: motorcycle._average_kpl) #}
+                                        {# 平均燃費は view 関数側で計算 #}
                                         {% if motorcycle._average_kpl is defined and motorcycle._average_kpl is not none %}
                                             <i class="fas fa-tachometer-alt me-1"></i> 平均燃費: <strong>{{"%.2f"|format(motorcycle._average_kpl)}}</strong> km/L
                                         {% else %}
                                             {# <i class="fas fa-info-circle me-1"></i> (平均燃費 計算不可: 記録不足) #}
-                                            {# あるいは何も表示しない #}
                                         {% endif %}
                                     </small>
                                 </span>
@@ -189,17 +252,17 @@
           // --- 基本設定 ---
           initialView: 'dayGridMonth', // 初期表示は月ビュー
           locale: 'ja',
-          headerToolbar: { // ▼▼▼ ヘッダーツールバーの右側に listMonth を追加 ▼▼▼
+          headerToolbar: {
             left: 'prev,next today',
             center: 'title',
-            right: 'dayGridMonth,dayGridWeek,listMonth' // ← 追加
-          },                  // ▲▲▲ 変更ここまで ▲▲▲
-          buttonText: { // ▼▼▼ ボタンテキスト定義に list を追加 ▼▼▼
+            right: 'dayGridMonth,dayGridWeek,listMonth' // リストビューボタン追加済み
+          },
+          buttonText: {
               today:    '今日',
               month:    '月',
               week:     '週',
-              list:     'リスト(月)' // ← listMonthボタン用
-          },                  // ▲▲▲ 変更ここまで ▲▲▲
+              list:     'リスト(月)' // リストビューボタンテキスト
+          },
           contentHeight: 'auto', // 内容に合わせて高さを自動調整
 
           // --- イベントデータ設定 ---
@@ -220,7 +283,7 @@
               var props = info.event.extendedProps;
               var popoverTitle = '';
               var popoverContent = '';
-              // 日本語形式で日付表示 (例: 2025年5月4日) - タイムゾーンに注意
+              // 日本語形式で日付表示
               var dateString = info.event.start ? info.event.start.toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' }) : '日付不明';
 
               if (props.type === 'fuel') {
