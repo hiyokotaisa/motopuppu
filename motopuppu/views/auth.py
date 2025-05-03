@@ -21,11 +21,8 @@ auth_bp = Blueprint('auth', __name__, url_prefix='/auth')
 @auth_bp.route('/login', methods=['GET'])
 def login():
     """MiAuth認証を開始: Misskey認証ページへリダイレクトする"""
-    # 1. 一意のセッションIDを生成
     miauth_session_id = str(uuid.uuid4())
-    # 2. セッションIDをFlaskのセッションに一時的に保存
     session['miauth_session_id'] = miauth_session_id
-    # 3. MiAuth URLを構築
     misskey_instance_url = current_app.config.get('MISSKEY_INSTANCE_URL', 'https://misskey.io')
     app_name = "motopuppu"
     permissions = "read:account"
@@ -33,22 +30,26 @@ def login():
     from urllib.parse import urlencode
     params = {'name': app_name, 'permission': permissions, 'callback': callback_url}
     auth_url = f"{misskey_instance_url}/miauth/{miauth_session_id}?{urlencode(params)}"
-    # 4. Misskey認証ページへリダイレクト
     current_app.logger.info(f"Redirecting to MiAuth URL: {auth_url}")
     return redirect(auth_url)
 
-@auth_bp.route('/miauth/callback', methods=['POST'])
+# ▼▼▼ methods を ['GET'] に変更 ▼▼▼
+@auth_bp.route('/miauth/callback', methods=['GET'])
 def miauth_callback():
-    """MiAuthコールバック処理: MisskeyからのPOSTリクエストを受け取る"""
-    current_app.logger.info("Received MiAuth callback POST request")
-    data = request.get_json()
-    if not data or 'session' not in data or 'token' not in data:
-        flash('無効なコールバックリクエストです。', 'error')
-        current_app.logger.error("Invalid callback data received.")
-        return redirect(url_for('auth.login_page'))
+    """MiAuthコールバック処理: Misskeyからのリダイレクト (GET) を受け取る"""
+    current_app.logger.info("Received MiAuth callback GET request") # ログ変更
 
-    received_session_id = data['session']
-    token = data['token']
+    # ▼▼▼ request.get_json() の代わりに request.args.get() を使用 ▼▼▼
+    # Misskey が送ってくるクエリパラメータ名を指定 (仮に 'session' と 'token')
+    received_session_id = request.args.get('session')
+    token = request.args.get('token') # APIアクセスに使用する一時トークン
+
+    if not received_session_id or not token:
+        flash('無効なコールバックリクエストです (パラメータ不足)。', 'error')
+        current_app.logger.error(f"Invalid callback GET parameters received. Args: {request.args}")
+        return redirect(url_for('auth.login_page'))
+    # ▲▲▲ データ取得方法を変更 ▲▲▲
+
     current_app.logger.info(f"Callback session: {received_session_id}, Token received (masked): {token[:5]}...")
 
     expected_session_id = session.pop('miauth_session_id', None)
@@ -59,6 +60,7 @@ def miauth_callback():
 
     misskey_instance_url = current_app.config.get('MISSKEY_INSTANCE_URL', 'https://misskey.io')
     try:
+        # ★ ここでの Misskey API へのリクエストは POST のまま ★
         headers = {'Authorization': f'Bearer {token}'}
         user_info_response = requests.post(f"{misskey_instance_url}/api/i", headers=headers, json={}, timeout=10)
         user_info_response.raise_for_status()
@@ -124,19 +126,12 @@ def logout():
 @auth_bp.route('/login_page')
 def login_page():
     """ログインページを表示する"""
-    # 既にログイン済みの場合はダッシュボードへリダイレクト
     if 'user_id' in session and get_current_user() is not None:
         return redirect(url_for('main.dashboard'))
-    # login.html テンプレートを表示
     return render_template('login.html')
 
 
-# --- 【開発用】ローカル管理者ログイン ---
-# ▼▼▼ このセクション全体を削除しました ▼▼▼
-# @auth_bp.route('/local_login', methods=['POST'])
-# def local_login():
-#     ... (関数の中身全体) ...
-# ▲▲▲ 削除ここまで ▲▲▲
+# --- 【開発用】ローカル管理者ログイン (削除済み) ---
 
 
 # --- ヘルパー関数 & デコレータ ---
