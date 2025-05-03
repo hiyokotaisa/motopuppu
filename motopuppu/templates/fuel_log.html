@@ -19,16 +19,74 @@
     {% endif %}
 {% endwith %}
 
+{# --- ▼▼▼ フィルターフォーム ▼▼▼ --- #}
+<div class="card bg-light mb-4">
+    <div class="card-body">
+        {# GETメソッドで現在のページ(fuel.fuel_log)に送信 #}
+        <form method="GET" action="{{ url_for('fuel.fuel_log') }}">
+            <div class="row g-3 align-items-end">
+                {# 期間指定 (開始日) #}
+                <div class="col-md-3">
+                    <label for="start_date" class="form-label form-label-sm">期間 (開始)</label>
+                    {# request_argsから値を取得して表示。なければ空文字 #}
+                    <input type="date" class="form-control form-control-sm" id="start_date" name="start_date"
+                           value="{{ request_args.start_date or '' }}">
+                </div>
+                {# 期間指定 (終了日) #}
+                <div class="col-md-3">
+                    <label for="end_date" class="form-label form-label-sm">期間 (終了)</label>
+                    <input type="date" class="form-control form-control-sm" id="end_date" name="end_date"
+                           value="{{ request_args.end_date or '' }}">
+                </div>
+
+                {# 車両指定ドロップダウン #}
+                <div class="col-md-3">
+                    <label for="vehicle_id" class="form-label form-label-sm">車両</label>
+                    <select class="form-select form-select-sm" id="vehicle_id" name="vehicle_id">
+                        <option value="">すべての車両</option>
+                        {# view関数から渡された motorcycles でループ #}
+                        {% for motorcycle in motorcycles %}
+                            {# request_argsの値は文字列なので、比較時にmotorcycle.idも文字列に変換 #}
+                            <option value="{{ motorcycle.id }}" {% if request_args.vehicle_id == motorcycle.id|string %}selected{% endif %}>
+                                {{ motorcycle.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                {# キーワード検索入力 #}
+                <div class="col-md-3">
+                    <label for="q" class="form-label form-label-sm">キーワード</label>
+                    <input type="text" class="form-control form-control-sm" id="q" name="q"
+                           placeholder="メモ, スタンド名..." value="{{ request_args.q or '' }}">
+                </div>
+
+                {# 絞り込みボタンとクリアボタン #}
+                <div class="col-12 d-flex justify-content-end gap-2 mt-3">
+                     {# クリアボタンはフィルターなしのURLへリンク #}
+                     <a href="{{ url_for('fuel.fuel_log') }}" class="btn btn-sm btn-outline-secondary">
+                         <i class="fas fa-times me-1"></i> クリア
+                     </a>
+                     <button type="submit" class="btn btn-sm btn-primary">
+                         <i class="fas fa-filter me-1"></i> 絞り込み
+                     </button>
+                </div>
+            </div> {# /.row #}
+        </form>
+    </div> {# /.card-body #}
+</div> {# /.card #}
+{# --- ▲▲▲ フィルターフォームここまで ▲▲▲ --- #}
+
+
 <div class="mb-3">
     <a href="{{ url_for('fuel.add_fuel') }}" class="btn btn-primary">
         <i class="fas fa-plus me-1"></i> 給油記録を追加
     </a>
-    {# フィルター機能などを後で追加 #}
 </div>
 
 {% if fuel_entries %}
 <div class="table-responsive">
-    <table class="table table-striped table-hover table-sm"> {# table-sm で少しコンパクトに #}
+    <table class="table table-striped table-hover table-sm">
         <thead>
             <tr>
                 <th>給油日</th>
@@ -39,6 +97,7 @@
                 <th>単価(円/L)</th>
                 <th>合計(円)</th>
                 <th>燃費(km/L)</th>
+                <th>満タン</th> {# is_full_tank表示用 #}
                 <th>スタンド</th>
                 <th>操作</th>
             </tr>
@@ -47,29 +106,41 @@
             {% for entry in fuel_entries %}
             <tr>
                 <td>{{ entry.entry_date.strftime('%Y-%m-%d') }}</td>
-                <td>{{ entry.motorcycle.name }}</td>
-                <td class="text-end">{{ "{:,}".format(entry.odometer_reading) }}</td> {# 桁区切り #}
-                <td class="text-end">{{ "{:,}".format(entry.total_distance) }}</td> {# 桁区切り #}
-                <td class="text-end">{{ "%.2f"|format(entry.fuel_volume) }}</td> {# 小数点以下2桁 #}
+                <td>
+                    {# 車両へのリンク（車両詳細ページがあれば） #}
+                    {# <a href="{{ url_for('vehicle.view_vehicle', vehicle_id=entry.motorcycle.id) }}"> #}
+                       {{ entry.motorcycle.name }}
+                    {# </a> #}
+                </td>
+                <td class="text-end">{{ "{:,}".format(entry.odometer_reading) }}</td>
+                <td class="text-end">{{ "{:,}".format(entry.total_distance) }}</td>
+                <td class="text-end">{{ "%.2f"|format(entry.fuel_volume) }}</td>
                 <td class="text-end">
                     {% if entry.price_per_liter %}{{ "%.1f"|format(entry.price_per_liter) }}{% else %}-{% endif %}
                 </td>
                  <td class="text-end">
-                    {% if entry.total_cost %}{{ "{:,.0f}".format(entry.total_cost) }}{% else %}-{% endif %} {# 整数表示 #}
+                    {% if entry.total_cost %}{{ "{:,.0f}".format(entry.total_cost) }}{% else %}-{% endif %}
                 </td>
-                <td class="text-end fw-bold"> {# 燃費を太字に #}
-                    {% set kml = entry.km_per_liter %} {# プロパティを呼び出し #}
+                <td class="text-end fw-bold"> {# 燃費 #}
+                    {% set kml = entry.km_per_liter %}
                     {% if kml %}{{ "%.2f"|format(kml) }}{% else %}-{% endif %}
                 </td>
+                 <td class="text-center"> {# 満タンフラグ #}
+                    {% if entry.is_full_tank %}
+                        <i class="fas fa-check-circle text-success" title="はい"></i>
+                    {% else %}
+                        {# <i class="fas fa-times-circle text-muted"></i> #}
+                    {% endif %}
+                 </td>
                 <td>{{ entry.station_name if entry.station_name else '-' }}</td>
                 <td>
                     {# 編集ボタン #}
-                    <a href="{{ url_for('fuel.edit_fuel', entry_id=entry.id) }}" class="btn btn-sm btn-outline-secondary me-1">
+                    <a href="{{ url_for('fuel.edit_fuel', entry_id=entry.id) }}" class="btn btn-sm btn-outline-secondary me-1" title="編集">
                         <i class="fas fa-edit"></i>
                     </a>
                     {# 削除ボタン #}
                     <form action="{{ url_for('fuel.delete_fuel', entry_id=entry.id) }}" method="POST" class="d-inline" onsubmit="return confirm('この給油記録を削除してもよろしいですか？');">
-                        <button type="submit" class="btn btn-sm btn-outline-danger">
+                        <button type="submit" class="btn btn-sm btn-outline-danger" title="削除">
                             <i class="fas fa-trash"></i>
                         </button>
                     </form>
@@ -80,13 +151,14 @@
     </table>
 </div>
 
-{# --- ページネーション --- #}
+{# --- ページネーション (フィルター条件を引き継ぐ) --- #}
 {% if pagination %}
-<nav aria-label="Page navigation">
+<nav aria-label="Fuel log navigation"> {# ラベルを少し具体的に #}
   <ul class="pagination justify-content-center">
     {# 前へ #}
     <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
-      <a class="page-link" href="{{ url_for('fuel.fuel_log', page=pagination.prev_num) if pagination.has_prev else '#' }}" aria-label="Previous">
+      {# **request_args で現在のフィルタークエリパラメータを全て引き継ぐ #}
+      <a class="page-link" href="{{ url_for('fuel.fuel_log', page=pagination.prev_num, **request_args) if pagination.has_prev else '#' }}" aria-label="Previous">
         <span aria-hidden="true">&laquo;</span>
       </a>
     </li>
@@ -94,7 +166,7 @@
     {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=2) %}
       {% if page_num %}
         <li class="page-item {% if page_num == pagination.page %}active{% endif %}">
-          <a class="page-link" href="{{ url_for('fuel.fuel_log', page=page_num) }}">{{ page_num }}</a>
+          <a class="page-link" href="{{ url_for('fuel.fuel_log', page=page_num, **request_args) }}">{{ page_num }}</a>
         </li>
       {% else %}
         <li class="page-item disabled"><span class="page-link">...</span></li>
@@ -102,7 +174,7 @@
     {% endfor %}
     {# 次へ #}
     <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
-      <a class="page-link" href="{{ url_for('fuel.fuel_log', page=pagination.next_num) if pagination.has_next else '#' }}" aria-label="Next">
+      <a class="page-link" href="{{ url_for('fuel.fuel_log', page=pagination.next_num, **request_args) if pagination.has_next else '#' }}" aria-label="Next">
         <span aria-hidden="true">&raquo;</span>
       </a>
     </li>
@@ -112,8 +184,12 @@
 {# --- ページネーション ここまで --- #}
 
 {% else %}
-<div class="alert alert-info" role="alert">
-  給油記録はまだありません。「給油記録を追加」ボタンから最初の記録を追加しましょう。
+<div class="alert alert-info mt-3" role="alert"> {# mt-3 を追加 #}
+  {% if request_args %}
+    指定された条件に一致する給油記録はありません。
+  {% else %}
+    給油記録はまだありません。「給油記録を追加」ボタンから最初の記録を追加しましょう。
+  {% endif %}
 </div>
 {% endif %}
 
