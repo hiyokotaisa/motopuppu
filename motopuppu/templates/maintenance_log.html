@@ -20,12 +20,72 @@
 {% endwith %}
 {# --- フラッシュメッセージ表示 ここまで --- #}
 
+{# --- ▼▼▼ フィルターフォーム ▼▼▼ --- #}
+<div class="card bg-light mb-4">
+    <div class="card-body">
+        <form method="GET" action="{{ url_for('maintenance.maintenance_log') }}">
+            <div class="row g-3 align-items-end">
+                {# 期間指定 #}
+                <div class="col-md-3">
+                    <label for="start_date" class="form-label form-label-sm">期間 (開始)</label>
+                    <input type="date" class="form-control form-control-sm" id="start_date" name="start_date"
+                           value="{{ request_args.start_date or '' }}"> {# 現在のフィルター値を表示 #}
+                </div>
+                <div class="col-md-3">
+                    <label for="end_date" class="form-label form-label-sm">期間 (終了)</label>
+                    <input type="date" class="form-control form-control-sm" id="end_date" name="end_date"
+                           value="{{ request_args.end_date or '' }}">
+                </div>
+
+                {# 車両指定 #}
+                <div class="col-md-3">
+                    <label for="vehicle_id" class="form-label form-label-sm">車両</label>
+                    <select class="form-select form-select-sm" id="vehicle_id" name="vehicle_id">
+                        <option value="">すべての車両</option>
+                        {# view関数から渡された motorcycles でループ #}
+                        {% for motorcycle in motorcycles %}
+                            {# request_args の値は文字列なので比較時に注意 #}
+                            <option value="{{ motorcycle.id }}" {% if request_args.vehicle_id == motorcycle.id|string %}selected{% endif %}>
+                                {{ motorcycle.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                {# カテゴリ指定 (テキスト入力) #}
+                <div class="col-md-3">
+                    <label for="category" class="form-label form-label-sm">カテゴリ</label>
+                    <input type="text" class="form-control form-control-sm" id="category" name="category"
+                           placeholder="例: オイル交換" value="{{ request_args.category or '' }}">
+                </div>
+
+                {# キーワード検索 #}
+                <div class="col-md-9"> {# 少し幅を広く #}
+                    <label for="q" class="form-label form-label-sm">キーワード</label>
+                    <input type="text" class="form-control form-control-sm" id="q" name="q"
+                           placeholder="整備内容, 場所, メモ内を検索..." value="{{ request_args.q or '' }}">
+                </div>
+
+                {# ボタン #}
+                <div class="col-md-3 d-flex justify-content-end align-items-end gap-2"> {# ボタンを右寄せ #}
+                     <a href="{{ url_for('maintenance.maintenance_log') }}" class="btn btn-sm btn-outline-secondary">
+                         <i class="fas fa-times me-1"></i> クリア
+                     </a>
+                     <button type="submit" class="btn btn-sm btn-primary">
+                         <i class="fas fa-filter me-1"></i> 絞り込み
+                     </button>
+                </div>
+            </div> {# /.row #}
+        </form>
+    </div> {# /.card-body #}
+</div> {# /.card #}
+{# --- ▲▲▲ フィルターフォームここまで ▲▲▲ --- #}
+
+
 <div class="mb-3">
-    {# 整備記録追加ページへのリンク #}
     <a href="{{ url_for('maintenance.add_maintenance') }}" class="btn btn-primary">
         <i class="fas fa-plus me-1"></i> 整備記録を追加
     </a>
-    {# フィルター機能などを後で追加 #}
 </div>
 
 {% if entries %}
@@ -56,6 +116,7 @@
                     {{ entry.description | truncate(40, True) }} {# 40文字で省略表示 #}
                 </td>
                 <td>
+                    {# カテゴリが設定されていればバッジ表示 #}
                     {% if entry.category %}
                     <span class="badge bg-info text-dark">{{ entry.category }}</span>
                     {% else %}
@@ -68,11 +129,11 @@
                     {% if entry.total_cost > 0 %}{{ "{:,.0f}".format(entry.total_cost) }}{% else %}-{% endif %}
                 </td>
                 <td>
-                    {# ★ 編集ボタン: href と disabled を修正 ★ #}
+                    {# 編集ボタン #}
                     <a href="{{ url_for('maintenance.edit_maintenance', entry_id=entry.id) }}" class="btn btn-sm btn-outline-secondary me-1" title="編集">
                         <i class="fas fa-edit"></i>
                     </a>
-                    {# ★ 削除ボタン: action と disabled を修正 ★ #}
+                    {# 削除ボタン #}
                     <form action="{{ url_for('maintenance.delete_maintenance', entry_id=entry.id) }}" method="POST" class="d-inline" onsubmit="return confirm('この整備記録を削除してもよろしいですか？');">
                         {# CSRFトークンが必要な場合は input を追加 #}
                         <button type="submit" class="btn btn-sm btn-outline-danger" title="削除">
@@ -86,13 +147,14 @@
     </table>
 </div>
 
-{# --- ページネーション --- #}
+{# --- ページネーション (フィルター条件を引き継ぐ) --- #}
 {% if pagination and pagination.pages > 1 %} {# ページが1つしかない場合は表示しない #}
 <nav aria-label="Maintenance log navigation">
   <ul class="pagination justify-content-center">
     {# 前へ #}
     <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
-      <a class="page-link" href="{{ url_for('maintenance.maintenance_log', page=pagination.prev_num) if pagination.has_prev else '#' }}" aria-label="Previous">
+      {# ★ url_for に request_args を渡してフィルター条件を引き継ぐ ★ #}
+      <a class="page-link" href="{{ url_for('maintenance.maintenance_log', page=pagination.prev_num, **request_args) if pagination.has_prev else '#' }}" aria-label="Previous">
         <span aria-hidden="true">&laquo;</span>
       </a>
     </li>
@@ -100,16 +162,17 @@
     {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=2) %}
       {% if page_num %}
         <li class="page-item {% if page_num == pagination.page %}active{% endif %}">
-          <a class="page-link" href="{{ url_for('maintenance.maintenance_log', page=page_num) }}">{{ page_num }}</a>
+          {# ★ url_for に request_args を渡してフィルター条件を引き継ぐ ★ #}
+          <a class="page-link" href="{{ url_for('maintenance.maintenance_log', page=page_num, **request_args) }}">{{ page_num }}</a>
         </li>
       {% else %}
-        {# 省略記号 (...) はクリック不可にする #}
         <li class="page-item disabled"><span class="page-link">...</span></li>
       {% endif %}
     {% endfor %}
     {# 次へ #}
     <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
-      <a class="page-link" href="{{ url_for('maintenance.maintenance_log', page=pagination.next_num) if pagination.has_next else '#' }}" aria-label="Next">
+      {# ★ url_for に request_args を渡してフィルター条件を引き継ぐ ★ #}
+      <a class="page-link" href="{{ url_for('maintenance.maintenance_log', page=pagination.next_num, **request_args) if pagination.has_next else '#' }}" aria-label="Next">
         <span aria-hidden="true">&raquo;</span>
       </a>
     </li>
@@ -120,18 +183,23 @@
 
 {% else %}
 <div class="alert alert-info mt-3" role="alert">
-  整備記録はまだありません。「整備記録を追加」ボタンから最初の記録を追加しましょう。
+  {# フィルター条件があるかないかでメッセージを分ける #}
+  {% if request_args %}
+    指定された条件に一致する整備記録はありません。
+  {% else %}
+    整備記録はまだありません。「整備記録を追加」ボタンから最初の記録を追加しましょう。
+  {% endif %}
 </div>
 {% endif %}
 
 {% endblock %}
 
 
-{# Bootstrap Tooltip を有効にするための JavaScript (base.html にまとめても良い) #}
+{# Bootstrap Tooltip を有効にするための JavaScript (変更なし) #}
 {% block scripts %}
 {{ super() }} {# base.htmlのscriptsブロックを引き継ぐ #}
 <script>
-    // Tooltip の初期化 (既にbase.htmlなどにあれば不要な場合もある)
+    // Tooltip の初期化
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
     var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
       return new bootstrap.Tooltip(tooltipTriggerEl)
