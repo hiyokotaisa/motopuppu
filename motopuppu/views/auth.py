@@ -33,53 +33,64 @@ def login():
     current_app.logger.info(f"Redirecting to MiAuth URL: {auth_url}")
     return redirect(auth_url)
 
-# ▼▼▼ methods を ['GET'] に変更 ▼▼▼
-@auth_bp.route('/miauth/callback', methods=['GET'])
+# ▼▼▼ この関数全体を修正 ▼▼▼
+@auth_bp.route('/miauth/callback', methods=['GET']) # GET で受け付ける
 def miauth_callback():
-    """MiAuthコールバック処理: Misskeyからのリダイレクト (GET) を受け取る"""
-    current_app.logger.info("Received MiAuth callback GET request") # ログ変更
+    """MiAuthコールバック処理: /check エンドポイントを利用して認証を完了する"""
+    current_app.logger.info("Received MiAuth callback GET request")
 
-    # ▼▼▼ request.get_json() の代わりに request.args.get() を使用 ▼▼▼
-    # Misskey が送ってくるクエリパラメータ名を指定 (仮に 'session' と 'token')
+    # 1. URLクエリから session ID を取得
     received_session_id = request.args.get('session')
-    token = request.args.get('token') # APIアクセスに使用する一時トークン
-
-    if not received_session_id or not token:
-        flash('無効なコールバックリクエストです (パラメータ不足)。', 'error')
-        current_app.logger.error(f"Invalid callback GET parameters received. Args: {request.args}")
+    if not received_session_id:
+        flash('無効なコールバックリクエストです (セッションIDが見つかりません)。', 'error')
+        current_app.logger.error(f"Invalid callback GET parameters received (session ID missing). Args: {request.args}")
         return redirect(url_for('auth.login_page'))
-    # ▲▲▲ データ取得方法を変更 ▲▲▲
 
-    current_app.logger.info(f"Callback session: {received_session_id}, Token received (masked): {token[:5]}...")
+    current_app.logger.info(f"Callback session ID received: {received_session_id}")
 
+    # 2. Flaskセッションに保存した session ID と比較・検証
     expected_session_id = session.pop('miauth_session_id', None)
     if not expected_session_id or expected_session_id != received_session_id:
         flash('認証セッションが無効か、タイムアウトしました。もう一度お試しください。', 'error')
         current_app.logger.warning(f"Session ID mismatch or missing. Expected: {expected_session_id}, Received: {received_session_id}")
         return redirect(url_for('auth.login_page'))
 
+    # 3. 受け取った session ID を使って Misskey の /check エンドポイントを叩く
     misskey_instance_url = current_app.config.get('MISSKEY_INSTANCE_URL', 'https://misskey.io')
-    try:
-        # ★ ここでの Misskey API へのリクエストは POST のまま ★
-        headers = {'Authorization': f'Bearer {token}'}
-        user_info_response = requests.post(f"{misskey_instance_url}/api/i", headers=headers, json={}, timeout=10)
-        user_info_response.raise_for_status()
-        user_info = user_info_response.json()
-        current_app.logger.info(f"Misskey user info received: ID={user_info.get('id')}, Username={user_info.get('username')}")
+    check_url = f"{misskey_instance_url}/api/miauth/{received_session_id}/check"
+    current_app.logger.info(f"Checking session with Misskey API: {check_url}")
 
+    try:
+        # サーバーから直接POSTリクエストを送信
+        check_response = requests.post(check_url, timeout=10)
+        check_response.raise_for_status() # HTTPエラーチェック
+        check_data = check_response.json()
+        current_app.logger.debug(f"Misskey /check response: {check_data}")
+
+        # 4. /check レスポンスから token と user 情報を取得
+        if not check_data.get('ok') or not check_data.get('token') or not check_data.get('user'):
+            raise ValueError("Invalid response from MiAuth check endpoint.")
+
+        token = check_data['token']       # ★ APIアクセストークン
+        user_info = check_data['user']    # ★ ユーザー情報オブジェクト
         misskey_user_id = user_info.get('id')
         misskey_username = user_info.get('username')
-        if not misskey_user_id: raise ValueError("Misskey User ID not found in API response.")
+
+        current_app.logger.info(f"MiAuth check successful. Token received (masked): {token[:5]}..., User ID: {misskey_user_id}, Username: {misskey_username}")
+
+        if not misskey_user_id:
+            raise ValueError("Misskey User ID not found in check response user object.")
 
     except requests.exceptions.RequestException as e:
-        flash(f'Misskey APIへのアクセスに失敗しました: {e}', 'error')
-        current_app.logger.error(f"Misskey API request failed: {e}")
+        flash(f'Misskey MiAuth チェック APIへのアクセスに失敗しました: {e}', 'error')
+        current_app.logger.error(f"Misskey MiAuth /check request failed: {e}")
         return redirect(url_for('auth.login_page'))
     except (ValueError, KeyError, Exception) as e:
-         flash(f'Misskeyユーザー情報の取得または処理に失敗しました: {e}', 'error')
-         current_app.logger.error(f"Failed to process Misskey user info: {e}")
+         flash(f'Misskey MiAuth チェック応答の処理に失敗しました: {e}', 'error')
+         current_app.logger.error(f"Failed to process MiAuth /check response: {e}")
          return redirect(url_for('auth.login_page'))
 
+    # 5. 取得したユーザー情報でアプリDBのユーザーを検索または作成
     user = User.query.filter_by(misskey_user_id=misskey_user_id).first()
     if not user:
         user = User(misskey_user_id=misskey_user_id, misskey_username=misskey_username, is_admin=False)
@@ -94,6 +105,7 @@ def miauth_callback():
             current_app.logger.error(f"Database error creating user: {e}")
             return redirect(url_for('auth.login_page'))
     else:
+        # 既存ユーザーの場合、ユーザー名を更新 (任意)
         if user.misskey_username != misskey_username:
             user.misskey_username = misskey_username
             try:
@@ -103,10 +115,12 @@ def miauth_callback():
                 current_app.logger.error(f"Error updating username for {misskey_username}: {e}")
         current_app.logger.info(f"Existing user logged in: {user.misskey_username} (App User ID: {user.id})")
 
+    # 6. Flaskセッションにアプリ内ユーザーIDを保存してログイン状態にする
     session.clear()
     session['user_id'] = user.id
     flash('ログインしました。', 'success')
     return redirect(url_for('main.dashboard'))
+# ▲▲▲ 関数修正ここまで ▲▲▲
 
 
 # --- ログアウト ---
