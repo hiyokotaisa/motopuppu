@@ -34,8 +34,8 @@
     </div>
     <div class="mb-3">
         <label for="year" class="form-label">年式</label>
-        {# current_year は view 関数またはコンテキストプロセッサから渡される想定 #}
-        {% set current_year = now().year %}
+        {# ▼▼▼ now() を使っていた行を削除 ▼▼▼ #}
+        {# max 属性ではビューから渡された current_year を使う #}
         <input type="number" class="form-control" id="year" name="year" value="{{ vehicle.year if vehicle and vehicle.year is not none else '' }}" min="1900" max="{{ current_year + 1 }}">
         <div class="form-text">例: 2023</div>
     </div>
@@ -119,7 +119,7 @@
                     {# 最終実施記録表示 #}
                     <td>
                         {% if reminder.last_done_date %}
-                            {{ reminder.last_done_date.strftime('%Y-%m-%d') }}
+                            {{ reminder.last_done_date.strftime('%Y-%m-%d') }} {# .strftime() メソッドは利用可能 #}
                         {% endif %}
                         {% if reminder.last_done_km is not none %}
                              <span class="text-muted">({{ reminder.last_done_km }} km)</span>
