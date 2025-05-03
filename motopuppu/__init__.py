@@ -1,63 +1,53 @@
 # motopuppu/__init__.py
 import os
-import datetime # datetimeモジュールをインポート (current_year用)
+import datetime
 import click
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
-from flask_migrate import Migrate # ▼▼▼ 追加 ▼▼▼
+from flask_migrate import Migrate
 
 # .envファイルから環境変数を読み込む
 dotenv_path = os.path.join(os.path.dirname(__file__), '..', '.env')
 if os.path.exists(dotenv_path):
     load_dotenv(dotenv_path)
-    print("Loaded environment variables from .env") # 読み込み確認用
+    print("Loaded environment variables from .env")
 else:
     print(f"Warning: .env file not found at {dotenv_path}")
 
-# SQLAlchemy と Migrate オブジェクトをここでインスタンス化
 db = SQLAlchemy()
-migrate = Migrate() # ▼▼▼ 追加 ▼▼▼
+migrate = Migrate()
 
 def create_app(config_name=None):
     """Flaskアプリケーションインスタンスを作成するファクトリ関数"""
     app = Flask(__name__, instance_relative_config=True)
-    print(f"Instance path: {app.instance_path}") # 確認用
+    print(f"Instance path: {app.instance_path}")
 
     # --- 設定の読み込み ---
     app.config.from_mapping(
         SECRET_KEY=os.environ.get('SECRET_KEY', 'dev-secret-key-replace-me'),
-        SQLALCHEMY_DATABASE_URI=os.environ.get('DATABASE_URI', f"sqlite:///{os.path.join(app.instance_path, 'app.db')}"), # DBファイル名を app.db に
+        SQLALCHEMY_DATABASE_URI=os.environ.get('DATABASE_URI', f"sqlite:///{os.path.join(app.instance_path, 'app.db')}"),
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
         MAX_CONTENT_LENGTH = int(os.environ.get('MAX_CONTENT_LENGTH', 16)) * 1024 * 1024,
         MISSKEY_INSTANCE_URL=os.environ.get('MISSKEY_INSTANCE_URL', 'https://misskey.io'),
-        LOCAL_ADMIN_USERNAME=os.environ.get('LOCAL_ADMIN_USERNAME'),
-        LOCAL_ADMIN_PASSWORD=os.environ.get('LOCAL_ADMIN_PASSWORD'),
+        LOCAL_ADMIN_USERNAME=os.environ.get('LOCAL_ADMIN_USERNAME'), # 設定自体は読み込むが使用しない
+        LOCAL_ADMIN_PASSWORD=os.environ.get('LOCAL_ADMIN_PASSWORD'), # 設定自体は読み込むが使用しない
         ENV=os.environ.get('FLASK_ENV', 'production'),
-        # 1ページあたりの表示件数
         FUEL_ENTRIES_PER_PAGE = int(os.environ.get('FUEL_ENTRIES_PER_PAGE', 20)),
         MAINTENANCE_ENTRIES_PER_PAGE = int(os.environ.get('MAINTENANCE_ENTRIES_PER_PAGE', 20)),
     )
-    print(f"Database URI: {app.config['SQLALCHEMY_DATABASE_URI']}") # 確認用
+    print(f"Database URI: {app.config['SQLALCHEMY_DATABASE_URI']}")
     if app.config['SECRET_KEY'] == 'dev-secret-key-replace-me':
         print("Warning: SECRET_KEY is set to the default development value. Set it in .env!")
 
     # --- 拡張機能の初期化 ---
     db.init_app(app)
-    migrate.init_app(app, db) # ▼▼▼ ここで app と db に関連付け ▼▼▼
+    migrate.init_app(app, db)
     # (他のFlask拡張機能もここで初期化)
 
     # --- ルート (Blueprints) の登録 ---
     try:
-        # views パッケージから各Blueprintをインポート
-        from .views import auth
-        from .views import main
-        from .views import vehicle
-        from .views import fuel
-        from .views import maintenance
-        # (後で他のBlueprintもインポート)
-
-        # アプリケーションにBlueprintを登録
+        from .views import auth, main, vehicle, fuel, maintenance
         app.register_blueprint(auth.auth_bp)
         app.register_blueprint(main.main_bp)
         app.register_blueprint(vehicle.vehicle_bp)
@@ -76,13 +66,11 @@ def create_app(config_name=None):
     # --- コンテキストプロセッサ ---
     @app.context_processor
     def inject_current_year():
-        """全てのテンプレートで 'current_year' 変数を使えるようにする"""
         return {'current_year': datetime.datetime.now().year}
 
     # --- アプリケーションコンテキスト (flask shell用) ---
     @app.shell_context_processor
     def make_shell_context():
-        # シェルからアクセスしたいモデルやdbオブジェクトを返す
         from .models import db, User, Motorcycle, FuelEntry, MaintenanceEntry, ConsumableLog, MaintenanceReminder, Attachment
         return {
             'db': db, 'User': User, 'Motorcycle': Motorcycle, 'FuelEntry': FuelEntry,
@@ -97,45 +85,28 @@ def create_app(config_name=None):
     except OSError:
         pass
 
-    # --- DB初期化コマンド (変更なし) ---
+    # --- ▼▼▼ DB初期化コマンド (管理者作成ロジック削除) ▼▼▼ ---
     @app.cli.command("init-db")
     def init_db_command():
-        """データベーステーブルを作成します。また、ローカル管理者ユーザーが存在しない場合に作成します。"""
-        click.echo("Initializing the database...")
+        """データベーステーブルを作成します。(Flask-Migrate管理下では通常 flask db upgrade を使用)"""
+        click.echo("Initializing the database tables via db.create_all()...")
         try:
             with app.app_context():
-                from .models import User, db
-                # db.drop_all()
+                from .models import db # dbオブジェクトのみ必要
+                # db.drop_all() # 必要なら既存テーブルを削除
                 # click.echo("Dropped existing tables.")
-                db.create_all()
-                click.echo("Created database tables.")
-
-                admin_misskey_id = 'local_admin'
-                admin_username = app.config.get('LOCAL_ADMIN_USERNAME') or 'Admin'
-                admin_password_set = app.config.get('LOCAL_ADMIN_PASSWORD')
-
-                existing_admin = User.query.filter_by(misskey_user_id=admin_misskey_id).first()
-                if not existing_admin:
-                    if admin_password_set:
-                        admin_user = User(misskey_user_id=admin_misskey_id, misskey_username=admin_username, is_admin=True)
-                        db.session.add(admin_user)
-                        db.session.commit()
-                        click.echo(f"Created local admin user: {admin_username} (ID: {admin_misskey_id})")
-                    else:
-                        click.echo("Warning: LOCAL_ADMIN_PASSWORD not set in config, skipping admin creation.")
-                else:
-                    click.echo(f"Local admin user ({existing_admin.misskey_username}) already exists.")
-
-            click.echo("Initialized the database successfully.")
+                db.create_all() # テーブルを作成
+            click.echo("Database tables initialized successfully (if they didn't exist).")
         except Exception as e:
             try:
+                # コンテキストが必要な場合があるため
                 with app.app_context():
                      db.session.rollback()
             except Exception as rb_exc:
                  click.echo(f"Additionally, an error occurred during rollback: {rb_exc}", err=True)
-            click.echo(f"Error initializing database: {e}", err=True)
-            print(f"[ERROR] Error initializing database: {e}")
-    # --- コマンド定義ここまで ---
+            click.echo(f"Error initializing database tables: {e}", err=True)
+            print(f"[ERROR] Error initializing database tables: {e}")
+    # --- ▲▲▲ コマンドここまで ▲▲▲ ---
 
     # --- アプリケーションインスタンスを返す ---
     print("create_app finished.")

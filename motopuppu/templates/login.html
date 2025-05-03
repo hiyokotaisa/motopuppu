@@ -39,32 +39,11 @@
             </div>
 
             {# --- 【開発用】ローカル管理者ログインフォーム --- #}
-            {# !!! このセクションはリリース前に必ず削除してください !!! #}
-            {# config['ENV'] を参照して開発環境でのみ表示 #}
-            {% if config['ENV'] == 'development' %}
-            <div class="card border-warning mt-4">
-                <div class="card-header bg-warning text-dark">
-                    <i class="fas fa-exclamation-triangle me-1"></i>【開発用】ローカル管理者ログイン (リリース時削除)
-                </div>
-                <div class="card-body">
-                    {# /auth/local_login ルートへPOST #}
-                    <form method="POST" action="{{ url_for('auth.local_login') }}">
-                        {# CSRFトークンが必要な場合(Flask-WTF等使用時)は input type="hidden" を追加 #}
-                        {# {{ form.csrf_token }} など #}
-                        <div class="mb-3">
-                            <label for="local_username" class="form-label">ユーザー名</label>
-                            <input type="text" class="form-control form-control-sm" id="local_username" name="username" required value="{{ config.LOCAL_ADMIN_USERNAME or '' }}"> {# 設定があれば表示 #}
-                        </div>
-                        <div class="mb-3">
-                            <label for="local_password" class="form-label">パスワード</label>
-                            <input type="password" class="form-control form-control-sm" id="local_password" name="password" required>
-                        </div>
-                        <button type="submit" class="btn btn-sm btn-warning">ローカルログイン (開発用)</button>
-                    </form>
-                </div>
-            </div>
-            {% endif %}
-            {# --- 開発用フォーム ここまで --- #}
+            {# ▼▼▼ このセクション全体を削除しました ▼▼▼ #}
+            {# {% if config['ENV'] == 'development' %}
+            ... (フォーム全体) ...
+            {% endif %} #}
+            {# ▲▲▲ 削除ここまで ▲▲▲ #}
 
         </div>
     </div>

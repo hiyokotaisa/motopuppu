@@ -125,57 +125,22 @@ def logout():
 def login_page():
     """ログインページを表示する"""
     # 既にログイン済みの場合はダッシュボードへリダイレクト
-    # ★ get_current_user を使うように変更しても良いが、ここでは session の有無で判断
-    if 'user_id' in session and get_current_user() is not None: # 念のためget_current_userも確認
+    if 'user_id' in session and get_current_user() is not None:
         return redirect(url_for('main.dashboard'))
     # login.html テンプレートを表示
     return render_template('login.html')
 
 
 # --- 【開発用】ローカル管理者ログイン ---
-# !!! リリース前には必ずこのルートと関連機能、設定を削除してください !!!
-@auth_bp.route('/local_login', methods=['POST'])
-def local_login():
-    """【開発用】ローカル管理者ログイン処理"""
-    if current_app.config['ENV'] != 'development':
-         flash('この機能は開発環境でのみ利用可能です。', 'error')
-         current_app.logger.critical("Attempted to use local_login outside development environment!")
-         return redirect(url_for('auth.login_page'))
-
-    username = request.form.get('username')
-    password = request.form.get('password')
-    admin_user_env = current_app.config.get('LOCAL_ADMIN_USERNAME')
-    admin_pass_env = current_app.config.get('LOCAL_ADMIN_PASSWORD')
-
-    if not admin_user_env or not admin_pass_env:
-        flash('【開発用】ローカル管理者ログインが設定されていません。', 'error')
-        current_app.logger.error("Local admin credentials not found in config.")
-        return redirect(url_for('auth.login_page'))
-
-    if username == admin_user_env and password == admin_pass_env:
-        admin_user = User.query.filter_by(misskey_user_id='local_admin', is_admin=True).first()
-        if admin_user:
-            session.clear()
-            session['user_id'] = admin_user.id
-            flash('ローカル管理者としてログインしました。(開発用)', 'warning')
-            current_app.logger.warning(f"Local admin logged in: {admin_user.misskey_username} (App User ID: {admin_user.id})")
-            return redirect(url_for('main.dashboard'))
-        else:
-            flash('【開発用】ローカル管理者ユーザーがデータベースに見つかりません。', 'error')
-            current_app.logger.error("Local admin user 'local_admin' with is_admin=True not found in DB.")
-            return redirect(url_for('auth.login_page'))
-    else:
-        flash('【開発用】ローカル管理者のユーザー名またはパスワードが違います。', 'error')
-        current_app.logger.warning(f"Failed local admin login attempt for username: {username}")
-        return redirect(url_for('auth.login_page'))
+# ▼▼▼ このセクション全体を削除しました ▼▼▼
+# @auth_bp.route('/local_login', methods=['POST'])
+# def local_login():
+#     ... (関数の中身全体) ...
+# ▲▲▲ 削除ここまで ▲▲▲
 
 
 # --- ヘルパー関数 & デコレータ ---
 
-# from flask import g # g は通常 Flask から直接インポートされる (ファイル上部で済)
-# from functools import wraps # wraps もファイル上部でインポート済
-
-# ▼▼▼ get_current_user 関数を修正 ▼▼▼
 def get_current_user():
     """
     セッションIDから現在のユーザーオブジェクトを取得する。
@@ -183,41 +148,29 @@ def get_current_user():
     """
     user_id = session.get('user_id')
     if user_id is None:
-        # セッションに user_id がなければ未ログイン
-        if 'user' in g: del g.user # gに古い情報が残らないように
+        if 'user' in g: del g.user
         return None
-
-    # gオブジェクトにキャッシュされていればそれを返す
     if 'user' in g:
         return g.user
 
-    # セッションに user_id があるので、DBからユーザーを検索
-    user = User.query.get(user_id) # DBから取得試行
-
+    user = User.query.get(user_id)
     if user:
-        # DBにユーザーが見つかった場合 -> ログイン中
-        g.user = user # gオブジェクトにキャッシュ
+        g.user = user
         current_app.logger.debug(f"Current user fetched from DB: {g.user}")
         return g.user
     else:
-        # DBにユーザーが見つからなかった場合 (不正/古いセッション)
         current_app.logger.warning(f"User ID {user_id} found in session, but no user in DB. Clearing session.")
-        session.clear() # セッションをクリアしてログアウト状態にする
-        if 'user' in g: del g.user # gに古い情報が残らないように
-        return None     # 未ログインとして None を返す
-# ▲▲▲ 修正ここまで ▲▲▲
+        session.clear()
+        if 'user' in g: del g.user
+        return None
 
 def login_required_custom(f):
     """自作のログイン必須デコレータ"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        # get_current_user() を呼び出して現在のユーザーを取得し、g.user に格納
-        g.user = get_current_user() # 修正された get_current_user を使う
+        g.user = get_current_user()
         if g.user is None:
-            # ログインしていない場合はログインページへリダイレクト
             flash('このページにアクセスするにはログインが必要です。', 'warning')
-            # nextパラメータに元のURLを渡しておくと、ログイン後に戻れて便利
             return redirect(url_for('auth.login_page', next=request.url))
-        # ログイン済みの場合は元の関数を実行
         return f(*args, **kwargs)
     return decorated_function
