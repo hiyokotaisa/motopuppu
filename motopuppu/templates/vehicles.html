@@ -1,0 +1,85 @@
+{# motopuppu/templates/vehicles.html #}
+{% extends "base.html" %}
+
+{% block title %}車両管理 - motopuppu{% endblock %}
+
+{% block content %}
+<h2>車両管理</h2>
+<p>登録されている車両の一覧です。</p>
+
+{# --- フラッシュメッセージ表示 --- #}
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+            <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
+{# --- フラッシュメッセージ表示 ここまで --- #}
+
+
+<div class="mb-3">
+    <a href="{{ url_for('vehicle.add_vehicle') }}" class="btn btn-primary">
+        <i class="fas fa-plus me-1"></i> 新しい車両を追加
+    </a>
+</div>
+
+{% if motorcycles %}
+<div class="table-responsive">
+    <table class="table table-striped table-hover">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>メーカー</th>
+                <th>車両名</th>
+                <th>年式</th>
+                <th>デフォルト</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for motorcycle in motorcycles %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td>{{ motorcycle.maker if motorcycle.maker else '-' }}</td>
+                <td>{{ motorcycle.name }}</td>
+                <td>{{ motorcycle.year if motorcycle.year else '-' }}</td>
+                <td>
+                    {% if motorcycle.is_default %}
+                        <span class="badge bg-success">はい</span>
+                    {% else %}
+                        {# デフォルト設定用フォーム #}
+                        <form action="{{ url_for('vehicle.set_default_vehicle', vehicle_id=motorcycle.id) }}" method="POST" class="d-inline">
+                             {# CSRFトークンが必要な場合は input を追加 #}
+                            <button type="submit" class="btn btn-sm btn-outline-secondary">設定</button>
+                        </form>
+                    {% endif %}
+                </td>
+                <td>
+                    {# 編集ボタン #}
+                    <a href="{{ url_for('vehicle.edit_vehicle', vehicle_id=motorcycle.id) }}" class="btn btn-sm btn-warning me-1">
+                        <i class="fas fa-edit"></i> 編集
+                    </a>
+                    {# 削除ボタン (確認付き推奨) #}
+                    <form action="{{ url_for('vehicle.delete_vehicle', vehicle_id=motorcycle.id) }}" method="POST" class="d-inline" onsubmit="return confirm('車両「{{ motorcycle.name }}」を削除してもよろしいですか？関連する燃費・整備記録も全て削除されます。');">
+                        {# CSRFトークンが必要な場合は input を追加 #}
+                        <button type="submit" class="btn btn-sm btn-danger">
+                            <i class="fas fa-trash"></i> 削除
+                        </button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="alert alert-info" role="alert">
+  まだ車両が登録されていません。上の「新しい車両を追加」ボタンから登録してください。
+</div>
+{% endif %}
+
+{% endblock %}

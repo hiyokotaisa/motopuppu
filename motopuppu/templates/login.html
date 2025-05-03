@@ -1,0 +1,72 @@
+{# motopuppu/templates/login.html #}
+{% extends "base.html" %} {# ベーステンプレートを継承 #}
+
+{% block title %}ログイン - motopuppu{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-5"> {# 少し幅を調整 #}
+            <h2 class="text-center mb-4">motopuppu ログイン</h2>
+
+            {# --- フラッシュメッセージ表示 --- #}
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        {# カテゴリに応じてアラートの色を分ける (例: success, error, warning, info) #}
+                        <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            {# --- フラッシュメッセージ表示 ここまで --- #}
+
+            {# --- Misskey ログインボタン --- #}
+            <div class="card mb-4 shadow-sm"> {# 見た目を少し調整 #}
+                <div class="card-body text-center">
+                    <h5 class="card-title">Misskey アカウントでログイン</h5>
+                    <p class="card-text small text-muted">下のボタンをクリックして認証を開始します。</p>
+                    {# /auth/login ルートへリンク #}
+                    <a href="{{ url_for('auth.login') }}" class="btn btn-primary btn-lg">
+                        {# Font Awesome アイコンを使用 #}
+                        <i class="fas fa-key me-2"></i>Misskeyでログイン
+                    </a>
+                    {# 設定されているMisskeyインスタンスURLを表示 #}
+                    <p class="mt-2 mb-0"><small>インスタンス: {{ config.MISSKEY_INSTANCE_URL }}</small></p>
+                </div>
+            </div>
+
+            {# --- 【開発用】ローカル管理者ログインフォーム --- #}
+            {# !!! このセクションはリリース前に必ず削除してください !!! #}
+            {# config['ENV'] を参照して開発環境でのみ表示 #}
+            {% if config['ENV'] == 'development' %}
+            <div class="card border-warning mt-4">
+                <div class="card-header bg-warning text-dark">
+                    <i class="fas fa-exclamation-triangle me-1"></i>【開発用】ローカル管理者ログイン (リリース時削除)
+                </div>
+                <div class="card-body">
+                    {# /auth/local_login ルートへPOST #}
+                    <form method="POST" action="{{ url_for('auth.local_login') }}">
+                        {# CSRFトークンが必要な場合(Flask-WTF等使用時)は input type="hidden" を追加 #}
+                        {# {{ form.csrf_token }} など #}
+                        <div class="mb-3">
+                            <label for="local_username" class="form-label">ユーザー名</label>
+                            <input type="text" class="form-control form-control-sm" id="local_username" name="username" required value="{{ config.LOCAL_ADMIN_USERNAME or '' }}"> {# 設定があれば表示 #}
+                        </div>
+                        <div class="mb-3">
+                            <label for="local_password" class="form-label">パスワード</label>
+                            <input type="password" class="form-control form-control-sm" id="local_password" name="password" required>
+                        </div>
+                        <button type="submit" class="btn btn-sm btn-warning">ローカルログイン (開発用)</button>
+                    </form>
+                </div>
+            </div>
+            {% endif %}
+            {# --- 開発用フォーム ここまで --- #}
+
+        </div>
+    </div>
+</div>
+{% endblock %}

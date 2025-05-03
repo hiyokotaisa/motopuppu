@@ -1,0 +1,66 @@
+{# motopuppu/templates/navigation.html #}
+{% if g.user %} {# g.userが存在する場合（ログイン中）のみ表示 #}
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+    <div class="container">
+        {# アプリ名（ダッシュボードへのリンク） #}
+        <a class="navbar-brand" href="{{ url_for('main.dashboard') }}">
+             <i class="fas fa-motorcycle me-1"></i> motopuppu {# アイコンは任意 #}
+        </a>
+
+        {# スマホ用ハンバーガーメニューボタン #}
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        {# ナビゲーションリンク集 #}
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint == 'main.dashboard' %}active{% endif %}" aria-current="page" href="{{ url_for('main.dashboard') }}">
+                        <i class="fas fa-tachometer-alt me-1"></i> ダッシュボード
+                    </a>
+                </li>
+                <li class="nav-item">
+                    {# 'vehicle.vehicle_list' は vehicle Blueprint の一覧表示ルート #}
+                    <a class="nav-link {% if request.endpoint.startswith('vehicle.') %}active{% endif %}" href="{{ url_for('vehicle.vehicle_list') }}">
+                        <i class="fas fa-car-side me-1"></i> 車両管理
+                    </a>
+                </li>
+                <li class="nav-item">
+                    {# 'fuel.fuel_log' は fuel Blueprint の一覧表示ルート #}
+                    <a class="nav-link {% if request.endpoint.startswith('fuel.') %}active{% endif %}" href="{{ url_for('fuel.fuel_log') }}">
+                        <i class="fas fa-gas-pump me-1"></i> 給油記録
+                    </a>
+                </li>
+                <li class="nav-item">
+                    {# 'maintenance.maintenance_log' は maintenance Blueprint の一覧表示ルート #}
+                    {# ★ href を修正 ★ #}
+                    <a class="nav-link {% if request.endpoint.startswith('maintenance.') %}active{% endif %}" href="{{ url_for('maintenance.maintenance_log') }}">
+                        <i class="fas fa-tools me-1"></i> 整備記録
+                    </a>
+                </li>
+                {# 他の主要機能へのリンクをここに追加 (例: 統計、リマインダーなど) #}
+            </ul>
+
+            {# 右側の要素 (ユーザー名とログアウトボタン) #}
+            <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
+                 <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" id="navbarUserDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fas fa-user me-1"></i> {{ g.user.misskey_username or 'ユーザー' }}
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarUserDropdown">
+                        {# <li><a class="dropdown-item" href="#">アカウント設定</a></li> #}
+                        {# <li><hr class="dropdown-divider"></li> #}
+                        <li>
+                            <a class="dropdown-item" href="{{ url_for('auth.logout') }}">
+                                <i class="fas fa-sign-out-alt me-1"></i> ログアウト
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+            </ul>
+
+        </div>{# /.navbar-collapse #}
+    </div>{# /.container #}
+</nav>
+{% endif %}{# g.user のifブロック終了 #}

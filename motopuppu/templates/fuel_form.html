@@ -1,0 +1,195 @@
+{# motopuppu/templates/fuel_form.html #}
+{% extends "base.html" %}
+
+{# ページのタイトルを action に応じて動的に設定 #}
+{% set page_title = "給油記録の追加" if form_action == 'add' else "給油記録の編集" %}
+{% block title %}{{ page_title }} - motopuppu{% endblock %}
+
+{% block content %}
+<h2>{{ page_title }}</h2>
+
+{# --- フラッシュメッセージ表示 --- #}
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+            <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
+{# --- フラッシュメッセージ表示 ここまで --- #}
+
+{# 送信先URLを追加(add)か編集(edit)かで動的に変更 #}
+<form method="POST" action="{{ url_for('fuel.add_fuel') if form_action == 'add' else url_for('fuel.edit_fuel', entry_id=entry.id) }}">
+    {# CSRFトークン (Flask-WTF使用時に必要) #}
+    {# {{ form.csrf_token }} #}
+
+    {# 車両選択ドロップダウン #}
+    <div class="mb-3">
+        <label for="motorcycle_id" class="form-label">車両 <span class="text-danger">*</span></label>
+        <select class="form-select" id="motorcycle_id" name="motorcycle_id" required {% if form_action == 'edit' %}disabled{% endif %}>
+            <option value="" {% if not entry and not preselected_motorcycle_id %}selected{% endif %}>車両を選択...</option>
+            {% for motorcycle in motorcycles %}
+                {% set is_selected = False %}
+                {% if form_action == 'add' and not entry and preselected_motorcycle_id is defined and preselected_motorcycle_id == motorcycle.id %}
+                    {% set is_selected = True %}
+                {% elif entry %}
+                     {% set current_moto_id = None %}
+                     {% if entry.motorcycle_id is defined %}
+                         {% set current_moto_id = entry.motorcycle_id %}
+                     {% elif entry.get('motorcycle_id_int') is defined %}
+                         {% set current_moto_id = entry.get('motorcycle_id_int') %}
+                     {% elif entry.get('motorcycle_id') is defined %}
+                         {% set current_moto_id = entry.get('motorcycle_id') | int %}
+                     {% endif %}
+                     {% if current_moto_id == motorcycle.id %}
+                         {% set is_selected = True %}
+                     {% endif %}
+                {% endif %}
+                <option value="{{ motorcycle.id }}" {% if is_selected %}selected{% endif %}>
+                    {{ motorcycle.name }} ({{ motorcycle.maker if motorcycle.maker else '不明' }})
+                </option>
+            {% endfor %}
+       </select>
+        {% if form_action == 'edit' %}
+        <div class="form-text">記録された車両は変更できません。</div>
+        {% endif %}
+    </div>
+
+    {# 給油日入力 #}
+    <div class="mb-3">
+        <label for="entry_date" class="form-label">給油日 <span class="text-danger">*</span></label>
+        {% set date_value = today_iso %}
+        {% if entry %}
+            {% if entry.entry_date is defined and entry.entry_date %}
+                {% set date_value = entry.entry_date.isoformat() %}
+            {% elif entry.get('entry_date') is defined %}
+                {% set date_value = entry.get('entry_date') %}
+            {% endif %}
+        {% endif %}
+        <input type="date" class="form-control" id="entry_date" name="entry_date"
+               value="{{ date_value }}" required>
+    </div>
+
+    {# ODOメーター入力 #}
+    <div class="mb-3">
+        <label for="odometer_reading" class="form-label">ODOメーター値 (km) <span class="text-danger">*</span></label>
+        <input type="number" class="form-control" id="odometer_reading" name="odometer_reading"
+               value="{{ entry.odometer_reading if entry and entry.odometer_reading is defined else (entry.get('odometer_reading') if entry else '') }}" required min="0" step="any">
+        <div class="form-text">給油時のメーター表示値を入力してください。</div>
+    </div>
+
+    {# 給油量入力 #}
+    <div class="mb-3">
+        <label for="fuel_volume" class="form-label">給油量 (L) <span class="text-danger">*</span></label>
+       <input type="number" class="form-control" id="fuel_volume" name="fuel_volume"
+               value="{{ entry.fuel_volume if entry and entry.fuel_volume is defined else (entry.get('fuel_volume') if entry else '') }}" required step="0.01" min="0.01">
+    </div>
+
+    {# ▼▼▼ 満タンチェックボックスを追加 ▼▼▼ #}
+    <div class="mb-3 form-check">
+        {# チェックボックスの状態を設定 #}
+        {% set is_checked = False %}
+        {% if form_action == 'add' and not entry %} {# 新規追加時 #}
+             {# モデルのデフォルトが True の場合、初期状態でチェックを入れる #}
+             {# (models.py の FuelEntry.is_full_tank の default が True の場合) #}
+              {% set is_checked = True %}
+        {% elif entry %} {# 編集時 or エラー再表示時 #}
+             {% if entry.is_full_tank is defined %} {# オブジェクトの場合 (編集) #}
+                 {% if entry.is_full_tank %}
+                     {% set is_checked = True %}
+                 {% endif %}
+             {# ★ エラー再表示時 (entryが辞書) のチェック状態復元 ★ #}
+             {# チェックが入っていたら 'on' or キーが存在するはず #}
+             {% elif entry is mapping and 'is_full_tank' in entry %}
+                 {% set is_checked = True %}
+             {% endif %}
+        {% endif %}
+
+        <input type="checkbox" class="form-check-input" id="is_full_tank" name="is_full_tank" value="on" {# value="on" を追加 #}
+               {% if is_checked %}checked{% endif %}>
+        <label class="form-check-label" for="is_full_tank">満タンまで給油しました</label>
+        <div class="form-text">燃費計算に利用されます。満タン時のみチェックしてください。</div>
+    </div>
+    {# ▲▲▲ チェックボックス追加ここまで ▲▲▲ #}
+
+    {# 価格情報入力 (単価と合計) #}
+    <div class="row g-3">
+        <div class="col-md-6 mb-3">
+            <label for="price_per_liter" class="form-label">リッター単価 (円/L)</label>
+           <input type="number" class="form-control" id="price_per_liter" name="price_per_liter"
+                   value="{{ entry.price_per_liter if entry and entry.price_per_liter is defined else (entry.get('price_per_liter') if entry else '') }}" step="0.1" min="0">
+        </div>
+        <div class="col-md-6 mb-3">
+            <label for="total_cost" class="form-label">合計金額 (円)</label>
+           <input type="number" class="form-control" id="total_cost" name="total_cost"
+                   value="{{ entry.total_cost if entry and entry.total_cost is defined else (entry.get('total_cost') if entry else '') }}" min="0">
+            <div class="form-text">単価と給油量を入力した場合、自動計算されます (手入力優先)。</div>
+        </div>
+    </div>
+
+    {# 給油スタンド名入力 #}
+    <div class="mb-3">
+        <label for="station_name" class="form-label">給油スタンド名</label>
+       <input type="text" class="form-control" id="station_name" name="station_name" value="{{ entry.station_name if entry and entry.station_name is defined else (entry.get('station_name') if entry else '') }}">
+    </div>
+
+    {# 油種入力 #}
+    <div class="mb-3">
+        <label for="fuel_type" class="form-label">油種</label>
+       <input type="text" list="fuel_type_options" class="form-control" id="fuel_type" name="fuel_type" value="{{ entry.fuel_type if entry and entry.fuel_type is defined else (entry.get('fuel_type') if entry else '') }}">
+        <datalist id="fuel_type_options">
+            <option value="レギュラー">
+            <option value="ハイオク">
+            <option value="軽油">
+            <option value="混合">
+        </datalist>
+    </div>
+
+    {# メモ入力 #}
+    <div class="mb-3">
+        <label for="notes" class="form-label">メモ</label>
+       <textarea class="form-control" id="notes" name="notes" rows="3">{{ entry.notes if entry and entry.notes is defined else (entry.get('notes') if entry else '') }}</textarea>
+    </div>
+
+    {# 送信ボタンとキャンセルボタン #}
+    <div class="mt-4">
+        <button type="submit" class="btn btn-primary">
+            <i class="fas fa-save me-1"></i> {{ '記録を追加' if form_action == 'add' else '更新する' }}
+        </button>
+        <a href="{{ url_for('fuel.fuel_log') }}" class="btn btn-secondary">
+            <i class="fas fa-times me-1"></i> キャンセル
+        </a>
+    </div>
+
+</form>
+
+{% endblock %}
+
+
+{# --- JavaScript --- #}
+{% block scripts %}
+{{ super() }}
+<script>
+    // (JavaScript部分は変更なし)
+    document.addEventListener('DOMContentLoaded', function() {
+        const volumeInput = document.getElementById('fuel_volume');
+        const priceInput = document.getElementById('price_per_liter');
+        const costInput = document.getElementById('total_cost');
+        function calculateTotalCost() {
+            const volume = parseFloat(volumeInput.value);
+            const price = parseFloat(priceInput.value);
+            if (!isNaN(volume) && volume > 0 && !isNaN(price) && price >= 0) {
+                const totalCost = Math.round(volume * price);
+                costInput.value = totalCost;
+            }
+        }
+        if (volumeInput && priceInput && costInput) {
+            volumeInput.addEventListener('input', calculateTotalCost);
+            priceInput.addEventListener('input', calculateTotalCost);
+        }
+    });
+</script>
+{% endblock %}

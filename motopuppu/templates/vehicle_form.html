@@ -1,0 +1,76 @@
+{# motopuppu/templates/vehicle_form.html #}
+{% extends "base.html" %}
+
+{% set page_title = "車両の追加" if form_action == 'add' else "車両の編集: " + (vehicle.name if vehicle else '') %}
+{% block title %}{{ page_title }} - motopuppu{% endblock %}
+
+{% block content %}
+<h2>{{ page_title }}</h2>
+
+{# --- フラッシュメッセージ表示 --- #}
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+            <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
+{# --- フラッシュメッセージ表示 ここまで --- #}
+
+{# 送信先URLを action で切り替え #}
+<form method="POST" action="{{ url_for('vehicle.add_vehicle') if form_action == 'add' else url_for('vehicle.edit_vehicle', vehicle_id=vehicle.id) }}">
+    {# CSRFトークンが必要な場合は {{ form.csrf_token }} などを追加 #}
+
+    <div class="mb-3">
+        <label for="maker" class="form-label">メーカー名</label>
+        <input type="text" class="form-control" id="maker" name="maker" value="{{ vehicle.maker if vehicle else '' }}">
+    </div>
+    <div class="mb-3">
+        <label for="name" class="form-label">車両名 <span class="text-danger">*</span></label>
+        <input type="text" class="form-control" id="name" name="name" value="{{ vehicle.name if vehicle else '' }}" required>
+    </div>
+    <div class="mb-3">
+        <label for="year" class="form-label">年式</label>
+        <input type="number" class="form-control" id="year" name="year" value="{{ vehicle.year if vehicle and vehicle.year is not none else '' }}" min="1900" max="{{ current_year + 1 }}"> {# current_year はコンテキストプロセッサから #}
+        <div class="form-text">例: 2023</div>
+    </div>
+
+    <button type="submit" class="btn btn-primary">
+        {{ '登録する' if form_action == 'add' else '更新する' }}
+    </button>
+    <a href="{{ url_for('vehicle.vehicle_list') }}" class="btn btn-secondary">キャンセル</a>
+</form>
+
+{# --- 編集時のみODOメーターリセットフォームを表示 --- #}
+{% if form_action == 'edit' and vehicle %}
+<hr class="my-4">
+<h4>ODOメーターリセット記録</h4>
+<p>バイク本体のODOメーターをリセットした場合に記録します。</p>
+<p>現在の累積オフセット: <strong>{{ vehicle.odometer_offset }} km</strong></p>
+
+<form method="POST" action="{{ url_for('vehicle.record_reset', vehicle_id=vehicle.id) }}">
+    {# CSRFトークンが必要な場合は input を追加 #}
+    <div class="row g-3 align-items-end">
+        <div class="col-md">
+            <label for="reading_before_reset" class="form-label">リセット直前のメーター表示値 <span class="text-danger">*</span></label>
+            <input type="number" class="form-control" id="reading_before_reset" name="reading_before_reset" required min="0">
+             <div class="form-text">例: 30000</div>
+        </div>
+        <div class="col-md">
+            <label for="reading_after_reset" class="form-label">リセット直後のメーター表示値</label>
+            <input type="number" class="form-control" id="reading_after_reset" name="reading_after_reset" value="0" min="0">
+            <div class="form-text">通常は 0</div>
+        </div>
+        <div class="col-md-auto">
+            <button type="submit" class="btn btn-info">リセットを記録</button>
+        </div>
+    </div>
+</form>
+{% endif %}
+{# --- ODOメーターリセットフォーム ここまで --- #}
+
+
+{% endblock %}

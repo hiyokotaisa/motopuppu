@@ -1,0 +1,140 @@
+{# motopuppu/templates/maintenance_log.html #}
+{% extends "base.html" %}
+
+{% block title %}整備記録 - motopuppu{% endblock %}
+
+{% block content %}
+<h2>整備記録</h2>
+<p>過去の整備記録一覧です。</p>
+
+{# --- フラッシュメッセージ表示 --- #}
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+            <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
+{# --- フラッシュメッセージ表示 ここまで --- #}
+
+<div class="mb-3">
+    {# 整備記録追加ページへのリンク #}
+    <a href="{{ url_for('maintenance.add_maintenance') }}" class="btn btn-primary">
+        <i class="fas fa-plus me-1"></i> 整備記録を追加
+    </a>
+    {# フィルター機能などを後で追加 #}
+</div>
+
+{% if entries %}
+<div class="table-responsive">
+    <table class="table table-striped table-hover table-sm">
+        <thead>
+            <tr>
+                <th>整備日</th>
+                <th>車両</th>
+                <th class="text-end">ODO(km)</th>
+                <th class="text-end">総走行(km)</th>
+                <th>整備内容</th>
+                <th>カテゴリ</th>
+                <th>場所</th>
+                <th class="text-end">費用(円)</th>
+                <th>操作</th> {# 操作列 #}
+            </tr>
+        </thead>
+        <tbody>
+            {% for entry in entries %}
+            <tr>
+                <td>{{ entry.maintenance_date.strftime('%Y-%m-%d') }}</td>
+                <td>{{ entry.motorcycle.name }}</td>
+                <td class="text-end">{{ "{:,}".format(entry.odometer_reading_at_maintenance) }}</td>
+                <td class="text-end">{{ "{:,}".format(entry.total_distance_at_maintenance) }}</td>
+                {# 整備内容はツールチップで全文表示 #}
+                <td data-bs-toggle="tooltip" data-bs-placement="top" title="{{ entry.description }}">
+                    {{ entry.description | truncate(40, True) }} {# 40文字で省略表示 #}
+                </td>
+                <td>
+                    {% if entry.category %}
+                    <span class="badge bg-info text-dark">{{ entry.category }}</span>
+                    {% else %}
+                    -
+                    {% endif %}
+                 </td>
+                <td>{{ entry.location if entry.location else '-' }}</td>
+                <td class="text-end">
+                    {# entry.total_cost プロパティを使用 #}
+                    {% if entry.total_cost > 0 %}{{ "{:,.0f}".format(entry.total_cost) }}{% else %}-{% endif %}
+                </td>
+                <td>
+                    {# ★ 編集ボタン: href と disabled を修正 ★ #}
+                    <a href="{{ url_for('maintenance.edit_maintenance', entry_id=entry.id) }}" class="btn btn-sm btn-outline-secondary me-1" title="編集">
+                        <i class="fas fa-edit"></i>
+                    </a>
+                    {# ★ 削除ボタン: action と disabled を修正 ★ #}
+                    <form action="{{ url_for('maintenance.delete_maintenance', entry_id=entry.id) }}" method="POST" class="d-inline" onsubmit="return confirm('この整備記録を削除してもよろしいですか？');">
+                        {# CSRFトークンが必要な場合は input を追加 #}
+                        <button type="submit" class="btn btn-sm btn-outline-danger" title="削除">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{# --- ページネーション --- #}
+{% if pagination and pagination.pages > 1 %} {# ページが1つしかない場合は表示しない #}
+<nav aria-label="Maintenance log navigation">
+  <ul class="pagination justify-content-center">
+    {# 前へ #}
+    <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+      <a class="page-link" href="{{ url_for('maintenance.maintenance_log', page=pagination.prev_num) if pagination.has_prev else '#' }}" aria-label="Previous">
+        <span aria-hidden="true">&laquo;</span>
+      </a>
+    </li>
+    {# ページ番号 #}
+    {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=2) %}
+      {% if page_num %}
+        <li class="page-item {% if page_num == pagination.page %}active{% endif %}">
+          <a class="page-link" href="{{ url_for('maintenance.maintenance_log', page=page_num) }}">{{ page_num }}</a>
+        </li>
+      {% else %}
+        {# 省略記号 (...) はクリック不可にする #}
+        <li class="page-item disabled"><span class="page-link">...</span></li>
+      {% endif %}
+    {% endfor %}
+    {# 次へ #}
+    <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+      <a class="page-link" href="{{ url_for('maintenance.maintenance_log', page=pagination.next_num) if pagination.has_next else '#' }}" aria-label="Next">
+        <span aria-hidden="true">&raquo;</span>
+      </a>
+    </li>
+  </ul>
+</nav>
+{% endif %}
+{# --- ページネーション ここまで --- #}
+
+{% else %}
+<div class="alert alert-info mt-3" role="alert">
+  整備記録はまだありません。「整備記録を追加」ボタンから最初の記録を追加しましょう。
+</div>
+{% endif %}
+
+{% endblock %}
+
+
+{# Bootstrap Tooltip を有効にするための JavaScript (base.html にまとめても良い) #}
+{% block scripts %}
+{{ super() }} {# base.htmlのscriptsブロックを引き継ぐ #}
+<script>
+    // Tooltip の初期化 (既にbase.htmlなどにあれば不要な場合もある)
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+      return new bootstrap.Tooltip(tooltipTriggerEl)
+    })
+</script>
+{% endblock %}
