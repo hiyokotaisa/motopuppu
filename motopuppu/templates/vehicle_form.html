@@ -35,7 +35,7 @@
     <div class="mb-3">
         <label for="year" class="form-label">年式</label>
         {# current_year は view 関数またはコンテキストプロセッサから渡される想定 #}
-        {% set current_year = now()|strftime('%Y')|int %} {# 仮にここで取得 (コンテキストプロセッサ推奨) #}
+        {% set current_year = now().year %}
         <input type="number" class="form-control" id="year" name="year" value="{{ vehicle.year if vehicle and vehicle.year is not none else '' }}" min="1900" max="{{ current_year + 1 }}">
         <div class="form-text">例: 2023</div>
     </div>
