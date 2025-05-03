@@ -187,44 +187,42 @@
         // FullCalendar オブジェクトを作成・設定
         var calendar = new FullCalendar.Calendar(calendarEl, {
           // --- 基本設定 ---
-          initialView: 'dayGridMonth',
+          initialView: 'dayGridMonth', // 初期表示は月ビュー
           locale: 'ja',
-          headerToolbar: {
+          headerToolbar: { // ▼▼▼ ヘッダーツールバーの右側に listMonth を追加 ▼▼▼
             left: 'prev,next today',
             center: 'title',
-            right: 'dayGridMonth,dayGridWeek'
-          },
-          buttonText: {
+            right: 'dayGridMonth,dayGridWeek,listMonth' // ← 追加
+          },                  // ▲▲▲ 変更ここまで ▲▲▲
+          buttonText: { // ▼▼▼ ボタンテキスト定義に list を追加 ▼▼▼
               today:    '今日',
               month:    '月',
               week:     '週',
-          },
-          contentHeight: 'auto',
+              list:     'リスト(月)' // ← listMonthボタン用
+          },                  // ▲▲▲ 変更ここまで ▲▲▲
+          contentHeight: 'auto', // 内容に合わせて高さを自動調整
 
           // --- イベントデータ設定 ---
-          events: '/api/dashboard/events',
+          events: '/api/dashboard/events', // APIからデータを取得
 
           // --- イベントクリック時の動作 ---
           eventClick: function(info) {
-            info.jsEvent.preventDefault();
+            info.jsEvent.preventDefault(); // リンクのデフォルト動作をキャンセル
             if (info.event.url) {
-              window.location.href = info.event.url;
+              window.location.href = info.event.url; // URLがあれば遷移
             }
           },
 
-          // ▼▼▼ ポップオーバー表示のための eventDidMount を追加 ▼▼▼
+          // --- ポップオーバー表示のための eventDidMount ---
           eventDidMount: function(info) {
-            // APIから extendedProps が渡されている場合のみ処理
+            // (ここは前回の修正のまま変更なし)
             if (info.event.extendedProps) {
-              var props = info.event.extendedProps; // 詳細情報
-              var popoverTitle = '';             // ポップオーバーのタイトル
-              var popoverContent = '';           // ポップオーバーの内容 (HTML)
-
-              // --- ポップオーバーの内容を生成 ---
-              // 日本語形式で日付表示 (例: 2025/5/4) - タイムゾーンに注意が必要な場合はライブラリ検討
+              var props = info.event.extendedProps;
+              var popoverTitle = '';
+              var popoverContent = '';
+              // 日本語形式で日付表示 (例: 2025年5月4日) - タイムゾーンに注意
               var dateString = info.event.start ? info.event.start.toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' }) : '日付不明';
 
-              // 記録タイプ (type) に応じて内容を分岐
               if (props.type === 'fuel') {
                 popoverTitle = `⛽ 給油 (${props.motorcycleName || '車両不明'})`;
                 popoverContent = `
@@ -248,27 +246,25 @@
                 `;
               }
 
-              // --- Bootstrap Popover を初期化 ---
               if (popoverTitle && popoverContent) {
-                 // Popoverが重複して初期化されるのを防ぐ (念のため)
                  if (!info.el.hasAttribute('data-bs-toggle')) {
                    var popover = new bootstrap.Popover(info.el, {
                     title: popoverTitle,
                     content: popoverContent,
-                    trigger: 'hover',      // マウスオーバーで表示・非表示
-                    placement: 'auto',     // 自動で最適な位置に表示
-                    boundary: 'viewport',  // 表示領域をビューポートに制限
-                    html: true,         // content 内の HTML を有効化
-                    sanitize: false,      // HTML を有効にするため false (escapeHtmlで対策)
-                    container: 'body',    // Popoverがカレンダー外に正しく表示されるように
-                    customClass: 'motopuppu-popover' // スタイル調整用のカスタムクラス (任意)
+                    trigger: 'hover',
+                    placement: 'auto',
+                    boundary: 'viewport',
+                    html: true,
+                    sanitize: false,
+                    container: 'body',
+                    customClass: 'motopuppu-popover'
                   });
                  }
               }
             }
-          }
-          // ▲▲▲ 追加ここまで ▲▲▲
-        });
+          } // End eventDidMount
+
+        }); // End FullCalendar.Calendar initialization
 
         // カレンダーを描画
         calendar.render();
