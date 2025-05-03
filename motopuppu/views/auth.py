@@ -1,11 +1,13 @@
 # motopuppu/views/auth.py
 import uuid
 import requests
+import json # json と os をインポート
+import os
 from flask import (
     Blueprint, flash, g, redirect, render_template, request, session, url_for, current_app
 )
 # from flask_login import login_user, logout_user, login_required # Flask-Loginを使う場合
-# from werkzeug.security import check_password_hash # ローカル管理者用パスワード比較に使う場合 (今回は直接比較)
+# from werkzeug.security import check_password_hash # ローカル管理者用パスワード比較に使う場合
 
 # データベースモデルとdbオブジェクトをインポート
 from .. import db
@@ -33,54 +35,39 @@ def login():
     current_app.logger.info(f"Redirecting to MiAuth URL: {auth_url}")
     return redirect(auth_url)
 
-# ▼▼▼ この関数全体を修正 ▼▼▼
 @auth_bp.route('/miauth/callback', methods=['GET']) # GET で受け付ける
 def miauth_callback():
     """MiAuthコールバック処理: /check エンドポイントを利用して認証を完了する"""
     current_app.logger.info("Received MiAuth callback GET request")
-
-    # 1. URLクエリから session ID を取得
     received_session_id = request.args.get('session')
     if not received_session_id:
         flash('無効なコールバックリクエストです (セッションIDが見つかりません)。', 'error')
         current_app.logger.error(f"Invalid callback GET parameters received (session ID missing). Args: {request.args}")
         return redirect(url_for('auth.login_page'))
-
     current_app.logger.info(f"Callback session ID received: {received_session_id}")
-
-    # 2. Flaskセッションに保存した session ID と比較・検証
     expected_session_id = session.pop('miauth_session_id', None)
     if not expected_session_id or expected_session_id != received_session_id:
         flash('認証セッションが無効か、タイムアウトしました。もう一度お試しください。', 'error')
         current_app.logger.warning(f"Session ID mismatch or missing. Expected: {expected_session_id}, Received: {received_session_id}")
         return redirect(url_for('auth.login_page'))
 
-    # 3. 受け取った session ID を使って Misskey の /check エンドポイントを叩く
     misskey_instance_url = current_app.config.get('MISSKEY_INSTANCE_URL', 'https://misskey.io')
     check_url = f"{misskey_instance_url}/api/miauth/{received_session_id}/check"
     current_app.logger.info(f"Checking session with Misskey API: {check_url}")
-
     try:
-        # サーバーから直接POSTリクエストを送信
         check_response = requests.post(check_url, timeout=10)
-        check_response.raise_for_status() # HTTPエラーチェック
+        check_response.raise_for_status()
         check_data = check_response.json()
         current_app.logger.debug(f"Misskey /check response: {check_data}")
-
-        # 4. /check レスポンスから token と user 情報を取得
         if not check_data.get('ok') or not check_data.get('token') or not check_data.get('user'):
             raise ValueError("Invalid response from MiAuth check endpoint.")
-
-        token = check_data['token']       # ★ APIアクセストークン
-        user_info = check_data['user']    # ★ ユーザー情報オブジェクト
+        token = check_data['token']
+        user_info = check_data['user']
         misskey_user_id = user_info.get('id')
         misskey_username = user_info.get('username')
-
         current_app.logger.info(f"MiAuth check successful. Token received (masked): {token[:5]}..., User ID: {misskey_user_id}, Username: {misskey_username}")
-
         if not misskey_user_id:
             raise ValueError("Misskey User ID not found in check response user object.")
-
     except requests.exceptions.RequestException as e:
         flash(f'Misskey MiAuth チェック APIへのアクセスに失敗しました: {e}', 'error')
         current_app.logger.error(f"Misskey MiAuth /check request failed: {e}")
@@ -90,7 +77,6 @@ def miauth_callback():
          current_app.logger.error(f"Failed to process MiAuth /check response: {e}")
          return redirect(url_for('auth.login_page'))
 
-    # 5. 取得したユーザー情報でアプリDBのユーザーを検索または作成
     user = User.query.filter_by(misskey_user_id=misskey_user_id).first()
     if not user:
         user = User(misskey_user_id=misskey_user_id, misskey_username=misskey_username, is_admin=False)
@@ -105,22 +91,18 @@ def miauth_callback():
             current_app.logger.error(f"Database error creating user: {e}")
             return redirect(url_for('auth.login_page'))
     else:
-        # 既存ユーザーの場合、ユーザー名を更新 (任意)
         if user.misskey_username != misskey_username:
             user.misskey_username = misskey_username
-            try:
-                db.session.commit()
+            try: db.session.commit()
             except Exception as e:
                 db.session.rollback()
                 current_app.logger.error(f"Error updating username for {misskey_username}: {e}")
         current_app.logger.info(f"Existing user logged in: {user.misskey_username} (App User ID: {user.id})")
 
-    # 6. Flaskセッションにアプリ内ユーザーIDを保存してログイン状態にする
     session.clear()
     session['user_id'] = user.id
     flash('ログインしました。', 'success')
     return redirect(url_for('main.dashboard'))
-# ▲▲▲ 関数修正ここまで ▲▲▲
 
 
 # --- ログアウト ---
@@ -139,14 +121,59 @@ def logout():
 
 @auth_bp.route('/login_page')
 def login_page():
-    """ログインページを表示する"""
+    """ログインページを表示し、お知らせとバージョン情報を渡す"""
     if 'user_id' in session and get_current_user() is not None:
         return redirect(url_for('main.dashboard'))
-    return render_template('login.html')
 
+    # --- お知らせとバージョン情報の読み込み (デバッグプリント付き) ---
+    announcements = []
+    # ▼▼▼ デバッグプリント追加 ▼▼▼
+    print("--- Entering login_page ---")
+    build_version = os.environ.get('APP_VERSION', 'N/A') # 先に取得
+    print(f"Raw APP_VERSION from env: {os.environ.get('APP_VERSION')}")
+    print(f"Assigned build_version: '{build_version}'")
+    # ▲▲▲ デバッグプリント追加 ▲▲▲
+    try:
+        announcement_file = os.path.join(current_app.root_path, '..', 'announcements.json')
+        # ▼▼▼ デバッグプリント追加 ▼▼▼
+        print(f"Attempting to load announcements from: {announcement_file}")
+        # ▲▲▲ デバッグプリント追加 ▲▲▲
+        if os.path.exists(announcement_file):
+            print("announcements.json exists.") # DEBUG
+            with open(announcement_file, 'r', encoding='utf-8') as f:
+                print("File opened successfully.") # DEBUG
+                all_announcements = json.load(f)
+                print(f"Loaded {len(all_announcements)} announcements from JSON.") # DEBUG
+                print(f"Raw announcements data: {all_announcements}") # ★JSONの中身自体をプリント★
+                # "active": true のものをフィルタリング
+                announcements = [a for a in all_announcements if a.get('active', False)]
+                print(f"Filtered {len(announcements)} active announcements.") # DEBUG
+        else:
+             current_app.logger.warning("announcements.json not found.")
+             print("announcements.json not found.") # DEBUG
+    except FileNotFoundError:
+         current_app.logger.error("announcements.json not found (FileNotFoundError).")
+         print("FileNotFoundError caught.") # DEBUG
+    except PermissionError:
+         current_app.logger.error("Permission denied when reading announcements.json.")
+         print("PermissionError caught.") # DEBUG
+    except json.JSONDecodeError as e:
+        current_app.logger.error(f"Failed to parse announcements.json: {e}")
+        print(f"JSONDecodeError caught: {e}") # DEBUG
+    except Exception as e:
+        # exc_info=True でトレースバックもログに出力
+        current_app.logger.error(f"An unexpected error occurred loading announcements: {e}", exc_info=True)
+        print(f"Unexpected error caught: {e}") # DEBUG
 
-# --- 【開発用】ローカル管理者ログイン (削除済み) ---
+    # ▼▼▼ デバッグプリント追加 ▼▼▼
+    print(f"Passing {len(announcements)} announcements to template.")
+    print(f"Passing build_version: '{build_version}' to template.")
+    # ▲▲▲ デバッグプリント追加 ▲▲▲
+    return render_template('login.html',
+                           announcements=announcements,
+                           build_version=build_version)
 
+# --- 【開発用】ローカル管理者ログインは削除済み ---
 
 # --- ヘルパー関数 & デコレータ ---
 
@@ -157,29 +184,38 @@ def get_current_user():
     """
     user_id = session.get('user_id')
     if user_id is None:
+        # gオブジェクトにキャッシュがあれば削除
         if 'user' in g: del g.user
         return None
+    # gオブジェクトにキャッシュがあればそれを使う
     if 'user' in g:
         return g.user
 
+    # DBからユーザーを検索
     user = User.query.get(user_id)
     if user:
+        # 見つかったらgオブジェクトにキャッシュ
         g.user = user
         current_app.logger.debug(f"Current user fetched from DB: {g.user}")
         return g.user
     else:
+        # セッションにIDはあるがDBにユーザーがいない場合 (削除されたなど)
         current_app.logger.warning(f"User ID {user_id} found in session, but no user in DB. Clearing session.")
-        session.clear()
-        if 'user' in g: del g.user
+        session.clear() # セッションをクリア
+        if 'user' in g: del g.user # gオブジェクトのキャッシュもクリア
         return None
 
 def login_required_custom(f):
     """自作のログイン必須デコレータ"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
+        # g.user に現在のユーザーを設定 (存在しなければ None)
         g.user = get_current_user()
         if g.user is None:
+            # ログインしていない場合はログインページへリダイレクト
             flash('このページにアクセスするにはログインが必要です。', 'warning')
+            # nextパラメータに元のURLを渡しておくと、ログイン後に戻れて便利
             return redirect(url_for('auth.login_page', next=request.url))
+        # ログイン済みの場合は元の関数を実行
         return f(*args, **kwargs)
     return decorated_function
