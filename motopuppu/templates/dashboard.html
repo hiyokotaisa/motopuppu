@@ -10,12 +10,15 @@
     <div class="btn-toolbar mb-2 mb-md-0">
          {# 機能へのリンクボタン #}
          <div class="btn-group me-2">
-            <a href="{{ url_for('fuel.add_fuel') }}" class="btn btn-sm btn-outline-success">
+             {# ▼▼▼ クラス名を変更 ▼▼▼ #}
+            <a href="{{ url_for('fuel.add_fuel') }}" class="btn btn-sm btn-success"> {# ← btn-outline-success から変更 #}
                 <i class="fas fa-gas-pump me-1"></i> 給油記録を追加
             </a>
-            <a href="{{ url_for('maintenance.add_maintenance') }}" class="btn btn-sm btn-outline-warning">
+             {# ▼▼▼ クラス名を変更 ▼▼▼ #}
+            <a href="{{ url_for('maintenance.add_maintenance') }}" class="btn btn-sm btn-success"> {# ← btn-outline-warning から変更 #}
                 <i class="fas fa-tools me-1"></i> 整備記録を追加
             </a>
+             {# 車両管理ボタンは変更なし #}
              <a href="{{ url_for('vehicle.vehicle_list') }}" class="btn btn-sm btn-outline-info">
                 <i class="fas fa-motorcycle me-1"></i> 車両管理
             </a>
@@ -29,7 +32,7 @@
 {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
         {% for category, message in messages %}
-            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+            <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show" role="alert">
                 {{ message }}
                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             </div>
@@ -38,7 +41,7 @@
 {% endwith %}
 {# --- フラッシュメッセージ表示 ここまで --- #}
 
-{# --- ダッシュボードのコンテンツ表示 (既存) --- #}
+{# --- ダッシュボードのコンテンツ表示 --- #}
 <div class="row g-4">
     {# --- 車両一覧 --- #}
     <div class="col-md-12">
@@ -57,10 +60,12 @@
                                     <small class="text-muted">({{ motorcycle.maker or 'メーカー不明' }} / {{ motorcycle.year or '年式不明' }})</small>
                                     <br>
                                     <small class="text-info">
-                                        {% if motorcycle._average_kpl is not none %}
+                                        {# 平均燃費は view 関数側で計算して渡す想定 (例: motorcycle._average_kpl) #}
+                                        {% if motorcycle._average_kpl is defined and motorcycle._average_kpl is not none %}
                                             <i class="fas fa-tachometer-alt me-1"></i> 平均燃費: <strong>{{"%.2f"|format(motorcycle._average_kpl)}}</strong> km/L
                                         {% else %}
-                                            <i class="fas fa-info-circle me-1"></i> (平均燃費 計算不可: 記録不足)
+                                            {# <i class="fas fa-info-circle me-1"></i> (平均燃費 計算不可: 記録不足) #}
+                                            {# あるいは何も表示しない #}
                                         {% endif %}
                                     </small>
                                 </span>
@@ -87,6 +92,7 @@
         <div class="card">
             <div class="card-header"><i class="fas fa-gas-pump me-1"></i> 直近の給油記録</div>
             <div class="card-body">
+                {# recent_fuel_entries は view 関数から渡す想定 #}
                 {% if recent_fuel_entries %}
                     <ul class="list-group list-group-flush">
                         {% for entry in recent_fuel_entries %}
@@ -120,6 +126,7 @@
         <div class="card">
             <div class="card-header"><i class="fas fa-tools me-1"></i> 直近の整備記録</div>
             <div class="card-body">
+                 {# recent_maintenance_entries は view 関数から渡す想定 #}
                 {% if recent_maintenance_entries %}
                     <ul class="list-group list-group-flush">
                         {% for entry in recent_maintenance_entries %}
@@ -149,9 +156,10 @@
 
 </div>{# End row #}
 
-{# --- カレンダー表示用のコンテナ (以前追加済み) --- #}
+{# --- カレンダー表示用のコンテナ --- #}
 <div class="mt-4 pt-4 border-top">
     <h2>記録カレンダー</h2>
+    {# FullCalendar v5/v6 用にクラス変更の可能性あり #}
     <div id='calendar'></div> {# ここにカレンダーが描画される #}
 </div>
 
@@ -160,44 +168,56 @@
 {# --- JavaScript --- #}
 {% block scripts %}
 {{ super() }} {# base.html の scripts ブロックの内容を引き継ぐ場合 #}
-{# ▼▼▼ FullCalendar 初期化スクリプトを追加 ▼▼▼ #}
+{# ▼▼▼ FullCalendar 用のJSとCSSを読み込む (例: CDN) ▼▼▼ #}
+<script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js'></script>
 <script>
   document.addEventListener('DOMContentLoaded', function() {
     // カレンダーを描画する要素を取得
     var calendarEl = document.getElementById('calendar');
 
-    // FullCalendar オブジェクトを作成・設定
-    var calendar = new FullCalendar.Calendar(calendarEl, {
-      // --- 基本設定 ---
-      initialView: 'dayGridMonth', // 初期表示を月ビューに
-      locale: 'ja', // 日本語化 (曜日やボタンのテキストなど)
-      headerToolbar: { // ヘッダーのボタン設定
-        left: 'prev,next today', // 左: 前月、次月、今日
-        center: 'title',         // 中央: タイトル (年/月)
-        right: 'dayGridMonth,dayGridWeek' // 右: 月表示、週表示ボタン
-      },
-      buttonText: { // ボタンのテキストをカスタマイズ (任意)
-          today:    '今日',
-          month:    '月',
-          week:     '週',
-          //day:      '日',
-          //list:     'リスト'
-      },
-      // --- イベントデータ設定 ---
-      events: '/api/dashboard/events', // ★ イベントデータを取得するAPIエンドポイントのURL
-      eventColor: '#0d6efd',        // デフォルトのイベント色 (Bootstrap プライマリ)
+    if (calendarEl) { // 要素が存在する場合のみ初期化
+        // FullCalendar オブジェクトを作成・設定
+        var calendar = new FullCalendar.Calendar(calendarEl, {
+          // --- 基本設定 ---
+          initialView: 'dayGridMonth', // 初期表示を月ビューに
+          locale: 'ja', // 日本語化
+          headerToolbar: { // ヘッダーのボタン設定
+            left: 'prev,next today',
+            center: 'title',
+            right: 'dayGridMonth,dayGridWeek' // 月・週ビュー
+          },
+          buttonText: { // ボタンのテキスト
+              today:    '今日',
+              month:    '月',
+              week:     '週',
+          },
+          contentHeight: 'auto', // 内容に合わせて高さを自動調整
+          // --- イベントデータ設定 ---
+          // events: '/api/dashboard/events', // ★ APIエンドポイントのURL (後で作成)
+          // ★ ダミーイベントデータ (API作成までの仮表示) ★
+          events: [
+              { title: '給油 (ダミー)', start: '2025-05-01', color: '#198754' }, // Bootstrap success color
+              { title: '整備: オイル交換 (ダミー)', start: '2025-05-03', color: '#ffc107' } // Bootstrap warning color
+          ],
+          eventColor: '#0d6efd', // デフォルトのイベント色 (Bootstrap primary)
+          eventDisplay: 'block', // イベントをブロック表示
 
-      // --- イベントクリック時の動作 (任意) ---
-      eventClick: function(info) {
-        info.jsEvent.preventDefault(); // デフォルトの動作 (あれば) をキャンセル
-        if (info.event.url) { // イベントに URL が設定されていれば
-          window.location.href = info.event.url; // その URL に遷移する
-        }
-      }
-    });
+          // --- イベントクリック時の動作 (任意) ---
+          eventClick: function(info) {
+            info.jsEvent.preventDefault(); // リンクのデフォルト動作をキャンセル
+            if (info.event.url) {
+              window.location.href = info.event.url; // イベントにURLがあれば遷移
+            }
+            // 必要ならここで詳細表示などの処理を追加
+            // alert('イベント: ' + info.event.title + '\n日付: ' + info.event.start.toLocaleDateString());
+          }
+        });
 
-    // カレンダーを描画
-    calendar.render();
+        // カレンダーを描画
+        calendar.render();
+    } else {
+        console.error("Calendar element not found");
+    }
   });
 </script>
 {# ▲▲▲ スクリプト追加ここまで ▲▲▲ #}

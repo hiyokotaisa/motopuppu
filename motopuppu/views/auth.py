@@ -44,6 +44,7 @@ def miauth_callback():
         flash('無効なコールバックリクエストです (セッションIDが見つかりません)。', 'error')
         current_app.logger.error(f"Invalid callback GET parameters received (session ID missing). Args: {request.args}")
         return redirect(url_for('auth.login_page'))
+
     current_app.logger.info(f"Callback session ID received: {received_session_id}")
     expected_session_id = session.pop('miauth_session_id', None)
     if not expected_session_id or expected_session_id != received_session_id:
@@ -125,55 +126,32 @@ def login_page():
     if 'user_id' in session and get_current_user() is not None:
         return redirect(url_for('main.dashboard'))
 
-    # --- お知らせとバージョン情報の読み込み (デバッグプリント付き) ---
+    # お知らせとバージョン情報の読み込み (デバッグプリントは削除済み)
     announcements = []
-    # ▼▼▼ デバッグプリント追加 ▼▼▼
-    print("--- Entering login_page ---")
-    build_version = os.environ.get('APP_VERSION', 'N/A') # 先に取得
-    print(f"Raw APP_VERSION from env: {os.environ.get('APP_VERSION')}")
-    print(f"Assigned build_version: '{build_version}'")
-    # ▲▲▲ デバッグプリント追加 ▲▲▲
+    build_version = os.environ.get('APP_VERSION', 'N/A')
     try:
         announcement_file = os.path.join(current_app.root_path, '..', 'announcements.json')
-        # ▼▼▼ デバッグプリント追加 ▼▼▼
-        print(f"Attempting to load announcements from: {announcement_file}")
-        # ▲▲▲ デバッグプリント追加 ▲▲▲
         if os.path.exists(announcement_file):
-            print("announcements.json exists.") # DEBUG
             with open(announcement_file, 'r', encoding='utf-8') as f:
-                print("File opened successfully.") # DEBUG
                 all_announcements = json.load(f)
-                print(f"Loaded {len(all_announcements)} announcements from JSON.") # DEBUG
-                print(f"Raw announcements data: {all_announcements}") # ★JSONの中身自体をプリント★
-                # "active": true のものをフィルタリング
                 announcements = [a for a in all_announcements if a.get('active', False)]
-                print(f"Filtered {len(announcements)} active announcements.") # DEBUG
         else:
              current_app.logger.warning("announcements.json not found.")
-             print("announcements.json not found.") # DEBUG
     except FileNotFoundError:
          current_app.logger.error("announcements.json not found (FileNotFoundError).")
-         print("FileNotFoundError caught.") # DEBUG
     except PermissionError:
          current_app.logger.error("Permission denied when reading announcements.json.")
-         print("PermissionError caught.") # DEBUG
     except json.JSONDecodeError as e:
         current_app.logger.error(f"Failed to parse announcements.json: {e}")
-        print(f"JSONDecodeError caught: {e}") # DEBUG
     except Exception as e:
-        # exc_info=True でトレースバックもログに出力
         current_app.logger.error(f"An unexpected error occurred loading announcements: {e}", exc_info=True)
-        print(f"Unexpected error caught: {e}") # DEBUG
 
-    # ▼▼▼ デバッグプリント追加 ▼▼▼
-    print(f"Passing {len(announcements)} announcements to template.")
-    print(f"Passing build_version: '{build_version}' to template.")
-    # ▲▲▲ デバッグプリント追加 ▲▲▲
     return render_template('login.html',
                            announcements=announcements,
                            build_version=build_version)
 
 # --- 【開発用】ローカル管理者ログインは削除済み ---
+
 
 # --- ヘルパー関数 & デコレータ ---
 
@@ -184,38 +162,28 @@ def get_current_user():
     """
     user_id = session.get('user_id')
     if user_id is None:
-        # gオブジェクトにキャッシュがあれば削除
         if 'user' in g: del g.user
         return None
-    # gオブジェクトにキャッシュがあればそれを使う
     if 'user' in g:
         return g.user
-
-    # DBからユーザーを検索
     user = User.query.get(user_id)
     if user:
-        # 見つかったらgオブジェクトにキャッシュ
         g.user = user
-        current_app.logger.debug(f"Current user fetched from DB: {g.user}")
+        # current_app.logger.debug(f"Current user fetched from DB: {g.user}") # デバッグ時以外はコメントアウト推奨
         return g.user
     else:
-        # セッションにIDはあるがDBにユーザーがいない場合 (削除されたなど)
         current_app.logger.warning(f"User ID {user_id} found in session, but no user in DB. Clearing session.")
-        session.clear() # セッションをクリア
-        if 'user' in g: del g.user # gオブジェクトのキャッシュもクリア
+        session.clear()
+        if 'user' in g: del g.user
         return None
 
 def login_required_custom(f):
     """自作のログイン必須デコレータ"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        # g.user に現在のユーザーを設定 (存在しなければ None)
         g.user = get_current_user()
         if g.user is None:
-            # ログインしていない場合はログインページへリダイレクト
             flash('このページにアクセスするにはログインが必要です。', 'warning')
-            # nextパラメータに元のURLを渡しておくと、ログイン後に戻れて便利
             return redirect(url_for('auth.login_page', next=request.url))
-        # ログイン済みの場合は元の関数を実行
         return f(*args, **kwargs)
     return decorated_function
