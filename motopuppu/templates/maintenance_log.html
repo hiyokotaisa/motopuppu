@@ -1,7 +1,7 @@
 {# motopuppu/templates/maintenance_log.html #}
 {% extends "base.html" %}
 
-{% block title %}整備記録ログ - motopuppu{% endblock %}
+{% block title %}整備記録ログ - もとぷっぷー{% endblock %}
 
 {% block content %}
 <h2>整備記録ログ</h2>
@@ -186,7 +186,7 @@ document.addEventListener('DOMContentLoaded', function() {
             let shareText = "";
             // 車両名をハッシュタグにする (簡易エスケープ)
             const vehicleHashtag = vehicleName ? "\n#" + vehicleName.replace(/[\s#$&\+,:;=\?@\[\]\^`\{|\}~.]/g, '_') : '';
-            const baseHashtags = "\n#motopuppu"; // アプリ固有タグ
+            const baseHashtags = "\n#もとぷっぷー"; // アプリ固有タグ
 
             // 日付を見やすい形式に (任意)
             let displayDate = recordDate;

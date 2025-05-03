@@ -1,13 +1,13 @@
 {# motopuppu/templates/login.html #}
 {% extends "base.html" %} {# ベーステンプレートを継承 #}
 
-{% block title %}ログイン - motopuppu{% endblock %}
+{% block title %}ログイン - もとぷっぷー{% endblock %}
 
 {% block content %}
 <div class="container mt-5">
     <div class="row justify-content-center">
         <div class="col-md-6 col-lg-5"> {# 少し幅を調整 #}
-            <h2 class="text-center mb-4">motopuppu ログイン</h2>
+            <h2 class="text-center mb-4">もとぷっぷー ログイン</h2>
 
             {# --- フラッシュメッセージ表示 --- #}
             {% with messages = get_flashed_messages(with_categories=true) %}
