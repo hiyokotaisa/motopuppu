@@ -5,6 +5,8 @@ from flask import (
 )
 from .auth import login_required_custom, get_current_user
 from ..models import Motorcycle, FuelEntry, MaintenanceEntry # dbオブジェクトは不要
+# ▼▼▼ math モジュールをインポート ▼▼▼
+import math
 
 main_bp = Blueprint('main', __name__)
 
@@ -73,32 +75,75 @@ def dashboard():
                            recent_maintenance_entries=recent_maintenance_entries)
 
 
-# --- APIエンドポイント (変更なし) ---
+# --- APIエンドポイント (修正: extendedProps を追加) ---
 @main_bp.route('/api/dashboard/events')
 @login_required_custom
 def dashboard_events_api():
-    """ダッシュボードのFullCalendarに表示するイベントデータを返すAPI"""
+    """ダッシュボードのFullCalendarに表示するイベントデータを返すAPI (詳細情報付き)"""
     events = []
     user_motorcycle_ids = [m.id for m in Motorcycle.query.filter_by(user_id=g.user.id).all()]
+
+    # --- 給油記録 ---
     fuel_entries = FuelEntry.query.filter(FuelEntry.motorcycle_id.in_(user_motorcycle_ids)).all()
     for entry in fuel_entries:
+        # km_per_liter はプロパティなので、ここでアクセスして値を取得
+        # None の場合の処理も考慮
+        kpl = entry.km_per_liter
+        kpl_display = f"{kpl:.2f} km/L" if kpl is not None else None
+
         events.append({
             'title': f"給油: {entry.motorcycle.name}",
             'start': entry.entry_date.isoformat(),
             'url': url_for('fuel.edit_fuel', entry_id=entry.id),
-            'backgroundColor': '#198754', 'borderColor': '#198754', 'textColor': 'white'
+            'backgroundColor': '#198754',
+            'borderColor': '#198754',
+            'textColor': 'white',
+            # ▼▼▼ 詳細情報を extendedProps に追加 ▼▼▼
+            'extendedProps': {
+                'type': 'fuel', # 記録タイプを明示
+                'motorcycleName': entry.motorcycle.name,
+                'odometer': entry.odometer_reading,
+                'fuelVolume': entry.fuel_volume,
+                'kmPerLiter': kpl_display, # 計算済み/フォーマット済み燃費
+                'totalCost': math.ceil(entry.total_cost) if entry.total_cost is not None else None, # 小数点以下切り上げ (または round)
+                'stationName': entry.station_name,
+                'notes': entry.notes
+            }
+            # ▲▲▲ 追加ここまで ▲▲▲
         })
+
+    # --- 整備記録 ---
     maintenance_entries = MaintenanceEntry.query.filter(MaintenanceEntry.motorcycle_id.in_(user_motorcycle_ids)).all()
     for entry in maintenance_entries:
+        # イベントタイトル生成 (変更なし)
         event_title_base = entry.category if entry.category else entry.description
         event_title = f"整備: {event_title_base[:15]}"
         if len(event_title_base) > 15: event_title += "..."
+
+        # total_cost はプロパティ
+        total_cost = entry.total_cost
+
         events.append({
             'title': event_title,
             'start': entry.maintenance_date.isoformat(),
             'url': url_for('maintenance.edit_maintenance', entry_id=entry.id),
-            'backgroundColor': '#ffc107', 'borderColor': '#ffc107', 'textColor': 'black'
+            'backgroundColor': '#ffc107',
+            'borderColor': '#ffc107',
+            'textColor': 'black', # 文字色は黒のまま (Bootstrapのbtn-warningに準拠)
+            # ▼▼▼ 詳細情報を extendedProps に追加 ▼▼▼
+            'extendedProps': {
+                'type': 'maintenance', # 記録タイプを明示
+                'motorcycleName': entry.motorcycle.name,
+                'odometer': entry.total_distance_at_maintenance, # total_distance を使う
+                'description': entry.description,
+                'category': entry.category,
+                'totalCost': math.ceil(total_cost) if total_cost is not None else None, # 小数点以下切り上げ
+                'location': entry.location,
+                'notes': entry.notes
+            }
+            # ▲▲▲ 追加ここまで ▲▲▲
         })
+
     return jsonify(events)
 
 # --- (他のルートやエラーハンドラは省略) ---

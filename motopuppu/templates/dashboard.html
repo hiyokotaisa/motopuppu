@@ -172,48 +172,102 @@
     // カレンダーを描画する要素を取得
     var calendarEl = document.getElementById('calendar');
 
+    // ヘルパー関数: HTMLエスケープ (簡易版)
+    function escapeHtml(unsafe) {
+        if (typeof unsafe !== 'string') return unsafe; // 文字列以外はそのまま返す
+        return unsafe
+             .replace(/&/g, "&amp;")
+             .replace(/</g, "&lt;")
+             .replace(/>/g, "&gt;")
+             .replace(/"/g, "&quot;")
+             .replace(/'/g, "&#039;");
+    }
+
     if (calendarEl) { // 要素が存在する場合のみ初期化
         // FullCalendar オブジェクトを作成・設定
         var calendar = new FullCalendar.Calendar(calendarEl, {
           // --- 基本設定 ---
-          initialView: 'dayGridMonth', // 初期表示を月ビューに
-          locale: 'ja', // 日本語化
-          headerToolbar: { // ヘッダーのボタン設定
+          initialView: 'dayGridMonth',
+          locale: 'ja',
+          headerToolbar: {
             left: 'prev,next today',
             center: 'title',
-            right: 'dayGridMonth,dayGridWeek' // 月・週ビュー
+            right: 'dayGridMonth,dayGridWeek'
           },
-          buttonText: { // ボタンのテキスト
+          buttonText: {
               today:    '今日',
               month:    '月',
               week:     '週',
           },
-          contentHeight: 'auto', // 内容に合わせて高さを自動調整
+          contentHeight: 'auto',
 
           // --- イベントデータ設定 ---
-          // ▼▼▼ APIエンドポイントからデータを取得するように変更 ▼▼▼
           events: '/api/dashboard/events',
-          // ▲▲▲ 変更ここまで ▲▲▲
-
-          // ★ ダミーデータはコメントアウトまたは削除 ★
-          /*
-          events: [
-              { title: '給油 (ダミー)', start: '2025-05-01', color: '#198754' },
-              { title: '整備: オイル交換 (ダミー)', start: '2025-05-03', color: '#ffc107' }
-          ],
-          */
-
-          // eventColor: '#0d6efd', // APIから色指定があればそちらが優先される
-          eventDisplay: 'block', // イベントをブロック表示
 
           // --- イベントクリック時の動作 ---
           eventClick: function(info) {
-            info.jsEvent.preventDefault(); // リンクのデフォルト動作をキャンセル
-            // APIから渡されたURLがあれば、そのページに遷移する
+            info.jsEvent.preventDefault();
             if (info.event.url) {
               window.location.href = info.event.url;
             }
+          },
+
+          // ▼▼▼ ポップオーバー表示のための eventDidMount を追加 ▼▼▼
+          eventDidMount: function(info) {
+            // APIから extendedProps が渡されている場合のみ処理
+            if (info.event.extendedProps) {
+              var props = info.event.extendedProps; // 詳細情報
+              var popoverTitle = '';             // ポップオーバーのタイトル
+              var popoverContent = '';           // ポップオーバーの内容 (HTML)
+
+              // --- ポップオーバーの内容を生成 ---
+              // 日本語形式で日付表示 (例: 2025/5/4) - タイムゾーンに注意が必要な場合はライブラリ検討
+              var dateString = info.event.start ? info.event.start.toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' }) : '日付不明';
+
+              // 記録タイプ (type) に応じて内容を分岐
+              if (props.type === 'fuel') {
+                popoverTitle = `⛽ 給油 (${props.motorcycleName || '車両不明'})`;
+                popoverContent = `
+                  <strong>日付:</strong> ${dateString}<br>
+                  <strong>メーター:</strong> ${props.odometer != null ? props.odometer + ' km' : '未記録'}<br>
+                  <strong>給油量:</strong> ${props.fuelVolume != null ? props.fuelVolume.toFixed(2) + ' L' : '未記録'}<br>
+                  <strong>燃費:</strong> ${props.kmPerLiter || '計算不可'}<br>
+                  <strong>金額:</strong> ${props.totalCost != null ? props.totalCost + ' 円' : '未記録'}<br>
+                  <strong>スタンド:</strong> ${props.stationName || '未記録'}<br>
+                  ${props.notes ? '<hr class="my-1"><strong>メモ:</strong><br>' + escapeHtml(props.notes).replace(/\n/g, '<br>').substring(0, 150) + (props.notes.length > 150 ? '...' : '') : ''}
+                `;
+              } else if (props.type === 'maintenance') {
+                popoverTitle = `🔧 ${props.category || '整備'} (${props.motorcycleName || '車両不明'})`;
+                popoverContent = `
+                  <strong>日付:</strong> ${dateString}<br>
+                  <strong>メーター:</strong> ${props.odometer != null ? props.odometer + ' km' : '未記録'}<br>
+                  <strong>内容:</strong> ${props.description ? escapeHtml(props.description).replace(/\n/g, '<br>') : '未記録'}<br>
+                  <strong>費用:</strong> ${props.totalCost != null ? props.totalCost + ' 円' : '未記録'}<br>
+                  <strong>場所:</strong> ${props.location || '未記録'}<br>
+                  ${props.notes ? '<hr class="my-1"><strong>メモ:</strong><br>' + escapeHtml(props.notes).replace(/\n/g, '<br>').substring(0, 150) + (props.notes.length > 150 ? '...' : '') : ''}
+                `;
+              }
+
+              // --- Bootstrap Popover を初期化 ---
+              if (popoverTitle && popoverContent) {
+                 // Popoverが重複して初期化されるのを防ぐ (念のため)
+                 if (!info.el.hasAttribute('data-bs-toggle')) {
+                   var popover = new bootstrap.Popover(info.el, {
+                    title: popoverTitle,
+                    content: popoverContent,
+                    trigger: 'hover',      // マウスオーバーで表示・非表示
+                    placement: 'auto',     // 自動で最適な位置に表示
+                    boundary: 'viewport',  // 表示領域をビューポートに制限
+                    html: true,         // content 内の HTML を有効化
+                    sanitize: false,      // HTML を有効にするため false (escapeHtmlで対策)
+                    container: 'body',    // Popoverがカレンダー外に正しく表示されるように
+                    customClass: 'motopuppu-popover' // スタイル調整用のカスタムクラス (任意)
+                  });
+                 }
+              }
+            }
           }
+          // ▲▲▲ 追加ここまで ▲▲▲
         });
 
         // カレンダーを描画
