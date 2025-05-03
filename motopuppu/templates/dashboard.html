@@ -1,27 +1,18 @@
 {# motopuppu/templates/dashboard.html #}
 {% extends "base.html" %}
 
-{% block title %}ダッシュボード - もとぷっぷー{% endblock %}
+{% block title %}ダッシュボード - もとぷっぷー{% endblock %} {# アプリ名修正済み #}
 
 {% block content %}
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
     {# g.user が存在すればユーザー名を表示 #}
     <h1 class="h2">{% if g.user %}ようこそ、{{ g.user.misskey_username }}さん{% else %}ダッシュボード{% endif %}</h1>
     <div class="btn-toolbar mb-2 mb-md-0">
-         {# 機能へのリンクボタン #}
+         {# 機能へのリンクボタン (スタイル修正済み) #}
          <div class="btn-group me-2">
-             {# 給油記録を追加: 背景=緑、文字=白 (btn-success) #}
-            <a href="{{ url_for('fuel.add_fuel') }}" class="btn btn-sm btn-success">
-                <i class="fas fa-gas-pump me-1"></i> 給油記録を追加
-            </a>
-             {# 整備記録を追加: 背景=黄、文字=白 (btn-warning text-white) #}
-            <a href="{{ url_for('maintenance.add_maintenance') }}" class="btn btn-sm btn-warning text-white"> {# 元のクラス 'btn-success' から変更 #}
-                <i class="fas fa-tools me-1"></i> 整備記録を追加
-            </a>
-             {# 車両管理: 背景=水色、文字=白 (btn-info) #}
-             <a href="{{ url_for('vehicle.vehicle_list') }}" class="btn btn-sm btn-info"> {# 元のクラス 'btn-outline-info' から変更 #}
-                <i class="fas fa-motorcycle me-1"></i> 車両管理
-            </a>
+            <a href="{{ url_for('fuel.add_fuel') }}" class="btn btn-sm btn-success"><i class="fas fa-gas-pump me-1"></i> 給油記録を追加</a>
+            <a href="{{ url_for('maintenance.add_maintenance') }}" class="btn btn-sm btn-warning text-white"><i class="fas fa-tools me-1"></i> 整備記録を追加</a>
+            <a href="{{ url_for('vehicle.vehicle_list') }}" class="btn btn-sm btn-info"><i class="fas fa-motorcycle me-1"></i> 車両管理</a>
         </div>
         {# ログアウトボタン #}
         <a href="{{ url_for('auth.logout') }}" class="btn btn-sm btn-outline-secondary">ログアウト</a>
@@ -42,48 +33,35 @@
 {# --- フラッシュメッセージ表示 ここまで --- #}
 
 
-{# ▼▼▼ メンテナンス通知セクションを追加 ▼▼▼ #}
-{# 'upcoming_reminders' は dashboard 関数から渡されるリスト #}
+{# ▼▼▼ メンテナンス通知セクション (修正済み) ▼▼▼ #}
 {% if upcoming_reminders %}
-<div class="card mb-4 border-danger"> {# カードを目立たせる (warning でも可) #}
-    <div class="card-header bg-danger bg-opacity-10"> {# ヘッダーに少し色付け #}
+<div class="card mb-4 border-danger">
+    <div class="card-header bg-danger bg-opacity-10">
         <i class="fas fa-bell text-danger me-1"></i> <strong>メンテナンス通知</strong>
-        <span class="badge rounded-pill bg-danger ms-1">{{ upcoming_reminders|length }}</span> {# 件数をバッジ表示 #}
+        <span class="badge rounded-pill bg-danger ms-1">{{ upcoming_reminders|length }}</span>
     </div>
-    <div class="card-body p-0"> {# リストをカードにぴったり表示 #}
+    <div class="card-body p-0">
         <ul class="list-group list-group-flush">
             {% for reminder in upcoming_reminders %}
-                {# ステータスに応じてリストアイテムの背景色を設定 #}
                 {% set item_class = 'list-group-item-danger bg-opacity-10' if reminder.status == 'danger' else 'list-group-item-warning bg-opacity-10' %}
                 <li class="list-group-item {{ item_class }}">
-                    <div class="d-flex justify-content-between align-items-center flex-wrap"> {# レスポンシブ対応 #}
-                        {# 左側: 通知内容 #}
-                        <div class="mb-1 me-3"> {# 右側との間隔 #}
-                            {# ステータスバッジ #}
+                    <div class="d-flex justify-content-between align-items-center flex-wrap">
+                        <div class="mb-1 me-3">
                             <span class="badge bg-{{ reminder.status }} me-2 align-middle">
                                 <i class="fas {% if reminder.status == 'danger' %}fa-exclamation-triangle{% else %}fa-exclamation-circle{% endif %} fa-fw"></i>
                                 {{ '期限超過' if reminder.status == 'danger' else '時期接近' }}
                             </span>
-                            {# 車両名とタスク内容 #}
                             <strong class="align-middle">{{ reminder.motorcycle_name }}</strong>
                             <span class="align-middle"> - {{ reminder.task }}</span>
-                            {# 状況メッセージ (改行考慮) #}
                             {% if reminder.message %}
                                 <small class="d-block text-muted ms-4 ps-2 pt-1">↳ {{ reminder.message }}</small>
                             {% endif %}
                         </div>
-                        {# 右側: 詳細情報とリンク #}
                         <div class="text-end small">
                              <div class="text-muted">目安: {{ reminder.due_info if reminder.due_info else '未設定' }}</div>
                              <div class="text-muted mb-1">最終実施: {{ reminder.last_done }}</div>
-                             {# リマインダー編集へのリンクボタン #}
-                             <a href="{{ url_for('vehicle.edit_reminder', reminder_id=reminder.reminder_id) }}" class="btn btn-sm btn-outline-secondary py-0 px-1 me-1" title="リマインダー設定を編集">
-                                 <i class="fas fa-cog fa-xs"></i> 設定
-                             </a>
-                             {# 整備記録追加へのリンクボタン (任意) #}
-                              <a href="{{ url_for('maintenance.add_maintenance', motorcycle_id=reminder.motorcycle_id) }}" class="btn btn-sm btn-outline-success py-0 px-1" title="この車両の整備記録を追加">
-                                 <i class="fas fa-tools fa-xs"></i> 記録追加
-                             </a>
+                             <a href="{{ url_for('vehicle.edit_reminder', reminder_id=reminder.reminder_id) }}" class="btn btn-sm btn-outline-secondary py-0 px-1 me-1" title="リマインダー設定を編集"><i class="fas fa-cog fa-xs"></i> 設定</a>
+                             <a href="{{ url_for('maintenance.add_maintenance', motorcycle_id=reminder.motorcycle_id) }}" class="btn btn-sm btn-outline-success py-0 px-1" title="この車両の整備記録を追加"><i class="fas fa-tools fa-xs"></i> 記録追加</a>
                         </div>
                     </div>
                 </li>
@@ -91,28 +69,16 @@
         </ul>
     </div>
 </div>
-{% else %}
-{# 通知がない場合は成功メッセージを表示 (任意) #}
-{#
-<div class="alert alert-success d-flex align-items-center" role="alert">
-  <i class="fas fa-check-circle me-2"></i>
-  <div>
-    現在、注意が必要なメンテナンス項目はありません。
-  </div>
-</div>
-#}
 {% endif %}
 {# ▲▲▲ メンテナンス通知セクションここまで ▲▲▲ #}
 
 
-{# --- ダッシュボードのコンテンツ表示 (既存のカード群) --- #}
+{# --- ダッシュボードのコンテンツ表示 --- #}
 <div class="row g-4">
-    {# --- 車両一覧 --- #}
+    {# --- 車両一覧 (変更なし) --- #}
     <div class="col-md-12">
         <div class="card">
-            <div class="card-header">
-                <i class="fas fa-motorcycle me-1"></i> 登録車両
-            </div>
+            <div class="card-header"><i class="fas fa-motorcycle me-1"></i> 登録車両</div>
             <div class="card-body">
                 {% if motorcycles %}
                     <ul class="list-group list-group-flush">
@@ -124,11 +90,8 @@
                                     <small class="text-muted">({{ motorcycle.maker or 'メーカー不明' }} / {{ motorcycle.year or '年式不明' }})</small>
                                     <br>
                                     <small class="text-info">
-                                        {# 平均燃費は view 関数側で計算 #}
                                         {% if motorcycle._average_kpl is defined and motorcycle._average_kpl is not none %}
                                             <i class="fas fa-tachometer-alt me-1"></i> 平均燃費: <strong>{{"%.2f"|format(motorcycle._average_kpl)}}</strong> km/L
-                                        {% else %}
-                                            {# <i class="fas fa-info-circle me-1"></i> (平均燃費 計算不可: 記録不足) #}
                                         {% endif %}
                                     </small>
                                 </span>
@@ -140,62 +103,85 @@
                             </li>
                         {% endfor %}
                     </ul>
-                {% else %}
-                    <p class="card-text text-muted">車両が登録されていません。</p>
-                {% endif %}
-                 <div class="mt-3">
-                     <a href="{{ url_for('vehicle.add_vehicle') }}" class="btn btn-sm btn-outline-primary"><i class="fas fa-plus me-1"></i> 車両を追加</a>
-                 </div>
+                {% else %}<p class="card-text text-muted">車両が登録されていません。</p>{% endif %}
+                 <div class="mt-3"><a href="{{ url_for('vehicle.add_vehicle') }}" class="btn btn-sm btn-outline-primary"><i class="fas fa-plus me-1"></i> 車両を追加</a></div>
             </div>
         </div>
     </div>
 
-    {# --- 直近の給油記録 --- #}
+    {# --- ▼▼▼ 直近の給油記録 (フィルター追加) ▼▼▼ --- #}
     <div class="col-md-6">
         <div class="card">
-            <div class="card-header"><i class="fas fa-gas-pump me-1"></i> 直近の給油記録</div>
+            <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
+                <span class="me-2"><i class="fas fa-gas-pump me-1"></i> 直近の給油記録</span>
+                {# フィルター用フォームを追加 #}
+                <form method="GET" action="{{ url_for('main.dashboard') }}" class="d-inline-block ms-auto" style="min-width: 150px;">
+                    {# 他のフィルター（整備記録側）の値を保持 #}
+                    {% if selected_maint_vehicle_id %}
+                    <input type="hidden" name="maint_vehicle_id" value="{{ selected_maint_vehicle_id }}">
+                    {% endif %}
+                    <select name="fuel_vehicle_id" class="form-select form-select-sm" onchange="this.form.submit()" aria-label="車両で絞り込み">
+                        <option value="" {% if not selected_fuel_vehicle_id %}selected{% endif %}>すべての車両</option>
+                        {% for m in motorcycles %}
+                        <option value="{{ m.id }}" {% if selected_fuel_vehicle_id == m.id %}selected{% endif %}>{{ m.name }}</option>
+                        {% endfor %}
+                    </select>
+                </form>
+            </div>
             <div class="card-body">
-                {# recent_fuel_entries は view 関数から渡す想定 #}
                 {% if recent_fuel_entries %}
                     <ul class="list-group list-group-flush">
                         {% for entry in recent_fuel_entries %}
-                            <li class="list-group-item">
+                             <li class="list-group-item">
                                 <div class="d-flex w-100 justify-content-between">
                                     <h6 class="mb-1">{{ entry.motorcycle.name }} <small class="text-muted">@ {{ entry.odometer_reading }} km</small></h6>
                                     <small>{{ entry.entry_date.strftime('%Y-%m-%d') }}</small>
                                 </div>
                                 <p class="mb-1">
-                                    給油量: {{ entry.fuel_volume }} L
+                                    給油量: {{ "%.2f"|format(entry.fuel_volume) }} L
                                     {% if entry.km_per_liter is not none %}| 燃費: {{ "%.2f"|format(entry.km_per_liter) }} km/L{% endif %}
                                     {% if entry.total_cost is not none %}| 金額: {{ entry.total_cost|round|int }} 円{% endif %}
                                 </p>
                                 <small class="text-muted">{{ entry.station_name or 'スタンド名未記録' }}</small>
-                                <a href="{{ url_for('fuel.edit_fuel', entry_id=entry.id) }}" class="btn btn-sm btn-outline-secondary float-end"><i class="fas fa-edit"></i></a>
+                                <a href="{{ url_for('fuel.edit_fuel', entry_id=entry.id) }}" class="btn btn-sm btn-outline-secondary float-end py-0 px-1" title="編集"><i class="fas fa-edit fa-xs"></i></a>
                             </li>
                         {% endfor %}
                     </ul>
-                     <div class="mt-3">
-                         <a href="{{ url_for('fuel.fuel_log') }}" class="btn btn-sm btn-outline-secondary">全給油記録を見る</a>
-                     </div>
+                     <div class="mt-3"><a href="{{ url_for('fuel.fuel_log') }}" class="btn btn-sm btn-outline-secondary">全給油記録を見る</a></div>
                 {% else %}
-                    <p class="card-text text-muted">給油記録はまだありません。</p>
+                    <p class="card-text text-muted">
+                        {% if selected_fuel_vehicle_id %}選択された車両の直近の給油記録はありません。{% else %}給油記録はまだありません。{% endif %}
+                    </p>
                 {% endif %}
             </div>
         </div>
     </div>
+    {# ▲▲▲ 直近の給油記録ここまで ▲▲▲ #}
 
-    {# --- 直近の整備記録 --- #}
+    {# --- ▼▼▼ 直近の整備記録 (フィルター追加) ▼▼▼ --- #}
     <div class="col-md-6">
         <div class="card">
-            <div class="card-header"><i class="fas fa-tools me-1"></i> 直近の整備記録</div>
+             <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
+                 <span class="me-2"><i class="fas fa-tools me-1"></i> 直近の整備記録</span>
+                 <form method="GET" action="{{ url_for('main.dashboard') }}" class="d-inline-block ms-auto" style="min-width: 150px;">
+                     {% if selected_fuel_vehicle_id %}
+                     <input type="hidden" name="fuel_vehicle_id" value="{{ selected_fuel_vehicle_id }}">
+                     {% endif %}
+                    <select name="maint_vehicle_id" class="form-select form-select-sm" onchange="this.form.submit()" aria-label="車両で絞り込み">
+                        <option value="" {% if not selected_maint_vehicle_id %}selected{% endif %}>すべての車両</option>
+                        {% for m in motorcycles %}
+                        <option value="{{ m.id }}" {% if selected_maint_vehicle_id == m.id %}selected{% endif %}>{{ m.name }}</option>
+                        {% endfor %}
+                    </select>
+                 </form>
+            </div>
             <div class="card-body">
-                 {# recent_maintenance_entries は view 関数から渡す想定 #}
                 {% if recent_maintenance_entries %}
                     <ul class="list-group list-group-flush">
                         {% for entry in recent_maintenance_entries %}
                             <li class="list-group-item">
                                 <div class="d-flex w-100 justify-content-between">
-                                     <h6 class="mb-1">{{ entry.motorcycle.name }} <small class="text-muted">@ {{ entry.odometer_reading_at_maintenance }} km</small></h6>
+                                     <h6 class="mb-1">{{ entry.motorcycle.name }} <small class="text-muted">@ {{ entry.total_distance_at_maintenance }} km</small></h6>
                                     <small>{{ entry.maintenance_date.strftime('%Y-%m-%d') }}</small>
                                 </div>
                                 <p class="mb-1">
@@ -203,137 +189,62 @@
                                     {% if entry.total_cost %}| 費用: {{ entry.total_cost|round|int }} 円{% endif %}
                                 </p>
                                 <small class="text-muted">カテゴリ: {{ entry.category or '未分類' }}</small>
-                                <a href="{{ url_for('maintenance.edit_maintenance', entry_id=entry.id) }}" class="btn btn-sm btn-outline-secondary float-end"><i class="fas fa-edit"></i></a>
+                                <a href="{{ url_for('maintenance.edit_maintenance', entry_id=entry.id) }}" class="btn btn-sm btn-outline-secondary float-end py-0 px-1" title="編集"><i class="fas fa-edit fa-xs"></i></a>
                             </li>
                         {% endfor %}
                     </ul>
-                     <div class="mt-3">
-                         <a href="{{ url_for('maintenance.maintenance_log') }}" class="btn btn-sm btn-outline-secondary">全整備記録を見る</a>
-                     </div>
+                     <div class="mt-3"><a href="{{ url_for('maintenance.maintenance_log') }}" class="btn btn-sm btn-outline-secondary">全整備記録を見る</a></div>
                 {% else %}
-                    <p class="card-text text-muted">整備記録はまだありません。</p>
+                     <p class="card-text text-muted">
+                        {% if selected_maint_vehicle_id %}選択された車両の直近の整備記録はありません。{% else %}整備記録はまだありません。{% endif %}
+                    </p>
                 {% endif %}
             </div>
         </div>
     </div>
+    {# ▲▲▲ 直近の整備記録ここまで ▲▲▲ #}
 
 </div>{# End row #}
 
-{# --- カレンダー表示用のコンテナ --- #}
+{# --- カレンダー表示用のコンテナ (変更なし) --- #}
 <div class="mt-4 pt-4 border-top">
     <h2>記録カレンダー</h2>
-    <div id='calendar'></div> {# ここにカレンダーが描画される #}
+    <div id='calendar'></div>
 </div>
 
 {% endblock %}
 
-{# --- JavaScript --- #}
+{# --- JavaScript (変更なし) --- #}
 {% block scripts %}
-{{ super() }} {# base.html の scripts ブロックの内容を引き継ぐ #}
+{{ super() }}
 <script>
   document.addEventListener('DOMContentLoaded', function() {
-    // カレンダーを描画する要素を取得
     var calendarEl = document.getElementById('calendar');
-
-    // ヘルパー関数: HTMLエスケープ (簡易版)
-    function escapeHtml(unsafe) {
-        if (typeof unsafe !== 'string') return unsafe; // 文字列以外はそのまま返す
-        return unsafe
-             .replace(/&/g, "&amp;")
-             .replace(/</g, "&lt;")
-             .replace(/>/g, "&gt;")
-             .replace(/"/g, "&quot;")
-             .replace(/'/g, "&#039;");
-    }
-
-    if (calendarEl) { // 要素が存在する場合のみ初期化
-        // FullCalendar オブジェクトを作成・設定
+    function escapeHtml(unsafe) { if (typeof unsafe !== 'string') return unsafe; return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;"); }
+    if (calendarEl) {
         var calendar = new FullCalendar.Calendar(calendarEl, {
-          // --- 基本設定 ---
-          initialView: 'dayGridMonth', // 初期表示は月ビュー
-          locale: 'ja',
-          headerToolbar: {
-            left: 'prev,next today',
-            center: 'title',
-            right: 'dayGridMonth,dayGridWeek,listMonth' // リストビューボタン追加済み
-          },
-          buttonText: {
-              today:    '今日',
-              month:    '月',
-              week:     '週',
-              list:     'リスト(月)' // リストビューボタンテキスト
-          },
-          contentHeight: 'auto', // 内容に合わせて高さを自動調整
-
-          // --- イベントデータ設定 ---
-          events: '/api/dashboard/events', // APIからデータを取得
-
-          // --- イベントクリック時の動作 ---
-          eventClick: function(info) {
-            info.jsEvent.preventDefault(); // リンクのデフォルト動作をキャンセル
-            if (info.event.url) {
-              window.location.href = info.event.url; // URLがあれば遷移
-            }
-          },
-
-          // --- ポップオーバー表示のための eventDidMount ---
+          initialView: 'dayGridMonth', locale: 'ja',
+          headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,dayGridWeek,listMonth' },
+          buttonText: { today: '今日', month: '月', week: '週', list: 'リスト(月)' },
+          contentHeight: 'auto', events: '/api/dashboard/events',
+          eventClick: function(info) { info.jsEvent.preventDefault(); if (info.event.url) { window.location.href = info.event.url; } },
           eventDidMount: function(info) {
-            // (ここは前回の修正のまま変更なし)
             if (info.event.extendedProps) {
-              var props = info.event.extendedProps;
-              var popoverTitle = '';
-              var popoverContent = '';
-              // 日本語形式で日付表示
+              var props = info.event.extendedProps; var popoverTitle = ''; var popoverContent = '';
               var dateString = info.event.start ? info.event.start.toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' }) : '日付不明';
-
-              if (props.type === 'fuel') {
-                popoverTitle = `⛽ 給油 (${props.motorcycleName || '車両不明'})`;
-                popoverContent = `
-                  <strong>日付:</strong> ${dateString}<br>
-                  <strong>メーター:</strong> ${props.odometer != null ? props.odometer + ' km' : '未記録'}<br>
-                  <strong>給油量:</strong> ${props.fuelVolume != null ? props.fuelVolume.toFixed(2) + ' L' : '未記録'}<br>
-                  <strong>燃費:</strong> ${props.kmPerLiter || '計算不可'}<br>
-                  <strong>金額:</strong> ${props.totalCost != null ? props.totalCost + ' 円' : '未記録'}<br>
-                  <strong>スタンド:</strong> ${props.stationName || '未記録'}<br>
-                  ${props.notes ? '<hr class="my-1"><strong>メモ:</strong><br>' + escapeHtml(props.notes).replace(/\n/g, '<br>').substring(0, 150) + (props.notes.length > 150 ? '...' : '') : ''}
-                `;
-              } else if (props.type === 'maintenance') {
-                popoverTitle = `🔧 ${props.category || '整備'} (${props.motorcycleName || '車両不明'})`;
-                popoverContent = `
-                  <strong>日付:</strong> ${dateString}<br>
-                  <strong>メーター:</strong> ${props.odometer != null ? props.odometer + ' km' : '未記録'}<br>
-                  <strong>内容:</strong> ${props.description ? escapeHtml(props.description).replace(/\n/g, '<br>') : '未記録'}<br>
-                  <strong>費用:</strong> ${props.totalCost != null ? props.totalCost + ' 円' : '未記録'}<br>
-                  <strong>場所:</strong> ${props.location || '未記録'}<br>
-                  ${props.notes ? '<hr class="my-1"><strong>メモ:</strong><br>' + escapeHtml(props.notes).replace(/\n/g, '<br>').substring(0, 150) + (props.notes.length > 150 ? '...' : '') : ''}
-                `;
-              }
-
-              if (popoverTitle && popoverContent) {
+              // (Popover 内容生成の詳細は省略 - 前の回答と同じ)
+              if (props.type === 'fuel') { popoverTitle = `⛽ 給油 (${props.motorcycleName||'車両不明'})`; popoverContent = `<strong>日付:</strong> ${dateString}<br><strong>メーター:</strong> ${props.odometer!=null?props.odometer+' km':'未記録'}<br><strong>給油量:</strong> ${props.fuelVolume!=null?props.fuelVolume.toFixed(2)+' L':'未記録'}<br><strong>燃費:</strong> ${props.kmPerLiter||'計算不可'}<br><strong>金額:</strong> ${props.totalCost!=null?props.totalCost+' 円':'未記録'}<br><strong>スタンド:</strong> ${props.stationName||'未記録'}<br>${props.notes?'<hr class="my-1"><strong>メモ:</strong><br>'+escapeHtml(props.notes).replace(/\n/g,'<br>').substring(0,150)+(props.notes.length>150?'...':''):''}`; }
+              else if (props.type === 'maintenance') { popoverTitle = `🔧 ${props.category||'整備'} (${props.motorcycleName||'車両不明'})`; popoverContent = `<strong>日付:</strong> ${dateString}<br><strong>メーター:</strong> ${props.odometer!=null?props.odometer+' km':'未記録'}<br><strong>内容:</strong> ${props.description?escapeHtml(props.description).replace(/\n/g,'<br>'):'未記録'}<br><strong>費用:</strong> ${props.totalCost!=null?props.totalCost+' 円':'未記録'}<br><strong>場所:</strong> ${props.location||'未記録'}<br>${props.notes?'<hr class="my-1"><strong>メモ:</strong><br>'+escapeHtml(props.notes).replace(/\n/g,'<br>').substring(0,150)+(props.notes.length>150?'...':''):''}`; }
+               if (popoverTitle && popoverContent) {
                  if (!info.el.hasAttribute('data-bs-toggle')) {
-                   var popover = new bootstrap.Popover(info.el, {
-                    title: popoverTitle,
-                    content: popoverContent,
-                    trigger: 'hover',
-                    placement: 'auto',
-                    boundary: 'viewport',
-                    html: true,
-                    sanitize: false,
-                    container: 'body',
-                    customClass: 'motopuppu-popover'
-                  });
+                   var popover = new bootstrap.Popover(info.el, { title: popoverTitle, content: popoverContent, trigger: 'hover', placement: 'auto', boundary: 'viewport', html: true, sanitize: false, container: 'body', customClass: 'motopuppu-popover' });
                  }
               }
             }
-          } // End eventDidMount
-
-        }); // End FullCalendar.Calendar initialization
-
-        // カレンダーを描画
+          }
+        });
         calendar.render();
-    } else {
-        console.error("Calendar element not found");
-    }
+    } else { console.error("Calendar element not found"); }
   });
 </script>
 {% endblock %}
