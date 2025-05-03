@@ -3,7 +3,7 @@
 
 {% block title %}ダッシュボード - もとぷっぷー{% endblock %} {# アプリ名修正済み #}
 
-{# ▼▼▼ 正しい位置にCSSを追加 ▼▼▼ #}
+{# ▼▼▼ headブロックに今日のハイライト用CSSを追加 ▼▼▼ #}
 {% block head %}
 {{ super() }} {# base.html の head ブロックを引き継ぐ場合 #}
 <style>
@@ -16,9 +16,24 @@
         background-color: #fff0f0; /* seashell */
         border-radius: 2px;
     }
+
+    /* 今日の日付をハイライト */
+    .fc .fc-day-today .fc-daygrid-day-frame { /* 今日の日付のセル内の背景要素 */
+      background-color: #fffacd; /* lightyellow - 薄い黄色 */
+      border-radius: 3px; /* 角丸 (任意) */
+    }
+    /* 今日の日付の数字を太字に */
+    .fc .fc-day-today .fc-daygrid-day-number {
+        font-weight: bold;
+    }
+
     /* 日付が見えるように調整 */
     .fc-daygrid-day-top { position: relative; z-index: 1; }
-    .fc-day-sat a, .fc-day-sun a { color: inherit; text-decoration: none; }
+    /* 土日・今日の日付がリンク色にならないように */
+    .fc-day-sat a, .fc-day-sun a, .fc-day-today a {
+        color: inherit; /* 親要素の色を継承 */
+        text-decoration: none;
+    }
 </style>
 {% endblock %}
 {# ▲▲▲ headブロックここまで ▲▲▲ #}
@@ -94,7 +109,7 @@
 {# ▲▲▲ メンテナンス通知セクションここまで ▲▲▲ #}
 
 
-{# ▼▼▼ 統計情報サマリーカード (変更なし、位置は通知の下) ▼▼▼ #}
+{# ▼▼▼ 統計情報サマリーカード (変更なし) ▼▼▼ #}
 {% if dashboard_stats %}
 <div class="card mb-4">
     <div class="card-header">
@@ -164,6 +179,23 @@
 </div>{# End row #}
 
 
+{# ▼▼▼ 統計情報サマリーカード (カレンダーの上に移動済み) ▼▼▼ #}
+{% if dashboard_stats %}
+<div class="card my-4">
+    <div class="card-header"> <i class="fas fa-chart-line me-1"></i> <strong>統計情報サマリー</strong> </div>
+    <div class="card-body">
+        <div class="row text-center">
+            <div class="col-md-3 col-6 mb-3 mb-md-0"> <h6 class="card-title text-muted small">総走行距離</h6> {% if dashboard_stats.default_vehicle_name %} <p class="card-text fs-4 fw-bold mb-0">{{ "{:,.0f}".format(dashboard_stats.total_distance | int) }} km</p> <small class="text-muted">({{ dashboard_stats.default_vehicle_name }})</small> {% else %} <p class="card-text fs-4 fw-bold mb-0">-</p> <small class="text-muted">(車両未登録)</small> {% endif %} </div>
+            <div class="col-md-3 col-6 mb-3 mb-md-0"> <h6 class="card-title text-muted small">平均燃費</h6> {% if dashboard_stats.average_kpl is not none %} <p class="card-text fs-4 fw-bold mb-0">{{ "%.2f"|format(dashboard_stats.average_kpl) }} km/L</p> <small class="text-muted">({{ dashboard_stats.default_vehicle_name }})</small> {% else %} <p class="card-text fs-4 fw-bold mb-0">-</p> <small class="text-muted">(計算不可)</small> {% endif %} </div>
+            <div class="col-md-3 col-6"> <h6 class="card-title text-muted small">累計 給油費用</h6> <p class="card-text fs-4 fw-bold mb-0">{{ "{:,.0f}".format(dashboard_stats.total_fuel_cost | int) }} 円</p> <small class="text-muted">(全車両)</small> </div>
+            <div class="col-md-3 col-6"> <h6 class="card-title text-muted small">累計 整備費用</h6> <p class="card-text fs-4 fw-bold mb-0">{{ "{:,.0f}".format(dashboard_stats.total_maint_cost | int) }} 円</p> <small class="text-muted">(全車両)</small> </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{# ▲▲▲ 統計情報サマリーカードここまで ▲▲▲ #}
+
+
 {# --- カレンダー表示用のコンテナ (変更なし) --- #}
 <div class="mt-4 pt-4 border-top">
     <h2>記録カレンダー</h2>
@@ -173,7 +205,7 @@
 {% endblock %} {# メインコンテンツブロック終了 #}
 
 
-{# --- JavaScript (日付表示修正済み) --- #}
+{# --- JavaScript (カレンダー日付・土日表示修正済み) --- #}
 {% block scripts %}
 {{ super() }}
 <script>
@@ -211,4 +243,36 @@
 </script>
 {% endblock %} {# scriptsブロック終了 #}
 
-{# 末尾に不要な head ブロックがないことを確認 #}
+
+{# ▼▼▼ カレンダー土日・今日ハイライト用CSS ▼▼▼ #}
+{% block head %}
+{{ super() }} {# base.html の head ブロックを引き継ぐ場合 #}
+<style>
+    /* FullCalendar 土曜日・日曜日の背景色 */
+    .fc-day-sat .fc-daygrid-day-frame { /* 土曜日 */
+        background-color: #f0f8ff; /* aliceblue */
+        border-radius: 2px;
+    }
+    .fc-day-sun .fc-daygrid-day-frame { /* 日曜日 */
+        background-color: #fff0f0; /* seashell */
+        border-radius: 2px;
+    }
+    /* 今日の日付をハイライト */
+    .fc .fc-day-today .fc-daygrid-day-frame {
+      background-color: #fffacd; /* lightyellow */
+      border-radius: 3px;
+    }
+    /* 今日の日付の数字を太字に */
+    .fc .fc-day-today .fc-daygrid-day-number {
+        font-weight: bold;
+    }
+    /* 日付が見えるように調整 */
+    .fc-daygrid-day-top { position: relative; z-index: 1; }
+    /* 土日・今日の日付がリンク色にならないように */
+    .fc-day-sat a, .fc-day-sun a, .fc-day-today a {
+        color: inherit; /* 親要素の色を継承 */
+        text-decoration: none;
+    }
+</style>
+{% endblock %}
+{# ▲▲▲ headブロックここまで ▲▲▲ #}
