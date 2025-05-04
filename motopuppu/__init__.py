@@ -1,11 +1,12 @@
 # motopuppu/__init__.py
 import os
-import datetime
+import datetime # datetime.datetime を使うためにインポート
 import click
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
 from flask_migrate import Migrate
+# from flask_wtf.csrf import CSRFProtect # Flask-WTF導入時にコメント解除
 
 # .envファイルから環境変数を読み込む
 dotenv_path = os.path.join(os.path.dirname(__file__), '..', '.env')
@@ -17,6 +18,7 @@ else:
 
 db = SQLAlchemy()
 migrate = Migrate()
+# csrf = CSRFProtect() # Flask-WTF導入時にコメント解除
 
 def create_app(config_name=None):
     """Flaskアプリケーションインスタンスを作成するファクトリ関数"""
@@ -35,6 +37,8 @@ def create_app(config_name=None):
         ENV=os.environ.get('FLASK_ENV', 'production'),
         FUEL_ENTRIES_PER_PAGE = int(os.environ.get('FUEL_ENTRIES_PER_PAGE', 20)),
         MAINTENANCE_ENTRIES_PER_PAGE = int(os.environ.get('MAINTENANCE_ENTRIES_PER_PAGE', 20)),
+        # ▼▼▼ notes用設定も追加可能 (任意) ▼▼▼
+        NOTES_PER_PAGE = int(os.environ.get('NOTES_PER_PAGE', 20)),
     )
     print(f"Database URI: {app.config['SQLALCHEMY_DATABASE_URI']}")
     if app.config['SECRET_KEY'] == 'dev-secret-key-replace-me':
@@ -43,49 +47,63 @@ def create_app(config_name=None):
     # --- 拡張機能の初期化 ---
     db.init_app(app)
     migrate.init_app(app, db)
+    # csrf.init_app(app) # Flask-WTF導入時にコメント解除
     # (他のFlask拡張機能もここで初期化)
 
     # --- ルート (Blueprints) の登録 ---
     try:
-        from .views import auth, main, vehicle, fuel, maintenance
+        # ▼▼▼ notes をインポートに追加 ▼▼▼
+        from .views import auth, main, vehicle, fuel, maintenance, notes
         app.register_blueprint(auth.auth_bp)
         app.register_blueprint(main.main_bp)
         app.register_blueprint(vehicle.vehicle_bp)
         app.register_blueprint(fuel.fuel_bp)
         app.register_blueprint(maintenance.maintenance_bp)
-        print("Registered blueprints: auth, main, vehicle, fuel, maintenance")
+        # ▼▼▼ notes_bp を登録 ▼▼▼
+        app.register_blueprint(notes.notes_bp)
+        # ▼▼▼ print文も更新 ▼▼▼
+        print("Registered blueprints: auth, main, vehicle, fuel, maintenance, notes")
     except ImportError as e:
         print(f"Error importing or registering blueprints: {e}")
 
-    # --- テスト用ルート (任意) ---
+    # --- テスト用ルート (変更なし) ---
     @app.route('/hello_world_test')
     def hello_world_test():
         key_status = "Set" if app.config.get('SECRET_KEY') != 'dev-secret-key-replace-me' else "Not Set or Default!"
         return f"Hello from Flask! SECRET_KEY Status: {key_status}"
 
-    # --- コンテキストプロセッサ ---
+    # --- コンテキストプロセッサ (app_version を追加) ---
     @app.context_processor
-    def inject_current_year():
-        return {'current_year': datetime.datetime.now().year}
+    def inject_global_variables(): # 関数名を変更 (任意)
+        # Renderが設定するGitコミットハッシュを取得
+        commit_hash = os.environ.get('RENDER_GIT_COMMIT')
+        # 表示用に短いハッシュ(7文字)を使う。なければ 'local' とする
+        display_version = commit_hash[:7] if commit_hash else 'local'
+        return {
+            'current_year': datetime.datetime.now().year,
+            'app_version': display_version # 全テンプレートで app_version を使えるようにする
+            }
 
     # --- アプリケーションコンテキスト (flask shell用) ---
     @app.shell_context_processor
     def make_shell_context():
-        from .models import db, User, Motorcycle, FuelEntry, MaintenanceEntry, ConsumableLog, MaintenanceReminder, Attachment
+        # ▼▼▼ GeneralNote を追加 ▼▼▼
+        from .models import db, User, Motorcycle, FuelEntry, MaintenanceEntry, ConsumableLog, MaintenanceReminder, Attachment, GeneralNote
         return {
             'db': db, 'User': User, 'Motorcycle': Motorcycle, 'FuelEntry': FuelEntry,
             'MaintenanceEntry': MaintenanceEntry, 'ConsumableLog': ConsumableLog,
-            'MaintenanceReminder': MaintenanceReminder, 'Attachment': Attachment
+            'MaintenanceReminder': MaintenanceReminder, 'Attachment': Attachment,
+            'GeneralNote': GeneralNote # GeneralNote をシェルコンテキストに追加
         }
 
-    # --- instanceフォルダの作成 (存在しない場合) ---
+    # --- instanceフォルダの作成 (変更なし) ---
     try:
         os.makedirs(app.instance_path)
         print(f"Instance folder checked/created at: {app.instance_path}")
     except OSError:
         pass
 
-    # --- ▼▼▼ DB初期化コマンド (管理者作成ロジック削除) ▼▼▼ ---
+    # --- DB初期化コマンド (変更なし) ---
     @app.cli.command("init-db")
     def init_db_command():
         """データベーステーブルを作成します。(Flask-Migrate管理下では通常 flask db upgrade を使用)"""
@@ -93,20 +111,15 @@ def create_app(config_name=None):
         try:
             with app.app_context():
                 from .models import db # dbオブジェクトのみ必要
-                # db.drop_all() # 必要なら既存テーブルを削除
-                # click.echo("Dropped existing tables.")
                 db.create_all() # テーブルを作成
             click.echo("Database tables initialized successfully (if they didn't exist).")
         except Exception as e:
             try:
-                # コンテキストが必要な場合があるため
-                with app.app_context():
-                     db.session.rollback()
-            except Exception as rb_exc:
-                 click.echo(f"Additionally, an error occurred during rollback: {rb_exc}", err=True)
+                with app.app_context(): db.session.rollback()
+            except Exception as rb_exc: click.echo(f"Additionally, an error occurred during rollback: {rb_exc}", err=True)
             click.echo(f"Error initializing database tables: {e}", err=True)
             print(f"[ERROR] Error initializing database tables: {e}")
-    # --- ▲▲▲ コマンドここまで ▲▲▲ ---
+    # --- コマンドここまで ---
 
     # --- アプリケーションインスタンスを返す ---
     print("create_app finished.")
