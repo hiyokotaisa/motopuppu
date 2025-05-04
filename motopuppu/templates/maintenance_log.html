@@ -63,17 +63,45 @@
 {% if entries %}
 <div class="table-responsive">
     <table class="table table-striped table-hover table-sm">
+        {# --- ▼▼▼ テーブルヘッダーをソート対応に修正 ▼▼▼ --- #}
         <thead>
             <tr>
-                <th>日付</th>
-                <th>車両</th>
-                <th>ODO (km)</th>
-                <th>内容</th>
-                <th>カテゴリ</th>
-                <th>費用 (円)</th>
+                {# ソート用マクロを定義 (fuel_log.html からコピー、必要に応じて修正) #}
+                {% macro sortable_th(sort_key, display_text, current_sort, current_order, request_args) %}
+                    {% set current_request_args = request_args.copy() %}
+                    {% set sort_order = 'asc' %}
+                    {% set sort_icon = '<i class="fas fa-sort fa-fw text-muted ms-1"></i>' %} {# デフォルトアイコン #}
+                    {% if current_sort == sort_key %}
+                        {# 現在ソート中のカラムの場合 #}
+                        {% if current_order == 'asc' %}
+                            {% set sort_order = 'desc' %} {# 次回は降順 #}
+                            {% set sort_icon = '<i class="fas fa-sort-up fa-fw ms-1"></i>' %} {# 現在昇順アイコン #}
+                        {% else %}
+                            {# current_order == 'desc' #}
+                            {% set sort_order = 'asc' %} {# 次回は昇順 #}
+                            {% set sort_icon = '<i class="fas fa-sort-down fa-fw ms-1"></i>' %} {# 現在降順アイコン #}
+                        {% endif %}
+                    {% endif %}
+                    {# ソートパラメータとページ番号をリセットしてURLを生成 #}
+                    {% set _ = current_request_args.update({'sort_by': sort_key, 'order': sort_order, 'page': 1}) %}
+                    <th>
+                        <a href="{{ url_for('maintenance.maintenance_log', **current_request_args) }}" class="text-decoration-none text-dark">
+                            {{ display_text|safe }}{{ sort_icon|safe }}
+                        </a>
+                    </th>
+                {% endmacro %}
+
+                {# 各ヘッダーにソート用マクロを適用 #}
+                {{ sortable_th('date', '日付', current_sort_by, current_order, request_args) }}
+                {{ sortable_th('vehicle', '車両', current_sort_by, current_order, request_args) }}
+                {{ sortable_th('odo', 'ODO (km)', current_sort_by, current_order, request_args) }}
+                <th>内容</th> {# 内容はソート対象外 #}
+                {{ sortable_th('category', 'カテゴリ', current_sort_by, current_order, request_args) }}
+                <th>費用 (円)</th> {# 費用はソート対象外 #}
                 <th>操作</th>
             </tr>
         </thead>
+         {# --- ▲▲▲ テーブルヘッダー修正ここまで ▲▲▲ --- #}
         <tbody>
             {% for entry in entries %}
             <tr>
@@ -99,7 +127,7 @@
                     <form action="{{ url_for('maintenance.delete_maintenance', entry_id=entry.id) }}" method="POST" class="d-inline" onsubmit="return confirm('この整備記録を削除してもよろしいですか？');">
                         <button type="submit" class="btn btn-sm btn-outline-danger" title="削除"><i class="fas fa-trash fa-fw"></i></button>
                     </form>
-                     {# ▼▼▼ Misskey共有ボタンを追加 ▼▼▼ #}
+                     {# ▼▼▼ Misskey共有ボタン (変更なし) ▼▼▼ #}
                     <button class="btn btn-sm btn-info btn-share-misskey ms-1"
                             data-type="maintenance"
                             data-vehicle-name="{{ entry.motorcycle.name }}"
@@ -120,24 +148,30 @@
     </table>
 </div>
 
-{# --- ページネーション (既存のものを想定) --- #}
+{# --- ページネーション (ソートパラメータを含めるように修正) --- #}
 {% if pagination and pagination.pages > 1 %}
 <nav aria-label="Page navigation">
     <ul class="pagination justify-content-center">
         <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
-            <a class="page-link" href="{{ url_for('maintenance.maintenance_log', page=pagination.prev_num, **request_args) }}">&laquo;</a>
+            {# ▼▼▼ url_for に現在のソートパラメータを追加 ▼▼▼ #}
+            <a class="page-link" href="{{ url_for('maintenance.maintenance_log', page=pagination.prev_num, sort_by=current_sort_by, order=current_order, **request_args) }}" aria-label="Previous">&laquo;</a>
+             {# ▲▲▲ 追加ここまで ▲▲▲ #}
         </li>
         {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
             {% if page_num %}
                 <li class="page-item {% if page_num == pagination.page %}active{% endif %}">
-                    <a class="page-link" href="{{ url_for('maintenance.maintenance_log', page=page_num, **request_args) }}">{{ page_num }}</a>
+                    {# ▼▼▼ url_for に現在のソートパラメータを追加 ▼▼▼ #}
+                    <a class="page-link" href="{{ url_for('maintenance.maintenance_log', page=page_num, sort_by=current_sort_by, order=current_order, **request_args) }}">{{ page_num }}</a>
+                    {# ▲▲▲ 追加ここまで ▲▲▲ #}
                 </li>
             {% else %}
                 <li class="page-item disabled"><span class="page-link">...</span></li>
             {% endif %}
         {% endfor %}
         <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
-            <a class="page-link" href="{{ url_for('maintenance.maintenance_log', page=pagination.next_num, **request_args) }}">&raquo;</a>
+            {# ▼▼▼ url_for に現在のソートパラメータを追加 ▼▼▼ #}
+            <a class="page-link" href="{{ url_for('maintenance.maintenance_log', page=pagination.next_num, sort_by=current_sort_by, order=current_order, **request_args) }}" aria-label="Next">&raquo;</a>
+            {# ▲▲▲ 追加ここまで ▲▲▲ #}
         </li>
     </ul>
 </nav>
@@ -160,7 +194,7 @@
 {% endblock %}
 
 
-{# --- JavaScript --- #}
+{# --- JavaScript (変更なし) --- #}
 {% block scripts %}
 {{ super() }} {# base.html のスクリプトを継承 #}
 <script>
@@ -179,7 +213,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const dataset = this.dataset;
             const recordType = dataset.type; // 'fuel' or 'maintenance'
             const vehicleName = dataset.vehicleName;
-            const recordDate = dataset.date; // YYYY-MM-DD形式
+            const recordDate = dataset.date; //YYYY-MM-DD形式
             const odo = dataset.odo;
             const cost = dataset.cost;
 

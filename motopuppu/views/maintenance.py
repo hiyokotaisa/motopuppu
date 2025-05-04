@@ -1,20 +1,18 @@
-# motopuppu/views/maintenance.py
 from flask import (
     Blueprint, flash, g, redirect, render_template, request, url_for, abort, current_app
 )
-from datetime import date, datetime # datetime もインポート
-from sqlalchemy import or_ # or_ をインポート (キーワード検索用)
+from datetime import date, datetime
+from sqlalchemy import or_, asc, desc # asc, desc をインポート
 
 # ログイン必須デコレータと現在のユーザー取得関数をインポート
 from .auth import login_required_custom, get_current_user
 # データベースモデル(Motorcycle, MaintenanceEntry, MaintenanceReminder)とdbオブジェクトをインポート
-# ▼▼▼ MaintenanceReminder をインポートに追加 ▼▼▼
 from ..models import db, Motorcycle, MaintenanceEntry, MaintenanceReminder
 
 # 'maintenance' という名前でBlueprintオブジェクトを作成、URLプレフィックスを設定
 maintenance_bp = Blueprint('maintenance', __name__, url_prefix='/maintenance')
 
-# --- ▼▼▼ ヘルパー関数: リマインダーの最終実施記録を更新 ▼▼▼ ---
+# --- ▼▼▼ ヘルパー関数: リマインダーの最終実施記録を更新 (変更なし) ▼▼▼ ---
 def _update_reminder_last_done(maintenance_entry: MaintenanceEntry):
     """
     指定された整備記録に基づいて、対応するリマインダーの
@@ -101,36 +99,104 @@ def _update_reminder_last_done(maintenance_entry: MaintenanceEntry):
 @maintenance_bp.route('/')
 @login_required_custom
 def maintenance_log():
-    """整備記録の一覧を表示 (フィルター機能付き)"""
-    # (変更なし)
-    start_date_str = request.args.get('start_date'); end_date_str = request.args.get('end_date')
-    vehicle_id_str = request.args.get('vehicle_id'); category_filter = request.args.get('category', '').strip()
-    keyword = request.args.get('q', '').strip(); page = request.args.get('page', 1, type=int)
+    """整備記録の一覧を表示 (フィルター・ソート機能付き)"""
+    start_date_str = request.args.get('start_date')
+    end_date_str = request.args.get('end_date')
+    vehicle_id_str = request.args.get('vehicle_id')
+    category_filter = request.args.get('category', '').strip()
+    keyword = request.args.get('q', '').strip()
+    # ▼▼▼ ソートパラメータを追加 ▼▼▼
+    sort_by = request.args.get('sort_by', 'date') # デフォルトは日付
+    order = request.args.get('order', 'desc') # デフォルトは降順
+    # ▲▲▲ 追加ここまで ▲▲▲
+    page = request.args.get('page', 1, type=int)
     per_page = current_app.config.get('MAINTENANCE_ENTRIES_PER_PAGE', 20)
+
     user_motorcycles = Motorcycle.query.filter_by(user_id=g.user.id).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
     user_motorcycle_ids = [m.id for m in user_motorcycles]
-    query = MaintenanceEntry.query.filter(MaintenanceEntry.motorcycle_id.in_(user_motorcycle_ids))
+
+    # クエリにMotorcycleをJoinしておく (車両名でのソートに必要)
+    query = db.session.query(MaintenanceEntry).join(Motorcycle).filter(MaintenanceEntry.motorcycle_id.in_(user_motorcycle_ids))
+
+    # テンプレートに渡すための現在のリクエストパラメータ (ページネーション、ソートを除く)
     request_args_dict = request.args.to_dict()
+    request_args_dict.pop('page', None)
+    request_args_dict.pop('sort_by', None)
+    request_args_dict.pop('order', None)
+
+    # フィルター適用 (変更なし)
     try:
         if start_date_str: query = query.filter(MaintenanceEntry.maintenance_date >= date.fromisoformat(start_date_str))
         else: request_args_dict.pop('start_date', None)
         if end_date_str: query = query.filter(MaintenanceEntry.maintenance_date <= date.fromisoformat(end_date_str))
         else: request_args_dict.pop('end_date', None)
-    except ValueError: flash('日付の形式が無効です。YYYY-MM-DD形式で入力してください。', 'warning'); request_args_dict.pop('start_date', None); request_args_dict.pop('end_date', None)
+    except ValueError:
+        flash('日付の形式が無効です。YYYY-MM-DD形式で入力してください。', 'warning')
+        request_args_dict.pop('start_date', None)
+        request_args_dict.pop('end_date', None)
+
     if vehicle_id_str:
         try:
             vehicle_id = int(vehicle_id_str)
             if vehicle_id in user_motorcycle_ids: query = query.filter(MaintenanceEntry.motorcycle_id == vehicle_id)
             else: flash('選択された車両は有効ではありません。', 'warning'); request_args_dict.pop('vehicle_id', None)
-        except ValueError: request_args_dict.pop('vehicle_id', None)
-    else: request_args_dict.pop('vehicle_id', None)
+        except ValueError:
+            request_args_dict.pop('vehicle_id', None)
+    else:
+        request_args_dict.pop('vehicle_id', None)
+
     if category_filter: query = query.filter(MaintenanceEntry.category.ilike(f'%{category_filter}%'))
     else: request_args_dict.pop('category', None)
+
     if keyword: query = query.filter(or_(MaintenanceEntry.description.ilike(f'%{keyword}%'), MaintenanceEntry.location.ilike(f'%{keyword}%'), MaintenanceEntry.notes.ilike(f'%{keyword}%')))
     else: request_args_dict.pop('q', None)
-    pagination = query.order_by(MaintenanceEntry.maintenance_date.desc(), MaintenanceEntry.total_distance_at_maintenance.desc()).paginate(page=page, per_page=per_page, error_out=False)
+
+    # ▼▼▼ ソート処理を追加 ▼▼▼
+    # ソート対象カラムのマッピング
+    sort_column_map = {
+        'date': MaintenanceEntry.maintenance_date,
+        'vehicle': Motorcycle.name,
+        'odo': MaintenanceEntry.total_distance_at_maintenance,
+        'category': MaintenanceEntry.category,
+        # total_cost はプロパティなのでサーバーサイドソート対象外とする
+    }
+
+    # 無効なソートキーの場合はデフォルトに戻す
+    current_sort_by = sort_by if sort_by in sort_column_map else 'date'
+    sort_column = sort_column_map.get(current_sort_by, MaintenanceEntry.maintenance_date) # デフォルト
+
+    # 無効な順序の場合はデフォルトに戻す
+    current_order = 'desc' if order == 'desc' else 'asc'
+    sort_modifier = desc if current_order == 'desc' else asc
+
+    # クエリにソート条件を適用
+    query = query.order_by(sort_modifier(sort_column))
+
+    # 同じ日付や同じODOの場合は、IDなどで安定ソート (任意だが推奨)
+    if current_sort_by == 'date':
+         query = query.order_by(sort_modifier(MaintenanceEntry.maintenance_date), desc(MaintenanceEntry.total_distance_at_maintenance)) # 日付が同じならODO降順
+    elif current_sort_by == 'odo':
+         query = query.order_by(sort_modifier(MaintenanceEntry.total_distance_at_maintenance), desc(MaintenanceEntry.maintenance_date)) # ODOが同じなら日付降順
+    elif current_sort_by == 'vehicle' or current_sort_by == 'category':
+        # 車両名やカテゴリが同じ場合は日付降順
+        query = query.order_by(sort_modifier(sort_column), desc(MaintenanceEntry.maintenance_date))
+
+    # ▲▲▲ ソート処理追加ここまで ▲▲▲
+
+
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
     entries = pagination.items
-    return render_template('maintenance_log.html', entries=entries, pagination=pagination, motorcycles=user_motorcycles, request_args=request_args_dict)
+
+    # ▼▼▼ テンプレートにソート関連の変数を追加して渡す ▼▼▼
+    return render_template('maintenance_log.html',
+                           entries=entries,
+                           pagination=pagination,
+                           motorcycles=user_motorcycles,
+                           request_args=request_args_dict,
+                           current_sort_by=current_sort_by, # 現在のソートキー
+                           current_order=current_order # 現在のソート順序
+                          )
+    # ▲▲▲ 変更ここまで ▲▲▲
 
 
 @maintenance_bp.route('/add', methods=['GET', 'POST'])
@@ -194,12 +260,10 @@ def add_maintenance():
             )
             try:
                 db.session.add(new_entry)
-                # ▼▼▼ コミット前にリマインダー更新処理を呼び出す ▼▼▼
+                # リマインダー更新処理を呼び出す
                 _update_reminder_last_done(new_entry)
-                # ▲▲▲ 呼び出し追加 ▲▲▲
                 db.session.commit()
                 flash('整備記録を追加しました。', 'success')
-                # ログページではなく、ダッシュボードや車両編集画面に戻る方が良い場合もある
                 return redirect(url_for('maintenance.maintenance_log'))
             except Exception as e:
                 db.session.rollback()
@@ -219,7 +283,7 @@ def add_maintenance():
         return render_template('maintenance_form.html', form_action='add', entry=None, motorcycles=user_motorcycles, today_iso=today_iso_str, preselected_motorcycle_id=preselected_motorcycle_id)
 
 
-# --- 整備記録の編集 ---
+# --- 整備記録の編集 (変更なし) ---
 @maintenance_bp.route('/<int:entry_id>/edit', methods=['GET', 'POST'])
 @login_required_custom
 def edit_maintenance(entry_id):
@@ -273,9 +337,8 @@ def edit_maintenance(entry_id):
                 entry.labor_cost = labor_cost
                 entry.notes = notes if notes else None
 
-                # ▼▼▼ コミット前にリマインダー更新処理を呼び出す ▼▼▼
+                # リマインダー更新処理を呼び出す
                 _update_reminder_last_done(entry)
-                # ▲▲▲ 呼び出し追加 ▲▲▲
 
                 db.session.commit()
                 flash('整備記録を更新しました。', 'success')
@@ -290,7 +353,7 @@ def edit_maintenance(entry_id):
         return render_template('maintenance_form.html', form_action='edit', entry=entry, motorcycles=user_motorcycles, today_iso=date.today().isoformat())
 
 
-# --- 整備記録の削除 ---
+# --- 整備記録の削除 (変更なし) ---
 @maintenance_bp.route('/<int:entry_id>/delete', methods=['POST'])
 @login_required_custom
 def delete_maintenance(entry_id):
