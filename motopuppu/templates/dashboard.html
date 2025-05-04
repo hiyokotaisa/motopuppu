@@ -3,7 +3,7 @@
 
 {% block title %}ダッシュボード - もとぷっぷー{% endblock %} {# アプリ名修正済み #}
 
-{# ▼▼▼ headブロックに今日のハイライト用CSSを追加 ▼▼▼ #}
+{# ▼▼▼ 正しい位置にCSSを追加 ▼▼▼ #}
 {% block head %}
 {{ super() }} {# base.html の head ブロックを引き継ぐ場合 #}
 <style>
@@ -16,7 +16,6 @@
         background-color: #fff0f0; /* seashell */
         border-radius: 2px;
     }
-
     /* 今日の日付をハイライト */
     .fc .fc-day-today .fc-daygrid-day-frame { /* 今日の日付のセル内の背景要素 */
       background-color: #fffacd; /* lightyellow - 薄い黄色 */
@@ -26,7 +25,6 @@
     .fc .fc-day-today .fc-daygrid-day-number {
         font-weight: bold;
     }
-
     /* 日付が見えるように調整 */
     .fc-daygrid-day-top { position: relative; z-index: 1; }
     /* 土日・今日の日付がリンク色にならないように */
@@ -112,9 +110,7 @@
 {# ▼▼▼ 統計情報サマリーカード (変更なし) ▼▼▼ #}
 {% if dashboard_stats %}
 <div class="card mb-4">
-    <div class="card-header">
-        <i class="fas fa-chart-line me-1"></i> <strong>統計情報サマリー</strong>
-    </div>
+    <div class="card-header"> <i class="fas fa-chart-line me-1"></i> <strong>統計情報サマリー</strong> </div>
     <div class="card-body">
         <div class="row text-center">
             <div class="col-md-3 col-6 mb-3 mb-md-0"> <h6 class="card-title text-muted small">総走行距離</h6> {% if dashboard_stats.default_vehicle_name %} <p class="card-text fs-4 fw-bold mb-0">{{ "{:,.0f}".format(dashboard_stats.total_distance | int) }} km</p> <small class="text-muted">({{ dashboard_stats.default_vehicle_name }})</small> {% else %} <p class="card-text fs-4 fw-bold mb-0">-</p> <small class="text-muted">(車両未登録)</small> {% endif %} </div>
@@ -136,14 +132,7 @@
             <div class="card-header"><i class="fas fa-motorcycle me-1"></i> 登録車両</div>
             <div class="card-body">
                 {% if motorcycles %}
-                    <ul class="list-group list-group-flush">
-                        {% for motorcycle in motorcycles %}
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                <span> {% if motorcycle.is_default %}<i class="fas fa-star text-warning me-1" title="デフォルト車両"></i>{% endif %} <strong>{{ motorcycle.name }}</strong> <small class="text-muted">({{ motorcycle.maker or 'メーカー不明' }} / {{ motorcycle.year or '年式不明' }})</small> <br> <small class="text-info"> {% if motorcycle._average_kpl is defined and motorcycle._average_kpl is not none %} <i class="fas fa-tachometer-alt me-1"></i> 平均燃費: <strong>{{"%.2f"|format(motorcycle._average_kpl)}}</strong> km/L {% endif %} </small> </span>
-                                <div class="btn-group btn-group-sm"> <a href="{{ url_for('fuel.add_fuel', motorcycle_id=motorcycle.id) }}" class="btn btn-outline-success" title="この車両の給油記録を追加"><i class="fas fa-gas-pump"></i></a> <a href="{{ url_for('maintenance.add_maintenance', motorcycle_id=motorcycle.id) }}" class="btn btn-outline-warning" title="この車両の整備記録を追加"><i class="fas fa-tools"></i></a> <a href="{{ url_for('vehicle.edit_vehicle', vehicle_id=motorcycle.id) }}" class="btn btn-outline-secondary" title="車両情報を編集"><i class="fas fa-edit"></i></a> </div>
-                            </li>
-                        {% endfor %}
-                    </ul>
+                    <ul class="list-group list-group-flush"> {% for motorcycle in motorcycles %} <li class="list-group-item d-flex justify-content-between align-items-center"> <span> {% if motorcycle.is_default %}<i class="fas fa-star text-warning me-1" title="デフォルト車両"></i>{% endif %} <strong>{{ motorcycle.name }}</strong> <small class="text-muted">({{ motorcycle.maker or 'メーカー不明' }} / {{ motorcycle.year or '年式不明' }})</small> <br> <small class="text-info"> {% if motorcycle._average_kpl is defined and motorcycle._average_kpl is not none %} <i class="fas fa-tachometer-alt me-1"></i> 平均燃費: <strong>{{"%.2f"|format(motorcycle._average_kpl)}}</strong> km/L {% endif %} </small> </span> <div class="btn-group btn-group-sm"> <a href="{{ url_for('fuel.add_fuel', motorcycle_id=motorcycle.id) }}" class="btn btn-outline-success" title="この車両の給油記録を追加"><i class="fas fa-gas-pump"></i></a> <a href="{{ url_for('maintenance.add_maintenance', motorcycle_id=motorcycle.id) }}" class="btn btn-outline-warning" title="この車両の整備記録を追加"><i class="fas fa-tools"></i></a> <a href="{{ url_for('vehicle.edit_vehicle', vehicle_id=motorcycle.id) }}" class="btn btn-outline-secondary" title="車両情報を編集"><i class="fas fa-edit"></i></a> </div> </li> {% endfor %} </ul>
                 {% else %}<p class="card-text text-muted">車両が登録されていません。</p>{% endif %}
                  <div class="mt-3"><a href="{{ url_for('vehicle.add_vehicle') }}" class="btn btn-sm btn-outline-primary"><i class="fas fa-plus me-1"></i> 車両を追加</a></div>
             </div>
@@ -243,36 +232,4 @@
 </script>
 {% endblock %} {# scriptsブロック終了 #}
 
-
-{# ▼▼▼ カレンダー土日・今日ハイライト用CSS ▼▼▼ #}
-{% block head %}
-{{ super() }} {# base.html の head ブロックを引き継ぐ場合 #}
-<style>
-    /* FullCalendar 土曜日・日曜日の背景色 */
-    .fc-day-sat .fc-daygrid-day-frame { /* 土曜日 */
-        background-color: #f0f8ff; /* aliceblue */
-        border-radius: 2px;
-    }
-    .fc-day-sun .fc-daygrid-day-frame { /* 日曜日 */
-        background-color: #fff0f0; /* seashell */
-        border-radius: 2px;
-    }
-    /* 今日の日付をハイライト */
-    .fc .fc-day-today .fc-daygrid-day-frame {
-      background-color: #fffacd; /* lightyellow */
-      border-radius: 3px;
-    }
-    /* 今日の日付の数字を太字に */
-    .fc .fc-day-today .fc-daygrid-day-number {
-        font-weight: bold;
-    }
-    /* 日付が見えるように調整 */
-    .fc-daygrid-day-top { position: relative; z-index: 1; }
-    /* 土日・今日の日付がリンク色にならないように */
-    .fc-day-sat a, .fc-day-sun a, .fc-day-today a {
-        color: inherit; /* 親要素の色を継承 */
-        text-decoration: none;
-    }
-</style>
-{% endblock %}
-{# ▲▲▲ headブロックここまで ▲▲▲ #}
+{# ★★★ 末尾の不要な head ブロックは削除済み ★★★ #}
