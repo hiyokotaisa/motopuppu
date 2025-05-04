@@ -281,7 +281,7 @@
               // --- ▼▼▼ 一般ノートのポップオーバー ▼▼▼ ---
               else if (props.type === 'note') {
                  // ノートのポップオーバータイトル（関連車両名があれば表示）
-                 popoverTitle = `📝 メモ ${props.motorcycleName ? '(' + escapeHtml(props.motorcycleName) + ')' : ''}`;
+                 popoverTitle = `📝 ノート ${props.motorcycleName ? '(' + escapeHtml(props.motorcycleName) + ')' : ''}`;
                  popoverContent = `
                   <dl class="mb-0 small">
                     <dt>日付:</dt><dd>${escapeHtml(props.noteDate || eventDateStr)}</dd>
