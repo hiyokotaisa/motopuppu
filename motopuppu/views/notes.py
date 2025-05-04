@@ -167,7 +167,10 @@ def add_note():
                 return render_template('note_form.html', form_action='add', entry=entry_data, motorcycles=user_motorcycles, today_iso=date.today().isoformat())
     else: # GET
         today_iso_str = date.today().isoformat(); preselected_motorcycle_id = request.args.get('motorcycle_id', type=int)
-        if preselected_motorcycle_id: is_owner = any(m.id == preselected_motorcycle_id for m in user_motorcycles); not is_owner and preselected_motorcycle_id = None
+        if preselected_motorcycle_id:
+            is_owner = any(m.id == preselected_motorcycle_id for m in user_motorcycles)
+            if not is_owner:
+                preselected_motorcycle_id = None
         return render_template('note_form.html', form_action='add', entry=None, motorcycles=user_motorcycles, today_iso=today_iso_str, preselected_motorcycle_id=preselected_motorcycle_id)
 
 # --- メモ編集 (変更なし) ---
