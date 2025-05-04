@@ -4,6 +4,7 @@ from flask import (
 )
 from datetime import date, timedelta
 from dateutil.relativedelta import relativedelta
+import holidays # <-- 追加: 祝日ライブラリをインポート
 from .auth import login_required_custom, get_current_user
 from ..models import db, User, Motorcycle, FuelEntry, MaintenanceEntry, MaintenanceReminder, GeneralNote
 from sqlalchemy import func, select # select をインポート
@@ -188,7 +189,7 @@ def dashboard():
         dashboard_stats=dashboard_stats # <<< 更新された統計情報を渡す >>>
     )
 
-# --- APIエンドポイント (変更なし) ---
+# --- APIエンドポイント (修正) ---
 @main_bp.route('/api/dashboard/events')
 @login_required_custom
 def dashboard_events_api():
@@ -220,4 +221,42 @@ def dashboard_events_api():
         events.append({ 'id': f'note-{note.id}', 'title': f"📝 メモ: {note_title_display[:15]}" + ("..." if len(note_title_display) > 15 else ""), 'start': note.note_date.isoformat(), 'allDay': True, 'url': url_for('notes.edit_note', note_id=note.id), 'backgroundColor': '#6c757d', 'borderColor': '#6c757d', 'textColor': 'white',
             'extendedProps': { 'type': 'note', 'title': note.title, 'content': note.content, 'motorcycleName': motorcycle_name, 'noteDate': note.note_date.strftime('%Y-%m-%d'), 'createdAt': note.created_at.strftime('%Y-%m-%d %H:%M'), 'url': url_for('notes.edit_note', note_id=note.id) } })
 
-    return jsonify(events)
+    # --- 新規追加: 祝日データの取得 ---
+    # FullCalendarから渡される期間パラメータを取得
+    # FullCalendarは start/end をISO8601形式で渡す
+    start_str = request.args.get('start')
+    end_str = request.args.get('end')
+
+    holiday_dates_str = []
+    if start_str and end_str:
+        try:
+            # 日付部分のみ取得してdateオブジェクトに変換
+            start_date = date.fromisoformat(start_str.split('T')[0])
+            # FullCalendarのend日は期間の最終日の翌日になるため、1日前を終了日とする
+            end_date = date.fromisoformat(end_str.split('T')[0]) - timedelta(days=1)
+
+
+            # 対象期間を含む年の日本の祝日を取得
+            start_year = start_date.year
+            end_year = end_date.year
+
+            # 念のため、期間が年を跨ぐ可能性を考慮して範囲指定
+            jp_holidays = holidays.JP(years=range(start_year, end_year + 1))
+
+            # 取得した祝日の中から、指定された期間内の日付をリストアップ
+            for holi_date, name in jp_holidays.items():
+                # 日付が取得期間内かつ、祝日オブジェクトが日付型であることを確認
+                if isinstance(holi_date, date) and start_date <= holi_date <= end_date:
+                     holiday_dates_str.append(holi_date.isoformat()) # 'YYYY-MM-DD' 形式で追加
+
+        except ValueError as e:
+            current_app.logger.error(f"Date parsing error for holidays: {e}")
+            # エラー時は祝日リストは空のまま続行
+        except Exception as e:
+             current_app.logger.error(f"Error fetching holidays: {e}")
+             # その他のエラー時も祝日リストは空のまま続行
+
+
+    # イベントデータと祝日リストをまとめて返す
+    # FullCalendarのeventsソース関数で処理するため、イベント配列と祝日配列をまとめて返す
+    return jsonify({'events': events, 'holidays': holiday_dates_str})

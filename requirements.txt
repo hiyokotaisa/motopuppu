@@ -6,6 +6,7 @@ gunicorn # 本番環境用WSGIサーバー
 psycopg2-binary # PostgreSQLドライバー (PaaSでの利用を推奨)
 Flask-Migrate>=4.0 # DBスキーマ変更の管理に (強く推奨)
 python-dateutil
+holidays # 日本の祝日を取得するためのライブラリ
 
 # Flask-WTF>=1.0 # フォーム処理・検証に便利 (任意)
 # Flask-Login>=0.6 # ログイン管理の補助に (Authlibや自前でも可) (任意)
