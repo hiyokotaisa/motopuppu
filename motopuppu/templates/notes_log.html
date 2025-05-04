@@ -69,7 +69,7 @@
     </a>
 </div>
 
-{# --- ノート一覧テーブル --- #}
+{# --- ノート一覧テーブル (変更なし) --- #}
 {% if entries %}
 <div class="table-responsive">
     <table class="table table-striped table-hover table-sm">
@@ -115,22 +115,20 @@
                     {% endif %}
                 </td>
                 <td class="text-nowrap">
-                    {# 編集ボタン (変更なし) #}
                     <a href="{{ url_for('notes.edit_note', note_id=note.id) }}" class="btn btn-sm btn-outline-primary me-1" title="編集"><i class="fas fa-edit fa-fw"></i></a>
-                    {# 削除ボタン (変更なし) #}
                     <form action="{{ url_for('notes.delete_note', note_id=note.id) }}" method="POST" class="d-inline" onsubmit="return confirm('このノートを削除してもよろしいですか？');">
                         <button type="submit" class="btn btn-sm btn-outline-danger" title="削除"><i class="fas fa-trash fa-fw"></i></button>
                     </form>
-                    {# --- ▼▼▼ Misskey共有ボタンを追加 ▼▼▼ --- #}
+                    {# --- ▼▼▼ Misskey共有ボタン (data-*属性修正) ▼▼▼ --- #}
                     <button class="btn btn-sm btn-info btn-share-misskey ms-1"
                             data-type="note"
                             data-category="{{ note.category }}"
                             data-date="{{ note.note_date.isoformat() }}"
                             data-title="{{ note.title or '' }}"
                             data-vehicle-name="{{ note.motorcycle.name if note.motorcycle else '' }}"
-                            {# ノートの場合のみ内容を100文字で渡す #}
-                            data-content="{{ (note.content[:100] + '...') if note.content and note.content|length > 100 else (note.content or '') if note.category == 'note' else '' }}"
-                            {# タスクの場合のみTODOリストをJSONで渡す #}
+                            {# ノートの場合のみ内容を100文字+...で渡す (条件式修正) #}
+                            data-content="{{ (note.content[:100] + '...') if note.category == 'note' and note.content and note.content|length > 100 else (note.content or '') if note.category == 'note' else '' }}"
+                            {# タスクの場合のみTODOリストをJSONで渡す (条件式修正) #}
                             data-todos="{{ note.todos | tojson | safe if note.category == 'task' and note.todos else '' }}"
                             title="Misskeyで共有">
                         <i class="fa-solid fa-share-nodes fa-fw"></i>
@@ -178,7 +176,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
-{# --- ▼▼▼ Misskey共有用JavaScript ▼▼▼ --- #}
+{# --- ▼▼▼ Misskey共有用JavaScript (デバッグログ追加) ▼▼▼ --- #}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // --- Misskeyインスタンスドメインをビューから受け取る ---
@@ -198,14 +196,24 @@ document.addEventListener('DOMContentLoaded', function() {
             let displayDate = recordDate;
             try {
                 displayDate = new Date(recordDate).toLocaleDateString('ja-JP', { year: 'numeric', month: 'short', day: 'numeric' });
-            } catch(e) { /* 変換失敗時は元の形式 */}
+            } catch(e) { /* ignore */ }
 
-            // --- ▼▼▼ ノート共有の処理を追加 ▼▼▼ ---
+            // --- ▼▼▼ ノート共有の処理 (デバッグログ追加) ▼▼▼ ---
             if (recordType === 'note') {
                 const category = dataset.category; // 'note' or 'task'
                 const title = dataset.title;
                 const content = dataset.content; // 100文字に制限済み or 空文字
                 const todosJson = dataset.todos; // JSON文字列 or 空文字
+
+                // --- ▼▼▼ デバッグログ追加 ▼▼▼ ---
+                console.log("Share button clicked for note.");
+                console.log("Category:", category);
+                console.log("Title:", title);
+                console.log("Vehicle Name:", vehicleName);
+                console.log("Date:", recordDate);
+                console.log("Content (data-content):", content);
+                console.log("Todos JSON string (data-todos):", todosJson);
+                // --- ▲▲▲ デバッグログ追加ここまで ▲▲▲ ---
 
                 let categoryIcon = category === 'task' ? '✅' : '📝';
                 let categoryHashtag = category === 'task' ? '#タスク' : '#ノート';
@@ -218,19 +226,29 @@ document.addEventListener('DOMContentLoaded', function() {
                 shareText += `日付: ${displayDate}\n`;
 
                 if (category === 'task' && todosJson) {
+                    console.log("Processing TODO list..."); // ★追加
                     try {
-                        const todos = JSON.parse(todosJson);
+                        const todos = JSON.parse(todosJson); // JSONをパース
+                        console.log("Parsed Todos:", todos); // ★追加: パース結果を確認
                         if (Array.isArray(todos) && todos.length > 0) {
                             shareText += "TODO:\n";
-                            todos.forEach(item => {
-                                shareText += `${item.checked ? '[x]' : '[ ]'} ${item.text}\n`;
+                            todos.forEach((item, index) => { // ★追加: ループ確認用ログ
+                                console.log(`Processing TODO item ${index}:`, item);
+                                // ★追加: item オブジェクトとプロパティの存在確認
+                                if (item && typeof item.text !== 'undefined' && typeof item.checked !== 'undefined') {
+                                    shareText += `${item.checked ? '[x]' : '[ ]'} ${item.text}\n`;
+                                } else {
+                                     console.warn(`Invalid TODO item format at index ${index}:`, item);
+                                }
                             });
+                        } else {
+                            console.log("Todos array is empty or not an array after parse."); // ★追加
                         }
                     } catch (e) {
-                        console.error("Error parsing TODO JSON:", e);
-                        // パース失敗時は何も表示しないか、エラーを示すメッセージを追加
+                        console.error("Error parsing TODO JSON:", e); // パースエラーを確認
                     }
                 } else if (category === 'note' && content) {
+                    console.log("Processing note content..."); // ★追加
                     shareText += `内容: ${content}\n`;
                 }
 
@@ -239,9 +257,8 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             // --- ▲▲▲ ノート共有の処理ここまで ▲▲▲ ---
 
-            // --- 既存の給油・整備記録の処理 (fuel_log.html等から移植) ---
+            // --- 既存の給油・整備記録の処理 (変更なし) ---
             else if (recordType === 'fuel') {
-                // (元のfuel_log.htmlのJSロジックをここに記述)
                 const odo = dataset.odo; const volume = dataset.volume; const kpl = dataset.kpl;
                 const cost = dataset.cost; const station = dataset.station;
                 const vehicleHashtag = vehicleName ? "\n#" + vehicleName.replace(/[\s#$&\+,:;=\?@\[\]\^`\{|\}~.]/g, '_') : '';
@@ -251,7 +268,6 @@ document.addEventListener('DOMContentLoaded', function() {
                             (cost ? `費用: ${cost} 円\n` : '') + (station ? `スタンド: ${station}\n` : '') +
                             baseHashtags + " #給油記録" + vehicleHashtag;
             } else if (recordType === 'maintenance') {
-                // (元のmaintenance_log.htmlのJSロジックをここに記述)
                 const odo = dataset.odo; const cost = dataset.cost;
                 const category = dataset.category; const description = dataset.description;
                 const location = dataset.location;
@@ -265,13 +281,17 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             // --- 既存の処理ここまで ---
 
-
+            // --- ▼▼▼ デバッグログ追加 ▼▼▼ ---
+            console.log("Generated Share Text:", shareText); // 最終的なテキスト確認
             if (shareText) {
                 const encodedText = encodeURIComponent(shareText);
-                // --- misskeyInstanceDomain 変数を使用 ---
                 const shareUrl = `https://${misskeyInstanceDomain}/share?text=${encodedText}`;
+                console.log("Opening Share URL:", shareUrl); // URL確認
                 window.open(shareUrl, '_blank', 'noopener,noreferrer');
+            } else {
+                console.log("Share text is empty, not opening window.");
             }
+            // --- ▲▲▲ デバッグログ追加ここまで ▲▲▲ ---
         });
     });
 });
