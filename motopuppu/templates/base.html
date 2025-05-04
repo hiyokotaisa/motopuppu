@@ -29,8 +29,8 @@
 
     {# <<< 以下を追加: TODO完了スタイル >>> #}
     <style>
-      /* TODOアイテム完了時のスタイル */
-      .todo-item-done .todo-item-text {
+      /* TODOアイテム完了時のスタイル (セレクタ修正) */
+      .todo-item-done { /* .todo-item-text を削除 */
         text-decoration: line-through;
         opacity: 0.6; /* 少し薄く表示 */
       }
