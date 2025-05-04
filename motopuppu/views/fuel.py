@@ -30,20 +30,26 @@ def get_previous_fuel_entry(motorcycle_id, current_entry_date, current_entry_id=
 @login_required_custom
 def fuel_log():
     """給油記録の一覧を表示 (フィルター・ソート機能付き)"""
+    # --- フィルター条件の取得 ---
     start_date_str = request.args.get('start_date'); end_date_str = request.args.get('end_date')
     vehicle_id_str = request.args.get('vehicle_id'); keyword = request.args.get('q', '').strip()
-    sort_by = request.args.get('sort_by', 'date'); order = request.args.get('order', 'desc')
-    page = request.args.get('page', 1, type=int); per_page = current_app.config.get('FUEL_ENTRIES_PER_PAGE', 20)
 
+    # --- ▼▼▼ ソート条件の取得 ▼▼▼ ---
+    sort_by = request.args.get('sort_by', 'date') # デフォルトは日付
+    order = request.args.get('order', 'desc')     # デフォルトは降順
+    # --- ▲▲▲ ソート条件取得ここまで ▲▲▲ ---
+
+    page = request.args.get('page', 1, type=int); per_page = current_app.config.get('FUEL_ENTRIES_PER_PAGE', 20)
     user_motorcycles = Motorcycle.query.filter_by(user_id=g.user.id).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
     user_motorcycle_ids = [m.id for m in user_motorcycles]
 
+    # ▼▼▼ JOIN を追加 ▼▼▼
     query = db.session.query(FuelEntry).join(Motorcycle).filter(FuelEntry.motorcycle_id.in_(user_motorcycle_ids))
 
     request_args_dict = request.args.to_dict()
     request_args_dict.pop('page', None); request_args_dict.pop('sort_by', None); request_args_dict.pop('order', None)
 
-    # フィルター適用
+    # --- フィルター適用 ---
     try:
         if start_date_str: query = query.filter(FuelEntry.entry_date >= date.fromisoformat(start_date_str))
         else: request_args_dict.pop('start_date', None)
@@ -60,7 +66,7 @@ def fuel_log():
     if keyword: search_term = f'%{keyword}%'; query = query.filter(or_(FuelEntry.notes.ilike(search_term), FuelEntry.station_name.ilike(search_term)))
     else: request_args_dict.pop('q', None)
 
-    # ソート処理
+    # --- ▼▼▼ ソート処理 ▼▼▼ ---
     sort_column_map = {
         'date': FuelEntry.entry_date, 'vehicle': Motorcycle.name, 'odo': FuelEntry.odometer_reading,
         'volume': FuelEntry.fuel_volume, 'price': FuelEntry.price_per_liter, 'cost': FuelEntry.total_cost,
@@ -72,16 +78,14 @@ def fuel_log():
 
     sort_modifier = desc if current_order == 'desc' else asc
     if sort_by in ['vehicle', 'station']:
-        query = query.order_by(sort_modifier(sort_column)) # 文字列は指定された順序で
-    else: # 数値・日付系
+        query = query.order_by(sort_modifier(sort_column))
+    else:
          query = query.order_by(sort_modifier(sort_column))
-         # 日付ソート時は第二ソートキーを追加 (常にtotal_distance desc)
          if sort_column == FuelEntry.entry_date:
              query = query.order_by(sort_modifier(FuelEntry.entry_date), desc(FuelEntry.total_distance))
-         # ODOソート時も第二ソートキーとして日付を追加 (任意)
          elif sort_column == FuelEntry.odometer_reading:
               query = query.order_by(sort_modifier(FuelEntry.odometer_reading), desc(FuelEntry.entry_date))
-
+    # --- ▲▲▲ ソート処理ここまで ▲▲▲ ---
 
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
     fuel_entries = pagination.items
@@ -124,41 +128,62 @@ def add_fuel():
         if motorcycle_id:
             motorcycle = Motorcycle.query.filter_by(id=motorcycle_id, user_id=g.user.id).first()
             if not motorcycle: errors['motorcycle_id'] = '有効な車両を選択してください。'
-        else: errors['motorcycle_id'] = '車両を選択してください。'
+        else:
+            errors['motorcycle_id'] = '車両を選択してください。'
 
         if entry_date_str:
-            try: entry_date = date.fromisoformat(entry_date_str)
-            except ValueError: errors['entry_date'] = '有効な日付形式 (YYYY-MM-DD) で入力してください。'
-        else: errors['entry_date'] = '給油日は必須です。'
+            try:
+                entry_date = date.fromisoformat(entry_date_str)
+            except ValueError:
+                errors['entry_date'] = '有効な日付形式 (YYYY-MM-DD) で入力してください。'
+        else:
+            errors['entry_date'] = '給油日は必須です。'
 
         # 日付と車両が有効なら前回情報を取得
-        if not errors.get('entry_date') and motorcycle: # motorcycleオブジェクトがあるかで判断
+        if not errors.get('entry_date') and motorcycle: # motorcycleオブジェクトの存在を確認
              previous_entry = get_previous_fuel_entry(motorcycle.id, entry_date)
 
         if odometer_reading_str:
             try:
                 odometer_reading = int(odometer_reading_str)
-                if odometer_reading < 0: errors['odometer_reading'] = 'ODOメーター値は0以上で入力してください。'
+                if odometer_reading < 0:
+                     errors['odometer_reading'] = 'ODOメーター値は0以上で入力してください。'
                 elif motorcycle:
                     current_offset = motorcycle.odometer_offset or 0
                     current_total_distance = odometer_reading + current_offset
                     if previous_entry and current_total_distance < previous_entry.total_distance:
                          flash(f'注意: ODOメーター値から計算される総走行距離 ({current_total_distance:,}km) が、前回記録 ({previous_entry.entry_date.strftime("%Y-%m-%d")} の {previous_entry.total_distance:,}km) より小さくなっています。', 'warning')
-            except ValueError: errors['odometer_reading'] = 'ODOメーター値は有効な数値を入力してください。'
-        else: errors['odometer_reading'] = 'ODOメーター値は必須です。'
+            except ValueError:
+                errors['odometer_reading'] = 'ODOメーター値は有効な数値を入力してください。'
+        else:
+            errors['odometer_reading'] = 'ODOメーター値は必須です。'
 
         if fuel_volume_str:
-            try: fuel_volume = float(fuel_volume_str); assert fuel_volume > 0
-            except (ValueError, AssertionError): errors['fuel_volume'] = '給油量は0より大きい数値を入力してください。'
-        else: errors['fuel_volume'] = '給油量は必須です。'
+            try:
+                fuel_volume = float(fuel_volume_str)
+                if fuel_volume <= 0: # 0も不可にする
+                    errors['fuel_volume'] = '給油量は0より大きい数値を入力してください。'
+            except ValueError:
+                errors['fuel_volume'] = '給油量は有効な数値を入力してください。'
+        else:
+            errors['fuel_volume'] = '給油量は必須です。'
 
         if price_per_liter_str:
-            try: price_per_liter = float(price_per_liter_str); assert price_per_liter >= 0
-            except (ValueError, AssertionError): errors['price_per_liter'] = 'リッター単価は0以上の有効な数値を入力してください。'
+            try:
+                price_per_liter = float(price_per_liter_str)
+                if price_per_liter < 0:
+                     errors['price_per_liter'] = 'リッター単価は0以上で入力してください。'
+            except ValueError:
+                 errors['price_per_liter'] = 'リッター単価は有効な数値を入力してください。'
 
         if total_cost_str:
-            try: total_cost = float(total_cost_str); assert total_cost >= 0
-            except (ValueError, AssertionError): errors['total_cost'] = '合計金額は0以上の有効な数値を入力してください。'
+            try:
+                total_cost = float(total_cost_str)
+                if total_cost < 0:
+                     errors['total_cost'] = '合計金額は0以上で入力してください。'
+            except ValueError:
+                 errors['total_cost'] = '合計金額は有効な数値を入力してください。'
+
 
         if errors:
             for field, msg in errors.items(): flash(f'{msg}', 'danger')
@@ -168,8 +193,7 @@ def add_fuel():
             except ValueError: entry_data_for_form['motorcycle_id_int'] = None
             today_iso_str = date.today().isoformat()
             previous_info = None
-            if previous_entry:
-                previous_info = { 'date': previous_entry.entry_date.strftime('%Y-%m-%d'), 'odo': f"{previous_entry.odometer_reading:,}km" }
+            if previous_entry: previous_info = { 'date': previous_entry.entry_date.strftime('%Y-%m-%d'), 'odo': f"{previous_entry.odometer_reading:,}km" }
             return render_template('fuel_form.html', form_action='add', entry=entry_data_for_form, motorcycles=user_motorcycles, today_iso=today_iso_str, gas_station_brands=GAS_STATION_BRANDS, previous_entry_info=previous_info)
         else:
             if not motorcycle: motorcycle = Motorcycle.query.filter_by(id=motorcycle_id, user_id=g.user.id).first()
@@ -183,8 +207,7 @@ def add_fuel():
                 entry_data_for_form = request.form.to_dict(); entry_data_for_form['entry_date_obj'] = entry_date
                 try: entry_data_for_form['motorcycle_id_int'] = int(motorcycle_id) if motorcycle_id else None
                 except ValueError: entry_data_for_form['motorcycle_id_int'] = None
-                today_iso_str = date.today().isoformat()
-                previous_info = None
+                today_iso_str = date.today().isoformat(); previous_info = None
                 if previous_entry: previous_info = { 'date': previous_entry.entry_date.strftime('%Y-%m-%d'), 'odo': f"{previous_entry.odometer_reading:,}km" }
                 return render_template('fuel_form.html', form_action='add', entry=entry_data_for_form, motorcycles=user_motorcycles, today_iso=today_iso_str, gas_station_brands=GAS_STATION_BRANDS, previous_entry_info=previous_info)
     else: # GET
@@ -200,6 +223,7 @@ def add_fuel():
              if previous_entry:
                  previous_entry_info = { 'date': previous_entry.entry_date.strftime('%Y-%m-%d'), 'odo': f"{previous_entry.odometer_reading:,}km" }
         return render_template('fuel_form.html',form_action='add', entry=None,motorcycles=user_motorcycles, today_iso=today_iso_str,preselected_motorcycle_id=preselected_motorcycle_id,gas_station_brands=GAS_STATION_BRANDS,previous_entry_info=previous_entry_info)
+
 
 # --- 給油記録の編集 (応答 No.68 の正しいコード) ---
 @fuel_bp.route('/<int:entry_id>/edit', methods=['GET', 'POST'])
@@ -218,21 +242,37 @@ def edit_fuel(entry_id):
             except ValueError: errors['entry_date'] = '有効な日付形式 (YYYY-MM-DD) で入力してください。'
         else: errors['entry_date'] = '給油日は必須です。'
 
-        # 日付が有効なら前回情報を取得
         if not errors.get('entry_date'):
              previous_entry = get_previous_fuel_entry(entry.motorcycle_id, entry_date, entry.id)
 
         if odometer_reading_str:
             try:
-                odometer_reading = int(odometer_reading_str); assert odometer_reading >= 0
-                if entry.motorcycle: current_offset = entry.motorcycle.odometer_offset or 0; current_total_distance = odometer_reading + current_offset; previous_entry and current_total_distance < previous_entry.total_distance and flash(f'注意: ODOメーター値から計算される総走行距離 ({current_total_distance:,}km) が、前回記録 ({previous_entry.entry_date.strftime("%Y-%m-%d")} の {previous_entry.total_distance:,}km) より小さくなっています。', 'warning')
-            except (ValueError, AssertionError): errors['odometer_reading'] = 'ODOメーター値は0以上の有効な数値を入力してください。'
+                odometer_reading = int(odometer_reading_str)
+                if odometer_reading < 0: errors['odometer_reading'] = 'ODOメーター値は0以上で入力してください。'
+                elif entry.motorcycle:
+                     current_offset = entry.motorcycle.odometer_offset or 0; current_total_distance = odometer_reading + current_offset
+                     if previous_entry and current_total_distance < previous_entry.total_distance: flash(f'注意: ODOメーター値から計算される総走行距離 ({current_total_distance:,}km) が、前回記録 ({previous_entry.entry_date.strftime("%Y-%m-%d")} の {previous_entry.total_distance:,}km) より小さくなっています。', 'warning')
+            except ValueError: errors['odometer_reading'] = 'ODOメーター値は有効な数値を入力してください。'
         else: errors['odometer_reading'] = 'ODOメーター値は必須です。'
 
-        if fuel_volume_str: try: fuel_volume = float(fuel_volume_str); assert fuel_volume > 0 except (ValueError, AssertionError): errors['fuel_volume'] = '給油量は0より大きい数値を入力してください。'
+        if fuel_volume_str:
+            try:
+                fuel_volume = float(fuel_volume_str)
+                if fuel_volume <= 0: errors['fuel_volume'] = '給油量は0より大きい数値を入力してください。'
+            except ValueError: errors['fuel_volume'] = '給油量は有効な数値を入力してください。'
         else: errors['fuel_volume'] = '給油量は必須です。'
-        if price_per_liter_str: try: price_per_liter = float(price_per_liter_str); assert price_per_liter >= 0 except (ValueError, AssertionError): errors['price_per_liter'] = 'リッター単価は0以上の有効な数値を入力してください。'
-        if total_cost_str: try: total_cost = float(total_cost_str); assert total_cost >= 0 except (ValueError, AssertionError): errors['total_cost'] = '合計金額は0以上の有効な数値を入力してください。'
+
+        if price_per_liter_str:
+            try:
+                price_per_liter = float(price_per_liter_str)
+                if price_per_liter < 0: errors['price_per_liter'] = 'リッター単価は0以上で入力してください。'
+            except ValueError: errors['price_per_liter'] = 'リッター単価は有効な数値を入力してください。'
+
+        if total_cost_str:
+            try:
+                total_cost = float(total_cost_str)
+                if total_cost < 0: errors['total_cost'] = '合計金額は0以上で入力してください。'
+            except ValueError: errors['total_cost'] = '合計金額は有効な数値を入力してください。'
 
         if errors:
             for field, msg in errors.items(): flash(f'{msg}', 'danger')
@@ -259,7 +299,6 @@ def edit_fuel(entry_id):
 @fuel_bp.route('/<int:entry_id>/delete', methods=['POST'])
 @login_required_custom
 def delete_fuel(entry_id):
-    # ... (変更なし) ...
     entry = FuelEntry.query.filter(FuelEntry.id == entry_id).join(Motorcycle).filter(Motorcycle.user_id == g.user.id).first_or_404();
     try: db.session.delete(entry); db.session.commit(); flash('給油記録を削除しました。', 'success')
     except Exception as e: db.session.rollback(); flash(f'記録の削除中にエラーが発生しました。', 'error'); current_app.logger.error(f"Error deleting fuel entry {entry_id}: {e}")
