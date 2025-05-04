@@ -18,7 +18,7 @@ MAX_TODO_ITEMS = 50
 ALLOWED_CATEGORIES = ['note', 'task']
 
 
-# --- メモ一覧 (フィルター機能強化) ---
+# --- メモ一覧 (変更なし) ---
 @notes_bp.route('/')
 @login_required_custom
 def notes_log():
@@ -30,7 +30,7 @@ def notes_log():
 
     start_date_str = request.args.get('start_date'); end_date_str = request.args.get('end_date')
     vehicle_id_str = request.args.get('vehicle_id'); keyword = request.args.get('q', '').strip()
-    category_filter = request.args.get('category') # カテゴリーフィルター取得
+    category_filter = request.args.get('category')
     request_args_dict = request.args.to_dict()
 
     query = GeneralNote.query.filter_by(user_id=g.user.id)
@@ -61,9 +61,9 @@ def notes_log():
     # カテゴリーフィルター処理
     if category_filter and category_filter in ALLOWED_CATEGORIES:
         query = query.filter(GeneralNote.category == category_filter)
-    elif category_filter: # 不正なカテゴリ値の場合は無視してキーを削除
+    elif category_filter:
         request_args_dict.pop('category', None)
-    else: # categoryパラメータがない場合もキーを削除
+    else:
         request_args_dict.pop('category', None)
 
     pagination = query.order_by(GeneralNote.note_date.desc(), GeneralNote.created_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
@@ -82,17 +82,23 @@ def notes_log():
 def process_todo_list(request_form):
     """
     フォームデータからTODOリストを処理し、整形・バリデーションする。
-    ★★★ 注意 ★★★
-    現在の実装では、フォームからチェックされていないチェックボックスの値が送信されないため、
-    チェック状態を正しく復元できません。この関数はエラー回避のため、
-    一時的に全てのアイテムのチェック状態を False として扱います。
-    根本的な解決には note_form.html のJavaScript修正が必要です。
+    note_form.html側の修正により、'todo_checked[]'には各アイテムに対応する
+    'true'または'false'の文字列が送信される想定。
     """
     todos_data = []
     todo_texts = request_form.getlist('todo_text[]')
-    # todo_checked_values = request_form.getlist('todo_checked[]') # チェックされたものしか来ない
+    # --- ▼▼▼ チェック状態の取得（シンプルに戻す）▼▼▼ ---
+    # 各アイテムに対応する 'true' または 'false' の文字列リスト
+    todo_checked_values = request_form.getlist('todo_checked[]')
+    # --- ▲▲▲ チェック状態の取得ここまで ▲▲▲ ---
 
     num_items = len(todo_texts)
+
+    # --- ▼▼▼ 長さチェック（念のため）▼▼▼ ---
+    if len(todo_checked_values) != num_items:
+        # 基本的にフォーム側の修正で長さは一致するはずだが、念のためエラー処理
+        return None, ["TODOリストのテキストとチェック状態の数が一致しません。フォームの送信データを確認してください。"]
+    # --- ▲▲▲ 長さチェックここまで ▲▲▲ ---
 
     if num_items > MAX_TODO_ITEMS:
         return None, [f"TODOアイテムは最大{MAX_TODO_ITEMS}個までです。"]
@@ -100,35 +106,30 @@ def process_todo_list(request_form):
     errors = []
     for i in range(num_items):
         text = todo_texts[i].strip()
-
-        # --- ▼▼▼ チェック状態処理（暫定対応）▼▼▼ ---
-        # IndexError を回避するため、チェック状態の処理を一旦無効化し、
-        # 常に False とする（エラー回避のため）。
-        # 本来はフォーム側で工夫し、チェック状態を正しく送信・受信する必要がある。
-        is_checked = False
-        # --- ▲▲▲ チェック状態処理（暫定対応）▲▲▲ ---
+        # --- ▼▼▼ チェック状態処理（シンプルに戻す）▼▼▼ ---
+        # 'true' 文字列であれば True、それ以外（'false'）であれば False
+        is_checked = todo_checked_values[i] == 'true'
+        # --- ▲▲▲ チェック状態処理ここまで ▲▲▲ ---
 
         # --- テキストのバリデーション ---
         if not text:
             errors.append(f"{i+1}番目のTODOアイテムの内容が空です。")
-            # continue # エラーでも下の append は実行されるように変更
+            # continue
         elif len(text) > 100:
              errors.append(f"{i+1}番目のTODOアイテムの内容が長すぎます（100文字以内）。")
              # continue
 
-        # バリデーションエラーがあってもなくてもリストには追加（内容は保持）
-        # エラーがあれば、最終的に None とエラーリストが返る
         todos_data.append({"text": text, "checked": is_checked})
 
     if errors:
         # エラーがあれば None とエラーリストを返す
         return None, errors
 
-    # エラーがなく、アイテムが存在する場合のみデータを返す (チェック状態は全てFalse)
+    # エラーがなく、アイテムが存在する場合のみデータを返す
     return todos_data if todos_data else None, []
 
 
-# --- メモ追加 ---
+# --- メモ追加 (変更なし、process_todo_list の挙動が変わる) ---
 @notes_bp.route('/add', methods=['GET', 'POST'])
 @login_required_custom
 def add_note():
@@ -143,10 +144,10 @@ def add_note():
 
         note_date = None
         motorcycle_id = None
-        todos_data = None # 初期化
-        form_errors = [] # バリデーションエラーメッセージリスト
+        todos_data = None
+        form_errors = []
 
-        # --- 基本フィールドのバリデーション ---
+        # 基本フィールドのバリデーション (省略)
         if not content: form_errors.append('ノート内容は必須です。')
         elif len(content) > 2000: form_errors.append('ノート内容は2000文字以内で入力してください。')
         if title and len(title) > 150: form_errors.append('タイトルは150文字以内で入力してください。')
@@ -161,25 +162,24 @@ def add_note():
              except ValueError: form_errors.append('車両の選択が無効です。')
         else: motorcycle_id = None
 
-        # --- カテゴリーとTODOリストのバリデーション/処理 ---
+
+        # カテゴリーとTODOリストのバリデーション/処理
         if not category or category not in ALLOWED_CATEGORIES:
             form_errors.append('有効なカテゴリーを選択してください。')
         elif category == 'task':
-            # ★★★ process_todo_list はチェック状態を正しく処理できません ★★★
-            todos_data, todo_errors = process_todo_list(request.form)
+            todos_data, todo_errors = process_todo_list(request.form) # 修正された関数を呼び出す
             if todo_errors:
-                form_errors.extend(todo_errors) # エラーリストを結合
+                form_errors.extend(todo_errors)
 
-        # --- エラーがあればフォーム再表示 ---
+        # エラーがあればフォーム再表示
         if form_errors:
             for msg in form_errors:
                 flash(msg, 'danger')
             entry_data = request.form.to_dict()
-            # TODOリストの復元は省略
-            entry_data['todos'] = None
+            entry_data['todos'] = None # TODO復元は省略
             return render_template('note_form.html', form_action='add', entry=entry_data, motorcycles=user_motorcycles, today_iso=date.today().isoformat())
 
-        # --- エラーがなければDB保存 ---
+        # エラーがなければDB保存
         else:
             new_note = GeneralNote(
                 user_id=g.user.id,
@@ -188,7 +188,7 @@ def add_note():
                 title=title if title else None,
                 content=content,
                 category=category,
-                todos=todos_data # 注意: チェック状態はFalseになっている
+                todos=todos_data # 正しく処理されたチェック状態が含まれるはず
             )
             try:
                 db.session.add(new_note)
@@ -211,7 +211,7 @@ def add_note():
         return render_template('note_form.html', form_action='add', entry=None, motorcycles=user_motorcycles, today_iso=today_iso_str, preselected_motorcycle_id=preselected_motorcycle_id)
 
 
-# --- メモ編集 ---
+# --- メモ編集 (変更なし、process_todo_list の挙動が変わる) ---
 @notes_bp.route('/<int:note_id>/edit', methods=['GET', 'POST'])
 @login_required_custom
 def edit_note(note_id):
@@ -228,10 +228,10 @@ def edit_note(note_id):
 
         note_date = None
         motorcycle_id = None
-        todos_data = None # 初期化
-        form_errors = [] # バリデーションエラーメッセージリスト
+        todos_data = None
+        form_errors = []
 
-        # --- 基本フィールドのバリデーション ---
+        # 基本フィールドのバリデーション (省略)
         if not content: form_errors.append('ノート内容は必須です。')
         elif len(content) > 2000: form_errors.append('ノート内容は2000文字以内で入力してください。')
         if title and len(title) > 150: form_errors.append('タイトルは150文字以内で入力してください。')
@@ -246,26 +246,23 @@ def edit_note(note_id):
              except ValueError: form_errors.append('車両の選択が無効です。')
         else: motorcycle_id = None
 
-        # --- カテゴリーとTODOリストのバリデーション/処理 ---
+        # カテゴリーとTODOリストのバリデーション/処理
         if not category or category not in ALLOWED_CATEGORIES:
             form_errors.append('有効なカテゴリーを選択してください。')
         elif category == 'task':
-            # ★★★ process_todo_list はチェック状態を正しく処理できません ★★★
-            todos_data, todo_errors = process_todo_list(request.form)
+            todos_data, todo_errors = process_todo_list(request.form) # 修正された関数を呼び出す
             if todo_errors:
-                form_errors.extend(todo_errors) # エラーリストを結合
-        # カテゴリが 'note' の場合、todos は None にする
+                form_errors.extend(todo_errors)
         elif category == 'note':
              todos_data = None
 
-        # --- エラーがあればフォーム再表示 ---
+        # エラーがあればフォーム再表示
         if form_errors:
             for msg in form_errors:
                 flash(msg, 'danger')
-            # 編集中のノート `note` をそのままテンプレートに渡す
             return render_template('note_form.html', form_action='edit', entry=note, motorcycles=user_motorcycles, today_iso=date.today().isoformat())
 
-        # --- エラーがなければDB更新 ---
+        # エラーがなければDB更新
         else:
             try:
                 note.motorcycle_id = motorcycle_id
@@ -273,7 +270,7 @@ def edit_note(note_id):
                 note.title = title if title else None
                 note.content = content
                 note.category = category
-                note.todos = todos_data # 注意: チェック状態はFalseになっている
+                note.todos = todos_data # 正しく処理されたチェック状態が含まれるはず
                 db.session.commit()
                 flash('ノートを更新しました。', 'success')
                 return redirect(url_for('notes.notes_log'))
