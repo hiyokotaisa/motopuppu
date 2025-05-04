@@ -1,14 +1,14 @@
 {# motopuppu/templates/notes_log.html #}
 {% extends "base.html" %}
 
-{% block title %}メモ一覧 - もとぷっぷー{% endblock %}
+{% block title %}ノート一覧 - もとぷっぷー{% endblock %} {# タイトル変更 #}
 
 {% block content %}
-<h2>メモ一覧</h2>
-<p>車両に関するメモや、一般的な記録を残すことができます。</p>
+<h2>ノート一覧</h2> {# 見出し変更 #}
+<p>車両に関するノートや、一般的な記録を残すことができます。</p> {# テキスト変更 #}
 
 {# --- フィルターフォーム (基本的な枠組み) --- #}
-<form method="GET" action="{{ url_for('notes.notes_log') }}" class="mb-4 p-3 border rounded bg-light">
+<form method="GET" action="{{ url_for('notes.notes_log') }}" class="mb-4 p-3 border rounded bg-light"> {# url_for は notes のまま #}
     <div class="row g-3 align-items-end">
         {# 日付範囲フィルター #}
         <div class="col-md-3">
@@ -23,12 +23,9 @@
         <div class="col-md-3">
             <label for="vehicle_id" class="form-label">関連車両</label>
             <select class="form-select form-select-sm" id="vehicle_id" name="vehicle_id">
-                {# request_args はビューから渡される想定 #}
                 <option value="" {% if not request_args.get('vehicle_id') %}selected{% endif %}>すべて</option>
-                {# 「車両未指定」のメモを絞り込むための選択肢 #}
                 <option value="none" {% if request_args.get('vehicle_id') == 'none' %}selected{% endif %}>-- 車両未指定 --</option>
-                {% for motorcycle in motorcycles %} {# motorcycles はビューから渡される #}
-                {# 文字列として比較するために |string を追加 #}
+                {% for motorcycle in motorcycles %}
                 <option value="{{ motorcycle.id }}" {% if request_args.get('vehicle_id')|string == motorcycle.id|string %}selected{% endif %}>
                     {{ motorcycle.name }}
                 </option>
@@ -42,7 +39,7 @@
          </div>
         {# 送信・リセットボタン #}
         <div class="col-12 mt-2 d-flex justify-content-end">
-             <a href="{{ url_for('notes.notes_log') }}" class="btn btn-outline-secondary btn-sm me-2">リセット</a>
+             <a href="{{ url_for('notes.notes_log') }}" class="btn btn-outline-secondary btn-sm me-2">リセット</a> {# url_for は notes のまま #}
              <button type="submit" class="btn btn-primary btn-sm">
                 <i class="fas fa-filter me-1"></i> 絞り込む
             </button>
@@ -63,15 +60,15 @@
 {% endwith %}
 {# --- フラッシュメッセージ表示 ここまで --- #}
 
-{# --- メモ追加ボタン --- #}
+{# --- ノート追加ボタン --- #} {# コメント変更 #}
 <div class="mb-3">
-    <a href="{{ url_for('notes.add_note') }}" class="btn btn-success">
-        <i class="fas fa-plus me-1"></i> 新しいメモを追加
+    <a href="{{ url_for('notes.add_note') }}" class="btn btn-success"> {# url_for は notes のまま #}
+        <i class="fas fa-plus me-1"></i> 新しいノートを追加 {# テキスト変更 #}
     </a>
 </div>
 
-{# --- メモ一覧テーブル --- #}
-{% if entries %} {# entries はビューから渡されるメモのリスト #}
+{# --- ノート一覧テーブル --- #} {# コメント変更 #}
+{% if entries %}
 <div class="table-responsive">
     <table class="table table-striped table-hover table-sm">
         <thead class="table-light">
@@ -86,35 +83,13 @@
         <tbody>
             {% for note in entries %}
             <tr>
-                {# 日付 #}
                 <td>{{ note.note_date.strftime('%Y-%m-%d') }}</td>
-                {# 関連車両 (リンク付き、なければハイフン) #}
-                <td>
-                    {% if note.motorcycle %}
-                        <a href="{{ url_for('vehicle.edit_vehicle', vehicle_id=note.motorcycle_id) }}" title="車両情報を見る">{{ note.motorcycle.name }}</a>
-                    {% else %}
-                        <span class="text-muted">--</span>
-                    {% endif %}
-                </td>
-                {# タイトル (編集画面へのリンク) #}
-                <td>
-                    {# note.id がないと編集リンクが作れないので注意 (ビューから渡されるオブジェクトを想定) #}
-                    <a href="{{ url_for('notes.edit_note', note_id=note.id) }}">
-                        {{ note.title if note.title else '(タイトルなし)' }}
-                    </a>
-                </td>
-                {# 内容 (最初の部分を表示、全文はツールチップで) #}
-                <td>
-                    {# striptagsフィルターでHTMLタグを除去してからtruncate #}
-                    <span title="{{ note.content|striptags }}" data-bs-toggle="tooltip" data-bs-placement="top">
-                        {{ note.content | striptags | truncate(80) }} {# 80文字に短縮 #}
-                    </span>
-                </td>
-                {# 操作ボタン #}
+                <td> {% if note.motorcycle %} <a href="{{ url_for('vehicle.edit_vehicle', vehicle_id=note.motorcycle_id) }}">{{ note.motorcycle.name }}</a> {% else %} <span class="text-muted">--</span> {% endif %} </td>
+                <td> <a href="{{ url_for('notes.edit_note', note_id=note.id) }}"> {{ note.title if note.title else '(タイトルなし)' }} </a> </td> {# url_for は notes のまま #}
+                <td> <span title="{{ note.content|striptags }}" data-bs-toggle="tooltip" data-bs-placement="top"> {{ note.content | striptags | truncate(80) }} </span> </td>
                 <td class="text-nowrap">
-                    <a href="{{ url_for('notes.edit_note', note_id=note.id) }}" class="btn btn-sm btn-outline-primary me-1" title="編集"><i class="fas fa-edit fa-fw"></i></a>
-                    <form action="{{ url_for('notes.delete_note', note_id=note.id) }}" method="POST" class="d-inline" onsubmit="return confirm('このメモを削除してもよろしいですか？');">
-                        {# CSRFトークンが必要な場合は input を追加 #}
+                    <a href="{{ url_for('notes.edit_note', note_id=note.id) }}" class="btn btn-sm btn-outline-primary me-1" title="編集"><i class="fas fa-edit fa-fw"></i></a> {# url_for は notes のまま #}
+                    <form action="{{ url_for('notes.delete_note', note_id=note.id) }}" method="POST" class="d-inline" onsubmit="return confirm('このノートを削除してもよろしいですか？');"> {# url_for は notes のまま, テキスト変更 #}
                         <button type="submit" class="btn btn-sm btn-outline-danger" title="削除"><i class="fas fa-trash fa-fw"></i></button>
                     </form>
                 </td>
@@ -125,25 +100,21 @@
 </div>
 
 {# --- ページネーション --- #}
-{# pagination はビューから渡される #}
 {% if pagination and pagination.pages > 1 %}
 <nav aria-label="Page navigation">
     <ul class="pagination justify-content-center">
         <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
-            {# request_args もビューから渡す想定 #}
-            <a class="page-link" href="{{ url_for('notes.notes_log', page=pagination.prev_num, **request_args) }}">&laquo;</a>
+            <a class="page-link" href="{{ url_for('notes.notes_log', page=pagination.prev_num, **request_args) }}">&laquo;</a> {# url_for は notes のまま #}
         </li>
         {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
             {% if page_num %}
                 <li class="page-item {% if page_num == pagination.page %}active{% endif %}">
-                    <a class="page-link" href="{{ url_for('notes.notes_log', page=page_num, **request_args) }}">{{ page_num }}</a>
+                    <a class="page-link" href="{{ url_for('notes.notes_log', page=page_num, **request_args) }}">{{ page_num }}</a> {# url_for は notes のまま #}
                 </li>
-            {% else %}
-                <li class="page-item disabled"><span class="page-link">...</span></li>
-            {% endif %}
+            {% else %} <li class="page-item disabled"><span class="page-link">...</span></li> {% endif %}
         {% endfor %}
         <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
-            <a class="page-link" href="{{ url_for('notes.notes_log', page=pagination.next_num, **request_args) }}">&raquo;</a>
+            <a class="page-link" href="{{ url_for('notes.notes_log', page=pagination.next_num, **request_args) }}">&raquo;</a> {# url_for は notes のまま #}
         </li>
     </ul>
 </nav>
@@ -152,7 +123,7 @@
 
 {% else %}
 <div class="alert alert-info" role="alert">
-  まだメモが登録されていません。「新しいメモを追加」ボタンから最初のメモを登録しましょう。
+  まだノートが登録されていません。「新しいノートを追加」ボタンから最初のノートを登録しましょう。 {# テキスト変更 #}
 </div>
 {% endif %}
 

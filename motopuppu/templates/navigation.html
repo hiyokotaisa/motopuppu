@@ -35,14 +35,13 @@
                         <i class="fas fa-motorcycle me-1"></i> 車両管理
                     </a>
                 </li>
-                {# ▼▼▼ メモ一覧へのリンクを追加 ▼▼▼ #}
+                {# ▼▼▼ リンクテキストを「ノート一覧」に変更 ▼▼▼ #}
                 <li class="nav-item">
                     <a class="nav-link {% if request.endpoint.startswith('notes.') %}active{% endif %}" href="{{ url_for('notes.notes_log') }}">
-                        {# Font Awesome 5/6 のアイコン例: sticky-note #}
-                        <i class="fas fa-sticky-note me-1"></i> メモ一覧
+                        <i class="fas fa-sticky-note me-1"></i> ノート一覧 {# テキスト変更 #}
                     </a>
                 </li>
-                {# ▲▲▲ 追加ここまで ▲▲▲ #}
+                {# ▲▲▲ 変更ここまで ▲▲▲ #}
             </ul>
 
             {# 右側の要素 (ユーザー名とログアウトボタン) #}
