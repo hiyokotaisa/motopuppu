@@ -84,7 +84,7 @@
 
 {# --- 統計情報セクション --- #}
 {% if dashboard_stats %}
-<div class="card mb-4">
+<div class="card mb-4"> {# <-- ここから統計カードのdivが始まる #}
     {# --- ヘッダーにフィルターを追加 --- #}
     <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
         <span class="me-2"><i class="fas fa-chart-line me-1"></i> <strong>統計情報</strong></span>
@@ -120,18 +120,19 @@
                  <h6 class="card-title text-muted small">累計 給油費用</h6>
                  <p class="card-text fs-4 fw-bold mb-0">{{ "{:,.0f}".format(dashboard_stats.total_fuel_cost | int) }} 円</p>
                  {# 特定車両か全体かでラベルを変更 #}
-                 <small class="text-muted">({% if dashboard_stats.is_specific_vehicle %">{{ dashboard_stats.vehicle_name }}{% else %}すべての車両{% endif %})</small>
+                 <small class="text-muted">({% if dashboard_stats.is_specific_vehicle %>{{ dashboard_stats.vehicle_name }}{% else %}すべての車両{% endif %})</small>
             </div>
             <div class="col-md-3 col-6">
                  <h6 class="card-title text-muted small">累計 整備費用</h6>
                   <p class="card-text fs-4 fw-bold mb-0">{{ "{:,.0f}".format(dashboard_stats.total_maint_cost | int) }} 円</p>
                   {# 特定車両か全体かでラベルを変更 #}
-                  <small class="text-muted">({% if dashboard_stats.is_specific_vehicle %">{{ dashboard_stats.vehicle_name }}{% else %}すべての車両{% endif %})</small>
+                  <small class="text-muted">({% if dashboard_stats.is_specific_vehicle %>{{ dashboard_stats.vehicle_name }}{% else %}すべての車両{% endif %})</small>
             </div>
         </div>
     </div>
-</div>
-{% endif %}
+</div> {# <-- ここで統計カードのdivを閉じる #}
+{% endif %} {# <-- {% if dashboard_stats %} をここで閉じる #}
+
 
 {# --- 登録車両一覧 --- #}
 <div class="row g-4">
@@ -215,7 +216,7 @@
                     <ul class="list-group list-group-flush">
                         {% for entry in recent_maintenance_entries %} <li class="list-group-item">
                             <div class="d-flex w-100 justify-content-between"> <h6 class="mb-1">{{ entry.motorcycle.name }} <small class="text-muted">@ {{ entry.total_distance_at_maintenance }} km</small></h6> <small>{{ entry.maintenance_date.strftime('%Y-%m-%d') }}</small> </div>
-                            <p class="mb-1"> 内容: {{ entry.description | truncate(50) }} {% if entry.total_cost %}| 費用: {{ entry.total_cost|round|int }} 円{% endif %} </p>
+                            <p class="mb-1"> 内容: {{ entry.description | truncate(50) }} {% if entry.total_cost is not none %}| 費用: {{ entry.total_cost|round|int }} 円{% endif %} </p>
                             <small class="text-muted">カテゴリ: {{ entry.category or '未分類' }}</small>
                             <a href="{{ url_for('maintenance.edit_maintenance', entry_id=entry.id) }}" class="btn btn-sm btn-outline-secondary float-end py-0 px-1" title="編集"><i class="fas fa-edit fa-xs"></i></a>
                         </li> {% endfor %}
@@ -247,7 +248,7 @@
     function escapeHtml(unsafe) {
       if (typeof unsafe !== 'string') return unsafe;
       // 最後の replace チェーンの '&#039; の後に余分な ' があったのを削除
-      return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+      return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;');
     }
 
     // 追加: 祝日データを保持する変数
