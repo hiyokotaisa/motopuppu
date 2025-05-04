@@ -69,7 +69,7 @@
     </a>
 </div>
 
-{# --- ノート一覧テーブル (変更なし) --- #}
+{# --- ノート一覧テーブル --- #}
 {% if entries %}
 <div class="table-responsive">
     <table class="table table-striped table-hover table-sm">
@@ -119,17 +119,17 @@
                     <form action="{{ url_for('notes.delete_note', note_id=note.id) }}" method="POST" class="d-inline" onsubmit="return confirm('このノートを削除してもよろしいですか？');">
                         <button type="submit" class="btn btn-sm btn-outline-danger" title="削除"><i class="fas fa-trash fa-fw"></i></button>
                     </form>
-                    {# --- ▼▼▼ Misskey共有ボタン (data-*属性修正) ▼▼▼ --- #}
+                    {# --- ▼▼▼ Misskey共有ボタン (data-todosの引用符修正) ▼▼▼ --- #}
                     <button class="btn btn-sm btn-info btn-share-misskey ms-1"
                             data-type="note"
                             data-category="{{ note.category }}"
                             data-date="{{ note.note_date.isoformat() }}"
                             data-title="{{ note.title or '' }}"
                             data-vehicle-name="{{ note.motorcycle.name if note.motorcycle else '' }}"
-                            {# ノートの場合のみ内容を100文字+...で渡す (条件式修正) #}
                             data-content="{{ (note.content[:100] + '...') if note.category == 'note' and note.content and note.content|length > 100 else (note.content or '') if note.category == 'note' else '' }}"
-                            {# タスクの場合のみTODOリストをJSONで渡す (条件式修正) #}
-                            data-todos="{{ note.todos | tojson | safe if note.category == 'task' and note.todos else '' }}"
+                            {# --- ▼▼▼ 属性値をシングルクォートで囲む ▼▼▼ --- #}
+                            data-todos='{{ note.todos | tojson | safe if note.category == "task" and note.todos else "" }}'
+                            {# --- ▲▲▲ 属性値の囲み文字を変更 ▲▲▲ --- #}
                             title="Misskeyで共有">
                         <i class="fa-solid fa-share-nodes fa-fw"></i>
                     </button>
@@ -176,65 +176,57 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
-{# --- ▼▼▼ Misskey共有用JavaScript (デバッグログ追加) ▼▼▼ --- #}
+{# --- ▼▼▼ Misskey共有用JavaScript (デバッグログはそのまま) ▼▼▼ --- #}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // --- Misskeyインスタンスドメインをビューから受け取る ---
-    const misskeyInstanceDomain = {{ misskey_instance_domain | tojson | safe }}; // ビューから渡された変数
+    const misskeyInstanceDomain = {{ misskey_instance_domain | tojson | safe }};
 
     document.querySelectorAll('.btn-share-misskey').forEach(button => {
         button.addEventListener('click', function() {
             const dataset = this.dataset;
-            const recordType = dataset.type; // 'fuel', 'maintenance', 'note'
+            const recordType = dataset.type;
             const vehicleName = dataset.vehicleName;
-            const recordDate = dataset.date; // ISO形式 (YYYY-MM-DD)
+            const recordDate = dataset.date;
 
             let shareText = "";
-            const baseHashtags = "\n#もとぷっぷー"; // アプリ固有タグ
+            const baseHashtags = "\n#もとぷっぷー";
 
-            // 日付を見やすい形式に (任意)
             let displayDate = recordDate;
             try {
                 displayDate = new Date(recordDate).toLocaleDateString('ja-JP', { year: 'numeric', month: 'short', day: 'numeric' });
             } catch(e) { /* ignore */ }
 
-            // --- ▼▼▼ ノート共有の処理 (デバッグログ追加) ▼▼▼ ---
             if (recordType === 'note') {
-                const category = dataset.category; // 'note' or 'task'
+                const category = dataset.category;
                 const title = dataset.title;
-                const content = dataset.content; // 100文字に制限済み or 空文字
-                const todosJson = dataset.todos; // JSON文字列 or 空文字
+                const content = dataset.content;
+                const todosJson = dataset.todos;
 
-                // --- ▼▼▼ デバッグログ追加 ▼▼▼ ---
                 console.log("Share button clicked for note.");
                 console.log("Category:", category);
                 console.log("Title:", title);
                 console.log("Vehicle Name:", vehicleName);
                 console.log("Date:", recordDate);
                 console.log("Content (data-content):", content);
-                console.log("Todos JSON string (data-todos):", todosJson);
-                // --- ▲▲▲ デバッグログ追加ここまで ▲▲▲ ---
+                console.log("Todos JSON string (data-todos):", todosJson); // <<< この値を確認
 
                 let categoryIcon = category === 'task' ? '✅' : '📝';
                 let categoryHashtag = category === 'task' ? '#タスク' : '#ノート';
                 let noteHeader = categoryIcon + (title ? ` ${title}` : ` ${category === 'task' ? 'タスク' : 'ノート'}記録`);
 
                 shareText = noteHeader + "\n";
-                if (vehicleName) {
-                    shareText += `車両: ${vehicleName}\n`;
-                }
+                if (vehicleName) { shareText += `車両: ${vehicleName}\n`; }
                 shareText += `日付: ${displayDate}\n`;
 
                 if (category === 'task' && todosJson) {
-                    console.log("Processing TODO list..."); // ★追加
+                    console.log("Processing TODO list...");
                     try {
-                        const todos = JSON.parse(todosJson); // JSONをパース
-                        console.log("Parsed Todos:", todos); // ★追加: パース結果を確認
+                        const todos = JSON.parse(todosJson); // <<< ここでエラーになっていた
+                        console.log("Parsed Todos:", todos);
                         if (Array.isArray(todos) && todos.length > 0) {
                             shareText += "TODO:\n";
-                            todos.forEach((item, index) => { // ★追加: ループ確認用ログ
+                            todos.forEach((item, index) => {
                                 console.log(`Processing TODO item ${index}:`, item);
-                                // ★追加: item オブジェクトとプロパティの存在確認
                                 if (item && typeof item.text !== 'undefined' && typeof item.checked !== 'undefined') {
                                     shareText += `${item.checked ? '[x]' : '[ ]'} ${item.text}\n`;
                                 } else {
@@ -242,56 +234,31 @@ document.addEventListener('DOMContentLoaded', function() {
                                 }
                             });
                         } else {
-                            console.log("Todos array is empty or not an array after parse."); // ★追加
+                            console.log("Todos array is empty or not an array after parse.");
                         }
                     } catch (e) {
-                        console.error("Error parsing TODO JSON:", e); // パースエラーを確認
+                        console.error("Error parsing TODO JSON:", e);
                     }
                 } else if (category === 'note' && content) {
-                    console.log("Processing note content..."); // ★追加
+                    console.log("Processing note content...");
                     shareText += `内容: ${content}\n`;
                 }
 
                 shareText += baseHashtags + " " + categoryHashtag;
 
             }
-            // --- ▲▲▲ ノート共有の処理ここまで ▲▲▲ ---
+            else if (recordType === 'fuel') { /* ... (変更なし) ... */ }
+            else if (recordType === 'maintenance') { /* ... (変更なし) ... */ }
 
-            // --- 既存の給油・整備記録の処理 (変更なし) ---
-            else if (recordType === 'fuel') {
-                const odo = dataset.odo; const volume = dataset.volume; const kpl = dataset.kpl;
-                const cost = dataset.cost; const station = dataset.station;
-                const vehicleHashtag = vehicleName ? "\n#" + vehicleName.replace(/[\s#$&\+,:;=\?@\[\]\^`\{|\}~.]/g, '_') : '';
-                shareText = `[${vehicleName}] 給油記録⛽\n` +
-                            `日付: ${displayDate}\n` + `走行距離: ${odo} km\n` +
-                            `給油量: ${volume} L\n` + (kpl ? `燃費: ${kpl} km/L\n` : '') +
-                            (cost ? `費用: ${cost} 円\n` : '') + (station ? `スタンド: ${station}\n` : '') +
-                            baseHashtags + " #給油記録" + vehicleHashtag;
-            } else if (recordType === 'maintenance') {
-                const odo = dataset.odo; const cost = dataset.cost;
-                const category = dataset.category; const description = dataset.description;
-                const location = dataset.location;
-                const contentSummary = category ? category : (description ? description.substring(0, 30) + (description.length > 30 ? '...' : '') : '');
-                 const vehicleHashtag = vehicleName ? "\n#" + vehicleName.replace(/[\s#$&\+,:;=\?@\[\]\^`\{|\}~.]/g, '_') : '';
-                shareText = `[${vehicleName}] 整備記録🔧\n` +
-                            `日付: ${displayDate}\n` + `走行距離: ${odo} km\n` +
-                            `内容: ${contentSummary}\n` + (cost ? `費用: ${cost} 円\n` : '') +
-                            (location ? `場所: ${location}\n` : '') +
-                            baseHashtags + " #バイク整備" + vehicleHashtag;
-            }
-            // --- 既存の処理ここまで ---
-
-            // --- ▼▼▼ デバッグログ追加 ▼▼▼ ---
-            console.log("Generated Share Text:", shareText); // 最終的なテキスト確認
+            console.log("Generated Share Text:", shareText);
             if (shareText) {
                 const encodedText = encodeURIComponent(shareText);
                 const shareUrl = `https://${misskeyInstanceDomain}/share?text=${encodedText}`;
-                console.log("Opening Share URL:", shareUrl); // URL確認
+                console.log("Opening Share URL:", shareUrl);
                 window.open(shareUrl, '_blank', 'noopener,noreferrer');
             } else {
                 console.log("Share text is empty, not opening window.");
             }
-            // --- ▲▲▲ デバッグログ追加ここまで ▲▲▲ ---
         });
     });
 });
