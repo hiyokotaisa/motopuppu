@@ -1,12 +1,11 @@
 {# motopuppu/templates/note_form.html #}
 {% extends "base.html" %}
 
-{# ▼▼▼ ページタイトル変更 ▼▼▼ #}
 {% set page_title = "ノートの追加" if form_action == 'add' else "ノートの編集" %}
 {% block title %}{{ page_title }} - もとぷっぷー{% endblock %}
 
 {% block content %}
-<h2>{{ page_title }}</h2> {# 見出しも page_title を使うので自動で変更 #}
+<h2>{{ page_title }}</h2>
 {% if form_action == 'edit' and entry.motorcycle %}
     <h4 class="text-muted mb-4">関連車両: {{ entry.motorcycle.name }}</h4>
 {% endif %}
@@ -24,10 +23,11 @@
 {% endwith %}
 
 {# --- Form --- #}
-<form method="POST" action="{{ url_for('notes.add_note') if form_action == 'add' else url_for('notes.edit_note', note_id=entry.id if entry else 0) }}"> {# url_for は notes のまま #}
-    {# CSRF Token placeholder #}
+<form method="POST" id="note-form" action="{{ url_for('notes.add_note') if form_action == 'add' else url_for('notes.edit_note', note_id=entry.id if entry else 0) }}">
+    {# CSRF Token placeholder (もし使用する場合) #}
+    {# {{ form.csrf_token }} #}
 
-    {# 関連車両選択 #}
+    {# 関連車両選択 (変更なし) #}
     <div class="mb-3">
         <label for="motorcycle_id" class="form-label">関連車両 (任意)</label>
         <select class="form-select" id="motorcycle_id" name="motorcycle_id">
@@ -39,11 +39,10 @@
                 </option>
             {% endfor %}
         </select>
-        {# ▼▼▼ ヘルプテキスト変更 ▼▼▼ #}
         <div class="form-text">このノートを特定の車両に関連付ける場合に選択します。</div>
     </div>
 
-    {# 日付 #}
+    {# 日付 (変更なし) #}
     <div class="mb-3">
         <label for="note_date" class="form-label">日付 <span class="text-danger">*</span></label>
         {% set date_value = today_iso %}
@@ -55,31 +54,204 @@
         <input type="date" class="form-control" id="note_date" name="note_date" value="{{ date_value }}" required>
     </div>
 
-    {# タイトル #}
+    {# --- ▼▼▼ カテゴリー選択 ▼▼▼ --- #}
+    <div class="mb-3">
+        <label class="form-label">カテゴリー <span class="text-danger">*</span></label>
+        <div>
+            {% set current_category = entry.get('category') if entry is mapping else (entry.category if entry else 'note') %}
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="category" id="category-note" value="note" {% if current_category == 'note' %}checked{% endif %} required>
+                <label class="form-check-label" for="category-note">
+                    <i class="fas fa-sticky-note me-1"></i> ノート
+                </label>
+            </div>
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="category" id="category-task" value="task" {% if current_category == 'task' %}checked{% endif %} required>
+                <label class="form-check-label" for="category-task">
+                    <i class="fas fa-tasks me-1"></i> タスク (TODOリスト)
+                </label>
+            </div>
+        </div>
+    </div>
+    {# --- ▲▲▲ カテゴリー選択ここまで ▲▲▲ --- #}
+
+    {# タイトル (変更なし) #}
     <div class="mb-3">
         <label for="title" class="form-label">タイトル (任意)</label>
         <input type="text" class="form-control" id="title" name="title" maxlength="150"
                value="{{ entry.get('title') if entry is mapping else (entry.title if entry else '') }}">
     </div>
 
-    {# 内容 #}
+    {# 内容 (変更なし) #}
     <div class="mb-3">
-        {# ▼▼▼ ラベルとヘルプテキスト変更 ▼▼▼ #}
         <label for="content" class="form-label">ノート内容 <span class="text-danger">*</span></label>
         <textarea class="form-control" id="content" name="content" rows="8" required maxlength="2000">{{ entry.get('content') if entry is mapping else (entry.content if entry else '') }}</textarea>
         <div class="form-text">ノートの内容を入力します (最大2000文字)。</div>
     </div>
 
-    {# Submit/Cancel Buttons #}
+    {# --- ▼▼▼ TODOリスト入力欄 ▼▼▼ --- #}
+    <div id="todo-list-section" class="mb-3 border p-3 rounded" style="display: none;"> {# 初期状態は非表示 #}
+        <h5><i class="fas fa-list-check me-1"></i> TODOリスト</h5>
+        <div id="todo-items-container">
+            {# JavaScriptでここにTODOアイテム入力欄が追加される #}
+        </div>
+        <button type="button" id="add-todo-item" class="btn btn-sm btn-outline-success mt-2">
+            <i class="fas fa-plus me-1"></i> アイテムを追加
+        </button>
+        <div class="form-text mt-1">各アイテムは100文字以内。最大50アイテムまで追加できます。</div>
+    </div>
+    {# --- ▲▲▲ TODOリスト入力欄ここまで ▲▲▲ --- #}
+
+    {# Submit/Cancel Buttons (変更なし) #}
     <div class="mt-4">
         <button type="submit" class="btn btn-primary">
-            {# ▼▼▼ ボタンテキスト変更 ▼▼▼ #}
             <i class="fas fa-save me-1"></i> {{ 'ノートを追加' if form_action == 'add' else '更新する' }}
         </button>
-        <a href="{{ url_for('notes.notes_log') }}" class="btn btn-secondary"> {# url_for は notes のまま #}
+        <a href="{{ url_for('notes.notes_log') }}" class="btn btn-secondary">
             <i class="fas fa-times me-1"></i> キャンセル
         </a>
     </div>
 
 </form>
+
+{# --- ▼▼▼ TODOアイテムのテンプレート (JavaScriptで使用) ▼▼▼ --- #}
+<template id="todo-item-template">
+    <div class="input-group mb-2 todo-item">
+        <div class="input-group-text">
+            {# チェックボックスは値として 'on' を送るか、チェックされていなければ何も送らないのが一般的 #}
+            {# Hidden input で対応するテキストフィールドのインデックスを送るなどの工夫も可能だが、まずはシンプルに #}
+            <input class="form-check-input mt-0 todo-item-check" type="checkbox" name="todo_checked[]" aria-label="Checkbox for following text input">
+        </div>
+        <input type="text" class="form-control todo-item-text" name="todo_text[]" placeholder="タスク内容 (必須)" required maxlength="100" aria-label="Text input with checkbox">
+        <button type="button" class="btn btn-outline-danger remove-todo-item" title="このアイテムを削除">
+            <i class="fas fa-trash-alt"></i>
+        </button>
+    </div>
+</template>
+{# --- ▲▲▲ TODOアイテムのテンプレートここまで ▲▲▲ --- #}
+
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const categoryRadios = document.querySelectorAll('input[name="category"]');
+    const todoListSection = document.getElementById('todo-list-section');
+    const todoItemsContainer = document.getElementById('todo-items-container');
+    const addTodoItemButton = document.getElementById('add-todo-item');
+    const todoItemTemplate = document.getElementById('todo-item-template');
+    const noteForm = document.getElementById('note-form');
+    const MAX_TODO_ITEMS = 50;
+
+    // --- カテゴリー変更時のTODOリスト表示/非表示切り替え ---
+    function toggleTodoListSection() {
+        const selectedCategory = document.querySelector('input[name="category"]:checked').value;
+        if (selectedCategory === 'task') {
+            todoListSection.style.display = 'block';
+        } else {
+            todoListSection.style.display = 'none';
+            // カテゴリが 'note' になったらTODOアイテム入力欄をクリアする (任意)
+            // todoItemsContainer.innerHTML = '';
+        }
+        updateAddButtonState(); // アイテム追加ボタンの状態も更新
+    }
+
+    categoryRadios.forEach(radio => {
+        radio.addEventListener('change', toggleTodoListSection);
+    });
+
+    // --- TODOアイテム追加処理 ---
+    function addTodoItem(text = '', checked = false) {
+        if (todoItemsContainer.children.length >= MAX_TODO_ITEMS) {
+            alert(`TODOアイテムは最大${MAX_TODO_ITEMS}個までです。`);
+            return;
+        }
+
+        const templateContent = todoItemTemplate.content.cloneNode(true);
+        const newItem = templateContent.querySelector('.todo-item');
+        const checkbox = newItem.querySelector('.todo-item-check');
+        const textInput = newItem.querySelector('.todo-item-text');
+        const removeButton = newItem.querySelector('.remove-todo-item');
+
+        textInput.value = text;
+        checkbox.checked = checked;
+        // バックエンドで扱いやすいように、チェックボックスの value を設定 (チェック時 'true', 非チェック時 'false')
+        checkbox.value = checked ? 'true' : 'false';
+        checkbox.addEventListener('change', function() {
+            this.value = this.checked ? 'true' : 'false';
+        });
+
+
+        removeButton.addEventListener('click', function() {
+            newItem.remove();
+            updateAddButtonState(); // アイテム削除後、追加ボタンの状態を更新
+        });
+
+        todoItemsContainer.appendChild(newItem);
+        updateAddButtonState(); // アイテム追加後、追加ボタンの状態を更新
+    }
+
+    addTodoItemButton.addEventListener('click', function() {
+        addTodoItem(); // 新しい空のアイテムを追加
+    });
+
+    // --- アイテム追加ボタンの有効/無効状態更新 ---
+    function updateAddButtonState() {
+        if (todoItemsContainer.children.length >= MAX_TODO_ITEMS) {
+            addTodoItemButton.disabled = true;
+            addTodoItemButton.title = `最大${MAX_TODO_ITEMS}個までです`;
+        } else {
+            addTodoItemButton.disabled = false;
+            addTodoItemButton.title = '';
+        }
+         // カテゴリが 'task' でない場合も無効化
+        const selectedCategory = document.querySelector('input[name="category"]:checked')?.value;
+        if (selectedCategory !== 'task') {
+            addTodoItemButton.disabled = true;
+        }
+    }
+
+    // --- 編集時の初期データ読み込み ---
+    const existingTodosJson = {{ entry.todos | tojson | safe if entry and entry.todos else 'null' }};
+    if (existingTodosJson && Array.isArray(existingTodosJson)) {
+        existingTodosJson.forEach(item => {
+            if (item && typeof item.text === 'string') { // text プロパティがあるか確認
+                 addTodoItem(item.text, item.checked || false); // checked がなければ false
+            }
+        });
+    }
+
+    // --- フォーム送信前のバリデーション (任意) ---
+    noteForm.addEventListener('submit', function(event) {
+        const selectedCategory = document.querySelector('input[name="category"]:checked').value;
+        if (selectedCategory === 'task') {
+            const todoItems = todoItemsContainer.querySelectorAll('.todo-item');
+            if (todoItems.length > MAX_TODO_ITEMS) {
+                alert(`TODOアイテムは最大${MAX_TODO_ITEMS}個までです。`);
+                event.preventDefault(); // 送信を中止
+                return;
+            }
+            let hasEmptyText = false;
+            todoItems.forEach(item => {
+                const textInput = item.querySelector('.todo-item-text');
+                if (!textInput.value.trim()) {
+                    hasEmptyText = true;
+                    textInput.classList.add('is-invalid'); // 無効スタイルを適用
+                } else {
+                    textInput.classList.remove('is-invalid');
+                }
+            });
+            if (hasEmptyText) {
+                alert('タスク内容が入力されていないアイテムがあります。');
+                event.preventDefault(); // 送信を中止
+            }
+        }
+    });
+
+    // --- 初期表示処理 ---
+    toggleTodoListSection(); // ページ読み込み時にカテゴリに応じて表示を切り替え
+
+});
+</script>
 {% endblock %}

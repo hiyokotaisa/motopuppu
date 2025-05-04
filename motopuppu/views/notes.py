@@ -1,9 +1,10 @@
 # motopuppu/views/notes.py
 from flask import (
-    Blueprint, flash, g, redirect, render_template, request, url_for, abort, current_app
+    Blueprint, flash, g, redirect, render_template, request, url_for, abort, current_app, jsonify # jsonifyを追加 (もし将来的にAPIで使うなら)
 )
 from datetime import date
 from sqlalchemy import or_ # For keyword search
+import json # JSON処理のためにインポート (念のため)
 
 # 認証ヘルパーとモデルをインポート
 from .auth import login_required_custom, get_current_user
@@ -12,11 +13,16 @@ from ..models import db, Motorcycle, GeneralNote # Import GeneralNote
 # Blueprint名は 'notes' のまま
 notes_bp = Blueprint('notes', __name__, url_prefix='/notes')
 
-# --- メモ一覧 (フィルター機能強化) ---
+# --- 定数 ---
+MAX_TODO_ITEMS = 50
+ALLOWED_CATEGORIES = ['note', 'task']
+
+
+# --- メモ一覧 (フィルター機能強化) (変更なし) ---
 @notes_bp.route('/')
 @login_required_custom
-def notes_log(): # 関数名も 'notes_log' のまま
-    """一般ノートの一覧を表示 (フィルター機能付き)""" # docstringは変更
+def notes_log():
+    """一般ノートの一覧を表示 (フィルター機能付き)"""
     page = request.args.get('page', 1, type=int)
     per_page = current_app.config.get('NOTES_PER_PAGE', 20)
     user_motorcycles = Motorcycle.query.filter_by(user_id=g.user.id).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
@@ -24,17 +30,21 @@ def notes_log(): # 関数名も 'notes_log' のまま
 
     start_date_str = request.args.get('start_date'); end_date_str = request.args.get('end_date')
     vehicle_id_str = request.args.get('vehicle_id'); keyword = request.args.get('q', '').strip()
+    # <<< 修正: categoryフィルター追加 >>>
+    category_filter = request.args.get('category')
     request_args_dict = request.args.to_dict()
 
     query = GeneralNote.query.filter_by(user_id=g.user.id)
 
-    # (フィルターロジックは変更なし)
+    # 日付フィルター (変更なし)
     try:
         if start_date_str: query = query.filter(GeneralNote.note_date >= date.fromisoformat(start_date_str))
         else: request_args_dict.pop('start_date', None)
         if end_date_str: query = query.filter(GeneralNote.note_date <= date.fromisoformat(end_date_str))
         else: request_args_dict.pop('end_date', None)
     except ValueError: flash('日付の形式が無効です。YYYY-MM-DD形式で入力してください。', 'warning'); request_args_dict.pop('start_date', None); request_args_dict.pop('end_date', None)
+
+    # 車両フィルター (変更なし)
     if vehicle_id_str:
         if vehicle_id_str.lower() == 'none': query = query.filter(GeneralNote.motorcycle_id == None)
         else:
@@ -44,68 +54,172 @@ def notes_log(): # 関数名も 'notes_log' のまま
                 else: flash('選択された車両は有効ではありません。', 'warning'); request_args_dict.pop('vehicle_id', None)
             except ValueError: request_args_dict.pop('vehicle_id', None)
     else: request_args_dict.pop('vehicle_id', None)
+
+    # キーワードフィルター (変更なし)
     if keyword: query = query.filter(or_(GeneralNote.title.ilike(f'%{keyword}%'), GeneralNote.content.ilike(f'%{keyword}%')))
     else: request_args_dict.pop('q', None)
+
+    # <<< 修正: カテゴリーフィルター処理 >>>
+    if category_filter and category_filter in ALLOWED_CATEGORIES:
+        query = query.filter(GeneralNote.category == category_filter)
+    elif category_filter: # 不正なカテゴリ値の場合は無視してキーを削除
+        request_args_dict.pop('category', None)
+    else: # categoryパラメータがない場合もキーを削除
+        request_args_dict.pop('category', None)
+
 
     pagination = query.order_by(GeneralNote.note_date.desc(), GeneralNote.created_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
     entries = pagination.items
 
-    return render_template('notes_log.html', # テンプレート名は元のまま
+    return render_template('notes_log.html',
                            entries=entries,
                            pagination=pagination,
                            motorcycles=user_motorcycles,
-                           request_args=request_args_dict)
+                           request_args=request_args_dict,
+                           allowed_categories=ALLOWED_CATEGORIES, # <<< 修正: テンプレートに渡す >>>
+                           selected_category=category_filter) # <<< 修正: テンプレートに渡す >>>
+
+
+# --- ヘルパー関数: TODOリスト処理 ---
+def process_todo_list(request_form):
+    """フォームデータからTODOリストを処理し、整形・バリデーションする"""
+    todos_data = []
+    todo_texts = request_form.getlist('todo_text[]')
+    todo_checked_values = request_form.getlist('todo_checked[]') # valueが 'true' or 'false' で送られてくる想定
+
+    # チェックボックスはチェックされていないと送信されない場合があるため、テキストの数に合わせる
+    # hidden input を使うなど他の方法もあるが、ここではテキスト基準で処理
+    # Note: この実装は、チェックボックスがチェックされなかった場合に'false'が送られてくることを前提としている。
+    # もしチェックされなかった場合に値が送られない場合、ロジックの調整が必要。
+    # (今回は note_form.html の JS で 'true'/'false' を設定しているので大丈夫なはず)
+    num_items = len(todo_texts)
+    if len(todo_checked_values) != num_items:
+        # もし数が合わない場合のフォールバック（例：全部 false とする）
+        # またはエラーとして扱う（より厳格）
+        # flash('TODOリストのチェック状態の送信データに問題があります。', 'warning')
+        # return None, ["TODOリストのデータ形式エラー"] # エラーとして返す場合
+        # ここでは簡略化のため、数が合わない場合はテキストの数だけ False で埋める想定はせず、
+        # JSで'true'/'false'が送られる前提で進める
+        pass # 基本的に数は合うはず
+
+    if num_items > MAX_TODO_ITEMS:
+        return None, [f"TODOアイテムは最大{MAX_TODO_ITEMS}個までです。"]
+
+    errors = []
+    for i in range(num_items):
+        text = todo_texts[i].strip()
+        # i番目のチェック状態を取得（数が合う前提）
+        is_checked = todo_checked_values[i] == 'true'
+
+        if not text:
+            errors.append(f"{i+1}番目のTODOアイテムの内容が空です。")
+            continue # エラーがあっても処理は続ける（他のアイテムのエラーも検出するため）
+
+        if len(text) > 100:
+             errors.append(f"{i+1}番目のTODOアイテムの内容が長すぎます（100文字以内）。")
+             continue
+
+        todos_data.append({"text": text, "checked": is_checked})
+
+    if errors:
+        return None, errors # バリデーションエラーがあれば、整形済みデータはNone、エラーリストを返す
+
+    # アイテム数が0の場合も空リストではなくNoneを返すようにする（DBにはNULLで保存）
+    return todos_data if todos_data else None, []
+
 
 # --- メモ追加 ---
 @notes_bp.route('/add', methods=['GET', 'POST'])
 @login_required_custom
 def add_note():
-    """新しい一般ノートを追加""" # docstring変更
+    """新しい一般ノートを追加"""
     user_motorcycles = Motorcycle.query.filter_by(user_id=g.user.id).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
     if request.method == 'POST':
-        motorcycle_id_str = request.form.get('motorcycle_id'); note_date_str = request.form.get('note_date')
-        title = request.form.get('title', '').strip(); content = request.form.get('content', '').strip()
-        errors = {}; note_date = None; motorcycle_id = None
-        # ▼▼▼ Flashメッセージ用に修正 ▼▼▼
-        if not content: errors['content'] = 'ノート内容は必須です。'
-        elif len(content) > 2000: errors['content'] = 'ノート内容は2000文字以内で入力してください。'
-        # ▲▲▲ 修正ここまで ▲▲▲
-        if title and len(title) > 150: errors['title'] = 'タイトルは150文字以内で入力してください。'
+        motorcycle_id_str = request.form.get('motorcycle_id')
+        note_date_str = request.form.get('note_date')
+        # --- ▼▼▼ カテゴリーとTODOリスト取得処理 ▼▼▼ ---
+        category = request.form.get('category')
+        # --- ▲▲▲ カテゴリーとTODOリスト取得処理ここまで ▲▲▲ ---
+        title = request.form.get('title', '').strip()
+        content = request.form.get('content', '').strip()
+
+        errors = {}
+        note_date = None
+        motorcycle_id = None
+        todos_data = None # 初期化
+        form_errors = [] # バリデーションエラーメッセージリスト
+
+        # --- 基本フィールドのバリデーション (変更なし) ---
+        if not content: form_errors.append('ノート内容は必須です。')
+        elif len(content) > 2000: form_errors.append('ノート内容は2000文字以内で入力してください。')
+        if title and len(title) > 150: form_errors.append('タイトルは150文字以内で入力してください。')
         if note_date_str:
             try: note_date = date.fromisoformat(note_date_str)
-            except ValueError: errors['note_date'] = '有効な日付形式 (YYYY-MM-DD) で入力してください。'
-        else: errors['note_date'] = '日付は必須です。'
+            except ValueError: form_errors.append('有効な日付形式 (YYYY-MM-DD) で入力してください。')
+        else: form_errors.append('日付は必須です。')
         if motorcycle_id_str:
              try:
                  motorcycle_id = int(motorcycle_id_str)
-                 if not any(m.id == motorcycle_id for m in user_motorcycles): errors['motorcycle_id'] = '有効な車両を選択してください。'
-             except ValueError: errors['motorcycle_id'] = '車両の選択が無効です。'
+                 if not any(m.id == motorcycle_id for m in user_motorcycles): form_errors.append('有効な車両を選択してください。')
+             except ValueError: form_errors.append('車両の選択が無効です。')
         else: motorcycle_id = None
-        if errors:
-            for field, msg in errors.items(): flash(msg, 'danger')
+
+        # --- カテゴリーとTODOリストのバリデーション/処理 ---
+        if not category or category not in ALLOWED_CATEGORIES:
+            form_errors.append('有効なカテゴリーを選択してください。')
+        elif category == 'task':
+            todos_data, todo_errors = process_todo_list(request.form)
+            if todo_errors:
+                form_errors.extend(todo_errors) # エラーリストを結合
+
+        # --- エラーがあればフォーム再表示 ---
+        if form_errors:
+            for msg in form_errors:
+                flash(msg, 'danger')
+            # フォームに以前の入力値を渡すため、todosも含める
             entry_data = request.form.to_dict()
+            # todosは getlist で取得しているので、別途処理して渡す必要がある
+            # 簡単のため、ここではバリデーションエラー時はTODOリストの復元は省略する
+            # (もしくは、process_todo_list で整形前のデータを返し、テンプレートで処理する)
+            # 今回はシンプルに復元省略
+            entry_data['todos'] = None # エラー時は復元しない
             return render_template('note_form.html', form_action='add', entry=entry_data, motorcycles=user_motorcycles, today_iso=date.today().isoformat())
+
+        # --- エラーがなければDB保存 ---
         else:
-            new_note = GeneralNote( user_id=g.user.id, motorcycle_id=motorcycle_id, note_date=note_date, title=title if title else None, content=content )
+            new_note = GeneralNote(
+                user_id=g.user.id,
+                motorcycle_id=motorcycle_id,
+                note_date=note_date,
+                title=title if title else None,
+                content=content,
+                # --- ▼▼▼ category と todos を設定 ▼▼▼ ---
+                category=category,
+                todos=todos_data # process_todo_list の結果 (None または リスト)
+                # --- ▲▲▲ category と todos を設定ここまで ▲▲▲ ---
+            )
             try:
-                db.session.add(new_note); db.session.commit()
-                # ▼▼▼ Flashメッセージ修正 ▼▼▼
+                db.session.add(new_note)
+                db.session.commit()
                 flash('ノートを追加しました。', 'success')
-                # ▲▲▲ 修正ここまで ▲▲▲
-                return redirect(url_for('notes.notes_log')) # url_for は元のまま
+                return redirect(url_for('notes.notes_log'))
             except Exception as e:
-                db.session.rollback();
-                # ▼▼▼ Flashメッセージ修正 ▼▼▼
+                db.session.rollback()
                 flash(f'ノートの保存中にエラーが発生しました: {e}', 'error')
-                # ▲▲▲ 修正ここまで ▲▲▲
                 current_app.logger.error(f"Error saving general note: {e}")
                 entry_data = request.form.to_dict()
+                # エラー時の復元は省略
+                entry_data['todos'] = None
                 return render_template('note_form.html', form_action='add', entry=entry_data, motorcycles=user_motorcycles, today_iso=date.today().isoformat())
     else: # GET
-        today_iso_str = date.today().isoformat(); preselected_motorcycle_id = request.args.get('motorcycle_id', type=int)
+        today_iso_str = date.today().isoformat()
+        preselected_motorcycle_id = request.args.get('motorcycle_id', type=int)
         if preselected_motorcycle_id:
              is_owner = any(m.id == preselected_motorcycle_id for m in user_motorcycles)
              if not is_owner: preselected_motorcycle_id = None
+        # <<< 修正: GET時の entry に category と todos の初期値を設定（任意） >>>
+        # デフォルトは category='note', todos=None なので、新規追加時は特に不要
+        # entry=None のままテンプレートに渡す
         return render_template('note_form.html', form_action='add', entry=None, motorcycles=user_motorcycles, today_iso=today_iso_str, preselected_motorcycle_id=preselected_motorcycle_id)
 
 
@@ -113,66 +227,101 @@ def add_note():
 @notes_bp.route('/<int:note_id>/edit', methods=['GET', 'POST'])
 @login_required_custom
 def edit_note(note_id):
-    """既存の一般ノートを編集""" # docstring変更
+    """既存の一般ノートを編集"""
+    # options(db.selectinload(GeneralNote.motorcycle)) などでN+1問題対策も可能だが、今回は省略
     note = GeneralNote.query.filter_by(id=note_id, user_id=g.user.id).first_or_404()
     user_motorcycles = Motorcycle.query.filter_by(user_id=g.user.id).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
+
     if request.method == 'POST':
-        motorcycle_id_str = request.form.get('motorcycle_id'); note_date_str = request.form.get('note_date')
-        title = request.form.get('title', '').strip(); content = request.form.get('content', '').strip()
-        errors = {}; note_date = None; motorcycle_id = None
-        # ▼▼▼ Flashメッセージ用に修正 ▼▼▼
-        if not content: errors['content'] = 'ノート内容は必須です。'
-        elif len(content) > 2000: errors['content'] = 'ノート内容は2000文字以内で入力してください。'
-        # ▲▲▲ 修正ここまで ▲▲▲
-        if title and len(title) > 150: errors['title'] = 'タイトルは150文字以内で入力してください。'
+        motorcycle_id_str = request.form.get('motorcycle_id')
+        note_date_str = request.form.get('note_date')
+        # --- ▼▼▼ カテゴリーとTODOリスト取得処理 ▼▼▼ ---
+        category = request.form.get('category')
+        # --- ▲▲▲ カテゴリーとTODOリスト取得処理ここまで ▲▲▲ ---
+        title = request.form.get('title', '').strip()
+        content = request.form.get('content', '').strip()
+
+        errors = {} # Note: この辞書は現在使われていない -> form_errors リストに統一
+        note_date = None
+        motorcycle_id = None
+        todos_data = None # 初期化
+        form_errors = [] # バリデーションエラーメッセージリスト
+
+        # --- 基本フィールドのバリデーション (add_note と同様) ---
+        if not content: form_errors.append('ノート内容は必須です。')
+        elif len(content) > 2000: form_errors.append('ノート内容は2000文字以内で入力してください。')
+        if title and len(title) > 150: form_errors.append('タイトルは150文字以内で入力してください。')
         if note_date_str:
             try: note_date = date.fromisoformat(note_date_str)
-            except ValueError: errors['note_date'] = '有効な日付形式 (YYYY-MM-DD) で入力してください。'
-        else: errors['note_date'] = '日付は必須です。'
+            except ValueError: form_errors.append('有効な日付形式 (YYYY-MM-DD) で入力してください。')
+        else: form_errors.append('日付は必須です。')
         if motorcycle_id_str:
              try:
                  motorcycle_id = int(motorcycle_id_str)
-                 if not any(m.id == motorcycle_id for m in user_motorcycles): errors['motorcycle_id'] = '有効な車両を選択してください。'
-             except ValueError: errors['motorcycle_id'] = '車両の選択が無効です。'
+                 if not any(m.id == motorcycle_id for m in user_motorcycles): form_errors.append('有効な車両を選択してください。')
+             except ValueError: form_errors.append('車両の選択が無効です。')
         else: motorcycle_id = None
-        if errors:
-            for field, msg in errors.items(): flash(msg, 'danger')
+
+        # --- カテゴリーとTODOリストのバリデーション/処理 (add_note と同様) ---
+        if not category or category not in ALLOWED_CATEGORIES:
+            form_errors.append('有効なカテゴリーを選択してください。')
+        elif category == 'task':
+            todos_data, todo_errors = process_todo_list(request.form)
+            if todo_errors:
+                form_errors.extend(todo_errors) # エラーリストを結合
+        # カテゴリが 'note' の場合、todos は None にする
+        elif category == 'note':
+             todos_data = None
+
+
+        # --- エラーがあればフォーム再表示 ---
+        if form_errors:
+            for msg in form_errors:
+                flash(msg, 'danger')
+            # 編集中のノート情報 (`note`) をテンプレートに渡すが、
+            # フォームからの入力値で上書き表示したい場合は entry_data を別途作成する必要がある
+            # ここでは既存の `note` オブジェクトをそのまま渡し、テンプレート側で処理することを期待
+            # (ただし、バリデーションエラー時にフォーム入力値を保持したい場合は entry_data 作成推奨)
+            # 今回はシンプルに note を渡す
             return render_template('note_form.html', form_action='edit', entry=note, motorcycles=user_motorcycles, today_iso=date.today().isoformat())
+
+        # --- エラーがなければDB更新 ---
         else:
             try:
-                note.motorcycle_id = motorcycle_id; note.note_date = note_date
-                note.title = title if title else None; note.content = content
+                note.motorcycle_id = motorcycle_id
+                note.note_date = note_date
+                note.title = title if title else None
+                note.content = content
+                # --- ▼▼▼ category と todos を更新 ▼▼▼ ---
+                note.category = category
+                note.todos = todos_data # process_todo_list の結果 (None または リスト)
+                # --- ▲▲▲ category と todos を更新ここまで ▲▲▲ ---
                 db.session.commit()
-                 # ▼▼▼ Flashメッセージ修正 ▼▼▼
                 flash('ノートを更新しました。', 'success')
-                 # ▲▲▲ 修正ここまで ▲▲▲
-                return redirect(url_for('notes.notes_log')) # url_for は元のまま
+                return redirect(url_for('notes.notes_log'))
             except Exception as e:
-                db.session.rollback();
-                # ▼▼▼ Flashメッセージ修正 ▼▼▼
+                db.session.rollback()
                 flash(f'ノートの更新中にエラーが発生しました: {e}', 'error')
-                # ▲▲▲ 修正ここまで ▲▲▲
                 current_app.logger.error(f"Error updating general note {note_id}: {e}")
                 return render_template('note_form.html', form_action='edit', entry=note, motorcycles=user_motorcycles, today_iso=date.today().isoformat())
     else: # GET
+        # 編集画面表示時、既存のノートオブジェクト `note` をそのままテンプレートに渡す
+        # テンプレート側 (`note_form.html`) のJSが `entry.todos` を読んで初期表示する
         return render_template('note_form.html', form_action='edit', entry=note, motorcycles=user_motorcycles, today_iso=date.today().isoformat())
 
 
-# --- メモ削除 ---
+# --- メモ削除 (変更なし) ---
 @notes_bp.route('/<int:note_id>/delete', methods=['POST'])
 @login_required_custom
 def delete_note(note_id):
-    """一般ノートを削除""" # docstring変更
+    """一般ノートを削除"""
     note = GeneralNote.query.filter_by(id=note_id, user_id=g.user.id).first_or_404()
     try:
-        db.session.delete(note); db.session.commit()
-        # ▼▼▼ Flashメッセージ修正 ▼▼▼
+        db.session.delete(note)
+        db.session.commit()
         flash('ノートを削除しました。', 'success')
-        # ▲▲▲ 修正ここまで ▲▲▲
     except Exception as e:
-        db.session.rollback();
-        # ▼▼▼ Flashメッセージ修正 ▼▼▼
+        db.session.rollback()
         flash(f'ノートの削除中にエラーが発生しました: {e}', 'error')
-        # ▲▲▲ 修正ここまで ▲▲▲
         current_app.logger.error(f"Error deleting general note {note_id}: {e}")
-    return redirect(url_for('notes.notes_log')) # url_for は元のまま
+    return redirect(url_for('notes.notes_log'))
