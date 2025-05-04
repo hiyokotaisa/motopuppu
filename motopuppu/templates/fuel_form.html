@@ -57,21 +57,18 @@
         <input type="date" class="form-control" id="entry_date" name="entry_date" value="{{ date_value }}" required>
     </div>
 
-    {# --- ▼▼▼ ODOメーター & 前回情報 ▼▼▼ --- #}
+    {# ODOメーター & 前回情報 (変更なし) #}
     <div class="mb-3">
         <label for="odometer_reading" class="form-label">ODOメーター値 (km) <span class="text-danger">*</span></label>
         <input type="number" class="form-control" id="odometer_reading" name="odometer_reading"
-               value="{{ entry.get('odometer_reading') if entry is mapping else (entry.odometer_reading if entry else '') }}" required min="0" step="1"> {# step="1" に戻す #}
+               value="{{ entry.get('odometer_reading') if entry is mapping else (entry.odometer_reading if entry else '') }}" required min="0" step="1">
         <div class="form-text">
             給油時のメーター表示値 (整数) を入力してください。
-            {# --- ▼▼▼ 前回給油情報表示 ▼▼▼ --- #}
             {% if previous_entry_info %}
                 <br> <span class="text-info small"> <i class="fas fa-info-circle me-1"></i>前回給油: {{ previous_entry_info.date }} - {{ previous_entry_info.odo }}</span>
             {% endif %}
-            {# --- ▲▲▲ 前回給油情報表示ここまで ▲▲▲ --- #}
         </div>
     </div>
-    {# --- ▲▲▲ ODOメーターここまで ▲▲▲ --- #}
 
     {# 給油量 (変更なし) #}
      <div class="mb-3">
@@ -91,25 +88,22 @@
             <label for="total_cost" class="form-label">合計金額 (円)</label>
            <input type="number" class="form-control" id="total_cost" name="total_cost"
                   value="{{ entry.get('total_cost') if entry is mapping else (entry.total_cost if entry and entry.total_cost is not none else '') }}" min="0">
-            <div class="form-text">単価と給油量を入力した場合、自動計算されます (手入力優先)。</div>
+            <div class="form-text">単価と給油量を入力した場合、自動計算されます (手入力優先でしたが、常に再計算されるように変更)。</div> {# ヘルプテキスト修正 #}
         </div>
     </div>
 
-     {# --- ▼▼▼ 給油スタンド名 (datalist追加) ▼▼▼ --- #}
+     {# 給油スタンド名 (変更なし - datalist対応済み) #}
     <div class="mb-3">
          <label for="station_name" class="form-label">給油スタンド名</label>
         <input type="text" class="form-control" id="station_name" name="station_name"
                value="{{ entry.get('station_name') if entry is mapping else (entry.station_name if entry else '') }}"
-               list="station-brands-list"> {# list属性を追加 #}
-        {# datalist を追加 (gas_station_brandsはビューから渡される) #}
+               list="station-brands-list">
         <datalist id="station-brands-list">
             {% for brand in gas_station_brands %}
             <option value="{{ brand }}">
             {% endfor %}
-            {# 必要なら他の候補も追加 #}
         </datalist>
     </div>
-     {# --- ▲▲▲ 給油スタンド名ここまで ▲▲▲ --- #}
 
      {# 油種 (変更なし) #}
     <div class="mb-3">
@@ -156,7 +150,7 @@
 </form>
 {% endblock %}
 
-{# JavaScript (合計金額自動計算 - 変更なし) #}
+{# --- ▼▼▼ JavaScript (合計金額自動計算 - 再計算対応) ▼▼▼ --- #}
 {% block scripts %}
 {{ super() }}
 <script>
@@ -166,18 +160,24 @@
         const costInput = document.getElementById('total_cost');
 
         function calculateTotalCost() {
-            if (costInput.value && costInput.value !== '0') { return; }
+            // <<< 手入力優先の if(...) return; を削除 >>>
             const volume = parseFloat(volumeInput.value);
             const price = parseFloat(priceInput.value);
+
             if (!isNaN(volume) && volume > 0 && !isNaN(price) && price >= 0) {
                 const totalCost = Math.round(volume * price); // 四捨五入
                 costInput.value = totalCost;
+            } else {
+                 // 計算できない場合、合計金額欄をクリアする
+                 costInput.value = '';
             }
         }
         if (volumeInput && priceInput && costInput) {
             volumeInput.addEventListener('input', calculateTotalCost);
             priceInput.addEventListener('input', calculateTotalCost);
+            // costInput のイベントリスナーは不要
         }
     });
 </script>
 {% endblock %}
+{# --- ▲▲▲ JavaScript修正ここまで ▲▲▲ --- #}
