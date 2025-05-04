@@ -27,23 +27,23 @@
     <div class="mb-3">
         <label for="motorcycle_id" class="form-label">車両 <span class="text-danger">*</span></label>
         <select class="form-select" id="motorcycle_id" name="motorcycle_id" required {% if form_action == 'edit' %}disabled{% endif %}>
-             {# ▼▼▼ selected 判定ロジック修正 ▼▼▼ #}
              <option value="" {% if not entry and not preselected_motorcycle_id %}selected{% endif %}>車両を選択...</option>
             {% for motorcycle in motorcycles %}
-                {% set is_selected = False %} {# フラグ初期化 #}
-                {# Case 1: URLクエリからの事前選択 (form_action=='add' かつ entry が None の場合) #}
+                {% set is_selected = False %}
                 {% if form_action == 'add' and not entry and preselected_motorcycle_id is defined and preselected_motorcycle_id == motorcycle.id %}
                     {% set is_selected = True %}
-                {# Case 2: 編集モード (form_action=='edit') または 追加エラー時 (form_action=='add' かつ entry が辞書) #}
                 {% elif entry %}
                      {% set current_moto_id = None %}
-                     {% if entry.motorcycle_id is defined %} {# オブジェクト (edit) #}
-                         {% set current_moto_id = entry.motorcycle_id %}
-                     {% elif entry.get('motorcycle_id_int') is defined %} {# 辞書 (add エラー時) #}
+                     {# ▼▼▼ is mapping を使った判定に修正 ▼▼▼ #}
+                     {% if entry is mapping %} {# 辞書の場合 (addエラー時) #}
                          {% set current_moto_id = entry.get('motorcycle_id_int') %}
-                      {% elif entry.get('motorcycle_id') is defined %} {# 辞書 (文字列IDも考慮) #}
-                         {% set current_moto_id = entry.get('motorcycle_id') | int %}
+                         {% if current_moto_id is none %}
+                            {% set current_moto_id = entry.get('motorcycle_id') | int(-1) %}
+                         {% endif %}
+                     {% elif entry.motorcycle_id is defined %} {# オブジェクトの場合 (edit時) #}
+                         {% set current_moto_id = entry.motorcycle_id %}
                      {% endif %}
+                     {# ▲▲▲ 修正ここまで ▲▲▲ #}
                      {% if current_moto_id == motorcycle.id %}
                          {% set is_selected = True %}
                      {% endif %}
@@ -52,7 +52,6 @@
                     {{ motorcycle.name }} ({{ motorcycle.maker if motorcycle.maker else '不明' }})
                 </option>
             {% endfor %}
-            {# ▲▲▲ selected 判定ロジック修正ここまで ▲▲▲ #}
         </select>
         {% if form_action == 'edit' %}<div class="form-text">記録された車両は変更できません。</div>{% endif %}
     </div>
@@ -60,47 +59,52 @@
     {# 整備日 #}
     <div class="mb-3">
         <label for="maintenance_date" class="form-label">整備日 <span class="text-danger">*</span></label>
-        {# entry がオブジェクトか辞書か、あるいはNoneかを考慮して日付を設定 #}
-        {% set date_value = today_iso %} {# デフォルト値を先に設定 #}
+        {# ▼▼▼ is mapping を使った判定に修正 ▼▼▼ #}
+        {% set date_value = today_iso %} {# デフォルト値を先に設定 (today_isoはビューから渡される想定) #}
         {% if entry %}
-            {% if entry.maintenance_date is defined and entry.maintenance_date %} {# オブジェクトの場合 (edit) #}
-                {% set date_value = entry.maintenance_date.isoformat() %}
-            {% elif entry.get('maintenance_date') is defined %} {# 辞書の場合 (add エラー時など) #}
-                {% set date_value = entry.get('maintenance_date') %}
+            {% if entry is mapping %} {# entryが辞書(addエラー時)かチェック #}
+                {% set date_value = entry.get('maintenance_date', today_iso) %} {# 辞書から文字列を取得 #}
+            {% elif entry.maintenance_date %} {# オブジェクト(edit時)と仮定 #}
+                {% set date_value = entry.maintenance_date.isoformat() %} {# dateオブジェクトのメソッド呼び出し #}
             {% endif %}
         {% endif %}
+        {# ▲▲▲ 修正ここまで ▲▲▲ #}
         <input type="date" class="form-control" id="maintenance_date" name="maintenance_date" value="{{ date_value }}" required>
     </div>
 
     {# ODOメーター #}
     <div class="mb-3">
         <label for="odometer_reading_at_maintenance" class="form-label">整備時のODOメーター値 (km) <span class="text-danger">*</span></label>
-         {# オブジェクトか辞書かを考慮 #}
+        {# ▼▼▼ is mapping を使った判定に修正 ▼▼▼ #}
         <input type="number" class="form-control" id="odometer_reading_at_maintenance" name="odometer_reading_at_maintenance"
-               value="{{ entry.odometer_reading_at_maintenance if entry and entry.odometer_reading_at_maintenance is defined else (entry.get('odometer_reading_at_maintenance') if entry else '') }}" required min="0" step="any">
-        <div class="form-text">整備を実施した時のメーター表示値を入力してください。</div>
+               value="{{ entry.get('odometer_reading_at_maintenance') if entry is mapping else (entry.odometer_reading_at_maintenance if entry else '') }}" required min="0" step="any">
+        {# ▲▲▲ 修正ここまで ▲▲▲ #}
+        <div class="form-text">整備を実施した時のメーター表示値 (整数) を入力してください。</div> {# ヘルプテキスト修正 #}
     </div>
 
     {# 整備内容 #}
     <div class="mb-3">
          <label for="description" class="form-label">整備内容 <span class="text-danger">*</span></label>
-          {# オブジェクトか辞書かを考慮 #}
-        <textarea class="form-control" id="description" name="description" rows="3" required>{{ entry.description if entry and entry.description is defined else (entry.get('description') if entry else '') }}</textarea>
+          {# ▼▼▼ is mapping を使った判定に修正 ▼▼▼ #}
+        <textarea class="form-control" id="description" name="description" rows="3" required>{{ entry.get('description') if entry is mapping else (entry.description if entry else '') }}</textarea>
+         {# ▲▲▲ 修正ここまで ▲▲▲ #}
     </div>
 
     {# 整備場所 #}
     <div class="mb-3">
          <label for="location" class="form-label">整備場所</label>
-          {# オブジェクトか辞書かを考慮 #}
-        <input type="text" class="form-control" id="location" name="location" value="{{ entry.location if entry and entry.location is defined else (entry.get('location') if entry else '') }}">
+          {# ▼▼▼ is mapping を使った判定に修正 ▼▼▼ #}
+        <input type="text" class="form-control" id="location" name="location" value="{{ entry.get('location') if entry is mapping else (entry.location if entry else '') }}">
+         {# ▲▲▲ 修正ここまで ▲▲▲ #}
          <div class="form-text">例: 自宅、〇〇バイクショップ</div>
     </div>
 
     {# カテゴリ #}
     <div class="mb-3">
          <label for="category" class="form-label">カテゴリ</label>
-          {# オブジェクトか辞書かを考慮 #}
-        <input type="text" list="category_options" class="form-control" id="category" name="category" value="{{ entry.category if entry and entry.category is defined else (entry.get('category') if entry else '') }}">
+          {# ▼▼▼ is mapping を使った判定に修正 ▼▼▼ #}
+        <input type="text" list="category_options" class="form-control" id="category" name="category" value="{{ entry.get('category') if entry is mapping else (entry.category if entry else '') }}">
+         {# ▲▲▲ 修正ここまで ▲▲▲ #}
          <datalist id="category_options">
               <option value="エンジンオイル交換">
               <option value="タイヤ交換">
@@ -115,21 +119,24 @@
     <div class="row g-3">
         <div class="col-md-6 mb-3">
             <label for="parts_cost" class="form-label">部品代 (円)</label>
-             {# オブジェクトか辞書かを考慮 #}
-           <input type="number" class="form-control" id="parts_cost" name="parts_cost" value="{{ entry.parts_cost if entry and entry.parts_cost is defined else (entry.get('parts_cost') if entry else '') }}" min="0">
+            {# ▼▼▼ is mapping を使った判定に修正 ▼▼▼ #}
+           <input type="number" class="form-control" id="parts_cost" name="parts_cost" value="{{ entry.get('parts_cost') if entry is mapping else (entry.parts_cost if entry and entry.parts_cost is not none else '') }}" min="0">
+            {# ▲▲▲ 修正ここまで ▲▲▲ #}
         </div>
         <div class="col-md-6 mb-3">
             <label for="labor_cost" class="form-label">工賃 (円)</label>
-             {# オブジェクトか辞書かを考慮 #}
-           <input type="number" class="form-control" id="labor_cost" name="labor_cost" value="{{ entry.labor_cost if entry and entry.labor_cost is defined else (entry.get('labor_cost') if entry else '') }}" min="0">
+            {# ▼▼▼ is mapping を使った判定に修正 ▼▼▼ #}
+           <input type="number" class="form-control" id="labor_cost" name="labor_cost" value="{{ entry.get('labor_cost') if entry is mapping else (entry.labor_cost if entry and entry.labor_cost is not none else '') }}" min="0">
+            {# ▲▲▲ 修正ここまで ▲▲▲ #}
         </div>
     </div>
 
      {# メモ #}
     <div class="mb-3">
         <label for="notes" class="form-label">メモ</label>
-         {# オブジェクトか辞書かを考慮 #}
-        <textarea class="form-control" id="notes" name="notes" rows="3">{{ entry.notes if entry and entry.notes is defined else (entry.get('notes') if entry else '') }}</textarea>
+         {# ▼▼▼ is mapping を使った判定に修正 ▼▼▼ #}
+        <textarea class="form-control" id="notes" name="notes" rows="3">{{ entry.get('notes') if entry is mapping else (entry.notes if entry else '') }}</textarea>
+         {# ▲▲▲ 修正ここまで ▲▲▲ #}
     </div>
 
     {# ファイル添付は後で追加 #}
