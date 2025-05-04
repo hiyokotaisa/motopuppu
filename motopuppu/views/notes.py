@@ -18,7 +18,7 @@ MAX_TODO_ITEMS = 50
 ALLOWED_CATEGORIES = ['note', 'task']
 
 
-# --- メモ一覧 ---
+# --- メモ一覧 (変更なし) ---
 @notes_bp.route('/')
 @login_required_custom
 def notes_log():
@@ -69,14 +69,9 @@ def notes_log():
     pagination = query.order_by(GeneralNote.note_date.desc(), GeneralNote.created_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
     entries = pagination.items
 
-    # --- ▼▼▼ MisskeyインスタンスURLを取得 ▼▼▼ ---
-    # auth.py と同様に設定から取得し、デフォルトは 'misskey.io'
+    # MisskeyインスタンスURLを取得
     misskey_instance_url = current_app.config.get('MISSKEY_INSTANCE_URL', 'https://misskey.io')
-    # https:// を除去してドメイン部分だけにする (既存のJSに合わせて)
-    # urlparseを使う方が堅牢だが、ここではシンプルに文字列置換
     misskey_instance_domain = misskey_instance_url.replace('https://', '').replace('http://', '').split('/')[0]
-    # --- ▲▲▲ MisskeyインスタンスURL取得ここまで ▲▲▲ ---
-
 
     return render_template('notes_log.html',
                            entries=entries,
@@ -85,9 +80,7 @@ def notes_log():
                            request_args=request_args_dict,
                            allowed_categories=ALLOWED_CATEGORIES,
                            selected_category=category_filter,
-                           # --- ▼▼▼ テンプレートに変数を渡す ▼▼▼ ---
                            misskey_instance_domain=misskey_instance_domain
-                           # --- ▲▲▲ 変数渡しここまで ▲▲▲ ---
                            )
 
 # --- ヘルパー関数: TODOリスト処理 (変更なし) ---
@@ -121,20 +114,28 @@ def process_todo_list(request_form):
     if errors: return None, errors
     return todos_data if todos_data else None, []
 
-# --- メモ追加 (変更なし) ---
+# --- メモ追加 ---
 @notes_bp.route('/add', methods=['GET', 'POST'])
 @login_required_custom
 def add_note():
+    """新しい一般ノートを追加"""
     user_motorcycles = Motorcycle.query.filter_by(user_id=g.user.id).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
     if request.method == 'POST':
         motorcycle_id_str = request.form.get('motorcycle_id')
         note_date_str = request.form.get('note_date')
         category = request.form.get('category')
         title = request.form.get('title', '').strip()
-        content = request.form.get('content', '').strip()
+        content = request.form.get('content', '').strip() # content も取得
         note_date = None; motorcycle_id = None; todos_data = None; form_errors = []
-        if not content: form_errors.append('ノート内容は必須です。')
-        elif len(content) > 2000: form_errors.append('ノート内容は2000文字以内で入力してください。')
+
+        # --- 基本フィールドのバリデーション ---
+        # ▼▼▼ content のバリデーションを category で条件分岐 ▼▼▼
+        if category == 'note': # カテゴリがノートの場合のみ content をチェック
+            if not content:
+                form_errors.append('ノート内容は必須です。')
+            elif len(content) > 2000:
+                form_errors.append('ノート内容は2000文字以内で入力してください。')
+        # ▲▲▲ ここまで修正 ▲▲▲
         if title and len(title) > 150: form_errors.append('タイトルは150文字以内で入力してください。')
         if note_date_str:
             try: note_date = date.fromisoformat(note_date_str)
@@ -146,16 +147,24 @@ def add_note():
                  if not any(m.id == motorcycle_id for m in user_motorcycles): form_errors.append('有効な車両を選択してください。')
              except ValueError: form_errors.append('車両の選択が無効です。')
         else: motorcycle_id = None
-        if not category or category not in ALLOWED_CATEGORIES: form_errors.append('有効なカテゴリーを選択してください。')
+
+        # カテゴリーとTODOリストのバリデーション/処理
+        if not category or category not in ALLOWED_CATEGORIES:
+            form_errors.append('有効なカテゴリーを選択してください。')
         elif category == 'task':
             todos_data, todo_errors = process_todo_list(request.form)
             if todo_errors: form_errors.extend(todo_errors)
             elif not todos_data: form_errors.append('タスクカテゴリの場合、TODOアイテムを1つ以上入力してください。')
+
+        # エラーがあればフォーム再表示
         if form_errors:
             for msg in form_errors: flash(msg, 'danger')
             entry_data = request.form.to_dict(); entry_data['todos'] = None
             return render_template('note_form.html', form_action='add', entry=entry_data, motorcycles=user_motorcycles, today_iso=date.today().isoformat())
+        # エラーがなければDB保存
         else:
+            # カテゴリがタスクの場合、contentは空で保存（任意、非表示なので入力されないはず）
+            if category == 'task': content = ''
             new_note = GeneralNote(user_id=g.user.id, motorcycle_id=motorcycle_id, note_date=note_date, title=title if title else None, content=content, category=category, todos=todos_data)
             try:
                 db.session.add(new_note); db.session.commit()
@@ -173,18 +182,26 @@ def add_note():
                 preselected_motorcycle_id = None
         return render_template('note_form.html', form_action='add', entry=None, motorcycles=user_motorcycles, today_iso=today_iso_str, preselected_motorcycle_id=preselected_motorcycle_id)
 
-# --- メモ編集 (変更なし) ---
+# --- メモ編集 ---
 @notes_bp.route('/<int:note_id>/edit', methods=['GET', 'POST'])
 @login_required_custom
 def edit_note(note_id):
+    """既存の一般ノートを編集"""
     note = GeneralNote.query.filter_by(id=note_id, user_id=g.user.id).first_or_404()
     user_motorcycles = Motorcycle.query.filter_by(user_id=g.user.id).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
     if request.method == 'POST':
         motorcycle_id_str = request.form.get('motorcycle_id'); note_date_str = request.form.get('note_date')
         category = request.form.get('category'); title = request.form.get('title', '').strip(); content = request.form.get('content', '').strip()
         note_date = None; motorcycle_id = None; todos_data = None; form_errors = []
-        if not content: form_errors.append('ノート内容は必須です。')
-        elif len(content) > 2000: form_errors.append('ノート内容は2000文字以内で入力してください。')
+
+        # --- 基本フィールドのバリデーション ---
+        # ▼▼▼ content のバリデーションを category で条件分岐 ▼▼▼
+        if category == 'note': # カテゴリがノートの場合のみ content をチェック
+            if not content:
+                form_errors.append('ノート内容は必須です。')
+            elif len(content) > 2000:
+                form_errors.append('ノート内容は2000文字以内で入力してください。')
+        # ▲▲▲ ここまで修正 ▲▲▲
         if title and len(title) > 150: form_errors.append('タイトルは150文字以内で入力してください。')
         if note_date_str:
             try: note_date = date.fromisoformat(note_date_str)
@@ -196,18 +213,25 @@ def edit_note(note_id):
                  if not any(m.id == motorcycle_id for m in user_motorcycles): form_errors.append('有効な車両を選択してください。')
              except ValueError: form_errors.append('車両の選択が無効です。')
         else: motorcycle_id = None
+
+        # カテゴリーとTODOリストのバリデーション/処理
         if not category or category not in ALLOWED_CATEGORIES: form_errors.append('有効なカテゴリーを選択してください。')
         elif category == 'task':
             todos_data, todo_errors = process_todo_list(request.form)
             if todo_errors: form_errors.extend(todo_errors)
             elif not todos_data: form_errors.append('タスクカテゴリの場合、TODOアイテムを1つ以上入力してください。')
         elif category == 'note': todos_data = None
+
+        # エラーがあればフォーム再表示
         if form_errors:
             for msg in form_errors: flash(msg, 'danger')
             return render_template('note_form.html', form_action='edit', entry=note, motorcycles=user_motorcycles, today_iso=date.today().isoformat())
+        # エラーがなければDB更新
         else:
             try:
-                note.motorcycle_id = motorcycle_id; note.note_date = note_date; note.title = title if title else None; note.content = content
+                note.motorcycle_id = motorcycle_id; note.note_date = note_date; note.title = title if title else None
+                # カテゴリがタスクの場合、contentは空にする（任意）
+                note.content = content if category == 'note' else ''
                 note.category = category; note.todos = todos_data
                 db.session.commit()
                 flash('ノートを更新しました。', 'success'); return redirect(url_for('notes.notes_log'))
