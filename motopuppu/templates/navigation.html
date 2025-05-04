@@ -20,26 +20,29 @@
                         <i class="fas fa-tachometer-alt me-1"></i> ダッシュボード
                     </a>
                 </li>
-                <li class="nav-item">
-                    {# 'fuel.fuel_log' は fuel Blueprint の一覧表示ルート #}
+                 <li class="nav-item">
                     <a class="nav-link {% if request.endpoint.startswith('fuel.') %}active{% endif %}" href="{{ url_for('fuel.fuel_log') }}">
                         <i class="fas fa-gas-pump me-1"></i> 給油記録
                     </a>
                 </li>
                 <li class="nav-item">
-                    {# 'maintenance.maintenance_log' は maintenance Blueprint の一覧表示ルート #}
-                    {# ★ href を修正 ★ #}
                     <a class="nav-link {% if request.endpoint.startswith('maintenance.') %}active{% endif %}" href="{{ url_for('maintenance.maintenance_log') }}">
                         <i class="fas fa-tools me-1"></i> 整備記録
                     </a>
                 </li>
-                <li class="nav-item">
-                    {# 'vehicle.vehicle_list' は vehicle Blueprint の一覧表示ルート #}
+                 <li class="nav-item">
                     <a class="nav-link {% if request.endpoint.startswith('vehicle.') %}active{% endif %}" href="{{ url_for('vehicle.vehicle_list') }}">
                         <i class="fas fa-motorcycle me-1"></i> 車両管理
                     </a>
                 </li>
-                {# 他の主要機能へのリンクをここに追加 (例: 統計、リマインダーなど) #}
+                {# ▼▼▼ メモ一覧へのリンクを追加 ▼▼▼ #}
+                <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint.startswith('notes.') %}active{% endif %}" href="{{ url_for('notes.notes_log') }}">
+                        {# Font Awesome 5/6 のアイコン例: sticky-note #}
+                        <i class="fas fa-sticky-note me-1"></i> メモ一覧
+                    </a>
+                </li>
+                {# ▲▲▲ 追加ここまで ▲▲▲ #}
             </ul>
 
             {# 右側の要素 (ユーザー名とログアウトボタン) #}
