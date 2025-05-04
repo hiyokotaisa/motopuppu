@@ -4,8 +4,7 @@
 {% block title %}ダッシュボード - もとぷっぷー{% endblock %}
 
 {% block content %}
-{# ヘッダー、フラッシュメッセージ、メンテナンス通知、統計情報、車両一覧、直近記録のセクションは変更なし #}
-{# ... (省略) ... #}
+{# --- ヘッダー (変更なし) --- #}
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
     <h1 class="h2">{% if g.user %}ようこそ、{{ g.user.misskey_username }}さん{% else %}ダッシュボード{% endif %}</h1>
     <div class="btn-toolbar mb-2 mb-md-0">
@@ -18,6 +17,7 @@
     </div>
 </div>
 
+{# --- フラッシュメッセージ (変更なし) --- #}
 {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
         {% for category, message in messages %}
@@ -29,6 +29,7 @@
     {% endif %}
 {% endwith %}
 
+{# --- メンテナンス通知 (変更なし) --- #}
 {% if upcoming_reminders %}
 <div class="card mb-4 border-danger">
     <div class="card-header bg-danger bg-opacity-10">
@@ -60,32 +61,60 @@
 </div>
 {% endif %}
 
+{# --- ▼▼▼ 統計情報セクション修正 ▼▼▼ --- #}
 {% if dashboard_stats %}
 <div class="card mb-4">
-    <div class="card-header"><i class="fas fa-chart-line me-1"></i> <strong>統計情報</strong></div>
+    {# --- ▼▼▼ ヘッダーにフィルターを追加 ▼▼▼ --- #}
+    <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
+        <span class="me-2"><i class="fas fa-chart-line me-1"></i> <strong>統計情報</strong></span>
+        {# --- 車両選択フィルターフォーム --- #}
+        <form method="GET" action="{{ url_for('main.dashboard') }}" class="d-inline-block ms-auto" style="min-width: 180px;">
+            {# 他のフィルター値を保持するためのHidden Input #}
+            {% if selected_fuel_vehicle_id %} <input type="hidden" name="fuel_vehicle_id" value="{{ selected_fuel_vehicle_id }}"> {% endif %}
+            {% if selected_maint_vehicle_id %} <input type="hidden" name="maint_vehicle_id" value="{{ selected_maint_vehicle_id }}"> {% endif %}
+            {# 統計用車両選択ドロップダウン #}
+            <select name="stats_vehicle_id" class="form-select form-select-sm" onchange="this.form.submit()" aria-label="統計対象車両で絞り込み">
+                <option value="" {% if not selected_stats_vehicle_id %}selected{% endif %}>すべての車両 (デフォルト)</option>
+                {% for m in motorcycles %}
+                <option value="{{ m.id }}" {% if selected_stats_vehicle_id == m.id %}selected{% endif %}>{{ m.name }}</option>
+                {% endfor %}
+            </select>
+        </form>
+    </div>
+    {# --- ▲▲▲ ヘッダーここまで ▲▲▲ --- #}
     <div class="card-body">
         <div class="row text-center">
+             {# --- ▼▼▼ 表示ラベル修正 ▼▼▼ --- #}
             <div class="col-md-3 col-6 mb-3 mb-md-0">
                 <h6 class="card-title text-muted small">総走行距離</h6>
-                {% if dashboard_stats.default_vehicle_name %}<p class="card-text fs-4 fw-bold mb-0">{{ "{:,.0f}".format(dashboard_stats.total_distance | int) }} km</p><small class="text-muted">({{ dashboard_stats.default_vehicle_name }})</small>{% else %}<p class="card-text fs-4 fw-bold mb-0">-</p><small class="text-muted">(車両未登録)</small>{% endif %}
+                {# 対象車両名を表示 #}
+                {% if dashboard_stats.vehicle_name %}<p class="card-text fs-4 fw-bold mb-0">{{ "{:,.0f}".format(dashboard_stats.total_distance | int) }} km</p><small class="text-muted">({{ dashboard_stats.vehicle_name }})</small>{% else %}<p class="card-text fs-4 fw-bold mb-0">-</p><small class="text-muted">(データなし)</small>{% endif %}
             </div>
             <div class="col-md-3 col-6 mb-3 mb-md-0">
                  <h6 class="card-title text-muted small">平均燃費</h6>
-                 {% if dashboard_stats.average_kpl is not none %}<p class="card-text fs-4 fw-bold mb-0">{{ "%.2f"|format(dashboard_stats.average_kpl) }} km/L</p><small class="text-muted">({{ dashboard_stats.default_vehicle_name }})</small>{% else %}<p class="card-text fs-4 fw-bold mb-0">-</p><small class="text-muted">(計算不可)</small>{% endif %}
+                 {# 対象車両名を表示 #}
+                 {% if dashboard_stats.average_kpl is not none %}<p class="card-text fs-4 fw-bold mb-0">{{ "%.2f"|format(dashboard_stats.average_kpl) }} km/L</p><small class="text-muted">({{ dashboard_stats.vehicle_name }})</small>{% else %}<p class="card-text fs-4 fw-bold mb-0">-</p><small class="text-muted">({{ dashboard_stats.vehicle_name if dashboard_stats.vehicle_name else '計算不可' }})</small>{% endif %}
             </div>
             <div class="col-md-3 col-6">
                  <h6 class="card-title text-muted small">累計 給油費用</h6>
-                 <p class="card-text fs-4 fw-bold mb-0">{{ "{:,.0f}".format(dashboard_stats.total_fuel_cost | int) }} 円</p><small class="text-muted">(全車両)</small>
+                 <p class="card-text fs-4 fw-bold mb-0">{{ "{:,.0f}".format(dashboard_stats.total_fuel_cost | int) }} 円</p>
+                 {# 特定車両か全体かでラベルを変更 #}
+                 <small class="text-muted">({% if dashboard_stats.is_specific_vehicle %}{{ dashboard_stats.vehicle_name }}{% else %}すべての車両{% endif %})</small>
             </div>
             <div class="col-md-3 col-6">
                  <h6 class="card-title text-muted small">累計 整備費用</h6>
-                  <p class="card-text fs-4 fw-bold mb-0">{{ "{:,.0f}".format(dashboard_stats.total_maint_cost | int) }} 円</p><small class="text-muted">(全車両)</small>
+                  <p class="card-text fs-4 fw-bold mb-0">{{ "{:,.0f}".format(dashboard_stats.total_maint_cost | int) }} 円</p>
+                  {# 特定車両か全体かでラベルを変更 #}
+                  <small class="text-muted">({% if dashboard_stats.is_specific_vehicle %}{{ dashboard_stats.vehicle_name }}{% else %}すべての車両{% endif %})</small>
             </div>
+             {# --- ▲▲▲ 表示ラベル修正ここまで ▲▲▲ --- #}
         </div>
     </div>
 </div>
 {% endif %}
+{# --- ▲▲▲ 統計情報セクション修正ここまで ▲▲▲ --- #}
 
+{# --- 登録車両一覧 (変更なし) --- #}
 <div class="row g-4">
     <div class="col-md-12">
         <div class="card">
@@ -116,11 +145,15 @@
         </div>
     </div>
 
+    {# --- 直近の給油記録 (変更なし) --- #}
     <div class="col-md-6">
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
                 <span class="me-2"><i class="fas fa-gas-pump me-1"></i> 直近の給油記録</span>
                 <form method="GET" action="{{ url_for('main.dashboard') }}" class="d-inline-block ms-auto" style="min-width: 150px;">
+                     {# --- ▼▼▼ 統計フィルター値を保持する Hidden Input ▼▼▼ --- #}
+                     {% if selected_stats_vehicle_id %} <input type="hidden" name="stats_vehicle_id" value="{{ selected_stats_vehicle_id }}"> {% endif %}
+                     {# --- ▲▲▲ 追加 ▲▲▲ --- #}
                     {% if selected_maint_vehicle_id %} <input type="hidden" name="maint_vehicle_id" value="{{ selected_maint_vehicle_id }}"> {% endif %}
                     <select name="fuel_vehicle_id" class="form-select form-select-sm" onchange="this.form.submit()" aria-label="車両で絞り込み">
                         <option value="" {% if not selected_fuel_vehicle_id %}selected{% endif %}>すべての車両</option>
@@ -129,6 +162,7 @@
                 </form>
             </div>
             <div class="card-body">
+                {# ... (内容は変更なし) ... #}
                 {% if recent_fuel_entries %}
                     <ul class="list-group list-group-flush">
                         {% for entry in recent_fuel_entries %} <li class="list-group-item">
@@ -144,12 +178,16 @@
         </div>
     </div>
 
+    {# --- 直近の整備記録 (変更なし) --- #}
     <div class="col-md-6">
         <div class="card">
              <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
                  <span class="me-2"><i class="fas fa-tools me-1"></i> 直近の整備記録</span>
                  <form method="GET" action="{{ url_for('main.dashboard') }}" class="d-inline-block ms-auto" style="min-width: 150px;">
-                     {% if selected_fuel_vehicle_id %} <input type="hidden" name="fuel_vehicle_id" value="{{ selected_fuel_vehicle_id }}"> {% endif %}
+                      {# --- ▼▼▼ 統計フィルター値を保持する Hidden Input ▼▼▼ --- #}
+                     {% if selected_stats_vehicle_id %} <input type="hidden" name="stats_vehicle_id" value="{{ selected_stats_vehicle_id }}"> {% endif %}
+                     {# --- ▲▲▲ 追加 ▲▲▲ --- #}
+                    {% if selected_fuel_vehicle_id %} <input type="hidden" name="fuel_vehicle_id" value="{{ selected_fuel_vehicle_id }}"> {% endif %}
                     <select name="maint_vehicle_id" class="form-select form-select-sm" onchange="this.form.submit()" aria-label="車両で絞り込み">
                         <option value="" {% if not selected_maint_vehicle_id %}selected{% endif %}>すべての車両</option>
                         {% for m in motorcycles %} <option value="{{ m.id }}" {% if selected_maint_vehicle_id == m.id %}selected{% endif %}>{{ m.name }}</option> {% endfor %}
@@ -157,6 +195,7 @@
                  </form>
             </div>
             <div class="card-body">
+                 {# ... (内容は変更なし) ... #}
                 {% if recent_maintenance_entries %}
                     <ul class="list-group list-group-flush">
                         {% for entry in recent_maintenance_entries %} <li class="list-group-item">
@@ -182,150 +221,58 @@
 
 {% endblock %}
 
-{# --- JavaScript --- #}
+{# --- JavaScript (変更なし) --- #}
 {% block scripts %}
 {{ super() }}
 <script>
   document.addEventListener('DOMContentLoaded', function() {
     var calendarEl = document.getElementById('calendar');
 
-    // <<< 修正: HTMLエスケープ関数 (明確化のため再掲、変更なし) >>>
     function escapeHtml(unsafe) {
       if (typeof unsafe !== 'string') return unsafe;
-      return unsafe
-           .replace(/&/g, "&amp;")
-           .replace(/</g, "&lt;")
-           .replace(/>/g, "&gt;")
-           .replace(/"/g, "&quot;")
-           .replace(/'/g, "&#039;");
+      return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
 
     if (calendarEl) {
         var calendar = new FullCalendar.Calendar(calendarEl, {
-          initialView: 'dayGridMonth',
-          locale: 'ja',
-          headerToolbar: {
-            left: 'prev,next today',
-            center: 'title',
-            right: 'dayGridMonth,dayGridWeek,listMonth' // 週表示、リスト表示ボタンを追加
-          },
-          buttonText: { // 日本語表示
-            today: '今日',
-            month: '月',
-            week: '週',
-            list: 'リスト(月)'
-          },
-          contentHeight: 'auto', // 高さを自動調整
-          // 日付の数字を大きく表示 (改善)
+          initialView: 'dayGridMonth', locale: 'ja',
+          headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,dayGridWeek,listMonth' },
+          buttonText: { today: '今日', month: '月', week: '週', list: 'リスト(月)' },
+          contentHeight: 'auto',
           dayCellContent: function(arg) {
-            // 週末に色を付ける
-            const dayOfWeek = arg.date.getDay(); // 0=日, 6=土
+            const dayOfWeek = arg.date.getDay();
             let dayHtml = `<span class="fc-daygrid-day-number`;
-            if (dayOfWeek === 0) { // 日曜日
-                dayHtml += ' text-danger';
-            } else if (dayOfWeek === 6) { // 土曜日
-                dayHtml += ' text-primary';
-            }
+            if (dayOfWeek === 0) { dayHtml += ' text-danger'; }
+            else if (dayOfWeek === 6) { dayHtml += ' text-primary'; }
             dayHtml += `">${arg.date.getDate()}</span>`;
             return { html: dayHtml };
           },
           events: '/api/dashboard/events',
-          eventClick: function(info) {
-            info.jsEvent.preventDefault(); // デフォルトの動作（URL遷移）を一旦停止
-            // ポップオーバーが表示されている場合は何もしないか、閉じるなどの制御が可能
-            // 今回はシンプルにURL遷移させる
-            if (info.event.url) {
-              window.location.href = info.event.url;
-            }
-          },
-          // <<< 修正: eventDidMount コールバックを修正 >>>
+          eventClick: function(info) { info.jsEvent.preventDefault(); if (info.event.url) { window.location.href = info.event.url; } },
           eventDidMount: function(info) {
             if (info.event.extendedProps) {
-              var props = info.event.extendedProps;
-              var popoverTitle = '';
-              var popoverContent = '';
-              var eventDateStr = info.event.start ? info.event.start.toLocaleDateString('ja-JP', { year: 'numeric', month: 'short', day: 'numeric' }) : '日付不明'; // 短縮形式に変更
-
-              // --- 給油記録のポップオーバー ---
+              var props = info.event.extendedProps; var popoverTitle = ''; var popoverContent = '';
+              var eventDateStr = info.event.start ? info.event.start.toLocaleDateString('ja-JP', { year: 'numeric', month: 'short', day: 'numeric' }) : '日付不明';
               if (props.type === 'fuel') {
                 popoverTitle = `⛽ 給油 (${escapeHtml(props.motorcycleName || '車両不明')})`;
-                popoverContent = `
-                  <dl class="mb-0 small">
-                    <dt>日付:</dt><dd>${escapeHtml(eventDateStr)}</dd>
-                    <dt>ODO:</dt><dd>${props.odometer ? escapeHtml(props.odometer.toLocaleString()) + ' km' : '-'}</dd>
-                    <dt>給油量:</dt><dd>${props.fuelVolume ? escapeHtml(props.fuelVolume.toFixed(2)) + ' L' : '-'}</dd>
-                    <dt>燃費:</dt><dd>${props.kmPerLiter || '-'}</dd>
-                    <dt>金額:</dt><dd>${props.totalCost ? escapeHtml(props.totalCost.toLocaleString()) + ' 円' : '-'}</dd>
-                    ${props.stationName ? `<dt>スタンド:</dt><dd>${escapeHtml(props.stationName)}</dd>` : ''}
-                    ${props.notes ? `<dt>メモ:</dt><dd style="white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(props.notes)}</dd>` : ''}
-                  </dl>
-                  <a href="${escapeHtml(info.event.url)}" class="btn btn-sm btn-outline-primary mt-2 py-0 px-1" title="編集"><i class="fas fa-edit fa-xs me-1"></i>編集</a>
-                `;
-              }
-              // --- 整備記録のポップオーバー ---
-              else if (props.type === 'maintenance') {
+                popoverContent = `<dl class="mb-0 small"><dt>日付:</dt><dd>${escapeHtml(eventDateStr)}</dd><dt>ODO:</dt><dd>${props.odometer ? escapeHtml(props.odometer.toLocaleString()) + ' km' : '-'}</dd><dt>給油量:</dt><dd>${props.fuelVolume ? escapeHtml(props.fuelVolume.toFixed(2)) + ' L' : '-'}</dd><dt>燃費:</dt><dd>${props.kmPerLiter || '-'}</dd><dt>金額:</dt><dd>${props.totalCost ? escapeHtml(props.totalCost.toLocaleString()) + ' 円' : '-'}</dd>${props.stationName ? `<dt>スタンド:</dt><dd>${escapeHtml(props.stationName)}</dd>` : ''}${props.notes ? `<dt>メモ:</dt><dd style="white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(props.notes)}</dd>` : ''}</dl><a href="${escapeHtml(info.event.url)}" class="btn btn-sm btn-outline-primary mt-2 py-0 px-1" title="編集"><i class="fas fa-edit fa-xs me-1"></i>編集</a>`;
+              } else if (props.type === 'maintenance') {
                 popoverTitle = `🔧 ${escapeHtml(props.category || '整備')} (${escapeHtml(props.motorcycleName || '車両不明')})`;
-                popoverContent = `
-                  <dl class="mb-0 small">
-                    <dt>日付:</dt><dd>${escapeHtml(eventDateStr)}</dd>
-                    <dt>ODO:</dt><dd>${props.odometer ? escapeHtml(props.odometer.toLocaleString()) + ' km' : '-'}</dd>
-                    <dt>内容:</dt><dd style="white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(props.description)}</dd>
-                    ${props.category ? `<dt>カテゴリ:</dt><dd>${escapeHtml(props.category)}</dd>` : ''}
-                    <dt>費用:</dt><dd>${props.totalCost ? escapeHtml(props.totalCost.toLocaleString()) + ' 円' : '-'}</dd>
-                    ${props.location ? `<dt>場所:</dt><dd>${escapeHtml(props.location)}</dd>` : ''}
-                    ${props.notes ? `<dt>メモ:</dt><dd style="white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(props.notes)}</dd>` : ''}
-                  </dl>
-                   <a href="${escapeHtml(info.event.url)}" class="btn btn-sm btn-outline-primary mt-2 py-0 px-1" title="編集"><i class="fas fa-edit fa-xs me-1"></i>編集</a>
-               `;
-              }
-              // --- ▼▼▼ 一般ノートのポップオーバー ▼▼▼ ---
-              else if (props.type === 'note') {
-                 // ノートのポップオーバータイトル（関連車両名があれば表示）
+                popoverContent = `<dl class="mb-0 small"><dt>日付:</dt><dd>${escapeHtml(eventDateStr)}</dd><dt>ODO:</dt><dd>${props.odometer ? escapeHtml(props.odometer.toLocaleString()) + ' km' : '-'}</dd><dt>内容:</dt><dd style="white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(props.description)}</dd>${props.category ? `<dt>カテゴリ:</dt><dd>${escapeHtml(props.category)}</dd>` : ''}<dt>費用:</dt><dd>${props.totalCost ? escapeHtml(props.totalCost.toLocaleString()) + ' 円' : '-'}</dd>${props.location ? `<dt>場所:</dt><dd>${escapeHtml(props.location)}</dd>` : ''}${props.notes ? `<dt>メモ:</dt><dd style="white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(props.notes)}</dd>` : ''}</dl><a href="${escapeHtml(info.event.url)}" class="btn btn-sm btn-outline-primary mt-2 py-0 px-1" title="編集"><i class="fas fa-edit fa-xs me-1"></i>編集</a>`;
+              } else if (props.type === 'note') {
                  popoverTitle = `📝 ノート ${props.motorcycleName ? '(' + escapeHtml(props.motorcycleName) + ')' : ''}`;
-                 popoverContent = `
-                  <dl class="mb-0 small">
-                    <dt>日付:</dt><dd>${escapeHtml(props.noteDate || eventDateStr)}</dd>
-                    ${props.title ? `<dt>タイトル:</dt><dd>${escapeHtml(props.title)}</dd>` : ''}
-                    <dt>内容:</dt><dd style="white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(props.content)}</dd>
-                    ${props.motorcycleName ? `<dt>関連車両:</dt><dd>${escapeHtml(props.motorcycleName)}</dd>` : ''}
-                    <dt>作成日時:</dt><dd>${escapeHtml(props.createdAt)}</dd>
-                  </dl>
-                  <a href="${escapeHtml(props.url)}" class="btn btn-sm btn-outline-primary mt-2 py-0 px-1" title="編集"><i class="fas fa-edit fa-xs me-1"></i>編集</a>
-                 `;
+                 popoverContent = `<dl class="mb-0 small"><dt>日付:</dt><dd>${escapeHtml(props.noteDate || eventDateStr)}</dd>${props.title ? `<dt>タイトル:</dt><dd>${escapeHtml(props.title)}</dd>` : ''}<dt>内容:</dt><dd style="white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(props.content)}</dd>${props.motorcycleName ? `<dt>関連車両:</dt><dd>${escapeHtml(props.motorcycleName)}</dd>` : ''}<dt>作成日時:</dt><dd>${escapeHtml(props.createdAt)}</dd></dl><a href="${escapeHtml(props.url)}" class="btn btn-sm btn-outline-primary mt-2 py-0 px-1" title="編集"><i class="fas fa-edit fa-xs me-1"></i>編集</a>`;
               }
-              // --- ▲▲▲ 一般ノートのポップオーバーここまで ▲▲▲ ---
-
-              // ポップオーバーを作成・設定 (共通処理)
-              if (popoverTitle && popoverContent) {
-                  // 既にPopoverインスタンスがなければ作成
-                  if (!info.el.hasAttribute('data-bs-toggle')) {
-                      var popover = new bootstrap.Popover(info.el, {
-                          title: popoverTitle,
-                          content: popoverContent,
-                          trigger: 'hover focus', // hoverとfocusでトリガー (タッチデバイス対応改善)
-                          placement: 'auto',
-                          boundary: 'viewport',
-                          html: true,
-                          sanitize: false, // HTMLを許可 (手動でエスケープ済み)
-                          container: 'body', // bodyを基準に表示 (表示崩れ防止)
-                          customClass: 'motopuppu-popover' // 必要ならカスタムクラス
-                      });
-                  }
-                  // 既存のPopoverの内容を更新する場合 (動的更新が必要なら)
-                  // else {
-                  //    var popover = bootstrap.Popover.getInstance(info.el);
-                  //    if (popover) {
-                  //        popover.setContent({ '.popover-header': popoverTitle, '.popover-body': popoverContent });
-                  //    }
-                  //}
+               if (popoverTitle && popoverContent) {
+                 if (!info.el.hasAttribute('data-bs-toggle')) {
+                   var popover = new bootstrap.Popover(info.el, { title: popoverTitle, content: popoverContent, trigger: 'hover focus', placement: 'auto', boundary: 'viewport', html: true, sanitize: false, container: 'body', customClass: 'motopuppu-popover' });
+                 }
               }
             }
           }
         });
         calendar.render();
-    } else {
-        console.error("Calendar element not found");
-    }
+    } else { console.error("Calendar element not found"); }
   });
 </script>
 {% endblock %}
