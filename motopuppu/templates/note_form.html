@@ -5,7 +5,6 @@
 {% block title %}{{ page_title }} - もとぷっぷー{% endblock %}
 
 {% block content %}
-{# ... (フォーム上部は変更なし) ... #}
 <h2>{{ page_title }}</h2>
 {% if form_action == 'edit' and entry.motorcycle %}
     <h4 class="text-muted mb-4">関連車両: {{ entry.motorcycle.name }}</h4>
@@ -81,12 +80,13 @@
                value="{{ entry.get('title') if entry is mapping else (entry.title if entry else '') }}">
     </div>
 
-    {# 内容 (変更なし) #}
-    <div class="mb-3">
+    {# --- ▼▼▼ 内容欄にID追加 ▼▼▼ --- #}
+    <div class="mb-3" id="content-section"> {# IDを追加 #}
         <label for="content" class="form-label">ノート内容 <span class="text-danger">*</span></label>
         <textarea class="form-control" id="content" name="content" rows="8" required maxlength="2000">{{ entry.get('content') if entry is mapping else (entry.content if entry else '') }}</textarea>
         <div class="form-text">ノートの内容を入力します (最大2000文字)。</div>
     </div>
+    {# --- ▲▲▲ 内容欄ここまで ▲▲▲ --- #}
 
     {# TODOリスト入力欄 (変更なし) #}
     <div id="todo-list-section" class="mb-3 border p-3 rounded" style="display: none;">
@@ -142,24 +142,35 @@ document.addEventListener('DOMContentLoaded', function() {
     const addTodoItemButton = document.getElementById('add-todo-item');
     const todoItemTemplate = document.getElementById('todo-item-template');
     const noteForm = document.getElementById('note-form');
+    // --- ▼▼▼ 内容セクションの要素を取得 ▼▼▼ ---
+    const contentSection = document.getElementById('content-section');
+    const contentTextarea = document.getElementById('content'); // textareaも取得
+    // --- ▲▲▲ 内容セクションの要素を取得ここまで ▲▲▲ ---
     const MAX_TODO_ITEMS = 50;
 
-    // カテゴリー変更時のTODOリスト表示/非表示 (変更なし)
-    function toggleTodoListSection() {
+    // --- ▼▼▼ カテゴリー変更時の表示切り替え (内容欄も追加) ▼▼▼ ---
+    function toggleSections() {
         const selectedCategory = document.querySelector('input[name="category"]:checked').value;
         if (selectedCategory === 'task') {
             todoListSection.style.display = 'block';
-        } else {
+            contentSection.style.display = 'none'; // 内容欄を非表示
+            // contentTextarea.required = false; // required属性も解除 (任意)
+        } else { // 'note' の場合
             todoListSection.style.display = 'none';
+            contentSection.style.display = 'block'; // 内容欄を表示
+            // contentTextarea.required = true; // required属性を戻す (任意)
         }
         updateAddButtonState();
     }
+    // --- ▲▲▲ カテゴリー変更時の表示切り替えここまで ▲▲▲ ---
 
     categoryRadios.forEach(radio => {
-        radio.addEventListener('change', toggleTodoListSection);
+        // --- ▼▼▼ イベントリスナーを toggleSections に変更 ▼▼▼ ---
+        radio.addEventListener('change', toggleSections);
+        // --- ▲▲▲ イベントリスナー変更ここまで ▲▲▲ ---
     });
 
-    // --- ▼▼▼ TODOアイテム追加処理 (チェックボックス処理修正) ▼▼▼ ---
+    // --- ▼▼▼ TODOアイテム追加処理 (完了スタイル適用追加) ▼▼▼ ---
     function addTodoItem(text = '', checked = false) {
         if (todoItemsContainer.children.length >= MAX_TODO_ITEMS) {
             alert(`TODOアイテムは最大${MAX_TODO_ITEMS}個までです。`);
@@ -167,38 +178,49 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         const templateContent = todoItemTemplate.content.cloneNode(true);
-        const newItem = templateContent.querySelector('.todo-item');
+        const newItem = templateContent.querySelector('.todo-item'); // アイテム全体(div)
         const checkbox = newItem.querySelector('.todo-item-check');
         const textInput = newItem.querySelector('.todo-item-text');
         const removeButton = newItem.querySelector('.remove-todo-item');
-        // --- Hidden Input を取得 ---
-        const hiddenInput = newItem.querySelector('input[type="hidden"]');
+        const hiddenInput = newItem.querySelector('input[type="hidden"]'); // Hidden input を取得
 
         textInput.value = text;
         checkbox.checked = checked;
 
-        // --- チェック状態に応じて name 属性を制御する関数 ---
+        // チェック状態に応じて name 属性を制御する関数 (変更なし)
         function updateCheckboxNames() {
             if (checkbox.checked) {
-                // チェックされたら、チェックボックス本体が name="todo_checked[]" を持つ
                 checkbox.name = 'todo_checked[]';
-                // Hidden Input は name を持たない (送信されない)
                 hiddenInput.name = '';
             } else {
-                // チェックが外れたら、チェックボックス本体は name を持たない
-                checkbox.name = ''; // name を空にする
-                // Hidden Input が name="todo_checked[]" を持つ (value="false" を送信)
+                checkbox.name = '';
                 hiddenInput.name = 'todo_checked[]';
             }
         }
 
-        // --- チェックボックス変更時のイベントリスナー ---
-        checkbox.addEventListener('change', updateCheckboxNames);
+        // --- ▼▼▼ 完了スタイルを適用/解除する関数 ▼▼▼ ---
+        function applyDoneStyle() {
+             if (checkbox.checked) {
+                 newItem.classList.add('todo-item-done'); // 親要素にクラスを追加
+             } else {
+                 newItem.classList.remove('todo-item-done'); // 親要素からクラスを削除
+             }
+        }
+        // --- ▲▲▲ 完了スタイル適用関数ここまで ▲▲▲ ---
 
-        // --- 初期状態の name 属性を設定 ---
-        updateCheckboxNames(); // ★★★ 初期状態設定を追加 ★★★
+        // チェックボックス変更時のイベントリスナー
+        checkbox.addEventListener('change', function() {
+            updateCheckboxNames();
+            applyDoneStyle(); // ★★★ スタイル適用/解除を呼び出し ★★★
+        });
 
-        // --- 削除ボタンの処理 (変更なし) ---
+        // 初期状態の name 属性を設定
+        updateCheckboxNames();
+        // --- ▼▼▼ 初期状態のスタイル適用 ▼▼▼ ---
+        applyDoneStyle(); // ★★★ 初期スタイル適用を追加 ★★★
+        // --- ▲▲▲ 初期状態のスタイル適用ここまで ▲▲▲ ---
+
+        // 削除ボタンの処理 (変更なし)
         removeButton.addEventListener('click', function() {
             newItem.remove();
             updateAddButtonState();
@@ -228,7 +250,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // --- 編集時の初期データ読み込み (変更なし、内部の addTodoItem が修正されたため正しく動作するはず) ---
+    // --- 編集時の初期データ読み込み (変更なし) ---
     const existingTodosJson = {{ entry.todos | tojson | safe if entry and entry.todos else 'null' }};
     if (existingTodosJson && Array.isArray(existingTodosJson)) {
         existingTodosJson.forEach(item => {
@@ -265,8 +287,9 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // 初期表示処理 (変更なし)
-    toggleTodoListSection();
+    // --- ▼▼▼ 初期表示処理を toggleSections に変更 ▼▼▼ ---
+    toggleSections(); // ページ読み込み時にカテゴリに応じて関連セクションの表示を切り替え
+    // --- ▲▲▲ 初期表示処理変更ここまで ▲▲▲ ---
 
 });
 </script>

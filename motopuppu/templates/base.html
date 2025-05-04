@@ -16,29 +16,31 @@
     {# 各ページのタイトルを設定するためのブロック (デフォルト名を変更) #}
     <title>{% block title %}もとぷっぷー{% endblock %}</title>
 
-    {# ▼▼▼ Favicon関連のタグを追加 ▼▼▼ #}
-    {# 提供されたファイルに基づいてパスを設定 #}
+    {# Favicon関連のタグ (変更なし) #}
     <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='favicons/apple-touch-icon.png') }}">
-    {# favicon.ico は複数のサイズを含むことが多いので基本として指定 #}
     <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicons/favicon.ico') }}">
-    {# PNGアイコン (提供された96x96を指定) #}
     <link rel="icon" type="image/png" sizes="96x96" href="{{ url_for('static', filename='favicons/favicon-96x96.png') }}">
-    {# SVGアイコン (最新ブラウザはこちらを優先することがある) #}
     <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicons/favicon.svg') }}">
-    {# Web App Manifest #}
     <link rel="manifest" href="{{ url_for('static', filename='favicons/site.webmanifest') }}">
-    {# テーマカラー (manifestファイル内の指定と合わせるのが望ましい) #}
-    <meta name="theme-color" content="#ffffff"> {# デフォルトとして白を指定 #}
-    {# ▲▲▲ Favicon関連ここまで ▲▲▲ #}
+    <meta name="theme-color" content="#ffffff">
 
     {# 各ページ固有のヘッダー要素 (例: CSS, metaタグ) #}
     {% block head %}{% endblock %}
+
+    {# <<< 以下を追加: TODO完了スタイル >>> #}
+    <style>
+      /* TODOアイテム完了時のスタイル */
+      .todo-item-done .todo-item-text {
+        text-decoration: line-through;
+        opacity: 0.6; /* 少し薄く表示 */
+      }
+    </style>
+    {# <<< 追加ここまで >>> #}
 
   </head>
   <body>
 
     {# --- ナビゲーションバー --- #}
-    {# navigation.html を読み込む (アプリ名修正済み) #}
     {% include 'navigation.html' %}
     {# --- ナビゲーションバー ここまで --- #}
 
@@ -54,8 +56,12 @@
     <footer class="footer mt-auto py-3 bg-light border-top">
       <div class="container text-center">
         {# current_year はコンテキストプロセッサから渡される #}
-        {# アプリ名を変更 #}
         <span class="text-muted">&copy; {{ current_year }} もとぷっぷー</span>
+        {# ▼▼▼ バージョン表示追加 ▼▼▼ #}
+        {% if g.git_commit_hash %}
+          <span class="ms-3 text-muted small">version: {{ g.git_commit_hash[:7] }}</span>
+        {% endif %}
+        {# ▲▲▲ バージョン表示追加ここまで ▲▲▲ #}
       </div>
     </footer>
     {# --- フッター ここまで --- #}
