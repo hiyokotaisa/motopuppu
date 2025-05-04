@@ -3,8 +3,7 @@ from flask import (
     Blueprint, flash, g, redirect, render_template, request, url_for, abort, current_app
 )
 from datetime import date, datetime
-# ▼▼▼ SQLAlchemy の asc, desc をインポート ▼▼▼
-from sqlalchemy import or_, asc, desc
+from sqlalchemy import or_, asc, desc # asc, desc をインポート
 
 from .auth import login_required_custom, get_current_user
 from ..models import db, Motorcycle, FuelEntry
@@ -30,26 +29,20 @@ def get_previous_fuel_entry(motorcycle_id, current_entry_date, current_entry_id=
 @login_required_custom
 def fuel_log():
     """給油記録の一覧を表示 (フィルター・ソート機能付き)"""
-    # --- フィルター条件の取得 ---
     start_date_str = request.args.get('start_date'); end_date_str = request.args.get('end_date')
     vehicle_id_str = request.args.get('vehicle_id'); keyword = request.args.get('q', '').strip()
-
-    # --- ▼▼▼ ソート条件の取得 ▼▼▼ ---
-    sort_by = request.args.get('sort_by', 'date') # デフォルトは日付
-    order = request.args.get('order', 'desc')     # デフォルトは降順
-    # --- ▲▲▲ ソート条件取得ここまで ▲▲▲ ---
-
+    sort_by = request.args.get('sort_by', 'date'); order = request.args.get('order', 'desc')
     page = request.args.get('page', 1, type=int); per_page = current_app.config.get('FUEL_ENTRIES_PER_PAGE', 20)
+
     user_motorcycles = Motorcycle.query.filter_by(user_id=g.user.id).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
     user_motorcycle_ids = [m.id for m in user_motorcycles]
 
-    # ▼▼▼ JOIN を追加 ▼▼▼
     query = db.session.query(FuelEntry).join(Motorcycle).filter(FuelEntry.motorcycle_id.in_(user_motorcycle_ids))
 
     request_args_dict = request.args.to_dict()
     request_args_dict.pop('page', None); request_args_dict.pop('sort_by', None); request_args_dict.pop('order', None)
 
-    # --- フィルター適用 ---
+    # フィルター適用
     try:
         if start_date_str: query = query.filter(FuelEntry.entry_date >= date.fromisoformat(start_date_str))
         else: request_args_dict.pop('start_date', None)
@@ -66,7 +59,7 @@ def fuel_log():
     if keyword: search_term = f'%{keyword}%'; query = query.filter(or_(FuelEntry.notes.ilike(search_term), FuelEntry.station_name.ilike(search_term)))
     else: request_args_dict.pop('q', None)
 
-    # --- ▼▼▼ ソート処理 ▼▼▼ ---
+    # ソート処理
     sort_column_map = {
         'date': FuelEntry.entry_date, 'vehicle': Motorcycle.name, 'odo': FuelEntry.odometer_reading,
         'volume': FuelEntry.fuel_volume, 'price': FuelEntry.price_per_liter, 'cost': FuelEntry.total_cost,
@@ -85,7 +78,6 @@ def fuel_log():
              query = query.order_by(sort_modifier(FuelEntry.entry_date), desc(FuelEntry.total_distance))
          elif sort_column == FuelEntry.odometer_reading:
               query = query.order_by(sort_modifier(FuelEntry.odometer_reading), desc(FuelEntry.entry_date))
-    # --- ▲▲▲ ソート処理ここまで ▲▲▲ ---
 
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
     fuel_entries = pagination.items
@@ -100,7 +92,7 @@ def fuel_log():
                            )
 
 
-# --- 給油記録の追加 (応答 No.68 の正しいコード) ---
+# --- 給油記録の追加 (応答 No.68 ベースの正しい複数行コード) ---
 @fuel_bp.route('/add', methods=['GET', 'POST'])
 @login_required_custom
 def add_fuel():
@@ -139,8 +131,7 @@ def add_fuel():
         else:
             errors['entry_date'] = '給油日は必須です。'
 
-        # 日付と車両が有効なら前回情報を取得
-        if not errors.get('entry_date') and motorcycle: # motorcycleオブジェクトの存在を確認
+        if not errors.get('entry_date') and motorcycle:
              previous_entry = get_previous_fuel_entry(motorcycle.id, entry_date)
 
         if odometer_reading_str:
@@ -161,7 +152,7 @@ def add_fuel():
         if fuel_volume_str:
             try:
                 fuel_volume = float(fuel_volume_str)
-                if fuel_volume <= 0: # 0も不可にする
+                if fuel_volume <= 0:
                     errors['fuel_volume'] = '給油量は0より大きい数値を入力してください。'
             except ValueError:
                 errors['fuel_volume'] = '給油量は有効な数値を入力してください。'
@@ -184,7 +175,6 @@ def add_fuel():
             except ValueError:
                  errors['total_cost'] = '合計金額は有効な数値を入力してください。'
 
-
         if errors:
             for field, msg in errors.items(): flash(f'{msg}', 'danger')
             entry_data_for_form = request.form.to_dict()
@@ -193,7 +183,8 @@ def add_fuel():
             except ValueError: entry_data_for_form['motorcycle_id_int'] = None
             today_iso_str = date.today().isoformat()
             previous_info = None
-            if previous_entry: previous_info = { 'date': previous_entry.entry_date.strftime('%Y-%m-%d'), 'odo': f"{previous_entry.odometer_reading:,}km" }
+            if previous_entry: # 正しいインデントで記述
+                previous_info = { 'date': previous_entry.entry_date.strftime('%Y-%m-%d'), 'odo': f"{previous_entry.odometer_reading:,}km" }
             return render_template('fuel_form.html', form_action='add', entry=entry_data_for_form, motorcycles=user_motorcycles, today_iso=today_iso_str, gas_station_brands=GAS_STATION_BRANDS, previous_entry_info=previous_info)
         else:
             if not motorcycle: motorcycle = Motorcycle.query.filter_by(id=motorcycle_id, user_id=g.user.id).first()
@@ -208,7 +199,8 @@ def add_fuel():
                 try: entry_data_for_form['motorcycle_id_int'] = int(motorcycle_id) if motorcycle_id else None
                 except ValueError: entry_data_for_form['motorcycle_id_int'] = None
                 today_iso_str = date.today().isoformat(); previous_info = None
-                if previous_entry: previous_info = { 'date': previous_entry.entry_date.strftime('%Y-%m-%d'), 'odo': f"{previous_entry.odometer_reading:,}km" }
+                if previous_entry: # 正しいインデントで記述
+                     previous_info = { 'date': previous_entry.entry_date.strftime('%Y-%m-%d'), 'odo': f"{previous_entry.odometer_reading:,}km" }
                 return render_template('fuel_form.html', form_action='add', entry=entry_data_for_form, motorcycles=user_motorcycles, today_iso=today_iso_str, gas_station_brands=GAS_STATION_BRANDS, previous_entry_info=previous_info)
     else: # GET
         today_iso_str = date.today().isoformat(); preselected_motorcycle_id = request.args.get('motorcycle_id', type=int); preselected_moto = None
@@ -220,12 +212,11 @@ def add_fuel():
         if preselected_moto:
              today_date = date.today()
              previous_entry = get_previous_fuel_entry(preselected_moto.id, today_date)
-             if previous_entry:
+             if previous_entry: # 正しいインデントで記述
                  previous_entry_info = { 'date': previous_entry.entry_date.strftime('%Y-%m-%d'), 'odo': f"{previous_entry.odometer_reading:,}km" }
         return render_template('fuel_form.html',form_action='add', entry=None,motorcycles=user_motorcycles, today_iso=today_iso_str,preselected_motorcycle_id=preselected_motorcycle_id,gas_station_brands=GAS_STATION_BRANDS,previous_entry_info=previous_entry_info)
 
-
-# --- 給油記録の編集 (応答 No.68 の正しいコード) ---
+# --- 給油記録の編集 (応答 No.68 ベースの正しい複数行コード) ---
 @fuel_bp.route('/<int:entry_id>/edit', methods=['GET', 'POST'])
 @login_required_custom
 def edit_fuel(entry_id):
@@ -277,7 +268,9 @@ def edit_fuel(entry_id):
         if errors:
             for field, msg in errors.items(): flash(f'{msg}', 'danger')
             today_iso_str = date.today().isoformat()
-            previous_info = None; previous_entry and previous_info={'date': previous_entry.entry_date.strftime('%Y-%m-%d'),'odo': f"{previous_entry.odometer_reading:,}km"}
+            previous_info = None
+            if previous_entry: # 正しいインデントで記述
+                 previous_info={'date': previous_entry.entry_date.strftime('%Y-%m-%d'),'odo': f"{previous_entry.odometer_reading:,}km"}
             return render_template('fuel_form.html', form_action='edit', entry=entry, motorcycles=user_motorcycles, today_iso=today_iso_str, gas_station_brands=GAS_STATION_BRANDS, previous_entry_info=previous_info)
         else:
             try:
@@ -287,11 +280,19 @@ def edit_fuel(entry_id):
             except Exception as e:
                 db.session.rollback(); flash(f'記録の更新中にエラーが発生しました。', 'error'); current_app.logger.error(f"Error updating fuel entry {entry_id}: {e}")
                 today_iso_str = date.today().isoformat()
-                previous_info = None; previous_entry and previous_info={'date': previous_entry.entry_date.strftime('%Y-%m-%d'),'odo': f"{previous_entry.odometer_reading:,}km"}
+                previous_info = None
+                if previous_entry: # 正しいインデントで記述
+                    previous_info={'date': previous_entry.entry_date.strftime('%Y-%m-%d'),'odo': f"{previous_entry.odometer_reading:,}km"}
                 return render_template('fuel_form.html', form_action='edit', entry=entry, motorcycles=user_motorcycles, today_iso=today_iso_str, gas_station_brands=GAS_STATION_BRANDS, previous_entry_info=previous_info)
     else: # GET
         today_iso_str = date.today().isoformat()
-        previous_entry_info = None; previous_entry = get_previous_fuel_entry(entry.motorcycle_id, entry.entry_date, entry.id); previous_entry and previous_entry_info={'date': previous_entry.entry_date.strftime('%Y-%m-%d'),'odo': f"{previous_entry.odometer_reading:,}km"}
+        previous_entry_info = None
+        previous_entry = get_previous_fuel_entry(entry.motorcycle_id, entry.entry_date, entry.id)
+        if previous_entry: # 正しいインデントで記述
+            previous_entry_info = {
+                'date': previous_entry.entry_date.strftime('%Y-%m-%d'),
+                'odo': f"{previous_entry.odometer_reading:,}km"
+            }
         return render_template('fuel_form.html',form_action='edit', entry=entry,motorcycles=user_motorcycles, today_iso=today_iso_str,gas_station_brands=GAS_STATION_BRANDS,previous_entry_info=previous_entry_info)
 
 
@@ -299,7 +300,11 @@ def edit_fuel(entry_id):
 @fuel_bp.route('/<int:entry_id>/delete', methods=['POST'])
 @login_required_custom
 def delete_fuel(entry_id):
-    entry = FuelEntry.query.filter(FuelEntry.id == entry_id).join(Motorcycle).filter(Motorcycle.user_id == g.user.id).first_or_404();
-    try: db.session.delete(entry); db.session.commit(); flash('給油記録を削除しました。', 'success')
-    except Exception as e: db.session.rollback(); flash(f'記録の削除中にエラーが発生しました。', 'error'); current_app.logger.error(f"Error deleting fuel entry {entry_id}: {e}")
+    entry = FuelEntry.query.filter(FuelEntry.id == entry_id).join(Motorcycle).filter(Motorcycle.user_id == g.user.id).first_or_404()
+    try:
+        db.session.delete(entry); db.session.commit()
+        flash('給油記録を削除しました。', 'success')
+    except Exception as e:
+        db.session.rollback(); flash(f'記録の削除中にエラーが発生しました。', 'error')
+        current_app.logger.error(f"Error deleting fuel entry {entry_id}: {e}")
     return redirect(url_for('fuel.fuel_log'))
