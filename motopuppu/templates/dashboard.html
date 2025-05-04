@@ -120,13 +120,13 @@
                  <h6 class="card-title text-muted small">累計 給油費用</h6>
                  <p class="card-text fs-4 fw-bold mb-0">{{ "{:,.0f}".format(dashboard_stats.total_fuel_cost | int) }} 円</p>
                  {# 特定車両か全体かでラベルを変更 #}
-                 <small class="text-muted">({% if dashboard_stats.is_specific_vehicle %>{{ dashboard_stats.vehicle_name }}{% else %}すべての車両{% endif %})</small>
+                 <small class="text-muted">({% if dashboard_stats.is_specific_vehicle %}{{ dashboard_stats.vehicle_name }}{% else %}すべての車両{% endif %})</small> {# <-- ここから不要な '>' を削除しました #}
             </div>
             <div class="col-md-3 col-6">
                  <h6 class="card-title text-muted small">累計 整備費用</h6>
                   <p class="card-text fs-4 fw-bold mb-0">{{ "{:,.0f}".format(dashboard_stats.total_maint_cost | int) }} 円</p>
                   {# 特定車両か全体かでラベルを変更 #}
-                  <small class="text-muted">({% if dashboard_stats.is_specific_vehicle %>{{ dashboard_stats.vehicle_name }}{% else %}すべての車両{% endif %})</small>
+                  <small class="text-muted">({% if dashboard_stats.is_specific_vehicle %}{{ dashboard_stats.vehicle_name }}{% else %}すべての車両{% endif %})</small> {# <-- ここからも不要な '>' を削除しました #}
             </div>
         </div>
     </div>
