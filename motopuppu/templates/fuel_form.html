@@ -100,9 +100,9 @@
             {# 値設定ロジック修正済み #}
            <input type="number" class="form-control" id="total_cost" name="total_cost"
                   value="{{ entry.get('total_cost') if entry is mapping else (entry.total_cost if entry and entry.total_cost is not none else '') }}" min="0">
-             {# ▼▼▼ ヘルプテキスト修正 ▼▼▼ #}
-            <div class="form-text">「給油量」「単価」「合計金額」のうち2つを入力すると、残りが自動計算されます。</div>
-             {# ▲▲▲ ヘルプテキスト修正ここまで ▲▲▲ #}
+             {# ▼▼▼ ヘルプテキスト追加 (元々あったもの) ▼▼▼ #}
+            <div class="form-text">単価と給油量を入力した場合、自動計算されます (手入力優先)。</div>
+             {# ▲▲▲ ヘルプテキスト追加ここまで ▲▲▲ #}
         </div>
     </div>
 
@@ -140,7 +140,7 @@
         {% elif form_action == 'add' %} {# 新規追加時はデフォルトでチェックON #}
              {% set is_checked = True %}
         {% endif %}
-        <input type="checkbox" class="form-check-input" id="is_full_tank" name="is_full_tank" value="1" {% if is_checked %}checked{% endif %}>
+        <input type="checkbox" class="form-check-input" id="is_full_tank" name="is_full_tank" value="1" {% if is_checked %}checked{% endif %}> {# value="1" に統一 #}
         <label class="form-check-label" for="is_full_tank">満タン給油 (燃費計算に利用)</label>
     </div>
 
@@ -164,56 +164,46 @@
 </form>
 {% endblock %}
 
-{# --- ▼▼▼ JavaScript (相互計算ロジック) を更新 ▼▼▼ --- #}
+{# --- ▼▼▼ JavaScript (合計金額自動計算) を追加 ▼▼▼ --- #}
 {% block scripts %}
 {{ super() }}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const volumeInput = document.getElementById('fuel_volume');
-    const priceInput = document.getElementById('price_per_liter');
-    const costInput = document.getElementById('total_cost');
+    // 単価と給油量から合計金額を自動計算する (手入力があればそちらを優先)
+    document.addEventListener('DOMContentLoaded', function() {
+        const volumeInput = document.getElementById('fuel_volume');
+        const priceInput = document.getElementById('price_per_liter');
+        const costInput = document.getElementById('total_cost');
 
-    function updateFuelFields() {
-        // 各入力値を取得し、数値に変換 (変換失敗時は NaN)
-        const volume = parseFloat(volumeInput.value);
-        const price = parseFloat(priceInput.value);
-        const cost = parseFloat(costInput.value);
+        function calculateTotalCost() {
+            // 合計金額に既に手入力がある場合は何もしない
+            if (costInput.value && costInput.value !== '0') { // '0' も手入力とみなす
+                return;
+            }
+            const volume = parseFloat(volumeInput.value);
+            const price = parseFloat(priceInput.value);
 
-        // 各フィールドが有効な数値を持っているかどうかのフラグ
-        const hasVolume = !isNaN(volume) && volume > 0;
-        const hasPrice = !isNaN(price) && price >= 0;
-        const hasCost = !isNaN(cost) && cost >= 0;
-
-        // 有効な数値が入力されているフィールドの数をカウント
-        const filledCount = [hasVolume, hasPrice, hasCost].filter(Boolean).length;
-
-        // --- ちょうど2つのフィールドが有効な場合のみ計算を実行 ---
-        if (filledCount === 2) {
-            if (hasVolume && hasPrice && (!costInput.value || costInput.value === '0')) { // 合計金額が未入力か0の場合のみ計算
-                // 合計金額を計算 (Volume * Price)
-                costInput.value = Math.round(volume * price);
-            } else if (hasVolume && hasCost && (!priceInput.value || priceInput.value === '0')) { // 単価が未入力か0の場合
-                // リッター単価を計算 (Cost / Volume)
-                if (volume > 0) { // ゼロ除算防止
-                    priceInput.value = (cost / volume).toFixed(1); // 小数点以下1桁
-                }
-            } else if (hasPrice && hasCost && (!volumeInput.value || volumeInput.value === '0')) { // 給油量が未入力か0の場合
-                // 給油量を計算 (Cost / Price)
-                if (price > 0) { // ゼロ除算防止
-                    volumeInput.value = (cost / price).toFixed(2); // 小数点以下2桁
-                }
+            // 単価と給油量の両方が有効な数値の場合のみ計算
+            if (!isNaN(volume) && volume > 0 && !isNaN(price) && price >= 0) {
+                const totalCost = Math.round(volume * price); // 小数点以下は四捨五入
+                costInput.value = totalCost;
+            } else {
+                 // 計算できない場合は空にする（0を入れない）
+                 // costInput.value = '';
             }
         }
-        // 0個、1個、または3つのフィールドが入力されている場合は何もしない
-    }
 
-    // 3つのフィールドすべてに入力イベントリスナーを追加
-    if (volumeInput && priceInput && costInput) {
-        volumeInput.addEventListener('input', updateFuelFields);
-        priceInput.addEventListener('input', updateFuelFields);
-        costInput.addEventListener('input', updateFuelFields);
-    }
-});
+        // 単価または給油量の入力が変わったら計算を実行
+        if (volumeInput && priceInput && costInput) {
+            volumeInput.addEventListener('input', calculateTotalCost);
+            priceInput.addEventListener('input', calculateTotalCost);
+            // 合計金額欄の入力があったら自動計算を一旦停止（手入力優先）
+            // costInput.addEventListener('input', function() {
+            //    volumeInput.removeEventListener('input', calculateTotalCost);
+            //    priceInput.removeEventListener('input', calculateTotalCost);
+            // });
+            // ↑単純にするため、手入力優先は「既に値があれば計算しない」方式に変更
+        }
+    });
 </script>
 {% endblock %}
-{# --- ▲▲▲ JavaScript更新ここまで ▲▲▲ --- #}
+{# --- ▲▲▲ JavaScript追加ここまで ▲▲▲ --- #}
