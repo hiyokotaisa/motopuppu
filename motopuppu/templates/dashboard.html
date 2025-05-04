@@ -120,13 +120,13 @@
                  <h6 class="card-title text-muted small">累計 給油費用</h6>
                  <p class="card-text fs-4 fw-bold mb-0">{{ "{:,.0f}".format(dashboard_stats.total_fuel_cost | int) }} 円</p>
                  {# 特定車両か全体かでラベルを変更 #}
-                 <small class="text-muted">({% if dashboard_stats.is_specific_vehicle %}{{ dashboard_stats.vehicle_name }}{% else %}すべての車両{% endif %})</small>
+                 <small class="text-muted">({% if dashboard_stats.is_specific_vehicle %">{{ dashboard_stats.vehicle_name }}{% else %}すべての車両{% endif %})</small>
             </div>
             <div class="col-md-3 col-6">
                  <h6 class="card-title text-muted small">累計 整備費用</h6>
                   <p class="card-text fs-4 fw-bold mb-0">{{ "{:,.0f}".format(dashboard_stats.total_maint_cost | int) }} 円</p>
                   {# 特定車両か全体かでラベルを変更 #}
-                  <small class="text-muted">({% if dashboard_stats.is_specific_vehicle %}{{ dashboard_stats.vehicle_name }}{% else %}すべての車両{% endif %})</small>
+                  <small class="text-muted">({% if dashboard_stats.is_specific_vehicle %">{{ dashboard_stats.vehicle_name }}{% else %}すべての車両{% endif %})</small>
             </div>
         </div>
     </div>
@@ -243,9 +243,11 @@
   document.addEventListener('DOMContentLoaded', function() {
     var calendarEl = document.getElementById('calendar');
 
+    // 修正: escapeHtml関数のSyntax Errorを修正
     function escapeHtml(unsafe) {
       if (typeof unsafe !== 'string') return unsafe;
-      return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;');
+      // 最後の replace チェーンの '&#039; の後に余分な ' があったのを削除
+      return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
 
     // 追加: 祝日データを保持する変数
