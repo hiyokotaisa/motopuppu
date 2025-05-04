@@ -2,12 +2,12 @@
 {% extends "base.html" %}
 
 {% set page_title = "給油記録の追加" if form_action == 'add' else "給油記録の編集" %}
-{% block title %}{{ page_title }} - もとぷっぷー{% endblock %} {# アプリ名修正済み #}
+{% block title %}{{ page_title }} - もとぷっぷー{% endblock %}
 
 {% block content %}
 <h2>{{ page_title }}</h2>
 
-{# --- フラッシュメッセージ表示 --- #}
+{# Flash Messages (変更なし) #}
 {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
         {% for category, message in messages %}
@@ -18,35 +18,24 @@
         {% endfor %}
     {% endif %}
 {% endwith %}
-{# --- フラッシュメッセージ表示 ここまで --- #}
 
 <form method="POST" action="{{ url_for('fuel.add_fuel') if form_action == 'add' else url_for('fuel.edit_fuel', entry_id=entry.id) }}">
-    {# CSRFトークン (Flask-WTF使用時) #}
+    {# CSRFトークン #}
 
-    {# 車両選択 #}
+    {# 車両選択 (変更なし) #}
     <div class="mb-3">
         <label for="motorcycle_id" class="form-label">車両 <span class="text-danger">*</span></label>
         <select class="form-select" id="motorcycle_id" name="motorcycle_id" required {% if form_action == 'edit' %}disabled{% endif %}>
              <option value="" {% if not entry and not preselected_motorcycle_id %}selected{% endif %}>車両を選択...</option>
             {% for motorcycle in motorcycles %}
-                {% set is_selected = False %} {# フラグ初期化 #}
-                {% if form_action == 'add' and not entry and preselected_motorcycle_id is defined and preselected_motorcycle_id == motorcycle.id %}
-                    {% set is_selected = True %}
+                {% set is_selected = False %}
+                {% if form_action == 'add' and not entry and preselected_motorcycle_id is defined and preselected_motorcycle_id == motorcycle.id %} {% set is_selected = True %}
                 {% elif entry %}
                      {% set current_moto_id = None %}
-                     {# entryがオブジェクトか辞書かでIDの取得方法を切り替え #}
-                     {% if entry is mapping %} {# 辞書の場合 (addエラー時) #}
-                         {% set current_moto_id = entry.get('motorcycle_id_int') %} {# viewで変換したintを使う #}
-                         {% if current_moto_id is none %} {# 文字列の場合も考慮 #}
-                            {% set current_moto_id = entry.get('motorcycle_id') | int(-1) %} {# int変換失敗時は-1など #}
-                         {% endif %}
-                     {% elif entry.motorcycle_id is defined %} {# オブジェクトの場合 (edit時) #}
-                         {% set current_moto_id = entry.motorcycle_id %}
+                     {% if entry is mapping %} {% set current_moto_id = entry.get('motorcycle_id_int') %}{% if current_moto_id is none %}{% set current_moto_id = entry.get('motorcycle_id') | int(-1) %}{% endif %}
+                     {% elif entry.motorcycle_id is defined %} {% set current_moto_id = entry.motorcycle_id %}
                      {% endif %}
-                     {# IDが一致したら選択状態にする #}
-                     {% if current_moto_id == motorcycle.id %}
-                         {% set is_selected = True %}
-                     {% endif %}
+                     {% if current_moto_id == motorcycle.id %} {% set is_selected = True %} {% endif %}
                 {% endif %}
                 <option value="{{ motorcycle.id }}" {% if is_selected %}selected{% endif %}>
                     {{ motorcycle.name }} ({{ motorcycle.maker if motorcycle.maker else '不明' }})
@@ -56,65 +45,73 @@
         {% if form_action == 'edit' %}<div class="form-text">記録された車両は変更できません。</div>{% endif %}
     </div>
 
-    {# 給油日 #}
+    {# 給油日 (変更なし) #}
     <div class="mb-3">
         <label for="entry_date" class="form-label">給油日 <span class="text-danger">*</span></label>
-        {# 値設定ロジック修正済み #}
-        {% set date_value = today_iso %} {# デフォルト値を先に設定 (today_isoはビューから渡される想定) #}
+        {% set date_value = today_iso %}
         {% if entry %}
-            {% if entry is mapping %} {# entryが辞書(addエラー時)かチェック #}
-                {% set date_value = entry.get('entry_date', today_iso) %} {# 辞書から文字列を取得 #}
-            {% elif entry.entry_date %} {# オブジェクト(edit時)と仮定 #}
-                {% set date_value = entry.entry_date.isoformat() %} {# dateオブジェクトのメソッド呼び出し #}
+            {% if entry is mapping %} {% set date_value = entry.get('entry_date', today_iso) %}
+            {% elif entry.entry_date %} {% set date_value = entry.entry_date.isoformat() %}
             {% endif %}
         {% endif %}
         <input type="date" class="form-control" id="entry_date" name="entry_date" value="{{ date_value }}" required>
     </div>
 
-    {# ODOメーター #}
+    {# --- ▼▼▼ ODOメーター & 前回情報 ▼▼▼ --- #}
     <div class="mb-3">
         <label for="odometer_reading" class="form-label">ODOメーター値 (km) <span class="text-danger">*</span></label>
-         {# 値設定ロジック修正済み #}
         <input type="number" class="form-control" id="odometer_reading" name="odometer_reading"
-               value="{{ entry.get('odometer_reading') if entry is mapping else (entry.odometer_reading if entry else '') }}" required min="0" step="any">
-        <div class="form-text">給油時のメーター表示値 (整数) を入力してください。</div>
+               value="{{ entry.get('odometer_reading') if entry is mapping else (entry.odometer_reading if entry else '') }}" required min="0" step="1"> {# step="1" に戻す #}
+        <div class="form-text">
+            給油時のメーター表示値 (整数) を入力してください。
+            {# --- ▼▼▼ 前回給油情報表示 ▼▼▼ --- #}
+            {% if previous_entry_info %}
+                <br> <span class="text-info small"> <i class="fas fa-info-circle me-1"></i>前回給油: {{ previous_entry_info.date }} - {{ previous_entry_info.odo }}</span>
+            {% endif %}
+            {# --- ▲▲▲ 前回給油情報表示ここまで ▲▲▲ --- #}
+        </div>
     </div>
+    {# --- ▲▲▲ ODOメーターここまで ▲▲▲ --- #}
 
-    {# 給油量 #}
+    {# 給油量 (変更なし) #}
      <div class="mb-3">
         <label for="fuel_volume" class="form-label">給油量 (L) <span class="text-danger">*</span></label>
         <input type="number" class="form-control" id="fuel_volume" name="fuel_volume"
                value="{{ entry.get('fuel_volume') if entry is mapping else (entry.fuel_volume if entry else '') }}" required min="0.01" step="0.01">
     </div>
 
-    {# 費用関連 #}
+    {# 費用関連 (変更なし) #}
     <div class="row g-3">
         <div class="col-md-6 mb-3">
             <label for="price_per_liter" class="form-label">リッター単価 (円/L)</label>
-            {# 値設定ロジック修正済み #}
             <input type="number" class="form-control" id="price_per_liter" name="price_per_liter"
                    value="{{ entry.get('price_per_liter') if entry is mapping else (entry.price_per_liter if entry and entry.price_per_liter is not none else '') }}" min="0" step="0.1">
         </div>
         <div class="col-md-6 mb-3">
             <label for="total_cost" class="form-label">合計金額 (円)</label>
-            {# 値設定ロジック修正済み #}
            <input type="number" class="form-control" id="total_cost" name="total_cost"
                   value="{{ entry.get('total_cost') if entry is mapping else (entry.total_cost if entry and entry.total_cost is not none else '') }}" min="0">
-             {# ▼▼▼ ヘルプテキスト追加 (元々あったもの) ▼▼▼ #}
             <div class="form-text">単価と給油量を入力した場合、自動計算されます (手入力優先)。</div>
-             {# ▲▲▲ ヘルプテキスト追加ここまで ▲▲▲ #}
         </div>
     </div>
 
-     {# 給油スタンド名 #}
+     {# --- ▼▼▼ 給油スタンド名 (datalist追加) ▼▼▼ --- #}
     <div class="mb-3">
          <label for="station_name" class="form-label">給油スタンド名</label>
-         {# 値設定ロジック修正済み #}
         <input type="text" class="form-control" id="station_name" name="station_name"
-               value="{{ entry.get('station_name') if entry is mapping else (entry.station_name if entry else '') }}">
+               value="{{ entry.get('station_name') if entry is mapping else (entry.station_name if entry else '') }}"
+               list="station-brands-list"> {# list属性を追加 #}
+        {# datalist を追加 (gas_station_brandsはビューから渡される) #}
+        <datalist id="station-brands-list">
+            {% for brand in gas_station_brands %}
+            <option value="{{ brand }}">
+            {% endfor %}
+            {# 必要なら他の候補も追加 #}
+        </datalist>
     </div>
+     {# --- ▲▲▲ 給油スタンド名ここまで ▲▲▲ --- #}
 
-     {# 油種 #}
+     {# 油種 (変更なし) #}
     <div class="mb-3">
         <label for="fuel_type" class="form-label">油種</label>
        <input type="text" list="fuel_type_options" class="form-control" id="fuel_type" name="fuel_type" value="{{ entry.get('fuel_type') if entry is mapping else (entry.fuel_type if entry else '') }}">
@@ -127,31 +124,26 @@
     </div>
 
 
-    {# 満タンチェック #}
+    {# 満タンチェック (変更なし) #}
     <div class="mb-3 form-check">
-        {# チェック状態の判定ロジック修正済み #}
         {% set is_checked = False %}
         {% if entry %}
-             {% if entry is mapping %} {# 辞書(addエラー時) #}
-                 {% if 'is_full_tank' in entry %} {% set is_checked = True %} {% endif %}
-             {% elif entry.is_full_tank %} {# オブジェクト(edit時) #}
-                 {% set is_checked = True %}
+             {% if entry is mapping %} {% if 'is_full_tank' in entry %} {% set is_checked = True %} {% endif %}
+             {% elif entry.is_full_tank %} {% set is_checked = True %}
              {% endif %}
-        {% elif form_action == 'add' %} {# 新規追加時はデフォルトでチェックON #}
-             {% set is_checked = True %}
+        {% elif form_action == 'add' %} {% set is_checked = True %}
         {% endif %}
-        <input type="checkbox" class="form-check-input" id="is_full_tank" name="is_full_tank" value="1" {% if is_checked %}checked{% endif %}> {# value="1" に統一 #}
+        <input type="checkbox" class="form-check-input" id="is_full_tank" name="is_full_tank" value="1" {% if is_checked %}checked{% endif %}>
         <label class="form-check-label" for="is_full_tank">満タン給油 (燃費計算に利用)</label>
     </div>
 
-     {# メモ #}
+     {# メモ (変更なし) #}
     <div class="mb-3">
         <label for="notes" class="form-label">メモ</label>
-        {# 値設定ロジック修正済み #}
         <textarea class="form-control" id="notes" name="notes" rows="3">{{ entry.get('notes') if entry is mapping else (entry.notes if entry else '') }}</textarea>
     </div>
 
-    {# 送信ボタンとキャンセルボタン #}
+    {# 送信ボタンとキャンセルボタン (変更なし) #}
     <div class="mt-4">
         <button type="submit" class="btn btn-primary">
             <i class="fas fa-save me-1"></i> {{ '記録を追加' if form_action == 'add' else '更新する' }}
@@ -164,46 +156,28 @@
 </form>
 {% endblock %}
 
-{# --- ▼▼▼ JavaScript (合計金額自動計算) を追加 ▼▼▼ --- #}
+{# JavaScript (合計金額自動計算 - 変更なし) #}
 {% block scripts %}
 {{ super() }}
 <script>
-    // 単価と給油量から合計金額を自動計算する (手入力があればそちらを優先)
     document.addEventListener('DOMContentLoaded', function() {
         const volumeInput = document.getElementById('fuel_volume');
         const priceInput = document.getElementById('price_per_liter');
         const costInput = document.getElementById('total_cost');
 
         function calculateTotalCost() {
-            // 合計金額に既に手入力がある場合は何もしない
-            if (costInput.value && costInput.value !== '0') { // '0' も手入力とみなす
-                return;
-            }
+            if (costInput.value && costInput.value !== '0') { return; }
             const volume = parseFloat(volumeInput.value);
             const price = parseFloat(priceInput.value);
-
-            // 単価と給油量の両方が有効な数値の場合のみ計算
             if (!isNaN(volume) && volume > 0 && !isNaN(price) && price >= 0) {
-                const totalCost = Math.round(volume * price); // 小数点以下は四捨五入
+                const totalCost = Math.round(volume * price); // 四捨五入
                 costInput.value = totalCost;
-            } else {
-                 // 計算できない場合は空にする（0を入れない）
-                 // costInput.value = '';
             }
         }
-
-        // 単価または給油量の入力が変わったら計算を実行
         if (volumeInput && priceInput && costInput) {
             volumeInput.addEventListener('input', calculateTotalCost);
             priceInput.addEventListener('input', calculateTotalCost);
-            // 合計金額欄の入力があったら自動計算を一旦停止（手入力優先）
-            // costInput.addEventListener('input', function() {
-            //    volumeInput.removeEventListener('input', calculateTotalCost);
-            //    priceInput.removeEventListener('input', calculateTotalCost);
-            // });
-            // ↑単純にするため、手入力優先は「既に値があれば計算しない」方式に変更
         }
     });
 </script>
 {% endblock %}
-{# --- ▲▲▲ JavaScript追加ここまで ▲▲▲ --- #}

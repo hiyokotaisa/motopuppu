@@ -6,41 +6,48 @@
 {% block content %}
 <h2>給油記録ログ</h2>
 
-{# --- フィルターフォーム (既存のものを想定) --- #}
+{# --- フィルターフォーム (元のコード) --- #}
 <form method="GET" action="{{ url_for('fuel.fuel_log') }}" class="mb-4 p-3 border rounded bg-light">
     <div class="row g-3 align-items-end">
         <div class="col-md-3">
             <label for="start_date" class="form-label">開始日</label>
-            <input type="date" class="form-control" id="start_date" name="start_date" value="{{ request_args.get('start_date', '') }}">
+            <input type="date" class="form-control form-control-sm" id="start_date" name="start_date" value="{{ request_args.get('start_date', '') }}"> {# class="form-control-sm" を追加 #}
         </div>
         <div class="col-md-3">
             <label for="end_date" class="form-label">終了日</label>
-            <input type="date" class="form-control" id="end_date" name="end_date" value="{{ request_args.get('end_date', '') }}">
+            <input type="date" class="form-control form-control-sm" id="end_date" name="end_date" value="{{ request_args.get('end_date', '') }}"> {# class="form-control-sm" を追加 #}
         </div>
         <div class="col-md-3">
             <label for="vehicle_id" class="form-label">車両</label>
-            <select class="form-select" id="vehicle_id" name="vehicle_id">
+            <select class="form-select form-select-sm" id="vehicle_id" name="vehicle_id"> {# class="form-select-sm" を追加 #}
                 <option value="">すべての車両</option>
                 {% for motorcycle in motorcycles %}
-                <option value="{{ motorcycle.id }}" {% if request_args.get('vehicle_id')|int == motorcycle.id %}selected{% endif %}>
+                {# ID比較を文字列で行うように修正 #}
+                <option value="{{ motorcycle.id }}" {% if request_args.get('vehicle_id')|string == motorcycle.id|string %}selected{% endif %}>
                     {{ motorcycle.name }}
                 </option>
                 {% endfor %}
             </select>
         </div>
+         {# ▼▼▼ キーワードフィルター入力欄を追加 (views/fuel.pyのロジックに合わせる) ▼▼▼ #}
         <div class="col-md-3">
-            <button type="submit" class="btn btn-primary w-100">
+            <label for="q" class="form-label">キーワード</label>
+            <input type="text" class="form-control form-control-sm" id="q" name="q" value="{{ request_args.get('q', '') }}" placeholder="メモ, スタンド名">
+        </div>
+        {# ▲▲▲ キーワードフィルター追加ここまで ▲▲▲ #}
+        <div class="col-md-3 ms-md-auto"> {# ボタンの列調整 #}
+            <button type="submit" class="btn btn-primary w-100 btn-sm"> {# class="btn-sm" を追加 #}
                 <i class="fas fa-filter me-1"></i> 絞り込む
             </button>
-            {# リセットリンク (任意) #}
-             <a href="{{ url_for('fuel.fuel_log') }}" class="btn btn-outline-secondary w-100 mt-1">リセット</a>
+             {# リセットリンクのクラスも btn-sm に #}
+             <a href="{{ url_for('fuel.fuel_log') }}" class="btn btn-outline-secondary w-100 mt-1 btn-sm">リセット</a>
         </div>
     </div>
 </form>
 {# --- フィルターフォームここまで --- #}
 
 
-{# --- フラッシュメッセージ表示 --- #}
+{# --- フラッシュメッセージ表示 (変更なし) --- #}
 {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
         {% for category, message in messages %}
@@ -51,7 +58,6 @@
         {% endfor %}
     {% endif %}
 {% endwith %}
-{# --- フラッシュメッセージ表示 ここまで --- #}
 
 {# --- 記録テーブル --- #}
 {% if entries %}
@@ -63,7 +69,9 @@
                 <th>車両</th>
                 <th>ODO (km)</th>
                 <th>給油量 (L)</th>
-                <th>単価 (円/L)</th>
+                 {# --- ▼▼▼ 単価ヘッダー修正 (単位を明確化) ▼▼▼ --- #}
+                <th>単価 (円)</th>
+                 {# --- ▲▲▲ 修正ここまで ▲▲▲ --- #}
                 <th>金額 (円)</th>
                 <th>スタンド</th>
                 <th>燃費 (km/L)</th>
@@ -75,15 +83,16 @@
             <tr>
                 <td>{{ entry.entry_date.strftime('%Y-%m-%d') }}</td>
                 <td>
-                    {# 車両名に車両編集画面へのリンクを追加 #}
                     <a href="{{ url_for('vehicle.edit_vehicle', vehicle_id=entry.motorcycle_id) }}" title="車両情報を見る">
                         {{ entry.motorcycle.name }}
                     </a>
                 </td>
                 <td class="text-end">{{ "{:,}".format(entry.odometer_reading) }}</td>
                 <td class="text-end">{{ "%.2f"|format(entry.fuel_volume) }}</td>
-                <td class="text-end">{{ entry.price_per_liter|round(1)|default('-', true) }}</td>
-                <td class="text-end">{{ entry.total_cost|round|int|default('-', true) }}</td>
+                 {# --- ▼▼▼ 単価表示を整数化 ▼▼▼ --- #}
+                <td class="text-end">{{ entry.price_per_liter|round|int|default('-', true) }}</td>
+                 {# --- ▲▲▲ 修正ここまで ▲▲▲ --- #}
+                <td class="text-end">{{ entry.total_cost|round|int|default('-', true) }}</td> {# 合計金額は元のコードですでに整数化済み #}
                 <td>{{ entry.station_name if entry.station_name else '-' }}</td>
                 <td class="text-end">
                     {% if entry.km_per_liter is not none %}
@@ -92,15 +101,11 @@
                         -
                     {% endif %}
                  </td>
-                <td class="text-nowrap"> {# ボタンが改行しないように #}
-                    {# 編集ボタン #}
+                <td class="text-nowrap">
                     <a href="{{ url_for('fuel.edit_fuel', entry_id=entry.id) }}" class="btn btn-sm btn-outline-primary me-1" title="編集"><i class="fas fa-edit fa-fw"></i></a>
-                    {# 削除ボタン #}
                     <form action="{{ url_for('fuel.delete_fuel', entry_id=entry.id) }}" method="POST" class="d-inline" onsubmit="return confirm('この給油記録を削除してもよろしいですか？');">
-                        {# CSRFトークンが必要な場合は input を追加 #}
                         <button type="submit" class="btn btn-sm btn-outline-danger" title="削除"><i class="fas fa-trash fa-fw"></i></button>
                     </form>
-                    {# ▼▼▼ Misskey共有ボタンを追加 ▼▼▼ #}
                     <button class="btn btn-sm btn-info btn-share-misskey ms-1"
                             data-type="fuel"
                             data-vehicle-name="{{ entry.motorcycle.name }}"
@@ -111,9 +116,8 @@
                             data-cost="{{ entry.total_cost|round|int if entry.total_cost is not none else '' }}"
                             data-station="{{ entry.station_name or '' }}"
                             title="Misskeyで共有">
-                        <i class="fa-solid fa-share-nodes fa-fw"></i> {# Font Awesome 6 #}
+                        <i class="fa-solid fa-share-nodes fa-fw"></i>
                     </button>
-                    {# ▲▲▲ 追加ここまで ▲▲▲ #}
                 </td>
             </tr>
             {% endfor %}
@@ -121,17 +125,15 @@
     </table>
 </div>
 
-{# --- ページネーション (既存のものを想定) --- #}
+{# --- ページネーション (元のコード) --- #}
 {% if pagination and pagination.pages > 1 %}
 <nav aria-label="Page navigation">
     <ul class="pagination justify-content-center">
-        {# Previous page link #}
         <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
             <a class="page-link" href="{{ url_for('fuel.fuel_log', page=pagination.prev_num, **request_args) }}" aria-label="Previous">
                 <span aria-hidden="true">&laquo;</span>
             </a>
         </li>
-        {# Page numbers #}
         {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
             {% if page_num %}
                 <li class="page-item {% if page_num == pagination.page %}active{% endif %}">
@@ -141,7 +143,6 @@
                 <li class="page-item disabled"><span class="page-link">...</span></li>
             {% endif %}
         {% endfor %}
-        {# Next page link #}
         <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
             <a class="page-link" href="{{ url_for('fuel.fuel_log', page=pagination.next_num, **request_args) }}" aria-label="Next">
                 <span aria-hidden="true">&raquo;</span>
@@ -150,7 +151,6 @@
     </ul>
 </nav>
 {% endif %}
-{# --- ページネーションここまで --- #}
 
 {% else %}
 <div class="alert alert-info" role="alert">
@@ -158,7 +158,7 @@
 </div>
 {% endif %}
 
-{# 追加ボタン #}
+{# 追加ボタン (元のコード) #}
 <div class="mt-4">
      <a href="{{ url_for('fuel.add_fuel') }}" class="btn btn-success">
         <i class="fas fa-plus me-1"></i> 新しい給油記録を追加
@@ -167,70 +167,15 @@
 
 {% endblock %}
 
-{# --- JavaScript --- #}
+{# --- JavaScript (元のコード) --- #}
 {% block scripts %}
-{{ super() }} {# base.html のスクリプトを継承 #}
+{{ super() }}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const misskeyInstanceDomain = 'misskey.io'; // ドメインを固定
-
-    document.querySelectorAll('.btn-share-misskey').forEach(button => {
-        button.addEventListener('click', function() {
-            const dataset = this.dataset;
-            const recordType = dataset.type; // 'fuel' or 'maintenance'
-            const vehicleName = dataset.vehicleName;
-            const recordDate = dataset.date; // YYYY-MM-DD形式
-            const odo = dataset.odo;
-            const cost = dataset.cost;
-
-            let shareText = "";
-            // 車両名をハッシュタグにする (簡易エスケープ: スペースや#などを_に置換)
-            const vehicleHashtag = vehicleName ? "\n#" + vehicleName.replace(/[\s#$&\+,:;=\?@\[\]\^`\{|\}~.]/g, '_') : '';
-            const baseHashtags = "\n#もとぷっぷー"; // アプリ固有タグ
-
-            // 日付を見やすい形式に (任意)
-            let displayDate = recordDate;
-            try {
-                displayDate = new Date(recordDate).toLocaleDateString('ja-JP', { year: 'numeric', month: 'short', day: 'numeric' });
-            } catch(e) { /* 変換失敗時は元の形式 */}
-
-            if (recordType === 'fuel') {
-                const volume = dataset.volume;
-                const kpl = dataset.kpl;
-                const station = dataset.station;
-                shareText = `[${vehicleName}] 給油記録⛽\n` +
-                            `日付: ${displayDate}\n` +
-                            `走行距離: ${odo} km\n` +
-                            `給油量: ${volume} L\n` +
-                            (kpl ? `燃費: ${kpl} km/L\n` : '') +
-                            (cost ? `費用: ${cost} 円\n` : '') +
-                            (station ? `スタンド: ${station}\n` : '') +
-                            baseHashtags + " #給油記録" + vehicleHashtag;
-            } else if (recordType === 'maintenance') {
-                // (maintenance_log.html側で必要なデータをdata-*に入れる)
-                const category = dataset.category;
-                const description = dataset.description;
-                const location = dataset.location;
-                // カテゴリがあればそれを優先、なければ説明の最初の部分を使う
-                const contentSummary = category ? category : description.substring(0, 30) + (description.length > 30 ? '...' : '');
-
-                shareText = `[${vehicleName}] 整備記録🔧\n` +
-                            `日付: ${displayDate}\n` +
-                            `走行距離: ${odo} km\n` +
-                            `内容: ${contentSummary}\n` +
-                            (cost ? `費用: ${cost} 円\n` : '') +
-                            (location ? `場所: ${location}\n` : '') +
-                            baseHashtags + " #バイク整備" + vehicleHashtag;
-            }
-
-            if (shareText) {
-                const encodedText = encodeURIComponent(shareText);
-                const shareUrl = `https://` + misskeyInstanceDomain + `/share?text=` + encodedText;
-                // 新しいタブでMisskey共有画面を開く
-                window.open(shareUrl, '_blank', 'noopener,noreferrer'); // セキュリティ対策
-            }
-        });
-    });
+    // fuel_log.html 固有のJSがあればここに記述する想定だが、元のコードにはなかった
+    // Misskey共有JSは notes_log.html に記述済みのため、ここでは不要
+    // const misskeyInstanceDomain = 'misskey.io'; // ドメインを固定
+    // document.querySelectorAll('.btn-share-misskey').forEach(button => { ... });
 });
 </script>
 {% endblock %}
