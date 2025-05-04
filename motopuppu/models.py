@@ -1,6 +1,7 @@
 # motopuppu/models.py
 from . import db # __init__.py で初期化された SQLAlchemy オブジェクトをインポート
 from datetime import datetime, date
+from sqlalchemy.dialects.postgresql import JSONB # <<< 追加: PostgreSQLのJSONB型を使う場合
 # from flask_login import UserMixin # Flask-Login を使う場合
 
 # --- データベースモデル定義 ---
@@ -16,8 +17,7 @@ class User(db.Model): #, UserMixin):
 
     # Userが削除されたら、関連するレコードも削除 (cascade)
     motorcycles = db.relationship('Motorcycle', backref='owner', lazy=True, cascade="all, delete-orphan")
-    # ▼▼▼ GeneralNoteへのリレーションシップを追加 ▼▼▼
-    general_notes = db.relationship('GeneralNote', backref='owner', lazy=True, cascade="all, delete-orphan")
+    general_notes = db.relationship('GeneralNote', backref='owner', lazy=True, cascade="all, delete-orphan") # GeneralNoteへのリレーションシップ
 
 
     # Flask-Loginを使う場合に必要
@@ -45,7 +45,6 @@ class Motorcycle(db.Model):
     consumable_logs = db.relationship('ConsumableLog', backref='motorcycle', lazy='dynamic', order_by="desc(ConsumableLog.change_date)", cascade="all, delete-orphan")
     maintenance_reminders = db.relationship('MaintenanceReminder', backref='motorcycle', lazy=True, cascade="all, delete-orphan")
     # general_notes への参照は GeneralNote モデルの backref='general_notes' で自動的に作成される
-    # attachments = db.relationship('Attachment', backref='motorcycle', lazy=True, cascade="all, delete-orphan")
 
     def __repr__(self):
         return f'<Motorcycle id={self.id} name={self.name}>'
@@ -147,18 +146,26 @@ class Attachment(db.Model):
     def __repr__(self):
         return f'<Attachment id={self.id} filename={self.filename}>'
 
-# --- ▼▼▼ 新しいモデル: GeneralNote を追加 ▼▼▼ ---
 class GeneralNote(db.Model):
     """走行距離に紐づかない一般的なメモ"""
     __tablename__ = 'general_notes'
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False) # 所有ユーザー (必須)
-    # nullable=True で車両との紐付けを任意（オプション）にする
-    motorcycle_id = db.Column(db.Integer, db.ForeignKey('motorcycles.id'), nullable=True)
+    motorcycle_id = db.Column(db.Integer, db.ForeignKey('motorcycles.id'), nullable=True) # 関連車両 (任意)
     note_date = db.Column(db.Date, nullable=False, default=date.today) # メモの日付 (必須)
     title = db.Column(db.String(150), nullable=True) # タイトル (任意)
     content = db.Column(db.Text, nullable=False) # メモ本文 (必須)
+
+    # --- ▼▼▼ フィールド追加 ▼▼▼ ---
+    category = db.Column(db.String(20), nullable=False, default='note', server_default='note', index=True) # カテゴリー ('note' or 'task'), index追加
+    # PostgreSQL を Render で使用しているため、JSONB を推奨
+    todos = db.Column(JSONB, nullable=True) # TODOリスト (JSONB推奨)
+    # もし標準のJSON型を使う場合:
+    # from sqlalchemy import JSON
+    # todos = db.Column(db.JSON, nullable=True)
+    # --- ▲▲▲ フィールド追加ここまで ▲▲▲ ---
+
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow) # 作成日時
     updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow) # 更新日時
 
@@ -169,6 +176,5 @@ class GeneralNote(db.Model):
     # Userへのリレーションシップは User モデル側の backref='owner' で定義済み
 
     def __repr__(self):
-        # デバッグ時の表示用
+        # デバッグ時の表示用 (変更なし)
         return f'<GeneralNote id={self.id} user_id={self.user_id} title="{self.title[:20]}">'
-# --- ▲▲▲ GeneralNote モデル定義ここまで ▲▲▲ ---
