@@ -1,16 +1,15 @@
 {# motopuppu/templates/notes_log.html #}
 {% extends "base.html" %}
 
-{% block title %}ノート一覧 - もとぷっぷー{% endblock %} {# タイトル変更 #}
+{% block title %}ノート一覧 - もとぷっぷー{% endblock %}
 
 {% block content %}
-<h2>ノート一覧</h2> {# 見出し変更 #}
-<p>車両に関するノートや、一般的な記録を残すことができます。</p> {# テキスト変更 #}
+<h2>ノート一覧</h2>
+<p>車両に関するノートや、一般的な記録を残すことができます。</p>
 
-{# --- フィルターフォーム (カテゴリーフィルター追加) --- #}
-<form method="GET" action="{{ url_for('notes.notes_log') }}" class="mb-4 p-3 border rounded bg-light"> {# url_for は notes のまま #}
+{# --- フィルターフォーム (変更なし) --- #}
+<form method="GET" action="{{ url_for('notes.notes_log') }}" class="mb-4 p-3 border rounded bg-light">
     <div class="row g-3 align-items-end">
-        {# 日付範囲フィルター (変更なし) #}
         <div class="col-md-3">
             <label for="start_date" class="form-label">開始日</label>
             <input type="date" class="form-control form-control-sm" id="start_date" name="start_date" value="{{ request_args.get('start_date', '') }}">
@@ -19,7 +18,6 @@
             <label for="end_date" class="form-label">終了日</label>
             <input type="date" class="form-control form-control-sm" id="end_date" name="end_date" value="{{ request_args.get('end_date', '') }}">
         </div>
-        {# 関連車両フィルター (変更なし) #}
         <div class="col-md-3">
             <label for="vehicle_id" class="form-label">関連車両</label>
             <select class="form-select form-select-sm" id="vehicle_id" name="vehicle_id">
@@ -32,32 +30,26 @@
                 {% endfor %}
             </select>
         </div>
-         {# --- ▼▼▼ カテゴリーフィルター追加 ▼▼▼ --- #}
         <div class="col-md-3">
             <label for="category" class="form-label">カテゴリー</label>
             <select class="form-select form-select-sm" id="category" name="category">
                 <option value="" {% if not selected_category %}selected{% endif %}>すべて</option>
-                {# allowed_categories は views.py から渡される想定 #}
                 <option value="note" {% if selected_category == 'note' %}selected{% endif %}>ノート</option>
                 <option value="task" {% if selected_category == 'task' %}selected{% endif %}>タスク</option>
             </select>
         </div>
-        {# --- ▲▲▲ カテゴリーフィルター追加ここまで ▲▲▲ --- #}
-         {# キーワードフィルター (変更なし) #}
-        <div class="col-md-3">
+         <div class="col-md-3">
              <label for="q" class="form-label">キーワード</label>
             <input type="text" class="form-control form-control-sm" id="q" name="q" value="{{ request_args.get('q', '') }}" placeholder="タイトル, 内容">
          </div>
-        {# 送信・リセットボタン (変更なし) #}
-        <div class="col-md-9 mt-2 d-flex justify-content-end"> {# 列調整 #}
-             <a href="{{ url_for('notes.notes_log') }}" class="btn btn-outline-secondary btn-sm me-2">リセット</a> {# url_for は notes のまま #}
+        <div class="col-md-9 mt-2 d-flex justify-content-end">
+             <a href="{{ url_for('notes.notes_log') }}" class="btn btn-outline-secondary btn-sm me-2">リセット</a>
              <button type="submit" class="btn btn-primary btn-sm">
                 <i class="fas fa-filter me-1"></i> 絞り込む
             </button>
         </div>
     </div>
 </form>
-{# --- フィルターフォームここまで --- #}
 
 {# --- フラッシュメッセージ表示 (変更なし) --- #}
 {% with messages = get_flashed_messages(with_categories=true) %}
@@ -72,12 +64,12 @@
 
 {# --- ノート追加ボタン (変更なし) --- #}
 <div class="mb-3">
-    <a href="{{ url_for('notes.add_note') }}" class="btn btn-success"> {# url_for は notes のまま #}
-        <i class="fas fa-plus me-1"></i> 新しいノートを追加 {# テキスト変更 #}
+    <a href="{{ url_for('notes.add_note') }}" class="btn btn-success">
+        <i class="fas fa-plus me-1"></i> 新しいノートを追加
     </a>
 </div>
 
-{# --- ノート一覧テーブル --- #} {# コメント変更 #}
+{# --- ノート一覧テーブル --- #}
 {% if entries %}
 <div class="table-responsive">
     <table class="table table-striped table-hover table-sm">
@@ -85,10 +77,8 @@
             <tr>
                 <th style="width: 10%;">日付</th>
                 <th style="width: 15%;">関連車両</th>
-                <th style="width: 25%;">タイトル</th> {# 幅調整 #}
-                {# --- ▼▼▼ 列ヘッダー変更 ▼▼▼ --- #}
-                <th style="width: 35%;">内容 / TODOリスト</th> {# 幅調整 #}
-                {# --- ▲▲▲ 列ヘッダー変更ここまで ▲▲▲ --- #}
+                <th style="width: 25%;">タイトル</th>
+                <th style="width: 35%;">内容 / TODOリスト</th>
                 <th style="width: 15%;">操作</th>
             </tr>
         </thead>
@@ -98,47 +88,54 @@
                 <td>{{ note.note_date.strftime('%Y-%m-%d') }}</td>
                 <td> {% if note.motorcycle %} <a href="{{ url_for('vehicle.edit_vehicle', vehicle_id=note.motorcycle_id) }}">{{ note.motorcycle.name }}</a> {% else %} <span class="text-muted">--</span> {% endif %} </td>
                 <td>
-                     {# --- ▼▼▼ カテゴリアイコン表示 ▼▼▼ --- #}
                      <span class="me-1" title="カテゴリー: {{ 'タスク' if note.category == 'task' else 'ノート' }}">
-                         {% if note.category == 'task' %}
-                             <i class="fas fa-tasks text-primary"></i> {# Font Awesomeのタスクアイコン #}
-                         {% else %}
-                             <i class="fas fa-sticky-note text-secondary"></i> {# Font Awesomeのノートアイコン #}
-                         {% endif %}
+                         {% if note.category == 'task' %} <i class="fas fa-tasks text-primary"></i>
+                         {% else %} <i class="fas fa-sticky-note text-secondary"></i> {% endif %}
                      </span>
-                     {# --- ▲▲▲ カテゴリアイコン表示ここまで ▲▲▲ --- #}
-                    <a href="{{ url_for('notes.edit_note', note_id=note.id) }}"> {# url_for は notes のまま #}
+                    <a href="{{ url_for('notes.edit_note', note_id=note.id) }}">
                         {{ note.title if note.title else '(タイトルなし)' }}
                     </a>
                  </td>
-                {# --- ▼▼▼ 内容/TODOリスト表示 ▼▼▼ --- #}
                 <td>
                     {% if note.category == 'task' and note.todos %}
-                        {# カテゴリがタスクでTODOがある場合 #}
-                        <ul class="list-unstyled mb-0 small" style="max-height: 100px; overflow-y: auto;"> {# スタイル調整 #}
+                        <ul class="list-unstyled mb-0 small" style="max-height: 100px; overflow-y: auto;">
                             {% for item in note.todos %}
-                                <li {% if item.checked %}class="todo-item-done"{% endif %}> {# クラス適用 #}
-                                    <i class="far {% if item.checked %}fa-check-square{% else %}fa-square{% endif %} me-1"></i> {# チェック状態アイコン #}
-                                    {{ item.text | escape }} {# テキストをエスケープ #}
+                                <li {% if item.checked %}class="todo-item-done"{% endif %}>
+                                    <i class="far {% if item.checked %}fa-check-square{% else %}fa-square{% endif %} me-1"></i>
+                                    {{ item.text | escape }}
                                 </li>
                             {% endfor %}
                         </ul>
                     {% elif note.category == 'task' %}
-                         {# カテゴリがタスクでTODOがない場合 #}
                          <span class="text-muted small">（TODOアイテムなし）</span>
                     {% else %}
-                        {# カテゴリがノートの場合 #}
                         <span title="{{ note.content|striptags }}" data-bs-toggle="tooltip" data-bs-placement="top">
                             {{ note.content | striptags | truncate(80) }}
                         </span>
                     {% endif %}
                 </td>
-                {# --- ▲▲▲ 内容/TODOリスト表示ここまで ▲▲▲ --- #}
-                <td class="text-nowrap"> {# 操作列 (変更なし) #}
-                    <a href="{{ url_for('notes.edit_note', note_id=note.id) }}" class="btn btn-sm btn-outline-primary me-1" title="編集"><i class="fas fa-edit fa-fw"></i></a> {# url_for は notes のまま #}
-                    <form action="{{ url_for('notes.delete_note', note_id=note.id) }}" method="POST" class="d-inline" onsubmit="return confirm('このノートを削除してもよろしいですか？');"> {# url_for は notes のまま, テキスト変更 #}
+                <td class="text-nowrap">
+                    {# 編集ボタン (変更なし) #}
+                    <a href="{{ url_for('notes.edit_note', note_id=note.id) }}" class="btn btn-sm btn-outline-primary me-1" title="編集"><i class="fas fa-edit fa-fw"></i></a>
+                    {# 削除ボタン (変更なし) #}
+                    <form action="{{ url_for('notes.delete_note', note_id=note.id) }}" method="POST" class="d-inline" onsubmit="return confirm('このノートを削除してもよろしいですか？');">
                         <button type="submit" class="btn btn-sm btn-outline-danger" title="削除"><i class="fas fa-trash fa-fw"></i></button>
                     </form>
+                    {# --- ▼▼▼ Misskey共有ボタンを追加 ▼▼▼ --- #}
+                    <button class="btn btn-sm btn-info btn-share-misskey ms-1"
+                            data-type="note"
+                            data-category="{{ note.category }}"
+                            data-date="{{ note.note_date.isoformat() }}"
+                            data-title="{{ note.title or '' }}"
+                            data-vehicle-name="{{ note.motorcycle.name if note.motorcycle else '' }}"
+                            {# ノートの場合のみ内容を100文字で渡す #}
+                            data-content="{{ (note.content[:100] + '...') if note.content and note.content|length > 100 else (note.content or '') if note.category == 'note' else '' }}"
+                            {# タスクの場合のみTODOリストをJSONで渡す #}
+                            data-todos="{{ note.todos | tojson | safe if note.category == 'task' and note.todos else '' }}"
+                            title="Misskeyで共有">
+                        <i class="fa-solid fa-share-nodes fa-fw"></i>
+                    </button>
+                    {# --- ▲▲▲ Misskey共有ボタン追加ここまで ▲▲▲ --- #}
                 </td>
             </tr>
             {% endfor %}
@@ -150,37 +147,29 @@
 {% if pagination and pagination.pages > 1 %}
 <nav aria-label="Page navigation">
     <ul class="pagination justify-content-center">
-        <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
-            <a class="page-link" href="{{ url_for('notes.notes_log', page=pagination.prev_num, **request_args) }}">&laquo;</a> {# url_for は notes のまま #}
-        </li>
+        <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}"> <a class="page-link" href="{{ url_for('notes.notes_log', page=pagination.prev_num, **request_args) }}">&laquo;</a> </li>
         {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
-            {% if page_num %}
-                <li class="page-item {% if page_num == pagination.page %}active{% endif %}">
-                    <a class="page-link" href="{{ url_for('notes.notes_log', page=page_num, **request_args) }}">{{ page_num }}</a> {# url_for は notes のまま #}
-                </li>
+            {% if page_num %} <li class="page-item {% if page_num == pagination.page %}active{% endif %}"> <a class="page-link" href="{{ url_for('notes.notes_log', page=page_num, **request_args) }}">{{ page_num }}</a> </li>
             {% else %} <li class="page-item disabled"><span class="page-link">...</span></li> {% endif %}
         {% endfor %}
-        <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
-            <a class="page-link" href="{{ url_for('notes.notes_log', page=pagination.next_num, **request_args) }}">&raquo;</a> {# url_for は notes のまま #}
-        </li>
+        <li class="page-item {% if not pagination.has_next %}disabled{% endif %}"> <a class="page-link" href="{{ url_for('notes.notes_log', page=pagination.next_num, **request_args) }}">&raquo;</a> </li>
     </ul>
 </nav>
 {% endif %}
-{# --- ページネーションここまで --- #}
 
 {% else %} {# if entries の終わり #}
 <div class="alert alert-info" role="alert">
-  まだノートが登録されていません。「新しいノートを追加」ボタンから最初のノートを登録しましょう。 {# テキスト変更 #}
+  まだノートが登録されていません。「新しいノートを追加」ボタンから最初のノートを登録しましょう。
 </div>
 {% endif %} {# if entries の終わり #}
 
 {% endblock %}
 
-{# --- JavaScript (ツールチップ初期化用 - 変更なし) --- #}
+{# --- JavaScript --- #}
 {% block scripts %}
-{{ super() }}
+{{ super() }} {# base.html のスクリプトを継承 #}
 <script>
-// Bootstrap Tooltipの初期化
+// Bootstrap Tooltipの初期化 (変更なし)
 document.addEventListener('DOMContentLoaded', function() {
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
     var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
@@ -188,4 +177,104 @@ document.addEventListener('DOMContentLoaded', function() {
     })
 });
 </script>
+
+{# --- ▼▼▼ Misskey共有用JavaScript ▼▼▼ --- #}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // --- Misskeyインスタンスドメインをビューから受け取る ---
+    const misskeyInstanceDomain = {{ misskey_instance_domain | tojson | safe }}; // ビューから渡された変数
+
+    document.querySelectorAll('.btn-share-misskey').forEach(button => {
+        button.addEventListener('click', function() {
+            const dataset = this.dataset;
+            const recordType = dataset.type; // 'fuel', 'maintenance', 'note'
+            const vehicleName = dataset.vehicleName;
+            const recordDate = dataset.date; // ISO形式 (YYYY-MM-DD)
+
+            let shareText = "";
+            const baseHashtags = "\n#もとぷっぷー"; // アプリ固有タグ
+
+            // 日付を見やすい形式に (任意)
+            let displayDate = recordDate;
+            try {
+                displayDate = new Date(recordDate).toLocaleDateString('ja-JP', { year: 'numeric', month: 'short', day: 'numeric' });
+            } catch(e) { /* 変換失敗時は元の形式 */}
+
+            // --- ▼▼▼ ノート共有の処理を追加 ▼▼▼ ---
+            if (recordType === 'note') {
+                const category = dataset.category; // 'note' or 'task'
+                const title = dataset.title;
+                const content = dataset.content; // 100文字に制限済み or 空文字
+                const todosJson = dataset.todos; // JSON文字列 or 空文字
+
+                let categoryIcon = category === 'task' ? '✅' : '📝';
+                let categoryHashtag = category === 'task' ? '#タスク' : '#ノート';
+                let noteHeader = categoryIcon + (title ? ` ${title}` : ` ${category === 'task' ? 'タスク' : 'ノート'}記録`);
+
+                shareText = noteHeader + "\n";
+                if (vehicleName) {
+                    shareText += `車両: ${vehicleName}\n`;
+                }
+                shareText += `日付: ${displayDate}\n`;
+
+                if (category === 'task' && todosJson) {
+                    try {
+                        const todos = JSON.parse(todosJson);
+                        if (Array.isArray(todos) && todos.length > 0) {
+                            shareText += "TODO:\n";
+                            todos.forEach(item => {
+                                shareText += `${item.checked ? '[x]' : '[ ]'} ${item.text}\n`;
+                            });
+                        }
+                    } catch (e) {
+                        console.error("Error parsing TODO JSON:", e);
+                        // パース失敗時は何も表示しないか、エラーを示すメッセージを追加
+                    }
+                } else if (category === 'note' && content) {
+                    shareText += `内容: ${content}\n`;
+                }
+
+                shareText += baseHashtags + " " + categoryHashtag;
+
+            }
+            // --- ▲▲▲ ノート共有の処理ここまで ▲▲▲ ---
+
+            // --- 既存の給油・整備記録の処理 (fuel_log.html等から移植) ---
+            else if (recordType === 'fuel') {
+                // (元のfuel_log.htmlのJSロジックをここに記述)
+                const odo = dataset.odo; const volume = dataset.volume; const kpl = dataset.kpl;
+                const cost = dataset.cost; const station = dataset.station;
+                const vehicleHashtag = vehicleName ? "\n#" + vehicleName.replace(/[\s#$&\+,:;=\?@\[\]\^`\{|\}~.]/g, '_') : '';
+                shareText = `[${vehicleName}] 給油記録⛽\n` +
+                            `日付: ${displayDate}\n` + `走行距離: ${odo} km\n` +
+                            `給油量: ${volume} L\n` + (kpl ? `燃費: ${kpl} km/L\n` : '') +
+                            (cost ? `費用: ${cost} 円\n` : '') + (station ? `スタンド: ${station}\n` : '') +
+                            baseHashtags + " #給油記録" + vehicleHashtag;
+            } else if (recordType === 'maintenance') {
+                // (元のmaintenance_log.htmlのJSロジックをここに記述)
+                const odo = dataset.odo; const cost = dataset.cost;
+                const category = dataset.category; const description = dataset.description;
+                const location = dataset.location;
+                const contentSummary = category ? category : (description ? description.substring(0, 30) + (description.length > 30 ? '...' : '') : '');
+                 const vehicleHashtag = vehicleName ? "\n#" + vehicleName.replace(/[\s#$&\+,:;=\?@\[\]\^`\{|\}~.]/g, '_') : '';
+                shareText = `[${vehicleName}] 整備記録🔧\n` +
+                            `日付: ${displayDate}\n` + `走行距離: ${odo} km\n` +
+                            `内容: ${contentSummary}\n` + (cost ? `費用: ${cost} 円\n` : '') +
+                            (location ? `場所: ${location}\n` : '') +
+                            baseHashtags + " #バイク整備" + vehicleHashtag;
+            }
+            // --- 既存の処理ここまで ---
+
+
+            if (shareText) {
+                const encodedText = encodeURIComponent(shareText);
+                // --- misskeyInstanceDomain 変数を使用 ---
+                const shareUrl = `https://${misskeyInstanceDomain}/share?text=${encodedText}`;
+                window.open(shareUrl, '_blank', 'noopener,noreferrer');
+            }
+        });
+    });
+});
+</script>
+{# --- ▲▲▲ Misskey共有用JavaScript ここまで ▲▲▲ --- #}
 {% endblock %}
