@@ -2,94 +2,72 @@
 
 /* --- FullCalendar カスタマイズ --- */
 
-/* ▼▼▼ 修正: セルフレームにFlexboxを適用 ▼▼▼ */
+/* ▼▼▼ 修正: セルフレームにFlexboxを適用 (上端揃え) ▼▼▼ */
 .fc .fc-daygrid-day-frame {
-    display: flex;                 /* Flexboxコンテナにする */
-    justify-content: space-between;/* 子要素(祝日名, 日付番号)を左右に振り分ける */
-    align-items: baseline;         /* 子要素のベースライン(下端)を揃える (centerも可) */
+    display: flex;
+    justify-content: space-between; /* 子要素(祝日名, 日付番号)を左右に振り分ける */
+    align-items: flex-start;     /* ★★★ 子要素の上端を揃える ★★★ */
     padding: 2px 4px;              /* セル内の上下左右のパディング */
-    min-height: 2.5em;             /* セルの最小高さを確保 (内容に応じて調整) */
+    min-height: 2.5em;             /* セルの最小高さを確保 (見た目で調整) */
     position: relative;            /* 必要に応じて */
-    /* text-align は flex では不要になる */
 }
 /* ▲▲▲ 修正ここまで ▲▲▲ */
 
-/* ▼▼▼ 修正: 祝日名のスタイル (左端表示用) ▼▼▼ */
+/* ▼▼▼ 修正: 祝日名のスタイル (左上表示用) ▼▼▼ */
 .fc-holiday-name {
-    order: 1;                 /* Flexアイテムの順序を1番目 (左) に */
-    font-size: 0.7em;         /* 文字サイズを日付より小さく */
-    line-height: 1.2;         /* ベースライン調整用 (日付の line-height に合わせる) */
+    order: 1;                 /* Flexアイテムの順序: 1番目 (左) */
+    font-size: 0.7em;         /* 文字サイズ */
+    line-height: 1.2;         /* 行の高さ (日付と合わせるか調整) */
     color: #dc3545;           /* 祝日の色 (赤) */
     margin-right: 4px;        /* 右隣の日付番号との最小間隔 */
     white-space: nowrap;      /* 改行しない */
     overflow: hidden;         /* はみ出しを隠す */
     text-overflow: ellipsis;  /* はみ出しを ... で表示 */
-    /* max-width: 60%; */       /* 必要に応じて最大幅を設定 (長い祝日名対策) */
-    flex-shrink: 1;           /* 必要に応じて幅を縮小可能にする (1以上) */
+    /* max-width: 60%; */       /* 必要に応じて最大幅を設定 */
+    flex-shrink: 1;           /* 必要に応じて幅を縮小 */
     text-align: left;         /* 左寄せ */
-    cursor: default;          /* 標準カーソル */
-    /* vertical-align は align-items で制御するため不要 */
-    /* display: inline-block; は Flexアイテムなので不要 */
+    padding-top: 1px;         /* ★★★ 上端からの位置微調整用 (見た目で調整) ★★★ */
+    cursor: default;
 }
 /* ▲▲▲ 修正ここまで ▲▲▲ */
 
 
-/* ▼▼▼ 修正: 日付番号のスタイル (右端表示用) ▼▼▼ */
+/* ▼▼▼ 修正: 日付番号のスタイル (右上表示用) ▼▼▼ */
 .fc .fc-daygrid-day-number {
-    order: 2;                 /* Flexアイテムの順序を2番目 (右) に */
+    order: 2;                 /* Flexアイテムの順序: 2番目 (右) */
     text-decoration: none !important; /* 下線なし */
     color: inherit;           /* デフォルトの色 (CSSで状態に応じて上書き) */
-    padding: 0;               /* 個別のパディングは基本的に不要 (フレーム側で設定) */
+    padding: 0;               /* 個別のパディングは基本的に不要 */
     text-align: right;        /* 右寄せ */
-    flex-shrink: 0;           /* 幅を縮小させない (日付番号は常に表示) */
-    line-height: 1.2;         /* ベースライン調整用 */
-    /* display: inline-block; は Flexアイテムなので不要 */
-    /* vertical-align は align-items で制御するため不要 */
-    /* margin-left: auto; でも右寄せできるが、orderの方が確実 */
+    flex-shrink: 0;           /* 幅を縮小させない */
+    line-height: 1.2;         /* 行の高さ (祝日名と合わせるか調整) */
+    padding-top: 1px;         /* ★★★ 上端からの位置微調整用 (見た目で調整) ★★★ */
 }
 /* ▲▲▲ 修正ここまで ▲▲▲ */
 
 
-/* ▼▼▼ 修正/追加: 状態に応じた日付番号の色付け (CSSで制御) ▼▼▼ */
-
-/* デフォルトの色を継承 (上書き用) */
-.fc .fc-daygrid-day-number {
-    color: inherit;
-    font-weight: normal; /* デフォルトの太さ */
-}
-
-/* 祝日の日付番号 (最優先) */
-.fc-day-holiday .fc-daygrid-day-number, /* セルにクラスがある場合 */
-.fc .fc-daygrid-day-number.is-holiday { /* 日付番号にクラスがある場合 */
-    color: #dc3545 !important; /* Bootstrapのdangerカラー (赤) */
-    font-weight: bold; /* 少し太字に */
-}
-
-/* 日曜日の日付番号 (祝日でない場合のみ適用) */
+/* ▼▼▼ 状態に応じた日付番号の色付け (変更なし) ▼▼▼ */
+/* デフォルト */
+.fc .fc-daygrid-day-number { color: inherit; font-weight: normal; }
+/* 祝日 */
+.fc-day-holiday .fc-daygrid-day-number,
+.fc .fc-daygrid-day-number.is-holiday { color: #dc3545 !important; font-weight: bold; }
+/* 日曜 (非祝日) */
 .fc-day-sun:not(.fc-day-holiday) .fc-daygrid-day-number,
-.fc .fc-daygrid-day-number.is-sun:not(.is-holiday) {
-     color: #dc3545 !important; /* Bootstrapのdangerカラー (赤) */
-     /* font-weight: normal; */ /* 必要なら太字にしない */
-}
-
-/* 土曜日の日付番号 (祝日/日曜でない場合のみ適用) */
+.fc .fc-daygrid-day-number.is-sun:not(.is-holiday) { color: #dc3545 !important; }
+/* 土曜 (非祝日/非日曜) */
 .fc-day-sat:not(.fc-day-holiday):not(.fc-day-sun) .fc-daygrid-day-number,
-.fc .fc-daygrid-day-number.is-sat:not(.is-holiday):not(.is-sun) {
-     color: #0d6efd !important; /* Bootstrapのprimaryカラー (青) */
-     /* font-weight: normal; */
-}
+.fc .fc-daygrid-day-number.is-sat:not(.is-holiday):not(.is-sun) { color: #0d6efd !important; }
 /* ▲▲▲ 色付けここまで ▲▲▲ */
 
 
-/* カレンダーの曜日ヘッダーの下線を消す (変更なし) */
+/* カレンダーの曜日ヘッダー (変更なし) */
 .fc .fc-col-header-cell-cushion {
     text-decoration: none !important;
     color: inherit;
     display: block;
     padding: 4px;
 }
-
-/* 曜日ヘッダーがリンクの場合にも対応 (変更なし) */
 .fc .fc-col-header-cell > a {
     text-decoration: none !important;
     color: inherit;
@@ -105,7 +83,6 @@
     text-decoration: none;
     color: inherit;
 }
-
 
 /* --- ポップオーバーのスタイル調整 (変更なし) --- */
 .motopuppu-popover {
