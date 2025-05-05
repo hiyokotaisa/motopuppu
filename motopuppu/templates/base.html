@@ -5,15 +5,18 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
+    {# Bootstrap CSS (CDN) #}
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-9ndCyUaIbzAi2FUVXJi0CjmCapSmO7SnpJef0486qhLnuZ2cdeRhO02iuK6FUUVM" crossorigin="anonymous">
 
-    {# Font Awesome アイコン #}
+    {# Font Awesome アイコン (CDN) #}
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" integrity="sha512-9usAa10IRO0HhonpyAIVpjrylPvoDwiPUiKdWk5t3PyolY1cOd4DSE0Ga+ri4AuTroPR5aQvXU9xC6qOPnzFeg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
 
-    {# カスタムCSS (必要に応じて作成・読み込み) #}
-    {# <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}"> #}
+    {# --- ▼▼▼ 修正: カスタムCSSの読み込みを有効化 --- #}
+    {# motopuppu/static/css/style.css を読み込む #}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    {# --- ▲▲▲ 修正ここまで --- #}
 
-    {# 各ページのタイトルを設定するためのブロック (デフォルト名を変更) #}
+    {# 各ページのタイトルを設定するためのブロック #}
     <title>{% block title %}もとぷっぷー{% endblock %}</title>
 
     {# Favicon関連のタグ (変更なし) #}
@@ -24,52 +27,50 @@
     <link rel="manifest" href="{{ url_for('static', filename='favicons/site.webmanifest') }}">
     <meta name="theme-color" content="#ffffff">
 
-    {# 各ページ固有のヘッダー要素 (例: CSS, metaタグ) #}
+    {# 各ページ固有のヘッダー要素 (例: 追加CSS, metaタグなど) #}
     {% block head %}{% endblock %}
 
-    {# <<< 以下を追加: TODO完了スタイル >>> #}
+    {# 既存の<style>タグ (変更なし - TODOリスト用スタイル) #}
     <style>
-      /* TODOアイテム完了時のスタイル (セレクタ修正) */
-      .todo-item-done { /* .todo-item-text を削除 */
+      /* TODOアイテム完了時のスタイル */
+      .todo-item-done {
         text-decoration: line-through;
         opacity: 0.6; /* 少し薄く表示 */
       }
     </style>
-    {# <<< 追加ここまで >>> #}
 
   </head>
   <body>
 
-    {# --- ナビゲーションバー --- #}
+    {# --- ナビゲーションバー (変更なし - navigation.html をインクルード) --- #}
     {% include 'navigation.html' %}
-    {# --- ナビゲーションバー ここまで --- #}
 
-    {# --- メインコンテンツ --- #}
+    {# --- メインコンテンツ領域 --- #}
     <main class="container py-4" id="main-content">
+      {# 各ページの内容がここに挿入される #}
       {% block content %}
-      {# デフォルトコンテンツ (通常は空) #}
       {% endblock %}
     </main>
     {# --- メインコンテンツ ここまで --- #}
 
-    {# --- フッター --- #}
+    {# --- フッター (変更なし) --- #}
     <footer class="footer mt-auto py-3 bg-light border-top">
       <div class="container text-center">
-        {# current_year はコンテキストプロセッサから渡される #}
+        {# current_year はコンテキストプロセッサから渡される想定 #}
         <span class="text-muted">&copy; {{ current_year }} もとぷっぷー</span>
-        {# ▼▼▼ バージョン表示追加 ▼▼▼ #}
+        {# バージョン情報 (Gitハッシュ) を表示 #}
         {% if g.git_commit_hash %}
           <span class="ms-3 text-muted small">version: {{ g.git_commit_hash[:7] }}</span>
         {% endif %}
-        {# ▲▲▲ バージョン表示追加ここまで ▲▲▲ #}
       </div>
     </footer>
     {# --- フッター ここまで --- #}
 
 
+    {# --- JavaScript ライブラリ (変更なし) --- #}
+    {# Bootstrap Bundle (JS) #}
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" integrity="sha384-geWF76RCwLtnZ8qwWowPQNguL3RmwHVBC9FhGdlKrxdiJJigb/j/68SIy3Te4Bkz" crossorigin="anonymous"></script>
-
-    {# FullCalendar ライブラリの読み込み (既存) #}
+    {# FullCalendar (JS) #}
     <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js'></script>
 
     {# 各ページ固有のJavaScriptを読み込むためのブロック #}

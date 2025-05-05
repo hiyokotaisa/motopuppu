@@ -1,0 +1,63 @@
+/* motopuppu/static/css/style.css */
+
+/* --- FullCalendar カスタマイズ --- */
+
+/* カレンダーの日付番号の下線を消す */
+.fc .fc-daygrid-day-number {
+    text-decoration: none !important;
+    color: inherit; /* リンクの色にならないように */
+    padding: 4px; /* 必要に応じてパディング調整 */
+    display: inline-block; /* クリック範囲などを考慮 */
+}
+
+/* カレンダーの曜日ヘッダーの下線を消す */
+.fc .fc-col-header-cell-cushion {
+    text-decoration: none !important;
+    color: inherit; /* リンクの色にならないように */
+    display: block; /* ヘッダーセル全体にスタイルを適用しやすくするため */
+    padding: 4px; /* 必要に応じてパディング調整 */
+}
+
+/* 曜日ヘッダーがリンクの場合にも対応 (念のため) */
+.fc .fc-col-header-cell > a {
+    text-decoration: none !important;
+    color: inherit;
+}
+
+/* リストビューのイベントタイトル内のリンク下線を消す (任意) */
+.fc-list-event-title a {
+    text-decoration: none;
+    color: inherit;
+}
+/* リストビューの日付・曜日の下線も消す (任意) */
+.fc-list-day-text,
+.fc-list-day-side-text {
+    text-decoration: none;
+    color: inherit;
+}
+
+
+/* --- ポップオーバーのスタイル調整 (任意) --- */
+.motopuppu-popover {
+    max-width: 350px; /* Popoverの最大幅を調整 */
+    font-size: 0.875rem; /* Popover内のフォントサイズを少し小さく */
+}
+
+.motopuppu-popover .popover-body dl {
+    margin-bottom: 0; /* dl要素下のマージンを削除 */
+}
+
+.motopuppu-popover .popover-body dt {
+    font-weight: bold;
+    color: #6c757d; /* Termの色を少し薄く */
+    margin-top: 0.3rem;
+}
+.motopuppu-popover .popover-body dd {
+    margin-left: 0.5rem; /* Descriptionのインデント */
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: pre-wrap; /* メモなどの改行を保持 */
+}
+.motopuppu-popover .popover-body dd:first-of-type {
+     margin-top: 0; /* 最初のdtに対するddのマージントップを削除 */
+}

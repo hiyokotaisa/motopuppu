@@ -6,12 +6,16 @@ from datetime import date, timedelta
 from dateutil.relativedelta import relativedelta
 from .auth import login_required_custom, get_current_user
 from ..models import db, User, Motorcycle, FuelEntry, MaintenanceEntry, MaintenanceReminder, GeneralNote
-from sqlalchemy import func, select # select をインポート
+from sqlalchemy import func, select
 import math
+import jpholiday # <<< 追加: 祝日ライブラリ
+import json     # <<< 追加: JSONライブラリ
+from datetime import date # <<< 追加: date (既にインポートされているが確認のため)
 
 main_bp = Blueprint('main', __name__)
 
 # --- ヘルパー関数 (変更なし) ---
+# (省略...)
 def get_latest_total_distance(motorcycle_id, offset):
     """指定された車両IDの最新の総走行距離を取得"""
     latest_fuel_dist = db.session.query(db.func.max(FuelEntry.total_distance)).filter(FuelEntry.motorcycle_id == motorcycle_id).scalar() or 0
@@ -42,7 +46,7 @@ def get_upcoming_reminders(user_motorcycles, user_id):
             next_km_due = reminder.last_done_km + reminder.interval_km; remaining_km = next_km_due - current_km
             due_info_parts.append(f"{next_km_due:,} km")
             if remaining_km <= KM_THRESHOLD_DANGER: messages.append(f"距離超過 (現在 {current_km:,} km)"); status = 'danger'; is_due = True
-            elif remaining_km <= KM_THRESHOLD_WARNING: messages.append(f"あと {remaining_km:,} km"); status = 'warning'; is_due = True # 修正
+            elif remaining_km <= KM_THRESHOLD_WARNING: messages.append(f"あと {remaining_km:,} km"); status = 'warning'; is_due = True
         if reminder.interval_months and reminder.last_done_date:
             try:
                 next_date_due = reminder.last_done_date + relativedelta(months=reminder.interval_months); remaining_days = (next_date_due - today).days
@@ -51,9 +55,9 @@ def get_upcoming_reminders(user_motorcycles, user_id):
                 if remaining_days <= DAYS_THRESHOLD_DANGER: period_status = 'danger'; period_message = f"期限超過"
                 elif remaining_days <= DAYS_THRESHOLD_WARNING: period_status = 'warning'; period_message = f"あと {remaining_days} 日"
                 if period_status != 'ok':
-                    is_due = True; messages.append(period_message) # 修正
+                    is_due = True; messages.append(period_message)
                     if (period_status == 'danger') or (period_status == 'warning' and status != 'danger'): status = period_status
-            except Exception as e: current_app.logger.error(f"Error calc date reminder {reminder.id}: {e}"); messages.append("日付計算エラー"); status = 'warning'; is_due = True # 修正
+            except Exception as e: current_app.logger.error(f"Error calc date reminder {reminder.id}: {e}"); messages.append("日付計算エラー"); status = 'warning'; is_due = True
         if is_due:
             last_done_str = "未実施"
             if reminder.last_done_date: last_done_str = reminder.last_done_date.strftime('%Y-%m-%d');
@@ -61,6 +65,7 @@ def get_upcoming_reminders(user_motorcycles, user_id):
             upcoming_reminders.append({ 'reminder_id': reminder.id, 'motorcycle_id': motorcycle.id, 'motorcycle_name': motorcycle.name, 'task': reminder.task_description, 'status': status, 'message': ", ".join(messages) if messages else "要確認", 'due_info': " / ".join(due_info_parts), 'last_done': last_done_str })
     upcoming_reminders.sort(key=lambda x: (x['status'] != 'danger', x['status'] != 'warning'))
     return upcoming_reminders
+
 
 # --- ルート定義 ---
 
@@ -79,10 +84,11 @@ def dashboard():
         flash('ようこそ！最初に利用する車両を登録してください。', 'info'); return redirect(url_for('vehicle.add_vehicle'))
     user_motorcycle_ids = [m.id for m in user_motorcycles]
 
-    # --- ▼▼▼ フィルター用車両ID取得 (統計用も追加) ▼▼▼ ---
+    # --- フィルター用車両ID取得 (変更なし) ---
+    # (省略...)
     selected_fuel_vehicle_id_str = request.args.get('fuel_vehicle_id')
     selected_maint_vehicle_id_str = request.args.get('maint_vehicle_id')
-    selected_stats_vehicle_id_str = request.args.get('stats_vehicle_id') # 統計用
+    selected_stats_vehicle_id_str = request.args.get('stats_vehicle_id')
 
     selected_fuel_vehicle_id = None
     if selected_fuel_vehicle_id_str:
@@ -99,7 +105,7 @@ def dashboard():
         except ValueError: pass
 
     selected_stats_vehicle_id = None
-    target_vehicle_for_stats = None # 統計計算対象の車両オブジェクト
+    target_vehicle_for_stats = None
     if selected_stats_vehicle_id_str:
         try:
             temp_id = int(selected_stats_vehicle_id_str)
@@ -107,9 +113,9 @@ def dashboard():
                 selected_stats_vehicle_id = temp_id
                 target_vehicle_for_stats = next((m for m in user_motorcycles if m.id == selected_stats_vehicle_id), None)
         except ValueError: pass
-    # --- ▲▲▲ フィルター用車両ID取得ここまで ▲▲▲ ---
 
-    # --- 直近の記録 (フィルター適用) (変更なし) ---
+    # --- 直近の記録 (変更なし) ---
+    # (省略...)
     fuel_query = FuelEntry.query.filter(FuelEntry.motorcycle_id.in_(user_motorcycle_ids))
     if selected_fuel_vehicle_id:
         fuel_query = fuel_query.filter(FuelEntry.motorcycle_id == selected_fuel_vehicle_id)
@@ -123,35 +129,31 @@ def dashboard():
     # --- リマインダー通知取得 (変更なし) ---
     upcoming_reminders = get_upcoming_reminders(user_motorcycles, g.user.id)
 
-    # --- 平均燃費計算 (全車両分を事前に計算) ---
+    # --- 平均燃費計算 (変更なし) ---
     for m in user_motorcycles: m._average_kpl = calculate_average_kpl(m.id)
 
-    # --- ▼▼▼ 統計情報サマリー計算 (フィルター対応) ▼▼▼ ---
+    # --- 統計情報サマリー計算 (変更なし) ---
+    # (省略...)
     dashboard_stats = {
-        'vehicle_name': None, # 表示対象の車両名
+        'vehicle_name': None,
         'total_distance': 0,
         'average_kpl': None,
         'total_fuel_cost': 0,
         'total_maint_cost': 0,
-        'is_specific_vehicle': False # 特定車両の統計かどうかのフラグ
+        'is_specific_vehicle': False
     }
-
     if target_vehicle_for_stats:
-        # --- 特定の車両が選択された場合 ---
+        # 特定車両の処理...
         dashboard_stats['vehicle_name'] = target_vehicle_for_stats.name
         dashboard_stats['total_distance'] = get_latest_total_distance(target_vehicle_for_stats.id, target_vehicle_for_stats.odometer_offset)
         dashboard_stats['average_kpl'] = target_vehicle_for_stats._average_kpl
-        # 選択された車両の費用合計を計算
-        fuel_cost_q = db.session.query(func.sum(FuelEntry.total_cost))\
-            .filter(FuelEntry.motorcycle_id == target_vehicle_for_stats.id).scalar()
+        fuel_cost_q = db.session.query(func.sum(FuelEntry.total_cost)).filter(FuelEntry.motorcycle_id == target_vehicle_for_stats.id).scalar()
         dashboard_stats['total_fuel_cost'] = fuel_cost_q or 0
-        maint_cost_q = db.session.query(func.sum(func.coalesce(MaintenanceEntry.parts_cost, 0) + func.coalesce(MaintenanceEntry.labor_cost, 0)))\
-            .filter(MaintenanceEntry.motorcycle_id == target_vehicle_for_stats.id).scalar()
+        maint_cost_q = db.session.query(func.sum(func.coalesce(MaintenanceEntry.parts_cost, 0) + func.coalesce(MaintenanceEntry.labor_cost, 0))).filter(MaintenanceEntry.motorcycle_id == target_vehicle_for_stats.id).scalar()
         dashboard_stats['total_maint_cost'] = maint_cost_q or 0
         dashboard_stats['is_specific_vehicle'] = True
-
     else:
-        # --- 「すべての車両」が選択された場合 (またはデフォルト) ---
+        # 全体・デフォルト車両の処理...
         default_vehicle = next((m for m in user_motorcycles if m.is_default), user_motorcycles[0] if user_motorcycles else None)
         if default_vehicle:
             dashboard_stats['vehicle_name'] = f"デフォルト ({default_vehicle.name})"
@@ -159,21 +161,30 @@ def dashboard():
             dashboard_stats['average_kpl'] = default_vehicle._average_kpl
         else:
              dashboard_stats['vehicle_name'] = "車両未登録"
-
-        # 費用は全車両の合計を表示
-        total_fuel_cost_query = db.session.query(func.sum(FuelEntry.total_cost))\
-            .filter(FuelEntry.motorcycle_id.in_(user_motorcycle_ids)).scalar()
+        total_fuel_cost_query = db.session.query(func.sum(FuelEntry.total_cost)).filter(FuelEntry.motorcycle_id.in_(user_motorcycle_ids)).scalar()
         dashboard_stats['total_fuel_cost'] = total_fuel_cost_query or 0
-        total_maint_cost_query = db.session.query(func.sum(func.coalesce(MaintenanceEntry.parts_cost, 0) + func.coalesce(MaintenanceEntry.labor_cost, 0)))\
-            .filter(MaintenanceEntry.motorcycle_id.in_(user_motorcycle_ids)).scalar()
+        total_maint_cost_query = db.session.query(func.sum(func.coalesce(MaintenanceEntry.parts_cost, 0) + func.coalesce(MaintenanceEntry.labor_cost, 0))).filter(MaintenanceEntry.motorcycle_id.in_(user_motorcycle_ids)).scalar()
         dashboard_stats['total_maint_cost'] = total_maint_cost_query or 0
-        dashboard_stats['is_specific_vehicle'] = False # 全体/デフォルトの統計
-        # 全体表示の時は vehicle_name を明確にする（費用表示のため）
-        if not target_vehicle_for_stats: # 明示的に「すべて」の場合
+        dashboard_stats['is_specific_vehicle'] = False
+        if not target_vehicle_for_stats:
              dashboard_stats['vehicle_name_for_cost'] = "すべての車両"
 
 
-    # --- ▲▲▲ 統計情報サマリー計算ここまで ▲▲▲ ---
+    # <<< ▼▼▼ 追加: 祝日リストの取得 ▼▼▼ >>>
+    holidays_json = '[]' # デフォルトは空のリスト
+    try:
+        today = date.today()
+        # カレンダー表示を考慮し、当年と前後1年分の祝日を取得
+        years_to_fetch = [today.year - 1, today.year, today.year + 1]
+        holidays_list = []
+        for year in years_to_fetch:
+            holidays_raw = jpholiday.year_holidays(year)
+            holidays_list.extend([d[0].strftime('%Y-%m-%d') for d in holidays_raw])
+        holidays_json = json.dumps(list(set(holidays_list))) # 重複を除去してJSON化
+    except Exception as e:
+        current_app.logger.error(f"Error fetching holidays: {e}")
+        flash('祝日情報の取得に失敗しました。', 'warning')
+    # <<< ▲▲▲ 追加ここまで ▲▲▲ >>>
 
     # --- テンプレートへのデータ渡し ---
     return render_template(
@@ -184,26 +195,27 @@ def dashboard():
         upcoming_reminders=upcoming_reminders,
         selected_fuel_vehicle_id=selected_fuel_vehicle_id,
         selected_maint_vehicle_id=selected_maint_vehicle_id,
-        selected_stats_vehicle_id=selected_stats_vehicle_id, # <<< 統計フィルター用IDを追加 >>>
-        dashboard_stats=dashboard_stats # <<< 更新された統計情報を渡す >>>
+        selected_stats_vehicle_id=selected_stats_vehicle_id,
+        dashboard_stats=dashboard_stats,
+        holidays_json=holidays_json # <<< 追加: 祝日リストを渡す >>>
     )
 
 # --- APIエンドポイント (変更なし) ---
+# (省略...)
 @main_bp.route('/api/dashboard/events')
 @login_required_custom
 def dashboard_events_api():
+    # (省略...)
     events = []
     if not g.user: return jsonify({'error': 'User not logged in'}), 401
     user_id = g.user.id
     user_motorcycle_ids = [m.id for m in Motorcycle.query.filter_by(user_id=user_id).all()]
-
     # 給油記録
     fuel_entries = FuelEntry.query.filter(FuelEntry.motorcycle_id.in_(user_motorcycle_ids)).all()
     for entry in fuel_entries:
         kpl = entry.km_per_liter; kpl_display = f"{kpl:.2f} km/L" if kpl is not None else None
         events.append({ 'id': f'fuel-{entry.id}', 'title': f"⛽ 給油: {entry.motorcycle.name}", 'start': entry.entry_date.isoformat(), 'allDay': True, 'url': url_for('fuel.edit_fuel', entry_id=entry.id), 'backgroundColor': '#198754', 'borderColor': '#198754', 'textColor': 'white',
             'extendedProps': { 'type': 'fuel', 'motorcycleName': entry.motorcycle.name, 'odometer': entry.odometer_reading, 'fuelVolume': entry.fuel_volume, 'kmPerLiter': kpl_display, 'totalCost': math.ceil(entry.total_cost) if entry.total_cost is not None else None, 'stationName': entry.station_name, 'notes': entry.notes } })
-
     # 整備記録
     maintenance_entries = MaintenanceEntry.query.filter(MaintenanceEntry.motorcycle_id.in_(user_motorcycle_ids)).all()
     for entry in maintenance_entries:
@@ -211,7 +223,6 @@ def dashboard_events_api():
         total_cost = entry.total_cost
         events.append({ 'id': f'maint-{entry.id}', 'title': event_title, 'start': entry.maintenance_date.isoformat(), 'allDay': True, 'url': url_for('maintenance.edit_maintenance', entry_id=entry.id), 'backgroundColor': '#ffc107', 'borderColor': '#ffc107', 'textColor': 'black',
             'extendedProps': { 'type': 'maintenance', 'motorcycleName': entry.motorcycle.name, 'odometer': entry.total_distance_at_maintenance, 'description': entry.description, 'category': entry.category, 'totalCost': math.ceil(total_cost) if total_cost is not None else None, 'location': entry.location, 'notes': entry.notes } })
-
     # 一般ノート
     general_notes = GeneralNote.query.options(db.joinedload(GeneralNote.motorcycle)).filter_by(user_id=user_id).all()
     for note in general_notes:
@@ -219,5 +230,4 @@ def dashboard_events_api():
         note_title_display = note.title or '無題'
         events.append({ 'id': f'note-{note.id}', 'title': f"📝 メモ: {note_title_display[:15]}" + ("..." if len(note_title_display) > 15 else ""), 'start': note.note_date.isoformat(), 'allDay': True, 'url': url_for('notes.edit_note', note_id=note.id), 'backgroundColor': '#6c757d', 'borderColor': '#6c757d', 'textColor': 'white',
             'extendedProps': { 'type': 'note', 'title': note.title, 'content': note.content, 'motorcycleName': motorcycle_name, 'noteDate': note.note_date.strftime('%Y-%m-%d'), 'createdAt': note.created_at.strftime('%Y-%m-%d %H:%M'), 'url': url_for('notes.edit_note', note_id=note.id) } })
-
     return jsonify(events)
