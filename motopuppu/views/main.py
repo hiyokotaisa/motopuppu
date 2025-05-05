@@ -8,14 +8,13 @@ from .auth import login_required_custom, get_current_user
 from ..models import db, User, Motorcycle, FuelEntry, MaintenanceEntry, MaintenanceReminder, GeneralNote
 from sqlalchemy import func, select
 import math
-import jpholiday # <<< 追加: 祝日ライブラリ
-import json     # <<< 追加: JSONライブラリ
-from datetime import date # <<< 追加: date (既にインポートされているが確認のため)
+import jpholiday # 祝日ライブラリ
+import json     # JSONライブラリ
+from datetime import date
 
 main_bp = Blueprint('main', __name__)
 
 # --- ヘルパー関数 (変更なし) ---
-# (省略...)
 def get_latest_total_distance(motorcycle_id, offset):
     """指定された車両IDの最新の総走行距離を取得"""
     latest_fuel_dist = db.session.query(db.func.max(FuelEntry.total_distance)).filter(FuelEntry.motorcycle_id == motorcycle_id).scalar() or 0
@@ -85,7 +84,6 @@ def dashboard():
     user_motorcycle_ids = [m.id for m in user_motorcycles]
 
     # --- フィルター用車両ID取得 (変更なし) ---
-    # (省略...)
     selected_fuel_vehicle_id_str = request.args.get('fuel_vehicle_id')
     selected_maint_vehicle_id_str = request.args.get('maint_vehicle_id')
     selected_stats_vehicle_id_str = request.args.get('stats_vehicle_id')
@@ -115,7 +113,6 @@ def dashboard():
         except ValueError: pass
 
     # --- 直近の記録 (変更なし) ---
-    # (省略...)
     fuel_query = FuelEntry.query.filter(FuelEntry.motorcycle_id.in_(user_motorcycle_ids))
     if selected_fuel_vehicle_id:
         fuel_query = fuel_query.filter(FuelEntry.motorcycle_id == selected_fuel_vehicle_id)
@@ -133,7 +130,6 @@ def dashboard():
     for m in user_motorcycles: m._average_kpl = calculate_average_kpl(m.id)
 
     # --- 統計情報サマリー計算 (変更なし) ---
-    # (省略...)
     dashboard_stats = {
         'vehicle_name': None,
         'total_distance': 0,
@@ -143,7 +139,6 @@ def dashboard():
         'is_specific_vehicle': False
     }
     if target_vehicle_for_stats:
-        # 特定車両の処理...
         dashboard_stats['vehicle_name'] = target_vehicle_for_stats.name
         dashboard_stats['total_distance'] = get_latest_total_distance(target_vehicle_for_stats.id, target_vehicle_for_stats.odometer_offset)
         dashboard_stats['average_kpl'] = target_vehicle_for_stats._average_kpl
@@ -153,7 +148,6 @@ def dashboard():
         dashboard_stats['total_maint_cost'] = maint_cost_q or 0
         dashboard_stats['is_specific_vehicle'] = True
     else:
-        # 全体・デフォルト車両の処理...
         default_vehicle = next((m for m in user_motorcycles if m.is_default), user_motorcycles[0] if user_motorcycles else None)
         if default_vehicle:
             dashboard_stats['vehicle_name'] = f"デフォルト ({default_vehicle.name})"
@@ -170,21 +164,33 @@ def dashboard():
              dashboard_stats['vehicle_name_for_cost'] = "すべての車両"
 
 
-    # <<< ▼▼▼ 追加: 祝日リストの取得 ▼▼▼ >>>
-    holidays_json = '[]' # デフォルトは空のリスト
+    # <<< ▼▼▼ 修正: 祝日データを日付:祝日名の辞書で取得 ▼▼▼ >>>
+    holidays_json = '{}' # デフォルトは空のオブジェクト '{}'
     try:
         today = date.today()
         # カレンダー表示を考慮し、当年と前後1年分の祝日を取得
         years_to_fetch = [today.year - 1, today.year, today.year + 1]
-        holidays_list = []
+        holidays_dict = {} # リストではなく辞書を使う
         for year in years_to_fetch:
-            holidays_raw = jpholiday.year_holidays(year)
-            holidays_list.extend([d[0].strftime('%Y-%m-%d') for d in holidays_raw])
-        holidays_json = json.dumps(list(set(holidays_list))) # 重複を除去してJSON化
+            try: # 年ごとの取得エラーも考慮
+                # jpholiday.year_holidays は (日付, 祝日名) のタプルのリストを返す
+                holidays_raw = jpholiday.year_holidays(year)
+                for holiday_date, holiday_name in holidays_raw:
+                    # キー: 'YYYY-MM-DD'形式の文字列, 値: 祝日名
+                    holidays_dict[holiday_date.strftime('%Y-%m-%d')] = holiday_name
+            except Exception as e:
+                 current_app.logger.error(f"Error fetching holidays for year {year}: {e}")
+                 # 年単位で取得に失敗しても処理は続ける
+
+        # 辞書をJSON文字列に変換
+        holidays_json = json.dumps(holidays_dict)
+
     except Exception as e:
-        current_app.logger.error(f"Error fetching holidays: {e}")
-        flash('祝日情報の取得に失敗しました。', 'warning')
-    # <<< ▲▲▲ 追加ここまで ▲▲▲ >>>
+        # holidays_dict の生成や json.dumps でエラーが起きた場合
+        current_app.logger.error(f"Error processing holidays data: {e}")
+        flash('祝日情報の取得または処理中にエラーが発生しました。', 'warning')
+    # <<< ▲▲▲ 修正ここまで ▲▲▲ >>>
+
 
     # --- テンプレートへのデータ渡し ---
     return render_template(
@@ -197,25 +203,25 @@ def dashboard():
         selected_maint_vehicle_id=selected_maint_vehicle_id,
         selected_stats_vehicle_id=selected_stats_vehicle_id,
         dashboard_stats=dashboard_stats,
-        holidays_json=holidays_json # <<< 追加: 祝日リストを渡す >>>
+        holidays_json=holidays_json # <<< 修正: 祝日辞書のJSONを渡す >>>
     )
 
 # --- APIエンドポイント (変更なし) ---
-# (省略...)
 @main_bp.route('/api/dashboard/events')
 @login_required_custom
 def dashboard_events_api():
-    # (省略...)
     events = []
     if not g.user: return jsonify({'error': 'User not logged in'}), 401
     user_id = g.user.id
     user_motorcycle_ids = [m.id for m in Motorcycle.query.filter_by(user_id=user_id).all()]
+
     # 給油記録
     fuel_entries = FuelEntry.query.filter(FuelEntry.motorcycle_id.in_(user_motorcycle_ids)).all()
     for entry in fuel_entries:
         kpl = entry.km_per_liter; kpl_display = f"{kpl:.2f} km/L" if kpl is not None else None
         events.append({ 'id': f'fuel-{entry.id}', 'title': f"⛽ 給油: {entry.motorcycle.name}", 'start': entry.entry_date.isoformat(), 'allDay': True, 'url': url_for('fuel.edit_fuel', entry_id=entry.id), 'backgroundColor': '#198754', 'borderColor': '#198754', 'textColor': 'white',
             'extendedProps': { 'type': 'fuel', 'motorcycleName': entry.motorcycle.name, 'odometer': entry.odometer_reading, 'fuelVolume': entry.fuel_volume, 'kmPerLiter': kpl_display, 'totalCost': math.ceil(entry.total_cost) if entry.total_cost is not None else None, 'stationName': entry.station_name, 'notes': entry.notes } })
+
     # 整備記録
     maintenance_entries = MaintenanceEntry.query.filter(MaintenanceEntry.motorcycle_id.in_(user_motorcycle_ids)).all()
     for entry in maintenance_entries:
@@ -223,6 +229,7 @@ def dashboard_events_api():
         total_cost = entry.total_cost
         events.append({ 'id': f'maint-{entry.id}', 'title': event_title, 'start': entry.maintenance_date.isoformat(), 'allDay': True, 'url': url_for('maintenance.edit_maintenance', entry_id=entry.id), 'backgroundColor': '#ffc107', 'borderColor': '#ffc107', 'textColor': 'black',
             'extendedProps': { 'type': 'maintenance', 'motorcycleName': entry.motorcycle.name, 'odometer': entry.total_distance_at_maintenance, 'description': entry.description, 'category': entry.category, 'totalCost': math.ceil(total_cost) if total_cost is not None else None, 'location': entry.location, 'notes': entry.notes } })
+
     # 一般ノート
     general_notes = GeneralNote.query.options(db.joinedload(GeneralNote.motorcycle)).filter_by(user_id=user_id).all()
     for note in general_notes:
@@ -230,4 +237,5 @@ def dashboard_events_api():
         note_title_display = note.title or '無題'
         events.append({ 'id': f'note-{note.id}', 'title': f"📝 メモ: {note_title_display[:15]}" + ("..." if len(note_title_display) > 15 else ""), 'start': note.note_date.isoformat(), 'allDay': True, 'url': url_for('notes.edit_note', note_id=note.id), 'backgroundColor': '#6c757d', 'borderColor': '#6c757d', 'textColor': 'white',
             'extendedProps': { 'type': 'note', 'title': note.title, 'content': note.content, 'motorcycleName': motorcycle_name, 'noteDate': note.note_date.strftime('%Y-%m-%d'), 'createdAt': note.created_at.strftime('%Y-%m-%d %H:%M'), 'url': url_for('notes.edit_note', note_id=note.id) } })
+
     return jsonify(events)

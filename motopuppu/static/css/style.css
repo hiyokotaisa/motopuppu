@@ -2,20 +2,21 @@
 
 /* --- FullCalendar カスタマイズ --- */
 
-/* カレンダーの日付番号の下線を消す */
+/* カレンダーの日付番号の下線を消す & スタイル調整 */
 .fc .fc-daygrid-day-number {
-    text-decoration: none !important;
-    color: inherit; /* リンクの色にならないように */
-    padding: 4px; /* 必要に応じてパディング調整 */
-    display: inline-block; /* クリック範囲などを考慮 */
+    text-decoration: none !important; /* 下線を強制的に消す */
+    color: inherit; /* 親要素の色を継承 (リンク色防止) */
+    padding: 2px 4px; /* 内側の余白を少し調整 */
+    display: inline-block; /* 他の要素との配置調整のため */
+    margin-bottom: 1px; /* 下に追加する祝日名との間隔を確保 */
 }
 
 /* カレンダーの曜日ヘッダーの下線を消す */
 .fc .fc-col-header-cell-cushion {
-    text-decoration: none !important;
-    color: inherit; /* リンクの色にならないように */
-    display: block; /* ヘッダーセル全体にスタイルを適用しやすくするため */
-    padding: 4px; /* 必要に応じてパディング調整 */
+    text-decoration: none !important; /* 下線を強制的に消す */
+    color: inherit; /* 親要素の色を継承 */
+    display: block; /* セル内でブロック要素として扱う */
+    padding: 4px; /* 内側の余白 */
 }
 
 /* 曜日ヘッダーがリンクの場合にも対応 (念のため) */
@@ -24,12 +25,31 @@
     color: inherit;
 }
 
-/* リストビューのイベントタイトル内のリンク下線を消す (任意) */
+/* --- ▼▼▼ 追加/修正: 祝日名のスタイル ▼▼▼ --- */
+.fc-holiday-name {
+    display: block;         /* 日付の下にブロック要素として表示 */
+    font-size: 0.7em;       /* 文字サイズを小さく (親要素の70%) */
+    line-height: 1.1;       /* 行間を少し詰める */
+    color: #dc3545;         /* 赤文字 (Bootstrapのdangerカラー、日付と同じ) */
+    text-align: center;     /* セル内で中央揃え */
+    margin-top: 1px;        /* 日付番号との上の間隔 */
+    white-space: nowrap;    /* 祝日名を1行で表示 (改行させない) */
+    overflow: hidden;       /* セルからはみ出した部分を隠す */
+    text-overflow: ellipsis;/* はみ出した部分を '...' で表示 */
+    max-width: 95%;         /* セルの幅より少し小さくして左右にわずかな余白 */
+    margin-left: auto;      /* 中央揃えのため */
+    margin-right: auto;     /* 中央揃えのため */
+    cursor: default;        /* マウスカーソルを標準に */
+    /* position: absolute; bottom: 2px; left: 0; right: 0; などで絶対位置指定も可能だが、セルの高さに依存する */
+}
+/* --- ▲▲▲ 追加/修正ここまで ▲▲▲ --- */
+
+
+/* リストビューのスタイル (変更なし) */
 .fc-list-event-title a {
     text-decoration: none;
     color: inherit;
 }
-/* リストビューの日付・曜日の下線も消す (任意) */
 .fc-list-day-text,
 .fc-list-day-side-text {
     text-decoration: none;
@@ -37,7 +57,7 @@
 }
 
 
-/* --- ポップオーバーのスタイル調整 (任意) --- */
+/* --- ポップオーバーのスタイル調整 (変更なし) --- */
 .motopuppu-popover {
     max-width: 350px; /* Popoverの最大幅を調整 */
     font-size: 0.875rem; /* Popover内のフォントサイズを少し小さく */
@@ -54,10 +74,12 @@
 }
 .motopuppu-popover .popover-body dd {
     margin-left: 0.5rem; /* Descriptionのインデント */
-    word-wrap: break-word;
-    overflow-wrap: break-word;
+    word-wrap: break-word; /* 長い単語の折り返し */
+    overflow-wrap: break-word; /* 長い単語の折り返し */
     white-space: pre-wrap; /* メモなどの改行を保持 */
 }
 .motopuppu-popover .popover-body dd:first-of-type {
      margin-top: 0; /* 最初のdtに対するddのマージントップを削除 */
 }
+
+/* 既存の TODO スタイルなどがあれば、この下に追加 */

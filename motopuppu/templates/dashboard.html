@@ -61,7 +61,7 @@
 </div>
 {% endif %}
 
-{# --- 統計情報セクション (フィルター部分は変更なし) --- #}
+{# --- 統計情報セクション (変更なし) --- #}
 {% if dashboard_stats %}
 <div class="card mb-4">
     <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
@@ -133,7 +133,7 @@
         </div>
     </div>
 
-    {# --- 直近の給油記録 (フィルター部分は変更なし) --- #}
+    {# --- 直近の給油記録 (変更なし) --- #}
     <div class="col-md-6">
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
@@ -163,7 +163,7 @@
         </div>
     </div>
 
-    {# --- 直近の整備記録 (フィルター部分は変更なし) --- #}
+    {# --- 直近の整備記録 (変更なし) --- #}
     <div class="col-md-6">
         <div class="card">
              <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
@@ -210,21 +210,22 @@
   document.addEventListener('DOMContentLoaded', function() {
     var calendarEl = document.getElementById('calendar');
 
-    // --- ▼▼▼ 追加: 祝日データを受け取り、Setに変換 ▼▼▼ ---
-    let holidaysSet = new Set();
+    // --- ▼▼▼ 修正: 祝日データをオブジェクト(Map)として受け取る ▼▼▼ ---
+    let holidaysMap = {}; // Setではなく通常のオブジェクトを使用
     try {
-        // Flaskから渡されたJSON文字列を安全にパース
+        // Flaskから渡されたJSON文字列 ('{}' または '{ "YYYY-MM-DD": "祝日名", ... }') をパース
         const holidaysData = JSON.parse('{{ holidays_json | safe }}');
-        if (Array.isArray(holidaysData)) {
-            holidaysSet = new Set(holidaysData);
+        // 渡されたデータがオブジェクトであることを確認 (nullチェックも含む)
+        if (typeof holidaysData === 'object' && holidaysData !== null) {
+            holidaysMap = holidaysData;
         } else {
-            console.error("Invalid holidays data format:", holidaysData);
+            console.error("Invalid holidays data format (expected object):", holidaysData);
         }
     } catch (e) {
         console.error("Error parsing holidays JSON:", e);
-        // エラーが発生してもカレンダーの描画は続ける
+        // エラーが発生してもカレンダー描画は継続させる
     }
-    // --- ▲▲▲ 追加ここまで ▲▲▲ ---
+    // --- ▲▲▲ 修正ここまで ▲▲▲ ---
 
 
     function escapeHtml(unsafe) {
@@ -239,14 +240,13 @@
           buttonText: { today: '今日', month: '月', week: '週', list: 'リスト(月)' },
           contentHeight: 'auto', // カレンダーの高さをコンテンツに合わせる
 
-          // --- ▼▼▼ 修正: dayCellContent は日付のHTML生成のみに専念 ---
+          // dayCellContent は変更なし (日付番号を返すだけ)
           dayCellContent: function(arg) {
-             // 曜日や祝日の色付けは dayCellDidMount で行うため、単純に日付番号を返す
+             // 曜日や祝日の色付けは dayCellDidMount で行う
              return { html: `<span class="fc-daygrid-day-number">${arg.date.getDate()}</span>` };
           },
-          // --- ▲▲▲ 修正ここまで ▲▲▲ ---
 
-          // --- ▼▼▼ 追加: dayCellDidMount で曜日と祝日の色付けを行う ---
+          // --- ▼▼▼ 修正: dayCellDidMount で祝日名表示を追加 ---
           dayCellDidMount: function(arg) {
             // 日付を 'YYYY-MM-DD' 形式の文字列に変換
             const dateStr = arg.date.toISOString().slice(0, 10);
@@ -254,32 +254,44 @@
             const dayNumberEl = arg.el.querySelector('.fc-daygrid-day-number');
             // 曜日を取得 (0が日曜日, 6が土曜日)
             const dayOfWeek = arg.date.getDay();
+            // FullCalendar v6ではセルの主要コンテナは .fc-daygrid-day-frame
+            const dayFrame = arg.el.querySelector('.fc-daygrid-day-frame');
 
-            if (!dayNumberEl) return; // 日付番号要素が見つからない場合は処理を中断
+            // 日付番号要素とフレーム要素が見つからない場合は処理を中断
+            if (!dayNumberEl || !dayFrame) return;
 
             // 祝日かどうかを判定 (最優先)
-            if (holidaysSet.has(dateStr)) {
-              dayNumberEl.classList.add('text-danger'); // 祝日は赤色 (Bootstrapのtext-dangerクラス)
-              // 必要に応じて、セル自体にもクラスを追加できます (例: 背景色を変える場合など)
-              // arg.el.classList.add('fc-day-holiday');
+            // holidaysMapオブジェクトがdateStrキーを持っているか確認
+            if (holidaysMap.hasOwnProperty(dateStr)) {
+                const holidayName = holidaysMap[dateStr]; // 対応する祝日名を取得
+                dayNumberEl.classList.add('text-danger'); // 日付番号を赤文字に
+
+                // --- ▼▼▼ 追加: 祝日名を表示する<span>要素を作成・追加 ▼▼▼ ---
+                const holidayNameEl = document.createElement('span');
+                holidayNameEl.classList.add('fc-holiday-name'); // CSSでスタイルを適用するためのクラス
+                holidayNameEl.textContent = holidayName; // 取得した祝日名を設定
+                // 作成した祝日名要素を日付セルフレーム (.fc-daygrid-day-frame) の子要素として追加
+                dayFrame.appendChild(holidayNameEl);
+                // --- ▲▲▲ 追加ここまで ▲▲▲ ---
+
             }
             // 祝日でない場合、曜日によって色を変更
             else if (dayOfWeek === 0) { // 日曜日
-              dayNumberEl.classList.add('text-danger'); // 日曜日も赤色
+                dayNumberEl.classList.add('text-danger'); // 日曜日も赤色
             } else if (dayOfWeek === 6) { // 土曜日
-              dayNumberEl.classList.add('text-primary'); // 土曜日は青色 (Bootstrapのtext-primaryクラス)
+                dayNumberEl.classList.add('text-primary'); // 土曜日は青色
             }
           },
-          // --- ▲▲▲ 追加ここまで ▲▲▲ ---
+          // --- ▲▲▲ 修正ここまで ▲▲▲ ---
 
           events: '/api/dashboard/events', // イベントデータの取得元APIエンドポイント (変更なし)
           eventClick: function(info) { // イベントクリック時の動作 (変更なし)
-            info.jsEvent.preventDefault(); // デフォルト動作 (URL遷移など) を防ぐ
+            info.jsEvent.preventDefault(); // デフォルト動作を防ぐ
             if (info.event.url) {
-              window.location.href = info.event.url; // イベントにURLがあればそのページに遷移
+              window.location.href = info.event.url; // URLがあれば遷移
             }
           },
-          eventDidMount: function(info) { // イベントが描画された後の処理 (ポップオーバー表示、変更なし)
+          eventDidMount: function(info) { // イベント描画後の処理 (ポップオーバー表示、変更なし)
             if (info.event.extendedProps) {
               var props = info.event.extendedProps; var popoverTitle = ''; var popoverContent = '';
               var eventDateStr = info.event.start ? info.event.start.toLocaleDateString('ja-JP', { year: 'numeric', month: 'short', day: 'numeric' }) : '日付不明';
@@ -298,18 +310,17 @@
 
               // ポップオーバーを初期化して表示 (変更なし)
                if (popoverTitle && popoverContent) {
-                 // 既に初期化されていないか確認
                  if (!info.el.hasAttribute('data-bs-toggle')) {
                    var popover = new bootstrap.Popover(info.el, {
                         title: popoverTitle,
                         content: popoverContent,
-                        trigger: 'hover focus', // ホバーまたはフォーカスで表示
-                        placement: 'auto', // 表示位置を自動調整
-                        boundary: 'viewport', // Popoverが画面外に出ないように
-                        html: true, // コンテンツにHTMLを許可
-                        sanitize: false, // サニタイズを無効化 (内容を信頼できる場合)
-                        container: 'body', // Popover要素をbody直下に追加 (表示崩れ対策)
-                        customClass: 'motopuppu-popover' // カスタムCSSクラスを適用
+                        trigger: 'hover focus',
+                        placement: 'auto',
+                        boundary: 'viewport',
+                        html: true,
+                        sanitize: false,
+                        container: 'body',
+                        customClass: 'motopuppu-popover'
                     });
                  }
               }
