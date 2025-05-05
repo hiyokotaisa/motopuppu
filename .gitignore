@@ -10,7 +10,9 @@ venv/
 .venv/
 
 # Instance Folder (sensitive config, DBs)
+/instance/
 /instances/
+*.db
 
 # Build artifacts
 dist/
