@@ -34,7 +34,7 @@ class Motorcycle(db.Model):
     name = db.Column(db.String(80), nullable=False)
     year = db.Column(db.Integer, nullable=True)
     # DBスキーマに合わせて server_default を追加
-    odometer_offset = db.Column(db.Integer, nullable=False, server_default='0')
+    odometer_offset = db.Column(db.Integer, nullable=False, default=0, server_default='0')
     # DBスキーマに合わせて server_default を追加 (boolean は 'true'/'false')
     is_default = db.Column(db.Boolean, nullable=False, server_default='false')
 
