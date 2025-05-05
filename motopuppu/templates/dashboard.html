@@ -237,38 +237,58 @@
 
           // dayCellContent は変更なし (日付番号を返すだけ)
           dayCellContent: function(arg) {
+             // CSSで右寄せにするので、ここでは単純に番号だけ返す
              return { html: `<span class="fc-daygrid-day-number">${arg.date.getDate()}</span>` };
           },
 
-          // --- ▼▼▼ dayCellDidMount 内の祝日名挿入位置を変更 ▼▼▼ ---
+          // --- ▼▼▼ dayCellDidMount 修正: 祝日名の挿入位置変更 & CSS用クラス付与 ▼▼▼ ---
           dayCellDidMount: function(arg) {
             const dateStr = arg.date.toISOString().slice(0, 10);
             const dayNumberEl = arg.el.querySelector('.fc-daygrid-day-number');
             const dayOfWeek = arg.date.getDay();
-            const dayFrame = arg.el.querySelector('.fc-daygrid-day-frame'); // (変更なし)
+            const dayFrame = arg.el.querySelector('.fc-daygrid-day-frame');
 
-            if (!dayNumberEl || !dayFrame) return; // (変更なし)
+            // 要素が見つからない場合は中断 (変更なし)
+            if (!dayNumberEl || !dayFrame) return;
+
+            // 既存のクラスをクリア (再描画対策 - 任意)
+            arg.el.classList.remove('fc-day-holiday', 'fc-day-sun', 'fc-day-sat');
+            dayNumberEl.classList.remove('is-holiday', 'is-sun', 'is-sat');
+            // 以前に追加した可能性のある祝日名要素を削除 (より安全)
+            const existingHolidayName = dayFrame.querySelector('.fc-holiday-name');
+            if (existingHolidayName) {
+                dayFrame.removeChild(existingHolidayName);
+            }
+
 
             // 祝日判定
             if (holidaysMap.hasOwnProperty(dateStr)) {
                 const holidayName = holidaysMap[dateStr];
-                dayNumberEl.classList.add('text-danger'); // 日付を赤文字に (変更なし)
 
-                // 祝日名を表示する<span>要素を作成 (変更なし)
+                // 祝日名要素を作成 (変更なし)
                 const holidayNameEl = document.createElement('span');
                 holidayNameEl.classList.add('fc-holiday-name');
                 holidayNameEl.textContent = holidayName;
-                // holidayNameEl.textContent = holidayName + ' '; // 見た目に応じてスペース追加も検討
 
-                // --- ▼▼▼ 修正: 祝日名要素を日付番号要素の「前」に追加 ---
-                // dayFrame.appendChild(holidayNameEl); // これは日付の下に追加していた
-                dayNumberEl.insertAdjacentElement('beforebegin', holidayNameEl); // 日付番号の直前に挿入
-                // --- ▲▲▲ 修正ここまで ▲▲▲ ---
+                // ▼▼▼ 変更: セルフレームの「先頭」に祝日名要素を追加 ▼▼▼
+                dayFrame.insertBefore(holidayNameEl, dayFrame.firstChild); // フレームの最初の子要素として挿入
+                // ▲▲▲ 変更ここまで ▲▲▲
 
-            } else if (dayOfWeek === 0) { // 日曜日
-                dayNumberEl.classList.add('text-danger'); // (変更なし)
-            } else if (dayOfWeek === 6) { // 土曜日
-                dayNumberEl.classList.add('text-primary'); // (変更なし)
+                // ▼▼▼ 変更: CSSスタイリング用のクラスを付与 ▼▼▼
+                arg.el.classList.add('fc-day-holiday'); // セル全体にクラス追加
+                dayNumberEl.classList.add('is-holiday');  // 日付番号にクラス追加
+                // ▲▲▲ 変更ここまで ▲▲▲
+
+            } else if (dayOfWeek === 0) { // 日曜日 (祝日でない)
+                 // ▼▼▼ 変更: CSSスタイリング用のクラスを付与 ▼▼▼
+                arg.el.classList.add('fc-day-sun');
+                dayNumberEl.classList.add('is-sun');
+                 // ▲▲▲ 変更ここまで ▲▲▲
+            } else if (dayOfWeek === 6) { // 土曜日 (祝日/日曜でない)
+                 // ▼▼▼ 変更: CSSスタイリング用のクラスを付与 ▼▼▼
+                arg.el.classList.add('fc-day-sat');
+                dayNumberEl.classList.add('is-sat');
+                 // ▲▲▲ 変更ここまで ▲▲▲
             }
           },
           // --- ▲▲▲ dayCellDidMount 修正ここまで ▲▲▲ ---

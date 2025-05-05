@@ -2,17 +2,84 @@
 
 /* --- FullCalendar カスタマイズ --- */
 
-/* カレンダーの日付番号の下線を消す & スタイル調整 */
-.fc .fc-daygrid-day-number {
-    /* ▼▼▼ 修正: 横並びのためのスタイル ▼▼▼ */
-    display: inline-block;      /* 祝日名と横並びにする */
-    vertical-align: baseline;   /* 祝日名と縦位置 (ベースライン) を合わせる */
-    /* ▲▲▲ 修正ここまで ▲▲▲ */
-    text-decoration: none !important; /* 下線を消す */
-    color: inherit; /* 親要素の色を継承 */
-    padding: 2px 0 2px 2px; /* 内側の余白 (右と左を少し調整) */
-    /* margin-bottom: 1px; */ /* 不要なので削除 */
+/* ▼▼▼ 修正: セルフレームにFlexboxを適用 ▼▼▼ */
+.fc .fc-daygrid-day-frame {
+    display: flex;                 /* Flexboxコンテナにする */
+    justify-content: space-between;/* 子要素(祝日名, 日付番号)を左右に振り分ける */
+    align-items: baseline;         /* 子要素のベースライン(下端)を揃える (centerも可) */
+    padding: 2px 4px;              /* セル内の上下左右のパディング */
+    min-height: 2.5em;             /* セルの最小高さを確保 (内容に応じて調整) */
+    position: relative;            /* 必要に応じて */
+    /* text-align は flex では不要になる */
 }
+/* ▲▲▲ 修正ここまで ▲▲▲ */
+
+/* ▼▼▼ 修正: 祝日名のスタイル (左端表示用) ▼▼▼ */
+.fc-holiday-name {
+    order: 1;                 /* Flexアイテムの順序を1番目 (左) に */
+    font-size: 0.7em;         /* 文字サイズを日付より小さく */
+    line-height: 1.2;         /* ベースライン調整用 (日付の line-height に合わせる) */
+    color: #dc3545;           /* 祝日の色 (赤) */
+    margin-right: 4px;        /* 右隣の日付番号との最小間隔 */
+    white-space: nowrap;      /* 改行しない */
+    overflow: hidden;         /* はみ出しを隠す */
+    text-overflow: ellipsis;  /* はみ出しを ... で表示 */
+    /* max-width: 60%; */       /* 必要に応じて最大幅を設定 (長い祝日名対策) */
+    flex-shrink: 1;           /* 必要に応じて幅を縮小可能にする (1以上) */
+    text-align: left;         /* 左寄せ */
+    cursor: default;          /* 標準カーソル */
+    /* vertical-align は align-items で制御するため不要 */
+    /* display: inline-block; は Flexアイテムなので不要 */
+}
+/* ▲▲▲ 修正ここまで ▲▲▲ */
+
+
+/* ▼▼▼ 修正: 日付番号のスタイル (右端表示用) ▼▼▼ */
+.fc .fc-daygrid-day-number {
+    order: 2;                 /* Flexアイテムの順序を2番目 (右) に */
+    text-decoration: none !important; /* 下線なし */
+    color: inherit;           /* デフォルトの色 (CSSで状態に応じて上書き) */
+    padding: 0;               /* 個別のパディングは基本的に不要 (フレーム側で設定) */
+    text-align: right;        /* 右寄せ */
+    flex-shrink: 0;           /* 幅を縮小させない (日付番号は常に表示) */
+    line-height: 1.2;         /* ベースライン調整用 */
+    /* display: inline-block; は Flexアイテムなので不要 */
+    /* vertical-align は align-items で制御するため不要 */
+    /* margin-left: auto; でも右寄せできるが、orderの方が確実 */
+}
+/* ▲▲▲ 修正ここまで ▲▲▲ */
+
+
+/* ▼▼▼ 修正/追加: 状態に応じた日付番号の色付け (CSSで制御) ▼▼▼ */
+
+/* デフォルトの色を継承 (上書き用) */
+.fc .fc-daygrid-day-number {
+    color: inherit;
+    font-weight: normal; /* デフォルトの太さ */
+}
+
+/* 祝日の日付番号 (最優先) */
+.fc-day-holiday .fc-daygrid-day-number, /* セルにクラスがある場合 */
+.fc .fc-daygrid-day-number.is-holiday { /* 日付番号にクラスがある場合 */
+    color: #dc3545 !important; /* Bootstrapのdangerカラー (赤) */
+    font-weight: bold; /* 少し太字に */
+}
+
+/* 日曜日の日付番号 (祝日でない場合のみ適用) */
+.fc-day-sun:not(.fc-day-holiday) .fc-daygrid-day-number,
+.fc .fc-daygrid-day-number.is-sun:not(.is-holiday) {
+     color: #dc3545 !important; /* Bootstrapのdangerカラー (赤) */
+     /* font-weight: normal; */ /* 必要なら太字にしない */
+}
+
+/* 土曜日の日付番号 (祝日/日曜でない場合のみ適用) */
+.fc-day-sat:not(.fc-day-holiday):not(.fc-day-sun) .fc-daygrid-day-number,
+.fc .fc-daygrid-day-number.is-sat:not(.is-holiday):not(.is-sun) {
+     color: #0d6efd !important; /* Bootstrapのprimaryカラー (青) */
+     /* font-weight: normal; */
+}
+/* ▲▲▲ 色付けここまで ▲▲▲ */
+
 
 /* カレンダーの曜日ヘッダーの下線を消す (変更なし) */
 .fc .fc-col-header-cell-cushion {
@@ -27,26 +94,6 @@
     text-decoration: none !important;
     color: inherit;
 }
-
-/* --- ▼▼▼ 修正: 祝日名のスタイル (左隣表示用) ▼▼▼ --- */
-.fc-holiday-name {
-    display: inline-block;  /* 日付番号と横並びにする */
-    font-size: 0.7em;       /* 文字サイズを日付より小さく */
-    line-height: 1;         /* 行間を詰める */
-    color: #dc3545;         /* 赤文字 (日付と同じ色) */
-    margin-right: 0.3em;    /* 右隣の日付番号との間隔 */
-    vertical-align: baseline; /* 日付番号と縦位置 (ベースライン) を合わせる */
-    white-space: nowrap;    /* 祝日名を1行で表示 (改行しない) */
-    /* text-align: center; */ /* 不要 */
-    /* margin-top: 1px; */    /* 不要 */
-    /* overflow, text-overflow は横並びだと効果が限定的なためコメントアウト */
-    /* overflow: hidden; */
-    /* text-overflow: ellipsis; */
-    /* max-width: 50%; */ /* 必要に応じて設定 */
-    cursor: default;        /* マウスカーソルを標準に */
-}
-/* --- ▲▲▲ 修正ここまで ▲▲▲ --- */
-
 
 /* リストビューのスタイル (変更なし) */
 .fc-list-event-title a {
@@ -65,22 +112,9 @@
     max-width: 350px;
     font-size: 0.875rem;
 }
-.motopuppu-popover .popover-body dl {
-    margin-bottom: 0;
-}
-.motopuppu-popover .popover-body dt {
-    font-weight: bold;
-    color: #6c757d;
-    margin-top: 0.3rem;
-}
-.motopuppu-popover .popover-body dd {
-    margin-left: 0.5rem;
-    word-wrap: break-word;
-    overflow-wrap: break-word;
-    white-space: pre-wrap;
-}
-.motopuppu-popover .popover-body dd:first-of-type {
-     margin-top: 0;
-}
+.motopuppu-popover .popover-body dl { margin-bottom: 0; }
+.motopuppu-popover .popover-body dt { font-weight: bold; color: #6c757d; margin-top: 0.3rem; }
+.motopuppu-popover .popover-body dd { margin-left: 0.5rem; word-wrap: break-word; overflow-wrap: break-word; white-space: pre-wrap; }
+.motopuppu-popover .popover-body dd:first-of-type { margin-top: 0; }
 
 /* 既存の TODO スタイルなどがあれば、この下に追加 */
