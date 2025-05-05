@@ -3,6 +3,54 @@
 
 {% block title %}ダッシュボード - もとぷっぷー{% endblock %}
 
+{% block styles %}
+{{ super() }}
+{# 必要であればカレンダー用のカスタムCSSを追加 #}
+<style>
+  /* ポップオーバーの最大幅など */
+  .motopuppu-popover {
+    max-width: 350px; /* 例: 最大幅を設定 */
+  }
+  /* 日付セルの高さを少し確保（イベントが多いときに見やすく） */
+  .fc-daygrid-day-frame {
+    min-height: 100px; /* 例 */
+  }
+  /* 祝日の背景色など */
+  .fc .fc-daygrid-day.fc-day-holiday {
+    background-color: rgba(255, 0, 0, 0.05); /* 例: 薄い赤 */
+  }
+  /* 土日の日付番号の色 */
+  .fc .fc-daygrid-day-number.is-sat { color: #0d6efd; } /* Bootstrap primary */
+  .fc .fc-daygrid-day-number.is-sun,
+  .fc .fc-daygrid-day-number.is-holiday { color: #dc3545; } /* Bootstrap danger */
+  /* 祝日名 */
+  .fc-holiday-name {
+      display: block;
+      font-size: 0.7em;
+      text-align: center;
+      color: #dc3545; /* Bootstrap danger */
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      padding: 0 2px;
+      margin-top: -2px; /* 日付番号との間隔調整 */
+  }
+  /* TODOリストのスタイル調整 */
+  .motopuppu-popover .list-unstyled li {
+      margin-bottom: 0.2rem; /* アイテム間のスペース */
+  }
+  .motopuppu-popover .list-unstyled label {
+      vertical-align: middle; /* チェックボックスとテキストの縦位置を揃える */
+      word-break: break-word; /* 長いテキストを折り返す */
+  }
+  .motopuppu-popover .form-check-input {
+      margin-top: 0.1em; /* チェックボックスの縦位置微調整 */
+      cursor: default; /* disabledなのでカーソルを標準に */
+  }
+</style>
+{% endblock %}
+
+
 {% block content %}
 {# --- ヘッダー (変更なし) --- #}
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
@@ -90,12 +138,12 @@
             <div class="col-md-3 col-6">
                  <h6 class="card-title text-muted small">累計 給油費用</h6>
                  <p class="card-text fs-4 fw-bold mb-0">{{ "{:,.0f}".format(dashboard_stats.total_fuel_cost | int) }} 円</p>
-                 <small class="text-muted">({% if dashboard_stats.is_specific_vehicle %}{{ dashboard_stats.vehicle_name }}{% else %}すべての車両{% endif %})</small>
+                 <small class="text-muted">({{ dashboard_stats.vehicle_name_for_cost }})</small> {# 修正: vehicle_name_for_cost を使用 #}
             </div>
             <div class="col-md-3 col-6">
                  <h6 class="card-title text-muted small">累計 整備費用</h6>
                   <p class="card-text fs-4 fw-bold mb-0">{{ "{:,.0f}".format(dashboard_stats.total_maint_cost | int) }} 円</p>
-                  <small class="text-muted">({% if dashboard_stats.is_specific_vehicle %}{{ dashboard_stats.vehicle_name }}{% else %}すべての車両{% endif %})</small>
+                  <small class="text-muted">({{ dashboard_stats.vehicle_name_for_cost }})</small> {# 修正: vehicle_name_for_cost を使用 #}
             </div>
         </div>
     </div>
@@ -139,12 +187,13 @@
             <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
                 <span class="me-2"><i class="fas fa-gas-pump me-1"></i> 直近の給油記録</span>
                 <form method="GET" action="{{ url_for('main.dashboard') }}" class="d-inline-block ms-auto" style="min-width: 150px;">
+                     {# 他のフィルター値を保持 #}
                      {% if selected_stats_vehicle_id %} <input type="hidden" name="stats_vehicle_id" value="{{ selected_stats_vehicle_id }}"> {% endif %}
-                    {% if selected_maint_vehicle_id %} <input type="hidden" name="maint_vehicle_id" value="{{ selected_maint_vehicle_id }}"> {% endif %}
-                    <select name="fuel_vehicle_id" class="form-select form-select-sm" onchange="this.form.submit()" aria-label="車両で絞り込み">
+                     {% if selected_maint_vehicle_id %} <input type="hidden" name="maint_vehicle_id" value="{{ selected_maint_vehicle_id }}"> {% endif %}
+                     <select name="fuel_vehicle_id" class="form-select form-select-sm" onchange="this.form.submit()" aria-label="車両で絞り込み">
                         <option value="" {% if not selected_fuel_vehicle_id %}selected{% endif %}>すべての車両</option>
                         {% for m in motorcycles %} <option value="{{ m.id }}" {% if selected_fuel_vehicle_id == m.id %}selected{% endif %}>{{ m.name }}</option> {% endfor %}
-                    </select>
+                     </select>
                 </form>
             </div>
             <div class="card-body">
@@ -169,9 +218,10 @@
              <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
                  <span class="me-2"><i class="fas fa-tools me-1"></i> 直近の整備記録</span>
                  <form method="GET" action="{{ url_for('main.dashboard') }}" class="d-inline-block ms-auto" style="min-width: 150px;">
+                      {# 他のフィルター値を保持 #}
                      {% if selected_stats_vehicle_id %} <input type="hidden" name="stats_vehicle_id" value="{{ selected_stats_vehicle_id }}"> {% endif %}
-                    {% if selected_fuel_vehicle_id %} <input type="hidden" name="fuel_vehicle_id" value="{{ selected_fuel_vehicle_id }}"> {% endif %}
-                    <select name="maint_vehicle_id" class="form-select form-select-sm" onchange="this.form.submit()" aria-label="車両で絞り込み">
+                     {% if selected_fuel_vehicle_id %} <input type="hidden" name="fuel_vehicle_id" value="{{ selected_fuel_vehicle_id }}"> {% endif %}
+                     <select name="maint_vehicle_id" class="form-select form-select-sm" onchange="this.form.submit()" aria-label="車両で絞り込み">
                         <option value="" {% if not selected_maint_vehicle_id %}selected{% endif %}>すべての車両</option>
                         {% for m in motorcycles %} <option value="{{ m.id }}" {% if selected_maint_vehicle_id == m.id %}selected{% endif %}>{{ m.name }}</option> {% endfor %}
                     </select>
@@ -210,20 +260,16 @@
   document.addEventListener('DOMContentLoaded', function() {
     var calendarEl = document.getElementById('calendar');
 
-    // 祝日データをオブジェクト(Map)として受け取る (最新版のまま)
+    // --- 祝日データ取得 (変更なし) ---
     let holidaysMap = {};
     try {
         const holidaysData = JSON.parse('{{ holidays_json | safe }}');
-        if (typeof holidaysData === 'object' && holidaysData !== null) {
-            holidaysMap = holidaysData;
-        } else {
-            console.error("Invalid holidays data format (expected object):", holidaysData);
-        }
-    } catch (e) {
-        console.error("Error parsing holidays JSON:", e);
-    }
+        if (typeof holidaysData === 'object' && holidaysData !== null) { holidaysMap = holidaysData; }
+        else { console.error("Invalid holidays data format:", holidaysData); }
+    } catch (e) { console.error("Error parsing holidays JSON:", e); }
 
-    function escapeHtml(unsafe) { /* (変更なし) */
+    // --- HTMLエスケープ関数 (変更なし) ---
+    function escapeHtml(unsafe) {
       if (typeof unsafe !== 'string') return unsafe;
       return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
@@ -231,172 +277,162 @@
     if (calendarEl) {
         var calendar = new FullCalendar.Calendar(calendarEl, {
           initialView: 'dayGridMonth', locale: 'ja',
-
-          // --- ▼▼▼ headerToolbar と buttonText の設定 (コメントは残すが、内容は以前の動作バージョンと同じ) ▼▼▼ ---
-          headerToolbar: {
-              left: 'prev,next today',
-              center: 'title',
-              right: 'dayGridMonth,dayGridWeek,listMonth' // listMonth を含む
-          },
-          buttonText: {
-              today: '今日',
-              month: '月',
-              week: '週',
-              list: 'リスト(月)' // listMonth ボタンのテキスト
-          },
-          // --- ▲▲▲ 設定ここまで ▲▲▲ ---
-
-          contentHeight: 'auto',
-          // dayCellContent は最新版のシンプルな方を採用 (祝日や曜日のスタイルはdayCellDidMountで付与)
+          headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,dayGridWeek,listMonth' },
+          buttonText: { today: '今日', month: '月', week: '週', list: 'リスト(月)' },
+          contentHeight: 'auto', // 高さを自動調整
+          // dayCellContent: 日付番号表示 (変更なし)
           dayCellContent: function(arg) {
              return { html: `<span class="fc-daygrid-day-number">${arg.date.getDate()}</span>` };
           },
-          // dayCellDidMount は最新版の祝日対応版を維持
+          // dayCellDidMount: 曜日・祝日スタイル適用 (変更なし)
           dayCellDidMount: function(arg) {
-            // ローカル日付文字列生成
-            const year = arg.date.getFullYear();
-            const month = (arg.date.getMonth() + 1).toString().padStart(2, '0');
-            const day = arg.date.getDate().toString().padStart(2, '0');
+            const year = arg.date.getFullYear(); const month = (arg.date.getMonth() + 1).toString().padStart(2, '0'); const day = arg.date.getDate().toString().padStart(2, '0');
             const dateStr = `${year}-${month}-${day}`;
-
-            const dayNumberEl = arg.el.querySelector('.fc-daygrid-day-number');
-            const dayTopEl = arg.el.querySelector('.fc-daygrid-day-top'); // 日付番号/祝日名を入れるコンテナ
-            const dayOfWeek = arg.date.getDay();
-
+            const dayNumberEl = arg.el.querySelector('.fc-daygrid-day-number'); const dayTopEl = arg.el.querySelector('.fc-daygrid-day-top'); const dayOfWeek = arg.date.getDay();
             if (!dayNumberEl || !dayTopEl) return;
-
-            // 既存クラス・要素のクリア
+            // 既存クラス・要素クリア
             arg.el.classList.remove('fc-day-holiday', 'fc-day-sun', 'fc-day-sat');
             dayNumberEl.classList.remove('is-holiday', 'is-sun', 'is-sat');
-            const existingHolidayName = dayTopEl.querySelector('.fc-holiday-name');
-            if (existingHolidayName) {
-                dayTopEl.removeChild(existingHolidayName);
-            }
-
-            // 祝日判定
+            const existingHolidayName = dayTopEl.querySelector('.fc-holiday-name'); if (existingHolidayName) { dayTopEl.removeChild(existingHolidayName); }
+            // 祝日・曜日クラス適用
             if (holidaysMap.hasOwnProperty(dateStr)) {
-                const holidayName = holidaysMap[dateStr];
-                const holidayNameEl = document.createElement('span');
-                holidayNameEl.classList.add('fc-holiday-name');
-                holidayNameEl.textContent = holidayName;
-                // dayTop要素の末尾に追加
-                dayTopEl.appendChild(holidayNameEl);
-                // CSS用クラス付与
-                arg.el.classList.add('fc-day-holiday');
-                dayNumberEl.classList.add('is-holiday');
-            } else if (dayOfWeek === 0) { // 日曜日
-                arg.el.classList.add('fc-day-sun');
-                dayNumberEl.classList.add('is-sun');
-            } else if (dayOfWeek === 6) { // 土曜日
-                arg.el.classList.add('fc-day-sat');
-                dayNumberEl.classList.add('is-sat');
-            }
+                const holidayName = holidaysMap[dateStr]; const holidayNameEl = document.createElement('span'); holidayNameEl.classList.add('fc-holiday-name'); holidayNameEl.textContent = holidayName;
+                dayTopEl.appendChild(holidayNameEl); arg.el.classList.add('fc-day-holiday'); dayNumberEl.classList.add('is-holiday');
+            } else if (dayOfWeek === 0) { arg.el.classList.add('fc-day-sun'); dayNumberEl.classList.add('is-sun'); }
+            else if (dayOfWeek === 6) { arg.el.classList.add('fc-day-sat'); dayNumberEl.classList.add('is-sat'); }
           },
-          events: '/api/dashboard/events', // (変更なし)
+          events: '/api/dashboard/events', // イベントデータ取得API
 
-          // --- ▼▼▼ ポップオーバーのための修正箇所 ▼▼▼ ---
+          // --- ▼▼▼ eventClick: editUrl を優先使用 ▼▼▼ ---
           eventClick: function(info) {
-             info.jsEvent.preventDefault(); // prevent browser navigation
-             // 編集URLがあればクリックで遷移 (ポップオーバー内のリンクもあるが、イベント自体をクリックした場合の動作)
-             const editUrl = info.event.extendedProps?.editUrl || info.event.url; // propsになければevent.urlを試す
+             info.jsEvent.preventDefault(); // デフォルトの動作（あれば）を抑制
+             // extendedProps に editUrl があればそれを優先、なければ event.url を使う
+             const editUrl = info.event.extendedProps?.editUrl || info.event.url;
              if (editUrl) {
-               window.location.href = editUrl;
+               window.location.href = editUrl; // 編集ページへ遷移
              }
           },
+          // --- ▲▲▲ eventClick ここまで ▲▲▲ ---
+
+          // --- ▼▼▼ eventDidMount: ポップオーバー処理を修正 ▼▼▼ ---
           eventDidMount: function(info) {
              if (info.event.extendedProps) {
                var props = info.event.extendedProps;
                var popoverTitle = '';
                var popoverContent = '';
-               // 日付フォーマット (toLocaleDateStringが意図通り動かない場合があるので念のため)
                var eventDateStr = '日付不明';
+               // 日付フォーマット (変更なし)
                if (info.event.start) {
-                    try {
-                        eventDateStr = info.event.start.toLocaleDateString('ja-JP', { year: 'numeric', month: 'short', day: 'numeric' });
-                    } catch (e) {
-                        // フォールバック: YYYY-MM-DD形式など
-                        eventDateStr = info.event.start.toISOString().split('T')[0];
-                        console.warn("toLocaleDateString failed, using fallback date format:", eventDateStr, e);
-                    }
+                    try { eventDateStr = info.event.start.toLocaleDateString('ja-JP', { year: 'numeric', month: 'short', day: 'numeric' }); }
+                    catch (e) { eventDateStr = info.event.start.toISOString().split('T')[0]; console.warn("toLocaleDateString failed, using fallback date format:", eventDateStr, e); }
                }
+               var editUrl = props.editUrl; // 編集URLは extendedProps から取得
 
-               var editUrl = props.editUrl || info.event.url; // 編集URLを取得
+               // --- ▼ タイプ別にポップオーバー内容を生成 ▼ ---
 
-               // 給油記録
+               // 給油記録 (変更なし)
                if (props.type === 'fuel') {
                  popoverTitle = `⛽ 給油 (${escapeHtml(props.motorcycleName || '車両不明')})`;
                  popoverContent = `<dl class="mb-0 small">` +
                                     `<dt>日付:</dt><dd>${escapeHtml(eventDateStr)}</dd>` +
                                     `<dt>ODO:</dt><dd>${props.odometer ? escapeHtml(props.odometer.toLocaleString()) + ' km' : '-'}</dd>` +
                                     `<dt>給油量:</dt><dd>${props.fuelVolume ? escapeHtml(props.fuelVolume.toFixed(2)) + ' L' : '-'}</dd>` +
-                                    // kmPerLiterが数値の場合のみフォーマット
-                                    `<dt>燃費:</dt><dd>${(typeof props.kmPerLiter === 'number') ? escapeHtml(props.kmPerLiter.toFixed(2)) + ' km/L' : (props.kmPerLiter || '-')}</dd>` +
+                                    `<dt>燃費:</dt><dd>${props.kmPerLiter || '-'}</dd>` +
                                     `<dt>金額:</dt><dd>${props.totalCost ? escapeHtml(props.totalCost.toLocaleString()) + ' 円' : '-'}</dd>` +
                                     (props.stationName ? `<dt>スタンド:</dt><dd>${escapeHtml(props.stationName)}</dd>` : '') +
                                     (props.notes ? `<dt>メモ:</dt><dd style="white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(props.notes)}</dd>` : '') +
                                   `</dl>`;
-                 if (editUrl) {
-                     popoverContent += `<a href="${escapeHtml(editUrl)}" class="btn btn-sm btn-outline-primary mt-2 py-0 px-1" title="編集"><i class="fas fa-edit fa-xs me-1"></i>編集</a>`;
-                 }
-               // 整備記録
+               // 整備記録 (変更なし)
                } else if (props.type === 'maintenance') {
                  popoverTitle = `🔧 ${escapeHtml(props.category || '整備')} (${escapeHtml(props.motorcycleName || '車両不明')})`;
                  popoverContent = `<dl class="mb-0 small">` +
                                     `<dt>日付:</dt><dd>${escapeHtml(eventDateStr)}</dd>` +
                                     `<dt>ODO:</dt><dd>${props.odometer ? escapeHtml(props.odometer.toLocaleString()) + ' km' : '-'}</dd>` +
-                                    `<dt>内容:</dt><dd style="white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(props.description || '記載なし')}</dd>` + // descriptionが空の場合を考慮
+                                    `<dt>内容:</dt><dd style="white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(props.description || '記載なし')}</dd>` +
                                     (props.category ? `<dt>カテゴリ:</dt><dd>${escapeHtml(props.category)}</dd>` : '') +
                                     `<dt>費用:</dt><dd>${props.totalCost ? escapeHtml(props.totalCost.toLocaleString()) + ' 円' : '-'}</dd>` +
                                     (props.location ? `<dt>場所:</dt><dd>${escapeHtml(props.location)}</dd>` : '') +
                                     (props.notes ? `<dt>メモ:</dt><dd style="white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(props.notes)}</dd>` : '') +
                                   `</dl>`;
-                 if (editUrl) {
-                     popoverContent += `<a href="${escapeHtml(editUrl)}" class="btn btn-sm btn-outline-primary mt-2 py-0 px-1" title="編集"><i class="fas fa-edit fa-xs me-1"></i>編集</a>`;
-                 }
-               // ノート
+               // --- ▼ ノート ('note') の場合 ▼ ---
                } else if (props.type === 'note') {
+                  let noteTitle = props.title || '(無題のノート)'; // タイトルがなければ(無題のノート)
                   popoverTitle = `📝 ノート ${props.motorcycleName ? '(' + escapeHtml(props.motorcycleName) + ')' : ''}`;
                   popoverContent = `<dl class="mb-0 small">` +
-                                      `<dt>日付:</dt><dd>${escapeHtml(props.noteDate || eventDateStr)}</dd>` + // ノート固有の日付があればそれを使う
-                                      (props.title ? `<dt>タイトル:</dt><dd>${escapeHtml(props.title)}</dd>` : '') +
-                                      `<dt>内容:</dt><dd style="white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(props.content || '記載なし')}</dd>` + // contentが空の場合を考慮
+                                      `<dt>日付:</dt><dd>${escapeHtml(props.noteDate || eventDateStr)}</dd>` +
+                                      `<dt>タイトル:</dt><dd>${escapeHtml(noteTitle)}</dd>` +
+                                      // content を表示
+                                      `<dt>内容:</dt><dd style="white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(props.content || '記載なし')}</dd>` +
                                       (props.motorcycleName ? `<dt>関連車両:</dt><dd>${escapeHtml(props.motorcycleName)}</dd>` : '') +
-                                      // createdAtが存在すればフォーマットして表示 (例)
-                                      (props.createdAt ? `<dt>作成日時:</dt><dd>${escapeHtml(new Date(props.createdAt).toLocaleString('ja-JP'))}</dd>` : '') +
+                                      // 作成日時と更新日時を表示
+                                      (props.createdAt ? `<dt>作成:</dt><dd>${escapeHtml(props.createdAt)}</dd>` : '') +
+                                      (props.updatedAt ? `<dt>更新:</dt><dd>${escapeHtml(props.updatedAt)}</dd>` : '') +
                                     `</dl>`;
-                   if (editUrl) {
-                     popoverContent += `<a href="${escapeHtml(editUrl)}" class="btn btn-sm btn-outline-primary mt-2 py-0 px-1" title="編集"><i class="fas fa-edit fa-xs me-1"></i>編集</a>`;
-                   }
+               // --- ▼ タスク ('task') の場合 ▼ ---
+               } else if (props.type === 'task') {
+                  let taskTitle = props.title || '(無題のタスク)'; // タイトルがなければ(無題のタスク)
+                  popoverTitle = `✅ タスク ${props.motorcycleName ? '(' + escapeHtml(props.motorcycleName) + ')' : ''}`;
+                  popoverContent = `<dl class="mb-0 small">` +
+                                      `<dt>日付:</dt><dd>${escapeHtml(props.noteDate || eventDateStr)}</dd>` +
+                                      `<dt>タイトル:</dt><dd>${escapeHtml(taskTitle)}</dd>` +
+                                      (props.motorcycleName ? `<dt>関連車両:</dt><dd>${escapeHtml(props.motorcycleName)}</dd>` : '') +
+                                      // --- ▼ TODOリスト表示 ▼ ---
+                                      '<dt>TODO:</dt><dd>';
+                  // props.todos が配列で存在するかチェック
+                  if (props.todos && Array.isArray(props.todos) && props.todos.length > 0) {
+                      popoverContent += '<ul class="list-unstyled mb-0 small ps-1">'; // list-unstyled と padding-start
+                      props.todos.forEach(function(todo, index) {
+                          // todo オブジェクトが存在し、checked プロパティを持つか確認
+                          const isChecked = todo && todo.checked;
+                          const text = todo && todo.text ? escapeHtml(todo.text) : '(空)';
+                          // 一意なIDを生成
+                          const checkboxId = `todo-${info.event.id}-${index}`; // イベントIDとインデックスで一意に
+                          popoverContent += `<li class="d-flex align-items-center">` +
+                                              // disabled チェックボックス
+                                              `<input type="checkbox" id="${checkboxId}" disabled ${isChecked ? 'checked' : ''} class="form-check-input me-1">` +
+                                              // label を使用し、完了なら打ち消し線と灰色表示
+                                              `<label for="${checkboxId}" class="${isChecked ? 'text-decoration-line-through text-muted' : ''}">${text}</label>` +
+                                            `</li>`;
+                      });
+                      popoverContent += '</ul>';
+                  } else {
+                      popoverContent += '<span class="text-muted">TODOはありません</span>'; // TODOがない場合のメッセージ
+                  }
+                  popoverContent += '</dd>';
+                  // --- ▲ TODOリスト表示ここまで ▲ ---
+                  // 作成日時と更新日時を表示
+                  popoverContent += (props.createdAt ? `<dt>作成:</dt><dd>${escapeHtml(props.createdAt)}</dd>` : '') +
+                                     (props.updatedAt ? `<dt>更新:</dt><dd>${escapeHtml(props.updatedAt)}</dd>` : '');
+                  popoverContent += `</dl>`;
                }
 
-               // ポップオーバーの初期化 (以前のコードをベースに、推奨設定を適用)
-                if (popoverTitle && popoverContent) {
-                    var popover = new bootstrap.Popover(info.el, {
-                        title: popoverTitle,
-                        content: popoverContent,
-                        trigger: 'hover focus',
-                        placement: 'auto',
-                        boundary: 'viewport', // Viewport境界を推奨
-                        html: true,
-                        sanitize: false, // 自前でエスケープしているのでfalse
-                        container: 'body', // 他の要素に隠れないように
-                        customClass: 'motopuppu-popover' // カスタムスタイル用クラス
-                     });
+               // --- ▲ タイプ別の処理ここまで ▲ ---
 
-                     // メモリリーク防止: 要素削除時にpopoverも破棄
-                     info.el.addEventListener('remove', () => {
-                         if (popover) {
-                             popover.dispose();
-                         }
+               // 編集ボタン追加 (editUrlがあれば)
+               if (editUrl) {
+                 popoverContent += `<a href="${escapeHtml(editUrl)}" class="btn btn-sm btn-outline-primary mt-2 py-0 px-1" title="編集"><i class="fas fa-edit fa-xs me-1"></i>編集</a>`;
+               }
+
+               // --- ▼ ポップオーバーの初期化 (変更なし) ▼ ---
+               if (popoverTitle && popoverContent) {
+                    var popover = new bootstrap.Popover(info.el, {
+                        title: popoverTitle,         content: popoverContent,
+                        trigger: 'hover focus',      placement: 'auto',
+                        boundary: 'viewport',        html: true,
+                        sanitize: false,             container: 'body', // Popoverが隠れないように
+                        customClass: 'motopuppu-popover' // カスタムCSS用クラス
                      });
+                     // メモリリーク防止リスナー (変更なし)
+                     info.el.addEventListener('remove', () => { if (popover) { popover.dispose(); } });
                  }
+               // --- ▲ ポップオーバー初期化ここまで ▲ ---
              }
            }
-           // --- ▲▲▲ ポップオーバーのための修正ここまで ▲▲▲ ---
+           // --- ▲▲▲ eventDidMount ここまで ▲▲▲ ---
         });
-        calendar.render();
+        calendar.render(); // カレンダーを描画
     } else {
-        console.error("Calendar element not found");
+        console.error("Calendar element (#calendar) not found");
     }
   });
 </script>

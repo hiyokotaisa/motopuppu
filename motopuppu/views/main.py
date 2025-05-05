@@ -26,8 +26,20 @@ def calculate_average_kpl(motorcycle_id):
      full_tank_entries = FuelEntry.query.filter(FuelEntry.motorcycle_id == motorcycle_id, FuelEntry.is_full_tank == True).order_by(FuelEntry.total_distance.asc()).all()
      if len(full_tank_entries) < 2: return None
      total_distance_traveled = full_tank_entries[-1].total_distance - full_tank_entries[0].total_distance
-     total_fuel_consumed = sum(entry.fuel_volume for entry in full_tank_entries[1:])
-     if total_fuel_consumed > 0 and total_distance_traveled > 0: return round(total_distance_traveled / total_fuel_consumed, 2)
+     # ★ 最初の満タン記録を除くエントリの給油量を合計 ★
+     #   (以前は full_tank_entries[1:] を合計していたが、これだと区間内の非満タン給油が含まれない)
+     #   区間内の全ての給油記録を取得して合計する方式に変更
+     first_entry_dist = full_tank_entries[0].total_distance
+     last_entry_dist = full_tank_entries[-1].total_distance
+     entries_in_period = FuelEntry.query.filter(
+            FuelEntry.motorcycle_id == motorcycle_id,
+            FuelEntry.total_distance > first_entry_dist, # 最初の満タン記録より後
+            FuelEntry.total_distance <= last_entry_dist # 最後の満タン記録まで
+     ).all()
+     total_fuel_consumed = sum(entry.fuel_volume for entry in entries_in_period if entry.fuel_volume is not None)
+
+     if total_fuel_consumed > 0 and total_distance_traveled > 0:
+         return round(total_distance_traveled / total_fuel_consumed, 2)
      return None
 
 def get_upcoming_reminders(user_motorcycles, user_id):
@@ -41,11 +53,13 @@ def get_upcoming_reminders(user_motorcycles, user_id):
     for reminder in all_reminders:
         motorcycle = reminder.motorcycle; current_km = current_distances.get(motorcycle.id, motorcycle.odometer_offset or 0)
         status = 'ok'; messages = []; due_info_parts = []; is_due = False
+        # 距離ベースのリマインダーチェック
         if reminder.interval_km and reminder.last_done_km is not None:
             next_km_due = reminder.last_done_km + reminder.interval_km; remaining_km = next_km_due - current_km
             due_info_parts.append(f"{next_km_due:,} km")
             if remaining_km <= KM_THRESHOLD_DANGER: messages.append(f"距離超過 (現在 {current_km:,} km)"); status = 'danger'; is_due = True
             elif remaining_km <= KM_THRESHOLD_WARNING: messages.append(f"あと {remaining_km:,} km"); status = 'warning'; is_due = True
+        # 期間ベースのリマインダーチェック
         if reminder.interval_months and reminder.last_done_date:
             try:
                 next_date_due = reminder.last_done_date + relativedelta(months=reminder.interval_months); remaining_days = (next_date_due - today).days
@@ -55,13 +69,26 @@ def get_upcoming_reminders(user_motorcycles, user_id):
                 elif remaining_days <= DAYS_THRESHOLD_WARNING: period_status = 'warning'; period_message = f"あと {remaining_days} 日"
                 if period_status != 'ok':
                     is_due = True; messages.append(period_message)
+                    # ステータスを更新 (danger > warning > ok)
                     if (period_status == 'danger') or (period_status == 'warning' and status != 'danger'): status = period_status
-            except Exception as e: current_app.logger.error(f"Error calc date reminder {reminder.id}: {e}"); messages.append("日付計算エラー"); status = 'warning'; is_due = True
+            except Exception as e: current_app.logger.error(f"Error calculating date reminder {reminder.id}: {e}"); messages.append("日付計算エラー"); status = 'warning'; is_due = True
+
+        # 期限切れまたは警告期間の場合に追加
         if is_due:
             last_done_str = "未実施"
             if reminder.last_done_date: last_done_str = reminder.last_done_date.strftime('%Y-%m-%d');
             if reminder.last_done_km is not None: last_done_str += f" ({reminder.last_done_km:,} km)" if reminder.last_done_date else f"{reminder.last_done_km:,} km"
-            upcoming_reminders.append({ 'reminder_id': reminder.id, 'motorcycle_id': motorcycle.id, 'motorcycle_name': motorcycle.name, 'task': reminder.task_description, 'status': status, 'message': ", ".join(messages) if messages else "要確認", 'due_info': " / ".join(due_info_parts), 'last_done': last_done_str })
+            upcoming_reminders.append({
+                'reminder_id': reminder.id,
+                'motorcycle_id': motorcycle.id,
+                'motorcycle_name': motorcycle.name,
+                'task': reminder.task_description,
+                'status': status,
+                'message': ", ".join(messages) if messages else "要確認",
+                'due_info': " / ".join(due_info_parts) if due_info_parts else '未設定', # 目安情報
+                'last_done': last_done_str # 最終実施情報
+            })
+    # ステータスでソート (danger > warning > ok)
     upcoming_reminders.sort(key=lambda x: (x['status'] != 'danger', x['status'] != 'warning'))
     return upcoming_reminders
 
@@ -113,12 +140,12 @@ def dashboard():
         except ValueError: pass
 
     # --- 直近の記録 (変更なし) ---
-    fuel_query = FuelEntry.query.filter(FuelEntry.motorcycle_id.in_(user_motorcycle_ids))
+    fuel_query = FuelEntry.query.options(db.joinedload(FuelEntry.motorcycle)).filter(FuelEntry.motorcycle_id.in_(user_motorcycle_ids)) # motorcycleをプリロード
     if selected_fuel_vehicle_id:
         fuel_query = fuel_query.filter(FuelEntry.motorcycle_id == selected_fuel_vehicle_id)
     recent_fuel_entries = fuel_query.order_by(FuelEntry.entry_date.desc(), FuelEntry.total_distance.desc()).limit(5).all()
 
-    maint_query = MaintenanceEntry.query.filter(MaintenanceEntry.motorcycle_id.in_(user_motorcycle_ids))
+    maint_query = MaintenanceEntry.query.options(db.joinedload(MaintenanceEntry.motorcycle)).filter(MaintenanceEntry.motorcycle_id.in_(user_motorcycle_ids)) # motorcycleをプリロード
     if selected_maint_vehicle_id:
         maint_query = maint_query.filter(MaintenanceEntry.motorcycle_id == selected_maint_vehicle_id)
     recent_maintenance_entries = maint_query.order_by(MaintenanceEntry.maintenance_date.desc(), MaintenanceEntry.total_distance_at_maintenance.desc()).limit(5).all()
@@ -127,7 +154,8 @@ def dashboard():
     upcoming_reminders = get_upcoming_reminders(user_motorcycles, g.user.id)
 
     # --- 平均燃費計算 (変更なし) ---
-    for m in user_motorcycles: m._average_kpl = calculate_average_kpl(m.id)
+    for m in user_motorcycles:
+        m._average_kpl = calculate_average_kpl(m.id)
 
     # --- 統計情報サマリー計算 (変更なし) ---
     dashboard_stats = {
@@ -136,7 +164,8 @@ def dashboard():
         'average_kpl': None,
         'total_fuel_cost': 0,
         'total_maint_cost': 0,
-        'is_specific_vehicle': False
+        'is_specific_vehicle': False,
+        'vehicle_name_for_cost': None # コスト用の車両名ラベル
     }
     if target_vehicle_for_stats:
         dashboard_stats['vehicle_name'] = target_vehicle_for_stats.name
@@ -147,6 +176,7 @@ def dashboard():
         maint_cost_q = db.session.query(func.sum(func.coalesce(MaintenanceEntry.parts_cost, 0) + func.coalesce(MaintenanceEntry.labor_cost, 0))).filter(MaintenanceEntry.motorcycle_id == target_vehicle_for_stats.id).scalar()
         dashboard_stats['total_maint_cost'] = maint_cost_q or 0
         dashboard_stats['is_specific_vehicle'] = True
+        dashboard_stats['vehicle_name_for_cost'] = target_vehicle_for_stats.name # コスト用ラベルも特定車両名
     else:
         default_vehicle = next((m for m in user_motorcycles if m.is_default), user_motorcycles[0] if user_motorcycles else None)
         if default_vehicle:
@@ -155,42 +185,32 @@ def dashboard():
             dashboard_stats['average_kpl'] = default_vehicle._average_kpl
         else:
              dashboard_stats['vehicle_name'] = "車両未登録"
+        # 全車両のコスト合計
         total_fuel_cost_query = db.session.query(func.sum(FuelEntry.total_cost)).filter(FuelEntry.motorcycle_id.in_(user_motorcycle_ids)).scalar()
         dashboard_stats['total_fuel_cost'] = total_fuel_cost_query or 0
         total_maint_cost_query = db.session.query(func.sum(func.coalesce(MaintenanceEntry.parts_cost, 0) + func.coalesce(MaintenanceEntry.labor_cost, 0))).filter(MaintenanceEntry.motorcycle_id.in_(user_motorcycle_ids)).scalar()
         dashboard_stats['total_maint_cost'] = total_maint_cost_query or 0
         dashboard_stats['is_specific_vehicle'] = False
-        if not target_vehicle_for_stats:
-             dashboard_stats['vehicle_name_for_cost'] = "すべての車両"
+        dashboard_stats['vehicle_name_for_cost'] = "すべての車両" # コスト用ラベルは「すべての車両」
 
-
-    # <<< ▼▼▼ 修正: 祝日データを日付:祝日名の辞書で取得 ▼▼▼ >>>
+    # <<< 祝日データを日付:祝日名の辞書で取得 (変更なし) >>>
     holidays_json = '{}' # デフォルトは空のオブジェクト '{}'
     try:
         today = date.today()
-        # カレンダー表示を考慮し、当年と前後1年分の祝日を取得
         years_to_fetch = [today.year - 1, today.year, today.year + 1]
-        holidays_dict = {} # リストではなく辞書を使う
+        holidays_dict = {}
         for year in years_to_fetch:
-            try: # 年ごとの取得エラーも考慮
-                # jpholiday.year_holidays は (日付, 祝日名) のタプルのリストを返す
+            try:
                 holidays_raw = jpholiday.year_holidays(year)
                 for holiday_date, holiday_name in holidays_raw:
-                    # キー: 'YYYY-MM-DD'形式の文字列, 値: 祝日名
                     holidays_dict[holiday_date.strftime('%Y-%m-%d')] = holiday_name
             except Exception as e:
                  current_app.logger.error(f"Error fetching holidays for year {year}: {e}")
-                 # 年単位で取得に失敗しても処理は続ける
-
-        # 辞書をJSON文字列に変換
         holidays_json = json.dumps(holidays_dict)
-
     except Exception as e:
-        # holidays_dict の生成や json.dumps でエラーが起きた場合
         current_app.logger.error(f"Error processing holidays data: {e}")
         flash('祝日情報の取得または処理中にエラーが発生しました。', 'warning')
-    # <<< ▲▲▲ 修正ここまで ▲▲▲ >>>
-
+    # <<< 祝日データ取得ここまで >>>
 
     # --- テンプレートへのデータ渡し ---
     return render_template(
@@ -203,10 +223,10 @@ def dashboard():
         selected_maint_vehicle_id=selected_maint_vehicle_id,
         selected_stats_vehicle_id=selected_stats_vehicle_id,
         dashboard_stats=dashboard_stats,
-        holidays_json=holidays_json # <<< 修正: 祝日辞書のJSONを渡す >>>
+        holidays_json=holidays_json # <<< 祝日辞書のJSONを渡す >>>
     )
 
-# --- APIエンドポイント (変更なし) ---
+# --- APIエンドポイント (ノート処理部分を修正) ---
 @main_bp.route('/api/dashboard/events')
 @login_required_custom
 def dashboard_events_api():
@@ -215,27 +235,121 @@ def dashboard_events_api():
     user_id = g.user.id
     user_motorcycle_ids = [m.id for m in Motorcycle.query.filter_by(user_id=user_id).all()]
 
-    # 給油記録
-    fuel_entries = FuelEntry.query.filter(FuelEntry.motorcycle_id.in_(user_motorcycle_ids)).all()
+    # --- ▼▼▼ 給油記録 (editUrl 追加) ▼▼▼ ---
+    # options(db.joinedload(...)) で N+1 問題を軽減
+    fuel_entries = FuelEntry.query.options(db.joinedload(FuelEntry.motorcycle)).filter(FuelEntry.motorcycle_id.in_(user_motorcycle_ids)).all()
     for entry in fuel_entries:
-        kpl = entry.km_per_liter; kpl_display = f"{kpl:.2f} km/L" if kpl is not None else None
-        events.append({ 'id': f'fuel-{entry.id}', 'title': f"⛽ 給油: {entry.motorcycle.name}", 'start': entry.entry_date.isoformat(), 'allDay': True, 'url': url_for('fuel.edit_fuel', entry_id=entry.id), 'backgroundColor': '#198754', 'borderColor': '#198754', 'textColor': 'white',
-            'extendedProps': { 'type': 'fuel', 'motorcycleName': entry.motorcycle.name, 'odometer': entry.odometer_reading, 'fuelVolume': entry.fuel_volume, 'kmPerLiter': kpl_display, 'totalCost': math.ceil(entry.total_cost) if entry.total_cost is not None else None, 'stationName': entry.station_name, 'notes': entry.notes } })
+        kpl = entry.km_per_liter
+        # 燃費が計算可能な場合のみ表示文字列を生成
+        kpl_display = f"{kpl:.2f} km/L" if kpl is not None else None
+        edit_url = url_for('fuel.edit_fuel', entry_id=entry.id) # 編集URL
+        events.append({
+            'id': f'fuel-{entry.id}',
+            'title': f"⛽ 給油: {entry.motorcycle.name}", # プリロードされた motorcycle を使用
+            'start': entry.entry_date.isoformat(),
+            'allDay': True,
+            'url': edit_url,
+            'backgroundColor': '#198754',
+            'borderColor': '#198754',
+            'textColor': 'white',
+            'extendedProps': {
+                'type': 'fuel',
+                'motorcycleName': entry.motorcycle.name, # プリロードされた motorcycle を使用
+                'odometer': entry.odometer_reading,
+                'fuelVolume': entry.fuel_volume,
+                'kmPerLiter': kpl_display, # 計算結果または None
+                'totalCost': math.ceil(entry.total_cost) if entry.total_cost is not None else None,
+                'stationName': entry.station_name,
+                'notes': entry.notes,
+                'editUrl': edit_url # 編集URL
+            }
+        })
+    # --- ▲▲▲ 給油記録ここまで ▲▲▲ ---
 
-    # 整備記録
-    maintenance_entries = MaintenanceEntry.query.filter(MaintenanceEntry.motorcycle_id.in_(user_motorcycle_ids)).all()
+    # --- ▼▼▼ 整備記録 (editUrl 追加) ▼▼▼ ---
+    # options(db.joinedload(...)) で N+1 問題を軽減
+    maintenance_entries = MaintenanceEntry.query.options(db.joinedload(MaintenanceEntry.motorcycle)).filter(MaintenanceEntry.motorcycle_id.in_(user_motorcycle_ids)).all()
     for entry in maintenance_entries:
-        event_title_base = entry.category if entry.category else entry.description; event_title = f"🔧 整備: {event_title_base[:15]}" + ("..." if len(event_title_base) > 15 else "")
+        event_title_base = entry.category if entry.category else entry.description
+        # タイトルが長すぎる場合は省略
+        event_title = f"🔧 整備: {event_title_base[:15]}" + ("..." if len(event_title_base) > 15 else "")
         total_cost = entry.total_cost
-        events.append({ 'id': f'maint-{entry.id}', 'title': event_title, 'start': entry.maintenance_date.isoformat(), 'allDay': True, 'url': url_for('maintenance.edit_maintenance', entry_id=entry.id), 'backgroundColor': '#ffc107', 'borderColor': '#ffc107', 'textColor': 'black',
-            'extendedProps': { 'type': 'maintenance', 'motorcycleName': entry.motorcycle.name, 'odometer': entry.total_distance_at_maintenance, 'description': entry.description, 'category': entry.category, 'totalCost': math.ceil(total_cost) if total_cost is not None else None, 'location': entry.location, 'notes': entry.notes } })
+        edit_url = url_for('maintenance.edit_maintenance', entry_id=entry.id) # 編集URL
+        events.append({
+            'id': f'maint-{entry.id}',
+            'title': event_title,
+            'start': entry.maintenance_date.isoformat(),
+            'allDay': True,
+            'url': edit_url,
+            'backgroundColor': '#ffc107',
+            'borderColor': '#ffc107',
+            'textColor': 'black',
+            'extendedProps': {
+                'type': 'maintenance',
+                'motorcycleName': entry.motorcycle.name, # プリロードされた motorcycle を使用
+                'odometer': entry.total_distance_at_maintenance,
+                'description': entry.description,
+                'category': entry.category,
+                'totalCost': math.ceil(total_cost) if total_cost is not None else None,
+                'location': entry.location,
+                'notes': entry.notes,
+                'editUrl': edit_url # 編集URL
+            }
+        })
+    # --- ▲▲▲ 整備記録ここまで ▲▲▲ ---
 
-    # 一般ノート
+    # --- ▼▼▼ 一般ノート (ここを修正) ▼▼▼ ---
+    # options(db.joinedload(...)) で N+1 問題を軽減
     general_notes = GeneralNote.query.options(db.joinedload(GeneralNote.motorcycle)).filter_by(user_id=user_id).all()
     for note in general_notes:
         motorcycle_name = note.motorcycle.name if note.motorcycle else None
-        note_title_display = note.title or '無題'
-        events.append({ 'id': f'note-{note.id}', 'title': f"📝 メモ: {note_title_display[:15]}" + ("..." if len(note_title_display) > 15 else ""), 'start': note.note_date.isoformat(), 'allDay': True, 'url': url_for('notes.edit_note', note_id=note.id), 'backgroundColor': '#6c757d', 'borderColor': '#6c757d', 'textColor': 'white',
-            'extendedProps': { 'type': 'note', 'title': note.title, 'content': note.content, 'motorcycleName': motorcycle_name, 'noteDate': note.note_date.strftime('%Y-%m-%d'), 'createdAt': note.created_at.strftime('%Y-%m-%d %H:%M'), 'url': url_for('notes.edit_note', note_id=note.id) } })
+        # タイトルがない場合はカテゴリ名を表示
+        note_title_display = note.title or ('タスク' if note.category == 'task' else 'メモ')
+
+        # カテゴリに基づいてアイコンとタイトル接頭辞、イベントタイプを設定
+        if note.category == 'task':
+            icon = "✅" # チェックマークアイコン
+            title_prefix = f"{icon} タスク: "
+            event_type = 'task'
+        else: # 'note' or other (デフォルトはノート扱い)
+            icon = "📝" # メモアイコン
+            title_prefix = f"{icon} メモ: "
+            event_type = 'note'
+
+        # タイトルが長すぎる場合は省略
+        event_title = title_prefix + note_title_display[:15] + ("..." if len(note_title_display) > 15 else "")
+        edit_url = url_for('notes.edit_note', note_id=note.id) # 編集URL
+
+        # extendedProps を構築
+        extended_props = {
+            'type': event_type, # 'note' または 'task'
+            'category': note.category, # カテゴリ ('note' or 'task')
+            'title': note.title, # 元のタイトル (None の可能性あり)
+            'motorcycleName': motorcycle_name, # 関連車両名 (None の可能性あり)
+            'noteDate': note.note_date.strftime('%Y-%m-%d'), # ノートの日付
+            'createdAt': note.created_at.strftime('%Y-%m-%d %H:%M'), # 作成日時
+            'updatedAt': note.updated_at.strftime('%Y-%m-%d %H:%M'), # 更新日時
+            'editUrl': edit_url # 編集URL
+        }
+        # タイプに応じて content または todos を追加
+        if event_type == 'task':
+            # todos が None の場合は空リスト [] を設定
+            extended_props['todos'] = note.todos if note.todos is not None else []
+        else:
+            extended_props['content'] = note.content
+
+        events.append({
+            'id': f'note-{note.id}',
+            'title': event_title, # アイコン付きタイトル
+            'start': note.note_date.isoformat(), # ノートの日付をイベント日付に
+            'allDay': True,
+            'url': edit_url, # クリック時の遷移先 (フォールバック用)
+            # 色はノートもタスクも同じ灰色
+            'backgroundColor': '#6c757d',
+            'borderColor': '#6c757d',
+            'textColor': 'white',
+            'extendedProps': extended_props # 更新された extendedProps
+        })
+    # --- ▲▲▲ 一般ノートここまで ▲▲▲ ---
 
     return jsonify(events)
