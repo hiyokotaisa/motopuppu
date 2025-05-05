@@ -231,35 +231,46 @@
     if (calendarEl) {
         var calendar = new FullCalendar.Calendar(calendarEl, {
           initialView: 'dayGridMonth', locale: 'ja',
-          headerToolbar: { /* (変更なし) */ },
-          buttonText: { /* (変更なし) */ },
+
+          // --- ▼▼▼ 追加: headerToolbar と buttonText の設定を復活 ▼▼▼ ---
+          headerToolbar: {
+              left: 'prev,next today',
+              center: 'title',
+              right: 'dayGridMonth,dayGridWeek,listMonth' // listMonth を含む
+          },
+          buttonText: {
+              today: '今日',
+              month: '月',
+              week: '週',
+              list: 'リスト(月)' // listMonth ボタンのテキスト
+          },
+          // --- ▲▲▲ 追加ここまで ▲▲▲ ---
+
           contentHeight: 'auto',
-          // dayCellContent は変更なし (日付番号を返すだけ)
+          // dayCellContent は変更なし
           dayCellContent: function(arg) {
              return { html: `<span class="fc-daygrid-day-number">${arg.date.getDate()}</span>` };
           },
-          // --- ▼▼▼ dayCellDidMount 修正: 祝日名の挿入位置変更 (dayTopEl の末尾へ) ▼▼▼ ---
+          // dayCellDidMount は変更なし (ビューチェック、ローカル日付、祝日名appendChild、クラス付与)
           dayCellDidMount: function(arg) {
-            // ローカル日付文字列生成 (変更なし)
+            // ローカル日付文字列生成
             const year = arg.date.getFullYear();
             const month = (arg.date.getMonth() + 1).toString().padStart(2, '0');
             const day = arg.date.getDate().toString().padStart(2, '0');
             const dateStr = `${year}-${month}-${day}`;
 
             const dayNumberEl = arg.el.querySelector('.fc-daygrid-day-number');
-            // ★★★ 日付番号が含まれる '.fc-daygrid-day-top' 要素を取得 ★★★
-            const dayTopEl = arg.el.querySelector('.fc-daygrid-day-top');
-            const dayOfWeek = arg.date.getDay(); // (変更なし)
+            const dayTopEl = arg.el.querySelector('.fc-daygrid-day-top'); // 日付番号/祝日名を入れるコンテナ
+            const dayOfWeek = arg.date.getDay();
 
-            // 要素チェック (dayTopEl も確認)
             if (!dayNumberEl || !dayTopEl) return;
 
-            // 既存クラス・要素のクリア (dayTopElから祝日名を探すように修正)
+            // 既存クラス・要素のクリア
             arg.el.classList.remove('fc-day-holiday', 'fc-day-sun', 'fc-day-sat');
             dayNumberEl.classList.remove('is-holiday', 'is-sun', 'is-sat');
-            const existingHolidayName = dayTopEl.querySelector('.fc-holiday-name'); // dayTopEl内を探す
+            const existingHolidayName = dayTopEl.querySelector('.fc-holiday-name');
             if (existingHolidayName) {
-                dayTopEl.removeChild(existingHolidayName); // dayTopElから削除
+                dayTopEl.removeChild(existingHolidayName);
             }
 
             // 祝日判定
@@ -268,24 +279,19 @@
                 const holidayNameEl = document.createElement('span');
                 holidayNameEl.classList.add('fc-holiday-name');
                 holidayNameEl.textContent = holidayName;
-
-                // ▼▼▼ 変更: 祝日名要素を dayTopEl の「末尾」に追加 ▼▼▼
-                // dayFrame.insertBefore(holidayNameEl, dayFrame.firstChild); // これはフレーム先頭だった
-                dayTopEl.appendChild(holidayNameEl); // dayTop要素の最後の子として追加 (これでCSSで右側に配置可能)
-                // ▲▲▲ 変更ここまで ▲▲▲
-
-                // CSS用クラス付与 (変更なし)
+                // dayTop要素の末尾に追加
+                dayTopEl.appendChild(holidayNameEl);
+                // CSS用クラス付与
                 arg.el.classList.add('fc-day-holiday');
                 dayNumberEl.classList.add('is-holiday');
-            } else if (dayOfWeek === 0) { // 日曜日 (祝日でない)
+            } else if (dayOfWeek === 0) { // 日曜日
                 arg.el.classList.add('fc-day-sun');
                 dayNumberEl.classList.add('is-sun');
-            } else if (dayOfWeek === 6) { // 土曜日 (祝日/日曜でない)
+            } else if (dayOfWeek === 6) { // 土曜日
                 arg.el.classList.add('fc-day-sat');
                 dayNumberEl.classList.add('is-sat');
             }
           },
-          // --- ▲▲▲ dayCellDidMount 修正ここまで ▲▲▲ ---
           events: '/api/dashboard/events', // (変更なし)
           eventClick: function(info) { /* (変更なし) */ },
           eventDidMount: function(info) { /* (変更なし - ポップオーバー) */ }
