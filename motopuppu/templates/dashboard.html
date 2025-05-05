@@ -231,50 +231,49 @@
     if (calendarEl) {
         var calendar = new FullCalendar.Calendar(calendarEl, {
           initialView: 'dayGridMonth', locale: 'ja',
-          headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,dayGridWeek,listMonth' },
-          buttonText: { today: '今日', month: '月', week: '週', list: 'リスト(月)' },
-          contentHeight: 'auto', // (変更なし)
-
+          headerToolbar: { /* (変更なし) */ },
+          buttonText: { /* (変更なし) */ },
+          contentHeight: 'auto',
           // dayCellContent は変更なし (日付番号を返すだけ)
           dayCellContent: function(arg) {
-             // CSSで右寄せにするので、ここでは単純に番号だけ返す
              return { html: `<span class="fc-daygrid-day-number">${arg.date.getDate()}</span>` };
           },
-
-          // --- ▼▼▼ dayCellDidMount 修正: ローカル日付文字列生成 & CSSクラス付与 ▼▼▼ ---
+          // --- ▼▼▼ dayCellDidMount 修正: 祝日名の挿入位置変更 (dayTopEl の末尾へ) ▼▼▼ ---
           dayCellDidMount: function(arg) {
-            // --- ▼▼▼ 修正: ローカルタイムゾーン基準で日付文字列を生成 ▼▼▼ ---
-            // const dateStr = arg.date.toISOString().slice(0, 10); // これはUTC基準だった
+            // ローカル日付文字列生成 (変更なし)
             const year = arg.date.getFullYear();
-            // getMonth() は 0から始まるため +1 し、2桁になるようゼロパディング
             const month = (arg.date.getMonth() + 1).toString().padStart(2, '0');
-            // getDate() はそのまま日付、2桁になるようゼロパディング
             const day = arg.date.getDate().toString().padStart(2, '0');
-            const dateStr = `${year}-${month}-${day}`; // 'YYYY-MM-DD' 形式 (ローカル)
-            // --- ▲▲▲ 修正ここまで ▲▲▲ ---
+            const dateStr = `${year}-${month}-${day}`;
 
             const dayNumberEl = arg.el.querySelector('.fc-daygrid-day-number');
-            const dayOfWeek = arg.date.getDay();
-            const dayFrame = arg.el.querySelector('.fc-daygrid-day-frame');
+            // ★★★ 日付番号が含まれる '.fc-daygrid-day-top' 要素を取得 ★★★
+            const dayTopEl = arg.el.querySelector('.fc-daygrid-day-top');
+            const dayOfWeek = arg.date.getDay(); // (変更なし)
 
-            if (!dayNumberEl || !dayFrame) return; // 要素チェック (変更なし)
+            // 要素チェック (dayTopEl も確認)
+            if (!dayNumberEl || !dayTopEl) return;
 
-            // 既存クラス・要素のクリア (変更なし)
+            // 既存クラス・要素のクリア (dayTopElから祝日名を探すように修正)
             arg.el.classList.remove('fc-day-holiday', 'fc-day-sun', 'fc-day-sat');
             dayNumberEl.classList.remove('is-holiday', 'is-sun', 'is-sat');
-            const existingHolidayName = dayFrame.querySelector('.fc-holiday-name');
+            const existingHolidayName = dayTopEl.querySelector('.fc-holiday-name'); // dayTopEl内を探す
             if (existingHolidayName) {
-                dayFrame.removeChild(existingHolidayName);
+                dayTopEl.removeChild(existingHolidayName); // dayTopElから削除
             }
 
-            // 祝日判定 (ローカル日付文字列 dateStr を使用)
+            // 祝日判定
             if (holidaysMap.hasOwnProperty(dateStr)) {
                 const holidayName = holidaysMap[dateStr];
                 const holidayNameEl = document.createElement('span');
                 holidayNameEl.classList.add('fc-holiday-name');
                 holidayNameEl.textContent = holidayName;
-                // フレームの先頭に挿入 (変更なし)
-                dayFrame.insertBefore(holidayNameEl, dayFrame.firstChild);
+
+                // ▼▼▼ 変更: 祝日名要素を dayTopEl の「末尾」に追加 ▼▼▼
+                // dayFrame.insertBefore(holidayNameEl, dayFrame.firstChild); // これはフレーム先頭だった
+                dayTopEl.appendChild(holidayNameEl); // dayTop要素の最後の子として追加 (これでCSSで右側に配置可能)
+                // ▲▲▲ 変更ここまで ▲▲▲
+
                 // CSS用クラス付与 (変更なし)
                 arg.el.classList.add('fc-day-holiday');
                 dayNumberEl.classList.add('is-holiday');
@@ -287,7 +286,6 @@
             }
           },
           // --- ▲▲▲ dayCellDidMount 修正ここまで ▲▲▲ ---
-
           events: '/api/dashboard/events', // (変更なし)
           eventClick: function(info) { /* (変更なし) */ },
           eventDidMount: function(info) { /* (変更なし - ポップオーバー) */ }
