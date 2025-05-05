@@ -223,49 +223,44 @@
         console.error("Error parsing holidays JSON:", e);
     }
 
-    function escapeHtml(unsafe) { /* (変更なし) */
-      if (typeof unsafe !== 'string') return unsafe;
-      return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-    }
+    function escapeHtml(unsafe) { /* (変更なし) */ }
 
     if (calendarEl) {
         var calendar = new FullCalendar.Calendar(calendarEl, {
           initialView: 'dayGridMonth', locale: 'ja',
 
-          // --- ▼▼▼ 追加: headerToolbar と buttonText の設定を復活 ▼▼▼ ---
+          // headerToolbar と buttonText (リストボタン含む)
           headerToolbar: {
               left: 'prev,next today',
               center: 'title',
-              right: 'dayGridMonth,dayGridWeek,listMonth' // listMonth を含む
+              right: 'dayGridMonth,dayGridWeek,listMonth'
           },
           buttonText: {
               today: '今日',
               month: '月',
               week: '週',
-              list: 'リスト(月)' // listMonth ボタンのテキスト
+              list: 'リスト(月)'
           },
-          // --- ▲▲▲ 追加ここまで ▲▲▲ ---
 
           contentHeight: 'auto',
-          // dayCellContent は変更なし
+          // dayCellContent (変更なし)
           dayCellContent: function(arg) {
              return { html: `<span class="fc-daygrid-day-number">${arg.date.getDate()}</span>` };
           },
-          // dayCellDidMount は変更なし (ビューチェック、ローカル日付、祝日名appendChild、クラス付与)
+          // dayCellDidMount (変更なし - 祝日名表示、クラス付与)
           dayCellDidMount: function(arg) {
             // ローカル日付文字列生成
             const year = arg.date.getFullYear();
             const month = (arg.date.getMonth() + 1).toString().padStart(2, '0');
             const day = arg.date.getDate().toString().padStart(2, '0');
             const dateStr = `${year}-${month}-${day}`;
-
             const dayNumberEl = arg.el.querySelector('.fc-daygrid-day-number');
-            const dayTopEl = arg.el.querySelector('.fc-daygrid-day-top'); // 日付番号/祝日名を入れるコンテナ
+            const dayTopEl = arg.el.querySelector('.fc-daygrid-day-top');
             const dayOfWeek = arg.date.getDay();
 
             if (!dayNumberEl || !dayTopEl) return;
 
-            // 既存クラス・要素のクリア
+            // 既存クリア
             arg.el.classList.remove('fc-day-holiday', 'fc-day-sun', 'fc-day-sat');
             dayNumberEl.classList.remove('is-holiday', 'is-sun', 'is-sat');
             const existingHolidayName = dayTopEl.querySelector('.fc-holiday-name');
@@ -273,28 +268,71 @@
                 dayTopEl.removeChild(existingHolidayName);
             }
 
-            // 祝日判定
+            // 祝日判定と処理
             if (holidaysMap.hasOwnProperty(dateStr)) {
                 const holidayName = holidaysMap[dateStr];
                 const holidayNameEl = document.createElement('span');
                 holidayNameEl.classList.add('fc-holiday-name');
                 holidayNameEl.textContent = holidayName;
-                // dayTop要素の末尾に追加
-                dayTopEl.appendChild(holidayNameEl);
-                // CSS用クラス付与
+                dayTopEl.appendChild(holidayNameEl); // dayTopの末尾に追加
                 arg.el.classList.add('fc-day-holiday');
                 dayNumberEl.classList.add('is-holiday');
-            } else if (dayOfWeek === 0) { // 日曜日
+            } else if (dayOfWeek === 0) { // 日曜
                 arg.el.classList.add('fc-day-sun');
                 dayNumberEl.classList.add('is-sun');
-            } else if (dayOfWeek === 6) { // 土曜日
+            } else if (dayOfWeek === 6) { // 土曜
                 arg.el.classList.add('fc-day-sat');
                 dayNumberEl.classList.add('is-sat');
             }
           },
           events: '/api/dashboard/events', // (変更なし)
-          eventClick: function(info) { /* (変更なし) */ },
-          eventDidMount: function(info) { /* (変更なし - ポップオーバー) */ }
+          eventClick: function(info) { // (変更なし)
+              info.jsEvent.preventDefault(); if (info.event.url) { window.location.href = info.event.url; }
+          },
+
+          // --- ▼▼▼ 追加: eventDidMount (ポップオーバー処理) を復活 ▼▼▼ ---
+          eventDidMount: function(info) {
+            if (info.event.extendedProps) {
+              var props = info.event.extendedProps; var popoverTitle = ''; var popoverContent = '';
+              // 日付フォーマット (変更なし)
+              var eventDateStr = info.event.start ? info.event.start.toLocaleDateString('ja-JP', { year: 'numeric', month: 'short', day: 'numeric' }) : '日付不明';
+
+              // --- ポップオーバー内容生成 ---
+              if (props.type === 'fuel') {
+                popoverTitle = `⛽ 給油 (${escapeHtml(props.motorcycleName || '車両不明')})`;
+                popoverContent = `<dl class="mb-0 small"><dt>日付:</dt><dd>${escapeHtml(eventDateStr)}</dd><dt>ODO:</dt><dd>${props.odometer ? escapeHtml(props.odometer.toLocaleString()) + ' km' : '-'}</dd><dt>給油量:</dt><dd>${props.fuelVolume ? escapeHtml(props.fuelVolume.toFixed(2)) + ' L' : '-'}</dd><dt>燃費:</dt><dd>${props.kmPerLiter || '-'}</dd><dt>金額:</dt><dd>${props.totalCost ? escapeHtml(props.totalCost.toLocaleString()) + ' 円' : '-'}</dd>${props.stationName ? `<dt>スタンド:</dt><dd>${escapeHtml(props.stationName)}</dd>` : ''}${props.notes ? `<dt>メモ:</dt><dd style="white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(props.notes)}</dd>` : ''}</dl><a href="${escapeHtml(info.event.url)}" class="btn btn-sm btn-outline-primary mt-2 py-0 px-1" title="編集"><i class="fas fa-edit fa-xs me-1"></i>編集</a>`;
+              } else if (props.type === 'maintenance') {
+                popoverTitle = `🔧 ${escapeHtml(props.category || '整備')} (${escapeHtml(props.motorcycleName || '車両不明')})`;
+                popoverContent = `<dl class="mb-0 small"><dt>日付:</dt><dd>${escapeHtml(eventDateStr)}</dd><dt>ODO:</dt><dd>${props.odometer ? escapeHtml(props.odometer.toLocaleString()) + ' km' : '-'}</dd><dt>内容:</dt><dd style="white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(props.description)}</dd>${props.category ? `<dt>カテゴリ:</dt><dd>${escapeHtml(props.category)}</dd>` : ''}<dt>費用:</dt><dd>${props.totalCost ? escapeHtml(props.totalCost.toLocaleString()) + ' 円' : '-'}</dd>${props.location ? `<dt>場所:</dt><dd>${escapeHtml(props.location)}</dd>` : ''}${props.notes ? `<dt>メモ:</dt><dd style="white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(props.notes)}</dd>` : ''}</dl><a href="${escapeHtml(info.event.url)}" class="btn btn-sm btn-outline-primary mt-2 py-0 px-1" title="編集"><i class="fas fa-edit fa-xs me-1"></i>編集</a>`;
+              } else if (props.type === 'note') {
+                 // ▼▼▼ 注意: もし以前「一般メモ」を「タスク」扱いする変更を適用した場合、ここも合わせる ▼▼▼
+                 // 例: popoverTitle = `✅ タスク ${props.motorcycleName ? '(' + escapeHtml(props.motorcycleName) + ')' : ''}`;
+                 // 元のまま（一般メモ）の場合:
+                 popoverTitle = `📝 ノート ${props.motorcycleName ? '(' + escapeHtml(props.motorcycleName) + ')' : ''}`;
+                 popoverContent = `<dl class="mb-0 small"><dt>日付:</dt><dd>${escapeHtml(props.noteDate || eventDateStr)}</dd>${props.title ? `<dt>タイトル:</dt><dd>${escapeHtml(props.title)}</dd>` : ''}<dt>内容:</dt><dd style="white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(props.content)}</dd>${props.motorcycleName ? `<dt>関連車両:</dt><dd>${escapeHtml(props.motorcycleName)}</dd>` : ''}<dt>作成日時:</dt><dd>${escapeHtml(props.createdAt)}</dd></dl><a href="${escapeHtml(props.url)}" class="btn btn-sm btn-outline-primary mt-2 py-0 px-1" title="編集"><i class="fas fa-edit fa-xs me-1"></i>編集</a>`;
+              }
+
+              // --- Popover 初期化 ---
+               if (popoverTitle && popoverContent) {
+                 // 重複初期化防止
+                 if (!info.el.hasAttribute('data-bs-toggle')) {
+                   var popover = new bootstrap.Popover(info.el, {
+                       title: popoverTitle,
+                       content: popoverContent,
+                       trigger: 'hover focus',
+                       placement: 'auto',
+                       boundary: 'viewport',
+                       html: true,
+                       sanitize: false, // HTMLコンテンツを許可するためfalse (内容はescapeHtmlで対策済み)
+                       container: 'body', // body直下に生成 (表示崩れ防止)
+                       customClass: 'motopuppu-popover' // カスタムCSS用
+                    });
+                 }
+              }
+            }
+          }
+          // --- ▲▲▲ eventDidMount 追加ここまで ▲▲▲ ---
+
         });
         calendar.render();
     } else {
