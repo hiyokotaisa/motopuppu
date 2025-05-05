@@ -194,9 +194,6 @@ class GeneralNote(db.Model):
     # onupdate は DB レベルのトリガーがなければアプリ側で処理する必要がある
     updated_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now(), onupdate=db.func.now())
 
-    # Relationships
-    motorcycle = db.relationship('Motorcycle', backref=db.backref('general_notes', lazy=True)) # backref は Motorcycle側で定義済みなので不要かも
-
     def __repr__(self):
         return f'<GeneralNote id={self.id} user_id={self.user_id} title="{self.title[:20]}">'
 
