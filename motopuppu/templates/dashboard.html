@@ -210,7 +210,7 @@
   document.addEventListener('DOMContentLoaded', function() {
     var calendarEl = document.getElementById('calendar');
 
-    // 祝日データをオブジェクト(Map)として受け取る (変更なし)
+    // 祝日データをオブジェクト(Map)として受け取る (最新版のまま)
     let holidaysMap = {};
     try {
         const holidaysData = JSON.parse('{{ holidays_json | safe }}');
@@ -232,7 +232,7 @@
         var calendar = new FullCalendar.Calendar(calendarEl, {
           initialView: 'dayGridMonth', locale: 'ja',
 
-          // --- ▼▼▼ 追加: headerToolbar と buttonText の設定を復活 ▼▼▼ ---
+          // --- ▼▼▼ headerToolbar と buttonText の設定 (コメントは残すが、内容は以前の動作バージョンと同じ) ▼▼▼ ---
           headerToolbar: {
               left: 'prev,next today',
               center: 'title',
@@ -244,14 +244,14 @@
               week: '週',
               list: 'リスト(月)' // listMonth ボタンのテキスト
           },
-          // --- ▲▲▲ 追加ここまで ▲▲▲ ---
+          // --- ▲▲▲ 設定ここまで ▲▲▲ ---
 
           contentHeight: 'auto',
-          // dayCellContent は変更なし
+          // dayCellContent は最新版のシンプルな方を採用 (祝日や曜日のスタイルはdayCellDidMountで付与)
           dayCellContent: function(arg) {
              return { html: `<span class="fc-daygrid-day-number">${arg.date.getDate()}</span>` };
           },
-          // dayCellDidMount は変更なし (ビューチェック、ローカル日付、祝日名appendChild、クラス付与)
+          // dayCellDidMount は最新版の祝日対応版を維持
           dayCellDidMount: function(arg) {
             // ローカル日付文字列生成
             const year = arg.date.getFullYear();
@@ -293,8 +293,106 @@
             }
           },
           events: '/api/dashboard/events', // (変更なし)
-          eventClick: function(info) { /* (変更なし) */ },
-          eventDidMount: function(info) { /* (変更なし - ポップオーバー) */ }
+
+          // --- ▼▼▼ ポップオーバーのための修正箇所 ▼▼▼ ---
+          eventClick: function(info) {
+             info.jsEvent.preventDefault(); // prevent browser navigation
+             // 編集URLがあればクリックで遷移 (ポップオーバー内のリンクもあるが、イベント自体をクリックした場合の動作)
+             const editUrl = info.event.extendedProps?.editUrl || info.event.url; // propsになければevent.urlを試す
+             if (editUrl) {
+               window.location.href = editUrl;
+             }
+          },
+          eventDidMount: function(info) {
+             if (info.event.extendedProps) {
+               var props = info.event.extendedProps;
+               var popoverTitle = '';
+               var popoverContent = '';
+               // 日付フォーマット (toLocaleDateStringが意図通り動かない場合があるので念のため)
+               var eventDateStr = '日付不明';
+               if (info.event.start) {
+                    try {
+                        eventDateStr = info.event.start.toLocaleDateString('ja-JP', { year: 'numeric', month: 'short', day: 'numeric' });
+                    } catch (e) {
+                        // フォールバック: YYYY-MM-DD形式など
+                        eventDateStr = info.event.start.toISOString().split('T')[0];
+                        console.warn("toLocaleDateString failed, using fallback date format:", eventDateStr, e);
+                    }
+               }
+
+               var editUrl = props.editUrl || info.event.url; // 編集URLを取得
+
+               // 給油記録
+               if (props.type === 'fuel') {
+                 popoverTitle = `⛽ 給油 (${escapeHtml(props.motorcycleName || '車両不明')})`;
+                 popoverContent = `<dl class="mb-0 small">` +
+                                    `<dt>日付:</dt><dd>${escapeHtml(eventDateStr)}</dd>` +
+                                    `<dt>ODO:</dt><dd>${props.odometer ? escapeHtml(props.odometer.toLocaleString()) + ' km' : '-'}</dd>` +
+                                    `<dt>給油量:</dt><dd>${props.fuelVolume ? escapeHtml(props.fuelVolume.toFixed(2)) + ' L' : '-'}</dd>` +
+                                    // kmPerLiterが数値の場合のみフォーマット
+                                    `<dt>燃費:</dt><dd>${(typeof props.kmPerLiter === 'number') ? escapeHtml(props.kmPerLiter.toFixed(2)) + ' km/L' : (props.kmPerLiter || '-')}</dd>` +
+                                    `<dt>金額:</dt><dd>${props.totalCost ? escapeHtml(props.totalCost.toLocaleString()) + ' 円' : '-'}</dd>` +
+                                    (props.stationName ? `<dt>スタンド:</dt><dd>${escapeHtml(props.stationName)}</dd>` : '') +
+                                    (props.notes ? `<dt>メモ:</dt><dd style="white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(props.notes)}</dd>` : '') +
+                                  `</dl>`;
+                 if (editUrl) {
+                     popoverContent += `<a href="${escapeHtml(editUrl)}" class="btn btn-sm btn-outline-primary mt-2 py-0 px-1" title="編集"><i class="fas fa-edit fa-xs me-1"></i>編集</a>`;
+                 }
+               // 整備記録
+               } else if (props.type === 'maintenance') {
+                 popoverTitle = `🔧 ${escapeHtml(props.category || '整備')} (${escapeHtml(props.motorcycleName || '車両不明')})`;
+                 popoverContent = `<dl class="mb-0 small">` +
+                                    `<dt>日付:</dt><dd>${escapeHtml(eventDateStr)}</dd>` +
+                                    `<dt>ODO:</dt><dd>${props.odometer ? escapeHtml(props.odometer.toLocaleString()) + ' km' : '-'}</dd>` +
+                                    `<dt>内容:</dt><dd style="white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(props.description || '記載なし')}</dd>` + // descriptionが空の場合を考慮
+                                    (props.category ? `<dt>カテゴリ:</dt><dd>${escapeHtml(props.category)}</dd>` : '') +
+                                    `<dt>費用:</dt><dd>${props.totalCost ? escapeHtml(props.totalCost.toLocaleString()) + ' 円' : '-'}</dd>` +
+                                    (props.location ? `<dt>場所:</dt><dd>${escapeHtml(props.location)}</dd>` : '') +
+                                    (props.notes ? `<dt>メモ:</dt><dd style="white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(props.notes)}</dd>` : '') +
+                                  `</dl>`;
+                 if (editUrl) {
+                     popoverContent += `<a href="${escapeHtml(editUrl)}" class="btn btn-sm btn-outline-primary mt-2 py-0 px-1" title="編集"><i class="fas fa-edit fa-xs me-1"></i>編集</a>`;
+                 }
+               // ノート
+               } else if (props.type === 'note') {
+                  popoverTitle = `📝 ノート ${props.motorcycleName ? '(' + escapeHtml(props.motorcycleName) + ')' : ''}`;
+                  popoverContent = `<dl class="mb-0 small">` +
+                                      `<dt>日付:</dt><dd>${escapeHtml(props.noteDate || eventDateStr)}</dd>` + // ノート固有の日付があればそれを使う
+                                      (props.title ? `<dt>タイトル:</dt><dd>${escapeHtml(props.title)}</dd>` : '') +
+                                      `<dt>内容:</dt><dd style="white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(props.content || '記載なし')}</dd>` + // contentが空の場合を考慮
+                                      (props.motorcycleName ? `<dt>関連車両:</dt><dd>${escapeHtml(props.motorcycleName)}</dd>` : '') +
+                                      // createdAtが存在すればフォーマットして表示 (例)
+                                      (props.createdAt ? `<dt>作成日時:</dt><dd>${escapeHtml(new Date(props.createdAt).toLocaleString('ja-JP'))}</dd>` : '') +
+                                    `</dl>`;
+                   if (editUrl) {
+                     popoverContent += `<a href="${escapeHtml(editUrl)}" class="btn btn-sm btn-outline-primary mt-2 py-0 px-1" title="編集"><i class="fas fa-edit fa-xs me-1"></i>編集</a>`;
+                   }
+               }
+
+               // ポップオーバーの初期化 (以前のコードをベースに、推奨設定を適用)
+                if (popoverTitle && popoverContent) {
+                    var popover = new bootstrap.Popover(info.el, {
+                        title: popoverTitle,
+                        content: popoverContent,
+                        trigger: 'hover focus',
+                        placement: 'auto',
+                        boundary: 'viewport', // Viewport境界を推奨
+                        html: true,
+                        sanitize: false, // 自前でエスケープしているのでfalse
+                        container: 'body', // 他の要素に隠れないように
+                        customClass: 'motopuppu-popover' // カスタムスタイル用クラス
+                     });
+
+                     // メモリリーク防止: 要素削除時にpopoverも破棄
+                     info.el.addEventListener('remove', () => {
+                         if (popover) {
+                             popover.dispose();
+                         }
+                     });
+                 }
+             }
+           }
+           // --- ▲▲▲ ポップオーバーのための修正ここまで ▲▲▲ ---
         });
         calendar.render();
     } else {
