@@ -1,10 +1,13 @@
 {# motopuppu/templates/odo_reset_log_form.html #}
 {% extends "base.html" %}
 
-{% block title %}ODOリセット履歴の編集 - もとぷっぷー{% endblock %}
+{# ▼▼▼ タイトルを動的に変更 ▼▼▼ #}
+{% set page_title = "過去のODOリセット履歴を追加" if form_action == 'add' else "ODOリセット履歴の編集" %}
+{% block title %}{{ page_title }} - もとぷっぷー{% endblock %}
 
 {% block content %}
-<h2>ODOリセット履歴の編集</h2>
+{# ▼▼▼ 見出しも動的に変更 ▼▼▼ #}
+<h2>{{ page_title }}</h2>
 
 {# --- フラッシュメッセージ表示 --- #}
 {% with messages = get_flashed_messages(with_categories=true) %}
@@ -19,52 +22,51 @@
 {% endwith %}
 {# --- フラッシュメッセージ表示 ここまで --- #}
 
-{# 編集対象のログ情報があればフォームを表示 #}
-{% if log %}
-    <form method="POST"> {# action は指定せず、現在のURLにPOST #}
-        {# CSRFトークンが必要な場合は input を追加 #}
-        
-        <p>車両: <strong>{{ log.motorcycle.name }}</strong></p>
+{# ▼▼▼ フォームの action を削除し、現在のURLにPOSTするように変更 ▼▼▼ #}
+<form method="POST"> 
+    {# CSRFトークン #}
+    
+    {# ▼▼▼ 車両名はビューから渡された vehicle または log.motorcycle を使う ▼▼▼ #}
+    <p>車両: <strong>{{ vehicle.name if vehicle else log.motorcycle.name }}</strong></p>
 
-        <div class="mb-3">
-            <label for="reset_date" class="form-label">リセット日 <span class="text-danger">*</span></label>
-            {# ビューから渡される log オブジェクトの値を使用 #}
-            <input type="date" class="form-control" id="reset_date" name="reset_date" 
-                   value="{{ request.form['reset_date'] if request.form else log.reset_date.isoformat() }}" 
-                   required>
-            {# エラー時に再表示するため request.form を優先 #}
-        </div>
-
-        <div class="mb-3">
-            <label for="display_odo_before_reset" class="form-label">リセット直前のメーター表示値 <span class="text-danger">*</span></label>
-            <input type="number" class="form-control" id="display_odo_before_reset" name="display_odo_before_reset" 
-                   value="{{ request.form['display_odo_before_reset'] if request.form else log.display_odo_before_reset }}" 
-                   required min="0">
-        </div>
-
-        <div class="mb-3">
-            <label for="display_odo_after_reset" class="form-label">リセット直後のメーター表示値 <span class="text-danger">*</span></label>
-            <input type="number" class="form-control" id="display_odo_after_reset" name="display_odo_after_reset" 
-                   value="{{ request.form['display_odo_after_reset'] if request.form else log.display_odo_after_reset }}" 
-                   required min="0">
-        </div>
-
-        <div class="mt-4">
-            <button type="submit" class="btn btn-primary">
-                <i class="fas fa-save me-1"></i> 更新する
-            </button>
-            {# キャンセルボタンは車両編集ページに戻る #}
-            <a href="{{ url_for('vehicle.edit_vehicle', vehicle_id=log.motorcycle_id) }}" class="btn btn-secondary">
-                <i class="fas fa-times me-1"></i> キャンセル
-            </a>
-        </div>
-    </form>
-{% else %}
-    {# log オブジェクトがない場合（通常は発生しないはず） #}
-    <div class="alert alert-warning" role="alert">
-      編集対象の履歴が見つかりませんでした。
+    <div class="mb-3">
+        <label for="reset_date" class="form-label">リセット日 <span class="text-danger">*</span></label>
+        {# ▼▼▼ value の設定を調整 (追加時は now_date_iso, 編集時は log.reset_date) ▼▼▼ #}
+        <input type="date" class="form-control" id="reset_date" name="reset_date" 
+                value="{{ request.form['reset_date'] if request.form else (log.reset_date.isoformat() if log else now_date_iso) }}" 
+                required>
+        {# ▲▲▲ 修正ここまで ▲▲▲ #}
     </div>
-    <a href="{{ url_for('main.dashboard') }}" class="btn btn-secondary">ダッシュボードに戻る</a>
-{% endif %}
+
+    <div class="mb-3">
+        <label for="display_odo_before_reset" class="form-label">リセット直前のメーター表示値 <span class="text-danger">*</span></label>
+        {# ▼▼▼ value の設定を調整 (追加時は空, 編集時は log の値) ▼▼▼ #}
+        <input type="number" class="form-control" id="display_odo_before_reset" name="display_odo_before_reset" 
+                value="{{ request.form['display_odo_before_reset'] if request.form else (log.display_odo_before_reset if log else '') }}" 
+                required min="0">
+        {# ▲▲▲ 修正ここまで ▲▲▲ #}
+    </div>
+
+    <div class="mb-3">
+        <label for="display_odo_after_reset" class="form-label">リセット直後のメーター表示値 <span class="text-danger">*</span></label>
+        {# ▼▼▼ value の設定を調整 (追加時は 0, 編集時は log の値) ▼▼▼ #}
+        <input type="number" class="form-control" id="display_odo_after_reset" name="display_odo_after_reset" 
+                value="{{ request.form['display_odo_after_reset'] if request.form else (log.display_odo_after_reset if log is not none and log.display_odo_after_reset is not none else '0') }}" 
+                required min="0">
+        {# ▲▲▲ 修正ここまで (logがNoneでないかもチェック) ▲▲▲ #}
+    </div>
+
+    <div class="mt-4">
+        {# ▼▼▼ ボタンテキストを動的に変更 ▼▼▼ #}
+        <button type="submit" class="btn btn-primary">
+            <i class="fas fa-save me-1"></i> {{ '追加する' if form_action == 'add' else '更新する' }}
+        </button>
+        {# ▼▼▼ キャンセルボタンの戻り先を調整 ▼▼▼ #}
+        <a href="{{ url_for('vehicle.edit_vehicle', vehicle_id=(vehicle.id if vehicle else log.motorcycle_id)) }}" class="btn btn-secondary">
+            <i class="fas fa-times me-1"></i> キャンセル
+        </a>
+        {# ▲▲▲ 修正ここまで ▲▲▲ #}
+    </div>
+</form>
 
 {% endblock %}
