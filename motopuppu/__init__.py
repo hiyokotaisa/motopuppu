@@ -8,6 +8,9 @@ from dotenv import load_dotenv
 from flask_migrate import Migrate
 # from flask_wtf.csrf import CSRFProtect # Flask-WTF導入時にコメント解除
 
+# --- logging モジュールをインポート ---
+import logging
+
 # .envファイルから環境変数を読み込む
 dotenv_path = os.path.join(os.path.dirname(__file__), '..', '.env')
 if os.path.exists(dotenv_path):
@@ -46,6 +49,33 @@ def create_app(config_name=None):
     if app.config['SECRET_KEY'] == 'dev-secret-key-replace-me':
         print("Warning: SECRET_KEY is set to the default development value. Set it in .env!") # 既存のprintは残す
     # LOCAL_DEV_USER_ID 未設定のWarningは削除
+
+    # --- ここからログ設定 ---
+    # 環境変数 'LOG_LEVEL' からログレベルを取得。未設定なら 'INFO' をデフォルトとする。
+    log_level_name = os.environ.get('LOG_LEVEL', 'INFO').upper()
+    
+    # 文字列のログレベル名を logging モジュールの定数に変換
+    # (例: "DEBUG" -> logging.DEBUG)
+    # getattrの第3引数は、指定された属性が見つからない場合のデフォルト値
+    log_level = getattr(logging, log_level_name, logging.INFO)
+    
+    # Flaskアプリのロガーにログレベルを設定
+    app.logger.setLevel(log_level)
+
+    # ハンドラがまだ設定されていなければStreamHandlerを追加
+    # (Render環境では通常、標準出力/標準エラー出力へのログは自動的に収集されるため、
+    #  このブロックはローカル開発時の確実なコンソール出力を主目的とします)
+    if not app.logger.handlers:
+        stream_handler = logging.StreamHandler()
+        # 必要に応じてフォーマッタを設定し、ログの見た目を整えることができます
+        # formatter = logging.Formatter(
+        #    '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
+        # )
+        # stream_handler.setFormatter(formatter)
+        app.logger.addHandler(stream_handler)
+    
+    app.logger.info(f"Flask logger initialized. Application log level set to: {log_level_name} ({log_level})")
+    # --- ログ設定ここまで ---
 
     # --- 拡張機能の初期化 ---
     db.init_app(app)
