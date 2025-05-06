@@ -1,3 +1,4 @@
+# motopuppu/views/maintenance.py
 from flask import (
     Blueprint, flash, g, redirect, render_template, request, url_for, abort, current_app
 )
