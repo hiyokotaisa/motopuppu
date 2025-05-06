@@ -3,25 +3,25 @@
   "short_name": "もとぷっぷー",
   "icons": [
     {
-      "src": "web-app-manifest-192x192.png",
+      "src": "web-app-manifest-192x192.png", // マニフェストからの相対パス
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "web-app-manifest-512x512.png",
+      "src": "web-app-manifest-512x512.png", // マニフェストからの相対パス
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "favicon-96x96.png",
+      "src": "favicon-96x96.png", // マニフェストからの相対パス
       "sizes": "96x96",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "apple-touch-icon.png",
+      "src": "apple-touch-icon.png", // マニフェストからの相対パス
       "sizes": "180x180",
       "type": "image/png",
       "purpose": "any"
