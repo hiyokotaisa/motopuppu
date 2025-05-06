@@ -35,20 +35,20 @@ def upgrade():
     #)
     # with op.batch_alter_table('general_notes', schema=None) as batch_op:
     #    batch_op.create_index(batch_op.f('ix_general_notes_category'), ['category'], unique=False)
-
-    op.create_table('odo_reset_logs',
-    sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('motorcycle_id', sa.Integer(), nullable=False),
-    sa.Column('reset_date', sa.Date(), nullable=False),
-    sa.Column('odometer_before_reset', sa.Integer(), nullable=False),
-    sa.Column('odometer_after_reset', sa.Integer(), nullable=False),
-    sa.Column('offset_change', sa.Integer(), nullable=False),
-    sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
-    sa.ForeignKeyConstraint(['motorcycle_id'], ['motorcycles.id'], ondelete='CASCADE'),
-    sa.PrimaryKeyConstraint('id')
-    )
-    with op.batch_alter_table('odo_reset_logs', schema=None) as batch_op:
-        batch_op.create_index(batch_op.f('ix_odo_reset_logs_reset_date'), ['reset_date'], unique=False)
+#
+#    op.create_table('odo_reset_logs',
+#    sa.Column('id', sa.Integer(), nullable=False),
+#    sa.Column('motorcycle_id', sa.Integer(), nullable=False),
+#    sa.Column('reset_date', sa.Date(), nullable=False),
+#    sa.Column('odometer_before_reset', sa.Integer(), nullable=False),
+#    sa.Column('odometer_after_reset', sa.Integer(), nullable=False),
+#    sa.Column('offset_change', sa.Integer(), nullable=False),
+#    sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
+#    sa.ForeignKeyConstraint(['motorcycle_id'], ['motorcycles.id'], ondelete='CASCADE'),
+#    sa.PrimaryKeyConstraint('id')
+#    )
+#    with op.batch_alter_table('odo_reset_logs', schema=None) as batch_op:
+#        batch_op.create_index(batch_op.f('ix_odo_reset_logs_reset_date'), ['reset_date'], unique=False)
 
     with op.batch_alter_table('attachments', schema=None) as batch_op:
         batch_op.drop_constraint('attachments_maintenance_entry_id_fkey', type_='foreignkey')
@@ -105,10 +105,10 @@ def downgrade():
         batch_op.drop_constraint(None, type_='foreignkey')
         batch_op.create_foreign_key('attachments_maintenance_entry_id_fkey', 'maintenance_entries', ['maintenance_entry_id'], ['id'])
 
-    with op.batch_alter_table('odo_reset_logs', schema=None) as batch_op:
-        batch_op.drop_index(batch_op.f('ix_odo_reset_logs_reset_date'))
-
-    op.drop_table('odo_reset_logs')
+#    with op.batch_alter_table('odo_reset_logs', schema=None) as batch_op:
+#        batch_op.drop_index(batch_op.f('ix_odo_reset_logs_reset_date'))
+#
+#    op.drop_table('odo_reset_logs')
     #with op.batch_alter_table('general_notes', schema=None) as batch_op:
     #    batch_op.drop_index(batch_op.f('ix_general_notes_category'))
 #
