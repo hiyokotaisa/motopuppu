@@ -1,0 +1,53 @@
+# compose.yml
+
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16
+    container_name: motopuppu_db_dev
+    environment:
+      # ↓ 直接値を書き込む (テスト用)
+      POSTGRES_DB: motopuppu_dev
+      POSTGRES_USER: motopuppu_user
+      # ↓ パスワードは .env から読み込む
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD?err}
+    volumes:
+      - pg_data:/var/lib/postgresql/data # 正しいパスであることを確認
+    ports:
+      # Macから直接DBに接続したい場合にコメント解除 (例: 5433 -> 5432)
+      # - "5433:5432"
+    restart: unless-stopped
+    healthcheck: # DBが起動完了するのを待つ
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-motopuppu_user} -d ${POSTGRES_DB:-motopuppu_dev}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build: . # カレントディレクトリの Dockerfile を使ってビルド
+    container_name: motopuppu_web_dev # コンテナ名 (任意)
+    ports:
+      - "5000:5000" # Macのlocalhost:5000をコンテナの5000番にマッピング
+    volumes:
+      # ローカルコードをマウント (:Z フラグはmacOSでは不要なので削除)
+      - .:/app
+    environment:
+      FLASK_APP: motopuppu
+      FLASK_ENV: development
+      # DBサービス名(db)をホスト名として指定
+      DATABASE_URI: postgresql://${POSTGRES_USER:-motopuppu_user}:${POSTGRES_PASSWORD?err}@db:5432/${POSTGRES_DB:-motopuppu_dev}
+      # .envファイルから読み込む (必須)
+      SECRET_KEY: ${SECRET_KEY?err}
+      # .envファイルから読み込むか、なければデフォルト値
+      MISSKEY_INSTANCE_URL: ${MISSKEY_INSTANCE_URL:-https://misskey.io}
+      # .envファイルから読み込む (後で設定)
+      LOCAL_DEV_USER_ID: ${LOCAL_DEV_USER_ID}
+      # 他の環境変数...
+    depends_on:
+      db:
+        condition: service_healthy # DBのhealthcheckが通ってから起動
+    restart: unless-stopped
+
+volumes:
+  pg_data: # PostgreSQLデータ用の名前付きボリューム定義
