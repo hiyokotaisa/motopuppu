@@ -53,7 +53,7 @@
                     {% else %}
                         {# デフォルト設定用フォーム #}
                         <form action="{{ url_for('vehicle.set_default_vehicle', vehicle_id=motorcycle.id) }}" method="POST" class="d-inline">
-                             {# CSRFトークンが必要な場合は input を追加 #}
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/> {# CSRFトークンを追加 #}
                             <button type="submit" class="btn btn-sm btn-outline-secondary">設定</button>
                         </form>
                     {% endif %}
@@ -65,7 +65,7 @@
                     </a>
                     {# 削除ボタン (確認付き推奨) #}
                     <form action="{{ url_for('vehicle.delete_vehicle', vehicle_id=motorcycle.id) }}" method="POST" class="d-inline" onsubmit="return confirm('車両「{{ motorcycle.name }}」を削除してもよろしいですか？関連する燃費・整備記録も全て削除されます。');">
-                        {# CSRFトークンが必要な場合は input を追加 #}
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/> {# CSRFトークンを追加 #}
                         <button type="submit" class="btn btn-sm btn-danger">
                             <i class="fas fa-trash"></i> 削除
                         </button>
