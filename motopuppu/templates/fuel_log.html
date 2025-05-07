@@ -103,8 +103,14 @@
                 </td>
                 <td class="text-end">{{ "{:,}".format(entry.odometer_reading) }}</td>
                 <td class="text-end">{{ "%.2f"|format(entry.fuel_volume) }}</td>
-                {# --- ▼▼▼ 単価表示を整数化 (再修正) ▼▼▼ --- #}
-                <td class="text-end">{{ entry.price_per_liter|round|int|default('-', true) }}</td>
+                {# --- ▼▼▼ 単価表示を None 対応に修正 ▼▼▼ --- #}
+                <td class="text-end">
+                    {% if entry.price_per_liter is not none %}
+                        {{ entry.price_per_liter|round|int }}
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
                  {# --- ▲▲▲ 修正ここまで ▲▲▲ --- #}
                 <td class="text-end">{{ entry.total_cost|round|int|default('-', true) }}</td> {# 金額は変更なし #}
                 <td>{{ entry.station_name if entry.station_name else '-' }}</td>
