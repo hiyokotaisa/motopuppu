@@ -28,19 +28,19 @@
                 {% endfor %}
             </select>
         </div>
-         <div class="col-md-2">
-             <label for="category" class="form-label">カテゴリ</label>
-            <input type="text" class="form-control form-control-sm" id="category" name="category" value="{{ request_args.get('category', '') }}" placeholder="カテゴリ名(部分一致)">
-         </div>
         <div class="col-md-2">
-             <label for="q" class="form-label">キーワード</label>
+            <label for="category" class="form-label">カテゴリ</label>
+            <input type="text" class="form-control form-control-sm" id="category" name="category" value="{{ request_args.get('category', '') }}" placeholder="カテゴリ名(部分一致)">
+        </div>
+        <div class="col-md-2">
+            <label for="q" class="form-label">キーワード</label>
             <input type="text" class="form-control form-control-sm" id="q" name="q" value="{{ request_args.get('q', '') }}" placeholder="内容, 場所, メモ">
-         </div>
+        </div>
         <div class="col-md-2">
             <button type="submit" class="btn btn-primary btn-sm w-100">
                 <i class="fas fa-filter me-1"></i> 絞り込む
             </button>
-             <a href="{{ url_for('maintenance.maintenance_log') }}" class="btn btn-outline-secondary btn-sm w-100 mt-1">リセット</a>
+            <a href="{{ url_for('maintenance.maintenance_log') }}" class="btn btn-outline-secondary btn-sm w-100 mt-1">リセット</a>
         </div>
     </div>
 </form>
@@ -71,13 +71,11 @@
                     {% set current_request_args = request_args.copy() %}
                     {% set sort_order = 'asc' %}
                     {% set sort_icon = '<i class="fas fa-sort fa-fw text-muted ms-1"></i>' %} {# デフォルトアイコン #}
-                    {% if current_sort == sort_key %}
-                        {# 現在ソート中のカラムの場合 #}
+                    {% if current_sort == sort_key %} {# 現在ソート中のカラムの場合 #}
                         {% if current_order == 'asc' %}
                             {% set sort_order = 'desc' %} {# 次回は降順 #}
                             {% set sort_icon = '<i class="fas fa-sort-up fa-fw ms-1"></i>' %} {# 現在昇順アイコン #}
-                        {% else %}
-                            {# current_order == 'desc' #}
+                        {% else %} {# current_order == 'desc' #}
                             {% set sort_order = 'asc' %} {# 次回は昇順 #}
                             {% set sort_icon = '<i class="fas fa-sort-down fa-fw ms-1"></i>' %} {# 現在降順アイコン #}
                         {% endif %}
@@ -101,7 +99,7 @@
                 <th>操作</th>
             </tr>
         </thead>
-         {# --- ▲▲▲ テーブルヘッダー修正ここまで ▲▲▲ --- #}
+        {# --- ▲▲▲ テーブルヘッダー修正ここまで ▲▲▲ --- #}
         <tbody>
             {% for entry in entries %}
             <tr>
@@ -114,8 +112,8 @@
                 <td class="text-end">{{ "{:,}".format(entry.total_distance_at_maintenance) }}</td> {# total_distance を表示 #}
                 {# 内容はツールチップで全文表示する例 (Bootstrap Tooltipが必要) #}
                 <td>
-                     <span title="{{ entry.description }}" data-bs-toggle="tooltip" data-bs-placement="top">
-                         {{ entry.description|truncate(30) }} {# 短く表示 #}
+                    <span title="{{ entry.description }}" data-bs-toggle="tooltip" data-bs-placement="top">
+                        {{ entry.description|truncate(30) }} {# 短く表示 #}
                     </span>
                 </td>
                 <td>{{ entry.category if entry.category else '-' }}</td>
@@ -125,9 +123,10 @@
                     <a href="{{ url_for('maintenance.edit_maintenance', entry_id=entry.id) }}" class="btn btn-sm btn-outline-primary me-1" title="編集"><i class="fas fa-edit fa-fw"></i></a>
                     {# 削除ボタン #}
                     <form action="{{ url_for('maintenance.delete_maintenance', entry_id=entry.id) }}" method="POST" class="d-inline" onsubmit="return confirm('この整備記録を削除してもよろしいですか？');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/> {# CSRFトークンを追加 #}
                         <button type="submit" class="btn btn-sm btn-outline-danger" title="削除"><i class="fas fa-trash fa-fw"></i></button>
                     </form>
-                     {# ▼▼▼ Misskey共有ボタン (変更なし) ▼▼▼ #}
+                    {# ▼▼▼ Misskey共有ボタン (変更なし) ▼▼▼ #}
                     <button class="btn btn-sm btn-info btn-share-misskey ms-1"
                             data-type="maintenance"
                             data-vehicle-name="{{ entry.motorcycle.name }}"
@@ -155,7 +154,7 @@
         <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
             {# ▼▼▼ url_for に現在のソートパラメータを追加 ▼▼▼ #}
             <a class="page-link" href="{{ url_for('maintenance.maintenance_log', page=pagination.prev_num, sort_by=current_sort_by, order=current_order, **request_args) }}" aria-label="Previous">&laquo;</a>
-             {# ▲▲▲ 追加ここまで ▲▲▲ #}
+            {# ▲▲▲ 追加ここまで ▲▲▲ #}
         </li>
         {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
             {% if page_num %}
@@ -186,13 +185,11 @@
 
 {# 追加ボタン #}
 <div class="mt-4">
-     <a href="{{ url_for('maintenance.add_maintenance') }}" class="btn btn-success">
+    <a href="{{ url_for('maintenance.add_maintenance') }}" class="btn btn-success">
         <i class="fas fa-plus me-1"></i> 新しい整備記録を追加
     </a>
 </div>
-
 {% endblock %}
-
 
 {# --- JavaScript (変更なし) --- #}
 {% block scripts %}
@@ -202,12 +199,11 @@ document.addEventListener('DOMContentLoaded', function() {
     // --- Bootstrap Tooltipの初期化 (任意: 内容欄で使用する場合) ---
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
     var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-      return new bootstrap.Tooltip(tooltipTriggerEl)
+        return new bootstrap.Tooltip(tooltipTriggerEl)
     })
 
     // --- Misskey共有ボタンの処理 ---
     const misskeyInstanceDomain = 'misskey.io'; // ドメインを固定
-
     document.querySelectorAll('.btn-share-misskey').forEach(button => {
         button.addEventListener('click', function() {
             const dataset = this.dataset;
