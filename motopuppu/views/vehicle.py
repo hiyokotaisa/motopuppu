@@ -58,6 +58,10 @@ def add_vehicle():
 
         if vehicle_count == 0:
             new_motorcycle.is_default = True
+        else:
+            # ▼▼▼ 2台目以降の車両には is_default = False を明示的に設定 ▼▼▼
+            new_motorcycle.is_default = False
+            # ▲▲▲ 修正ここまで ▲▲▲
 
         try:
             db.session.add(new_motorcycle)
@@ -290,9 +294,12 @@ def edit_odo_reset_log(log_id):
     try:
         jst = ZoneInfo("Asia/Tokyo")
         today_jst = datetime.now(jst).date()
+        # now_date_iso for edit form default (not strictly needed if log.reset_date is used)
+        now_date_iso_for_edit_form = datetime.now(jst).date().isoformat() 
     except Exception as e:
         today_jst = date.today()
-        current_app.logger.warning(f"Failed to get JST date for validation in edit_odo_reset_log ({e}), falling back to system local date.")
+        now_date_iso_for_edit_form = date.today().isoformat()
+        current_app.logger.warning(f"Failed to get JST date using ZoneInfo in edit_odo_reset_log ({e}), falling back to system local date.")
 
     if request.method == 'POST':
         reset_date_str = request.form.get('reset_date')
@@ -304,7 +311,6 @@ def edit_odo_reset_log(log_id):
         display_odo_before_reset = None
         display_odo_after_reset = None
 
-        # --- バリデーション ---
         if not reset_date_str: errors['reset_date'] = 'リセット日は必須です。'
         else:
             try:
@@ -328,15 +334,12 @@ def edit_odo_reset_log(log_id):
 
         if display_odo_before_reset is not None and display_odo_after_reset is not None:
             if display_odo_before_reset < display_odo_after_reset: errors['reading_consistency'] = 'リセット前の値はリセット後の値以上である必要があります。'
-        # --- バリデーションここまで ---
-
+        
         if errors:
             for field, msg in errors.items(): flash(msg, 'danger')
-            # ★★★ 編集エラー時に form_action と vehicle=None を渡すように修正 ★★★
-            return render_template('odo_reset_log_form.html', log=log_to_edit, form_action='edit', vehicle=None, now_date_iso=None) 
+            return render_template('odo_reset_log_form.html', log=log_to_edit, form_action='edit', vehicle=None, now_date_iso=now_date_iso_for_edit_form) 
         else:
             try:
-                # 更新処理
                 log_to_edit.reset_date = reset_date_obj
                 log_to_edit.display_odo_before_reset = display_odo_before_reset
                 log_to_edit.display_odo_after_reset = display_odo_after_reset
@@ -353,11 +356,9 @@ def edit_odo_reset_log(log_id):
                 db.session.rollback()
                 flash(f'履歴の更新中にエラーが発生しました: {e}', 'danger')
                 current_app.logger.error(f"Error updating OdoResetLog {log_id}: {e}")
-                 # ★★★ 編集エラー時に form_action と vehicle=None を渡すように修正 ★★★
-                return render_template('odo_reset_log_form.html', log=log_to_edit, form_action='edit', vehicle=None, now_date_iso=None)
+                return render_template('odo_reset_log_form.html', log=log_to_edit, form_action='edit', vehicle=None, now_date_iso=now_date_iso_for_edit_form)
 
-    # ★★★ GETリクエスト時にも form_action と vehicle=None を渡す ★★★
-    return render_template('odo_reset_log_form.html', log=log_to_edit, form_action='edit', vehicle=None, now_date_iso=None) 
+    return render_template('odo_reset_log_form.html', log=log_to_edit, form_action='edit', vehicle=None, now_date_iso=now_date_iso_for_edit_form) 
 
 # --- ▼▼▼ ODOリセット履歴 追加ルートを追加 ▼▼▼ ---
 @vehicle_bp.route('/<int:vehicle_id>/odo_reset_log/add', methods=['GET', 'POST'])
@@ -366,11 +367,10 @@ def add_odo_reset_log(vehicle_id):
     """過去のODOリセット履歴を追加する"""
     motorcycle = Motorcycle.query.filter_by(id=vehicle_id, user_id=g.user.id).first_or_404()
 
-    # JSTの今日の日付（フォームのデフォルト用）
     try:
         jst = ZoneInfo("Asia/Tokyo")
         now_date_iso = datetime.now(jst).date().isoformat()
-        today_jst = datetime.now(jst).date() # バリデーション用
+        today_jst = datetime.now(jst).date() 
     except Exception as e:
         now_date_iso = date.today().isoformat()
         today_jst = date.today()
@@ -386,13 +386,12 @@ def add_odo_reset_log(vehicle_id):
         display_odo_before_reset = None
         display_odo_after_reset = None
 
-        # --- バリデーション (record_reset や edit と同様) ---
         if not reset_date_str:
             errors['reset_date'] = 'リセット日は必須です。'
         else:
             try:
                 reset_date_obj = date.fromisoformat(reset_date_str)
-                if reset_date_obj > today_jst: # 未来日付チェック
+                if reset_date_obj > today_jst: 
                     errors['reset_date'] = 'リセット日には未来の日付を指定できません。'
             except ValueError:
                 errors['reset_date'] = 'リセット日の形式が無効です (YYYY-MM-DD)。'
@@ -407,7 +406,7 @@ def add_odo_reset_log(vehicle_id):
             except ValueError:
                 errors['reading_before_reset'] = 'リセット直前のメーター表示値は数値を入力してください。'
 
-        if not display_odo_after_reset_str: # 新規追加でも必須とする
+        if not display_odo_after_reset_str: 
              errors['reading_after_reset'] = 'リセット直後のメーター表示値は必須です。'
         else:
              try:
@@ -420,15 +419,12 @@ def add_odo_reset_log(vehicle_id):
         if display_odo_before_reset is not None and display_odo_after_reset is not None:
             if display_odo_before_reset < display_odo_after_reset:
                 errors['reading_consistency'] = 'リセット前の値はリセット後の値以上である必要があります。'
-        # --- バリデーションここまで ---
-
+        
         if errors:
             for field, msg in errors.items():
                 flash(msg, 'danger')
-            # エラー時はフォームを再表示 (入力値を保持するため request.form を使う)
             return render_template('odo_reset_log_form.html', form_action='add', vehicle=motorcycle, now_date_iso=now_date_iso, log=None)
         else:
-            # エラーがなければ新しいログを作成
             offset_increment_this_time = display_odo_before_reset - display_odo_after_reset
             new_odo_log = OdoResetLog(
                 motorcycle_id=motorcycle.id,
@@ -436,14 +432,12 @@ def add_odo_reset_log(vehicle_id):
                 display_odo_before_reset=display_odo_before_reset,
                 display_odo_after_reset=display_odo_after_reset,
                 offset_increment=offset_increment_this_time,
-                created_at=datetime.utcnow() # created_at を設定
+                created_at=datetime.utcnow() 
             )
             db.session.add(new_odo_log)
 
-            # Motorcycle の odometer_offset キャッシュを再計算して更新
             try:
-                # 注意: コミット前に再計算メソッドを呼ぶ
-                db.session.flush() # セッション内の変更をDBに送る（コミットはまだ）
+                db.session.flush() 
                 new_cumulative_offset = motorcycle.calculate_cumulative_offset_from_logs()
                 motorcycle.odometer_offset = new_cumulative_offset
 
@@ -455,10 +449,8 @@ def add_odo_reset_log(vehicle_id):
                 db.session.rollback()
                 flash(f'履歴の追加中にエラーが発生しました: {e}', 'danger')
                 current_app.logger.error(f"Error adding OdoResetLog for vehicle {vehicle_id}: {e}")
-                # エラー時もフォームを再表示
                 return render_template('odo_reset_log_form.html', form_action='add', vehicle=motorcycle, now_date_iso=now_date_iso, log=None)
 
-    # GET リクエストの場合: 追加フォームを表示
     return render_template('odo_reset_log_form.html', form_action='add', vehicle=motorcycle, now_date_iso=now_date_iso, log=None)
 # --- ▲▲▲ 追加ルートここまで ▲▲▲ ---
 
@@ -467,7 +459,6 @@ def add_odo_reset_log(vehicle_id):
 @vehicle_bp.route('/<int:vehicle_id>/reminders/add', methods=['GET', 'POST'])
 @login_required_custom
 def add_reminder(vehicle_id):
-    # (変更なし)
     motorcycle = Motorcycle.query.filter_by(id=vehicle_id, user_id=g.user.id).first_or_404()
     current_year = datetime.utcnow().year
     if request.method == 'POST':
@@ -517,7 +508,6 @@ def add_reminder(vehicle_id):
 @vehicle_bp.route('/reminders/<int:reminder_id>/edit', methods=['GET', 'POST'])
 @login_required_custom
 def edit_reminder(reminder_id):
-    # (変更なし)
     reminder = MaintenanceReminder.query.join(Motorcycle).filter(MaintenanceReminder.id == reminder_id, Motorcycle.user_id == g.user.id).first_or_404()
     motorcycle = reminder.motorcycle; current_year = datetime.utcnow().year
     if request.method == 'POST':
@@ -566,7 +556,6 @@ def edit_reminder(reminder_id):
 @vehicle_bp.route('/reminders/<int:reminder_id>/delete', methods=['POST'])
 @login_required_custom
 def delete_reminder(reminder_id):
-    # (変更なし)
     reminder = MaintenanceReminder.query.join(Motorcycle).filter(MaintenanceReminder.id == reminder_id, Motorcycle.user_id == g.user.id).first_or_404()
     vehicle_id = reminder.motorcycle_id; task_name = reminder.task_description
     try:
