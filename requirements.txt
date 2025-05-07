@@ -8,8 +8,8 @@ Flask-Migrate>=4.0 # DBスキーマ変更の管理に (強く推奨)
 python-dateutil
 jpholiday # 日本の祝日を取得するためのライブラリ
 psycopg2-binary
+Flask-WTF
 
-# Flask-WTF>=1.0 # フォーム処理・検証に便利 (任意)
 # Flask-Login>=0.6 # ログイン管理の補助に (Authlibや自前でも可) (任意)
 # Flask-Uploads-Fork # ファイルアップロード処理に (代替ライブラリも検討可) (任意)
 # Pillow # 画像処理に (ファイルタイプ検証などで必要になる場合あり) (任意)

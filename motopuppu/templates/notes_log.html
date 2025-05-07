@@ -7,7 +7,7 @@
 <h2>ノート一覧</h2>
 <p>車両に関するノートや、一般的な記録を残すことができます。</p>
 
-{# --- フィルターフォーム (変更なし) --- #}
+{# --- フィルターフォーム --- #}
 <form method="GET" action="{{ url_for('notes.notes_log') }}" class="mb-4 p-3 border rounded bg-light">
     <div class="row g-3 align-items-end">
         <div class="col-md-3">
@@ -22,7 +22,9 @@
             <label for="vehicle_id" class="form-label">関連車両</label>
             <select class="form-select form-select-sm" id="vehicle_id" name="vehicle_id">
                 <option value="" {% if not request_args.get('vehicle_id') %}selected{% endif %}>すべて</option>
-                <option value="none" {% if request_args.get('vehicle_id') == 'none' %}selected{% endif %}>-- 車両未指定 --</option>
+                {# ▼▼▼ valueを'0'に変更 (views/notes.pyの修正に合わせる) ▼▼▼ #}
+                <option value="0" {% if request_args.get('vehicle_id') == '0' %}selected{% endif %}>-- 車両未指定 --</option>
+                {# ▲▲▲ 修正ここまで ▲▲▲ #}
                 {% for motorcycle in motorcycles %}
                 <option value="{{ motorcycle.id }}" {% if request_args.get('vehicle_id')|string == motorcycle.id|string %}selected{% endif %}>
                     {{ motorcycle.name }}
@@ -34,15 +36,20 @@
             <label for="category" class="form-label">カテゴリー</label>
             <select class="form-select form-select-sm" id="category" name="category">
                 <option value="" {% if not selected_category %}selected{% endif %}>すべて</option>
-                <option value="note" {% if selected_category == 'note' %}selected{% endif %}>ノート</option>
-                <option value="task" {% if selected_category == 'task' %}selected{% endif %}>タスク</option>
+                {# ▼▼▼ ビューから渡される allowed_categories_for_template を使用 ▼▼▼ #}
+                {% for cat_opt in allowed_categories_for_template %}
+                <option value="{{ cat_opt.value }}" {% if selected_category == cat_opt.value %}selected{% endif %}>
+                    {{ cat_opt.display }}
+                </option>
+                {% endfor %}
+                {# ▲▲▲ 修正ここまで ▲▲▲ #}
             </select>
         </div>
          <div class="col-md-3">
              <label for="q" class="form-label">キーワード</label>
             <input type="text" class="form-control form-control-sm" id="q" name="q" value="{{ request_args.get('q', '') }}" placeholder="タイトル, 内容">
          </div>
-        <div class="col-md-9 mt-2 d-flex justify-content-end">
+        <div class="col-md-9 mt-2 d-flex justify-content-end"> {# span9からcol-md-9に変更、flexクラス追加 #}
              <a href="{{ url_for('notes.notes_log') }}" class="btn btn-outline-secondary btn-sm me-2">リセット</a>
              <button type="submit" class="btn btn-primary btn-sm">
                 <i class="fas fa-filter me-1"></i> 絞り込む
@@ -51,7 +58,7 @@
     </div>
 </form>
 
-{# --- フラッシュメッセージ表示 (変更なし) --- #}
+{# --- フラッシュメッセージ表示 --- #}
 {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
         {% for category, message in messages %}
@@ -62,7 +69,7 @@
     {% endif %}
 {% endwith %}
 
-{# --- ノート追加ボタン (変更なし) --- #}
+{# --- ノート追加ボタン --- #}
 <div class="mb-3">
     <a href="{{ url_for('notes.add_note') }}" class="btn btn-success">
         <i class="fas fa-plus me-1"></i> 新しいノートを追加
@@ -99,27 +106,32 @@
                 <td>
                     {% if note.category == 'task' and note.todos %}
                         <ul class="list-unstyled mb-0 small" style="max-height: 100px; overflow-y: auto;">
-                            {% for item in note.todos %}
-                                <li {% if item.checked %}class="todo-item-done"{% endif %}>
-                                    <i class="far {% if item.checked %}fa-check-square{% else %}fa-square{% endif %} me-1"></i>
+                            {% for item in note.todos[:3] %} {# 最大3件表示 #}
+                                <li {% if item.checked %}class="todo-item-done"{% endif %}> {# todo-item-done スタイルは base.html か style.css に定義が必要 #}
+                                    <i class="far {{ 'fa-check-square' if item.checked else 'fa-square' }} me-1"></i>
                                     {{ item.text | escape }}
                                 </li>
                             {% endfor %}
+                            {% if note.todos|length > 3 %}
+                                <li>...他{{ note.todos|length - 3 }}件</li>
+                            {% endif %}
                         </ul>
                     {% elif note.category == 'task' %}
                          <span class="text-muted small">（TODOアイテムなし）</span>
                     {% else %}
-                        <span title="{{ note.content|striptags }}" data-bs-toggle="tooltip" data-bs-placement="top">
-                            {{ note.content | striptags | truncate(80) }}
+                        <span title="{{ note.content|striptags if note.content else '' }}" data-bs-toggle="tooltip" data-bs-placement="top">
+                            {{ note.content | striptags | truncate(80) if note.content else '-' }}
                         </span>
                     {% endif %}
                 </td>
                 <td class="text-nowrap">
                     <a href="{{ url_for('notes.edit_note', note_id=note.id) }}" class="btn btn-sm btn-outline-primary me-1" title="編集"><i class="fas fa-edit fa-fw"></i></a>
+                    {# ▼▼▼ 削除ボタンをフォームに変更し、CSRFトークンを追加 ▼▼▼ #}
                     <form action="{{ url_for('notes.delete_note', note_id=note.id) }}" method="POST" class="d-inline" onsubmit="return confirm('このノートを削除してもよろしいですか？');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                         <button type="submit" class="btn btn-sm btn-outline-danger" title="削除"><i class="fas fa-trash fa-fw"></i></button>
                     </form>
-                    {# --- ▼▼▼ Misskey共有ボタン (data-todosの引用符修正) ▼▼▼ --- #}
+                    {# ▲▲▲ 修正ここまで ▲▲▲ #}
                     <button class="btn btn-sm btn-info btn-share-misskey ms-1"
                             data-type="note"
                             data-category="{{ note.category }}"
@@ -127,13 +139,10 @@
                             data-title="{{ note.title or '' }}"
                             data-vehicle-name="{{ note.motorcycle.name if note.motorcycle else '' }}"
                             data-content="{{ (note.content[:100] + '...') if note.category == 'note' and note.content and note.content|length > 100 else (note.content or '') if note.category == 'note' else '' }}"
-                            {# --- ▼▼▼ 属性値をシングルクォートで囲む ▼▼▼ --- #}
                             data-todos='{{ note.todos | tojson | safe if note.category == "task" and note.todos else "" }}'
-                            {# --- ▲▲▲ 属性値の囲み文字を変更 ▲▲▲ --- #}
                             title="Misskeyで共有">
                         <i class="fa-solid fa-share-nodes fa-fw"></i>
                     </button>
-                    {# --- ▲▲▲ Misskey共有ボタン追加ここまで ▲▲▲ --- #}
                 </td>
             </tr>
             {% endfor %}
@@ -141,7 +150,7 @@
     </table>
 </div>
 
-{# --- ページネーション (変更なし) --- #}
+{# --- ページネーション --- #}
 {% if pagination and pagination.pages > 1 %}
 <nav aria-label="Page navigation">
     <ul class="pagination justify-content-center">
@@ -155,19 +164,17 @@
 </nav>
 {% endif %}
 
-{% else %} {# if entries の終わり #}
+{% else %} 
 <div class="alert alert-info" role="alert">
   まだノートが登録されていません。「新しいノートを追加」ボタンから最初のノートを登録しましょう。
 </div>
-{% endif %} {# if entries の終わり #}
+{% endif %}
 
 {% endblock %}
 
-{# --- JavaScript --- #}
 {% block scripts %}
-{{ super() }} {# base.html のスクリプトを継承 #}
+{{ super() }}
 <script>
-// Bootstrap Tooltipの初期化 (変更なし)
 document.addEventListener('DOMContentLoaded', function() {
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
     var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
@@ -175,8 +182,6 @@ document.addEventListener('DOMContentLoaded', function() {
     })
 });
 </script>
-
-{# --- ▼▼▼ Misskey共有用JavaScript (デバッグログはそのまま) ▼▼▼ --- #}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const misskeyInstanceDomain = {{ misskey_instance_domain | tojson | safe }};
@@ -199,16 +204,8 @@ document.addEventListener('DOMContentLoaded', function() {
             if (recordType === 'note') {
                 const category = dataset.category;
                 const title = dataset.title;
-                const content = dataset.content;
+                const content = dataset.content; // data-content から取得
                 const todosJson = dataset.todos;
-
-                console.log("Share button clicked for note.");
-                console.log("Category:", category);
-                console.log("Title:", title);
-                console.log("Vehicle Name:", vehicleName);
-                console.log("Date:", recordDate);
-                console.log("Content (data-content):", content);
-                console.log("Todos JSON string (data-todos):", todosJson); // <<< この値を確認
 
                 let categoryIcon = category === 'task' ? '✅' : '📝';
                 let categoryHashtag = category === 'task' ? '#タスク' : '#ノート';
@@ -218,50 +215,34 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (vehicleName) { shareText += `車両: ${vehicleName}\n`; }
                 shareText += `日付: ${displayDate}\n`;
 
-                if (category === 'task' && todosJson) {
-                    console.log("Processing TODO list...");
+                if (category === 'task' && todosJson && todosJson.length > 2) { // JSONが空配列 '[]' でないことを確認
                     try {
-                        const todos = JSON.parse(todosJson); // <<< ここでエラーになっていた
-                        console.log("Parsed Todos:", todos);
+                        const todos = JSON.parse(todosJson);
                         if (Array.isArray(todos) && todos.length > 0) {
                             shareText += "TODO:\n";
                             todos.forEach((item, index) => {
-                                console.log(`Processing TODO item ${index}:`, item);
                                 if (item && typeof item.text !== 'undefined' && typeof item.checked !== 'undefined') {
                                     shareText += `${item.checked ? '[x]' : '[ ]'} ${item.text}\n`;
-                                } else {
-                                     console.warn(`Invalid TODO item format at index ${index}:`, item);
                                 }
                             });
-                        } else {
-                            console.log("Todos array is empty or not an array after parse.");
                         }
                     } catch (e) {
-                        console.error("Error parsing TODO JSON:", e);
+                        console.error("Error parsing TODO JSON for Misskey share:", e, "JSON string was:", todosJson);
                     }
                 } else if (category === 'note' && content) {
-                    console.log("Processing note content...");
                     shareText += `内容: ${content}\n`;
                 }
-
                 shareText += baseHashtags + " " + categoryHashtag;
-
             }
-            else if (recordType === 'fuel') { /* ... (変更なし) ... */ }
-            else if (recordType === 'maintenance') { /* ... (変更なし) ... */ }
+            // 他の recordType (fuel, maintenance) の処理は省略
 
-            console.log("Generated Share Text:", shareText);
             if (shareText) {
                 const encodedText = encodeURIComponent(shareText);
                 const shareUrl = `https://${misskeyInstanceDomain}/share?text=${encodedText}`;
-                console.log("Opening Share URL:", shareUrl);
                 window.open(shareUrl, '_blank', 'noopener,noreferrer');
-            } else {
-                console.log("Share text is empty, not opening window.");
             }
         });
     });
 });
 </script>
-{# --- ▲▲▲ Misskey共有用JavaScript ここまで ▲▲▲ --- #}
 {% endblock %}

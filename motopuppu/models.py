@@ -192,7 +192,7 @@ class GeneralNote(db.Model):
     motorcycle_id = db.Column(db.Integer, db.ForeignKey('motorcycles.id', ondelete='SET NULL'), nullable=True)
     note_date = db.Column(db.Date, nullable=False)
     title = db.Column(db.String(150), nullable=True)
-    content = db.Column(db.Text, nullable=False)
+    content = db.Column(db.Text, nullable=True)
     category = db.Column(db.String(20), nullable=False, default='note', server_default='note', index=True)
     todos = db.Column(JSONB, nullable=True)
     created_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
