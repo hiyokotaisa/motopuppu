@@ -123,9 +123,12 @@
                  </td>
                 <td class="text-nowrap">
                     <a href="{{ url_for('fuel.edit_fuel', entry_id=entry.id) }}" class="btn btn-sm btn-outline-primary me-1" title="編集"><i class="fas fa-edit fa-fw"></i></a>
+                    {# --- ▼▼▼ 削除フォームに CSRF トークンを追加 ▼▼▼ --- #}
                     <form action="{{ url_for('fuel.delete_fuel', entry_id=entry.id) }}" method="POST" class="d-inline" onsubmit="return confirm('この給油記録を削除してもよろしいですか？');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/> {# CSRFトークンを追加 #}
                         <button type="submit" class="btn btn-sm btn-outline-danger" title="削除"><i class="fas fa-trash fa-fw"></i></button>
                     </form>
+                    {# --- ▲▲▲ 修正ここまで ▲▲▲ --- #}
                     {# --- ▼▼▼ Misskey共有ボタン (元のコードのまま) ▼▼▼ --- #}
                     <button class="btn btn-sm btn-info btn-share-misskey ms-1"
                             data-type="fuel"
