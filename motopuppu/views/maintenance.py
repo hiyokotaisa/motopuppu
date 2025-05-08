@@ -1,4 +1,3 @@
-# motopuppu/views/maintenance.py
 from flask import (
     Blueprint, flash, g, redirect, render_template, request, url_for, abort, current_app
 )
@@ -18,6 +17,7 @@ def _update_reminder_last_done(maintenance_entry: MaintenanceEntry):
     最終実施日と最終実施距離を更新する。
     照合は整備記録のカテゴリとリマインダーのタスク内容で行う (ケースインセンシティブ)。
     """
+    # (このヘルパー関数のロジックは変更なし)
     if not maintenance_entry or not maintenance_entry.category:
         current_app.logger.debug(f"Skipping reminder update for maintenance {maintenance_entry.id}: No category.")
         return
@@ -66,7 +66,6 @@ def _update_reminder_last_done(maintenance_entry: MaintenanceEntry):
             
             if not update_needed and matched_reminder.last_done_date is not None and maintenance_entry.maintenance_date == matched_reminder.last_done_date and \
                matched_reminder.last_done_km is None and maintenance_entry.total_distance_at_maintenance is not None:
-                # 日付は同じだが、リマインダーに距離がなく、整備記録に距離がある場合 -> 距離を更新
                 matched_reminder.last_done_km = maintenance_entry.total_distance_at_maintenance
                 update_needed = True
                 current_app.logger.info(f"{log_prefix} Updating last_done_km to {matched_reminder.last_done_km} (Date was same, KM was missing).")
@@ -74,8 +73,6 @@ def _update_reminder_last_done(maintenance_entry: MaintenanceEntry):
 
             if not update_needed:
                  current_app.logger.debug(f"{log_prefix} No update needed for reminder based on this maintenance entry.")
-            # db.session.add(matched_reminder) はコミット前なら不要 (オブジェクトがセッション管理下のため)
-
         except Exception as e:
             current_app.logger.error(f"Error updating reminder {matched_reminder.id} for maintenance entry {maintenance_entry.id}: {e}", exc_info=True)
     else:
@@ -86,7 +83,7 @@ def _update_reminder_last_done(maintenance_entry: MaintenanceEntry):
 @login_required_custom
 def maintenance_log():
     """整備記録の一覧を表示 (フィルター・ソート機能付き)"""
-    # (このルートのロジックはFlask-WTF導入の影響を直接受けないため、ほぼ変更なし)
+    # (このルートのロジックは変更なし)
     start_date_str = request.args.get('start_date')
     end_date_str = request.args.get('end_date')
     vehicle_id_str = request.args.get('vehicle_id')
@@ -145,7 +142,6 @@ def maintenance_log():
         'vehicle': Motorcycle.name,
         'odo': MaintenanceEntry.total_distance_at_maintenance,
         'category': MaintenanceEntry.category,
-        # 'total_cost' はモデルのプロパティなので直接ソートは難しい。必要なら別途対応。
     }
     current_sort_by = sort_by if sort_by in sort_column_map else 'date'
     sort_column = sort_column_map.get(current_sort_by)
@@ -157,9 +153,9 @@ def maintenance_log():
             query = query.order_by(sort_modifier(MaintenanceEntry.maintenance_date), desc(MaintenanceEntry.total_distance_at_maintenance))
         elif current_sort_by == 'odo':
             query = query.order_by(sort_modifier(MaintenanceEntry.total_distance_at_maintenance), desc(MaintenanceEntry.maintenance_date))
-        else: # vehicle, category
+        else: 
             query = query.order_by(sort_modifier(sort_column), desc(MaintenanceEntry.maintenance_date))
-    else: # Default sort if sort_column is None (should not happen with current_sort_by logic)
+    else: 
         query = query.order_by(desc(MaintenanceEntry.maintenance_date), desc(MaintenanceEntry.total_distance_at_maintenance))
 
 
@@ -169,7 +165,7 @@ def maintenance_log():
     return render_template('maintenance_log.html',
                            entries=entries,
                            pagination=pagination,
-                           motorcycles=user_motorcycles, # フィルター用
+                           motorcycles=user_motorcycles, 
                            request_args=request_args_dict,
                            current_sort_by=current_sort_by,
                            current_order=current_order
@@ -197,34 +193,36 @@ def add_maintenance():
         if preselected_motorcycle_id and any(m.id == preselected_motorcycle_id for m in user_motorcycles):
             form.motorcycle_id.data = preselected_motorcycle_id
             
-        form.maintenance_date.data = date.today() # 整備日のデフォルトを今日に
+        form.maintenance_date.data = date.today() 
 
     if form.validate_on_submit():
         motorcycle = Motorcycle.query.filter_by(id=form.motorcycle_id.data, user_id=g.user.id).first()
         if not motorcycle:
             flash('選択された車両が見つかりません。再度お試しください。', 'danger')
-            # choicesを再設定してフォーム再表示
             form.motorcycle_id.choices = [(m.id, f"{m.name} ({m.maker or 'メーカー不明'})") for m in user_motorcycles]
             return render_template('maintenance_form.html', form_action='add', form=form, today_iso=date.today().isoformat())
 
-
-        total_distance = form.odometer_reading_at_maintenance.data + (motorcycle.odometer_offset or 0)
+        # ★ 修正 ★
+        # 総走行距離の計算 (ODO + 記録日時点のオフセット)
+        offset_at_maintenance_date = motorcycle.calculate_cumulative_offset_from_logs(target_date=form.maintenance_date.data)
+        total_distance = form.odometer_reading_at_maintenance.data + offset_at_maintenance_date
+        # ★ 修正ここまで ★
 
         new_entry = MaintenanceEntry(
             motorcycle_id=motorcycle.id,
             maintenance_date=form.maintenance_date.data,
             odometer_reading_at_maintenance=form.odometer_reading_at_maintenance.data,
-            total_distance_at_maintenance=total_distance,
+            total_distance_at_maintenance=total_distance, # ★ 修正された total_distance を使用
             description=form.description.data.strip(),
             location=form.location.data.strip() if form.location.data else None,
             category=form.category.data.strip() if form.category.data else None,
-            parts_cost=form.parts_cost.data, # IntegerFieldなのでNoneか整数
-            labor_cost=form.labor_cost.data, # IntegerFieldなのでNoneか整数
+            parts_cost=form.parts_cost.data, 
+            labor_cost=form.labor_cost.data, 
             notes=form.notes.data.strip() if form.notes.data else None
         )
         try:
             db.session.add(new_entry)
-            _update_reminder_last_done(new_entry) # リマインダー更新処理を呼び出し
+            _update_reminder_last_done(new_entry) 
             db.session.commit()
             flash('整備記録を追加しました。', 'success')
             return redirect(url_for('maintenance.maintenance_log'))
@@ -233,14 +231,13 @@ def add_maintenance():
             flash(f'記録のデータベース保存中にエラーが発生しました。詳細は管理者にお問い合わせください。', 'error')
             current_app.logger.error(f"Error saving new maintenance entry: {e}", exc_info=True)
             
-    elif request.method == 'POST': # バリデーション失敗時
+    elif request.method == 'POST': 
         form.motorcycle_id.choices = [(m.id, f"{m.name} ({m.maker or 'メーカー不明'})") for m in user_motorcycles]
-        # エラーメッセージはWTFormsがformオブジェクトに格納
 
     return render_template('maintenance_form.html',
                            form_action='add',
                            form=form,
-                           today_iso=date.today().isoformat() # テンプレートでデフォルト日付として使用する場合
+                           today_iso=date.today().isoformat() 
                            )
 
 
@@ -252,19 +249,22 @@ def edit_maintenance(entry_id):
                                .join(Motorcycle).filter(Motorcycle.user_id == g.user.id)\
                                .first_or_404()
     
-    form = MaintenanceForm(obj=entry) # 既存データをフォームにロード
-    # motorcycle_id は編集不可。現在の車両のみ選択肢として設定。
+    form = MaintenanceForm(obj=entry) 
     form.motorcycle_id.choices = [(entry.motorcycle.id, f"{entry.motorcycle.name} ({entry.motorcycle.maker or 'メーカー不明'})")]
-    form.motorcycle_id.data = entry.motorcycle_id # 確実に現在の車両IDを設定
+    form.motorcycle_id.data = entry.motorcycle.id 
 
     if form.validate_on_submit():
-        motorcycle = entry.motorcycle # 既存の車両情報をそのまま使用
+        motorcycle = entry.motorcycle 
 
-        total_distance = form.odometer_reading_at_maintenance.data + (motorcycle.odometer_offset or 0)
+        # ★ 修正 ★
+        # 総走行距離の計算 (ODO + 記録日時点のオフセット)
+        offset_at_maintenance_date = motorcycle.calculate_cumulative_offset_from_logs(target_date=form.maintenance_date.data)
+        total_distance = form.odometer_reading_at_maintenance.data + offset_at_maintenance_date
+        # ★ 修正ここまで ★
 
         entry.maintenance_date = form.maintenance_date.data
         entry.odometer_reading_at_maintenance = form.odometer_reading_at_maintenance.data
-        entry.total_distance_at_maintenance = total_distance # 再計算
+        entry.total_distance_at_maintenance = total_distance # ★ 修正された total_distance を使用
         entry.description = form.description.data.strip()
         entry.location = form.location.data.strip() if form.location.data else None
         entry.category = form.category.data.strip() if form.category.data else None
@@ -273,7 +273,7 @@ def edit_maintenance(entry_id):
         entry.notes = form.notes.data.strip() if form.notes.data else None
         
         try:
-            _update_reminder_last_done(entry) # リマインダー更新処理を呼び出し (更新後データで)
+            _update_reminder_last_done(entry) 
             db.session.commit()
             flash('整備記録を更新しました。', 'success')
             return redirect(url_for('maintenance.maintenance_log'))
@@ -282,15 +282,14 @@ def edit_maintenance(entry_id):
             flash(f'記録の更新中にエラーが発生しました。詳細は管理者にお問い合わせください。', 'error')
             current_app.logger.error(f"Error updating maintenance entry ID {entry_id}: {e}", exc_info=True)
 
-    elif request.method == 'POST': # バリデーション失敗時
+    elif request.method == 'POST': 
         form.motorcycle_id.choices = [(entry.motorcycle.id, f"{entry.motorcycle.name} ({entry.motorcycle.maker or 'メーカー不明'})")]
-        form.motorcycle_id.data = entry.motorcycle_id
-        # エラーメッセージはWTFormsがformオブジェクトに格納
+        form.motorcycle_id.data = entry.motorcycle.id
 
     return render_template('maintenance_form.html',
                            form_action='edit',
                            form=form,
-                           entry_id=entry.id, # action URL生成用
+                           entry_id=entry.id, 
                            today_iso=date.today().isoformat()
                            )
 
