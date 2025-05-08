@@ -6,6 +6,13 @@
 {% block content %}
 <h2>給油記録ログ</h2>
 
+{# 「新しい給油記録を追加」ボタンをここに移動 #}
+<div class="mb-3">
+     <a href="{{ url_for('fuel.add_fuel') }}" class="btn btn-success">
+        <i class="fas fa-plus me-1"></i> 新しい給油記録を追加
+    </a>
+</div>
+
 {# --- フィルターフォーム (変更なし) --- #}
 <form method="GET" action="{{ url_for('fuel.fuel_log') }}" class="mb-4 p-3 border rounded bg-light">
     <div class="row g-3 align-items-end">
@@ -175,13 +182,6 @@
   表示できる給油記録がありません。
 </div>
 {% endif %}
-
-{# --- 追加ボタン (変更なし) --- #}
-<div class="mt-4">
-     <a href="{{ url_for('fuel.add_fuel') }}" class="btn btn-success">
-        <i class="fas fa-plus me-1"></i> 新しい給油記録を追加
-    </a>
-</div>
 
 {% endblock %}
 
