@@ -5,14 +5,21 @@
 
 {% block content %}
 <div class="px-4 py-5 my-5 text-center">
-    <h1 class="display-5 fw-bold">もとぷっぷー</h1>
+    {# ▼▼▼ ここを修正 ▼▼▼ #}
+    <h1 class="display-5 fw-bold">
+        {# 画像ファイルを指定し、サイズや配置を調整 #}
+        <img src="{{ url_for('static', filename='images/blobcat_8bit.webp') }}" 
+             alt="blobcat_8bit" 
+             width="60" 
+             height="60" 
+             class="me-2 align-middle"> {# me-2で右に少しスペース、align-middleで縦中央揃え #}
+        もとぷっぷー
+    </h1>
+    {# ▲▲▲ 修正ここまで ▲▲▲ #}
     <div class="col-lg-6 mx-auto">
       <p class="lead mb-4">あなたのバイクライフを記録しよう。</p>
       <div class="d-grid gap-2 d-sm-flex justify-content-sm-center">
-        {# ログインページへのリンク #}
         <a href="{{ url_for('auth.login_page') }}" class="btn btn-primary btn-lg px-4 gap-3">ログイン</a>
-        {# GitHubリポジトリへのリンクなど (任意) #}
-        {# <a href="#" class="btn btn-outline-secondary btn-lg px-4">GitHub</a> #}
       </div>
     </div>
   </div>
