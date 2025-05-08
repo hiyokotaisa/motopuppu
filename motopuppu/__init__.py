@@ -7,9 +7,9 @@ from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
 from flask_migrate import Migrate
-from flask_wtf.csrf import CSRFProtect # Flask-WTF導入時にコメント解除済み
+from flask_wtf.csrf import CSRFProtect
 import logging
-import subprocess # ★ ローカル開発時のgitコマンド実行用にインポート ★
+import subprocess # ローカル開発時のgitコマンド実行用にインポート
 
 # .envファイルから環境変数を読み込む
 dotenv_path = os.path.join(os.path.dirname(__file__), '..', '.env')
@@ -21,51 +21,9 @@ else:
 
 db = SQLAlchemy()
 migrate = Migrate()
-csrf = CSRFProtect() # Flask-WTF導入時にコメント解除済み
+csrf = CSRFProtect()
 
-# --- ▼▼▼ ビルド情報読み込みヘルパー関数 ▼▼▼ ---
-def get_build_info_from_files(app):
-    """
-    プロジェクトルートにある想定の .git_commit と .build_date ファイルから
-    ビルド情報を読み込み、整形された文字列を返す。
-    ファイルが見つからない場合は 'N/A' を含む文字列を返す。
-    """
-    commit = 'N/A'
-    build_date = 'N/A'
-    # Render環境などでの一般的なプロジェクトルートからの相対パス
-    commit_file = '.git_commit' 
-    date_file = '.build_date'
-    
-    try:
-        # アプリケーションのルートディレクトリを取得 (例: /opt/render/project/src)
-        # __file__ は __init__.py のパスなので、その親ディレクトリが motopuppu、さらにその親がプロジェクトルート
-        base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-        commit_file_path = os.path.join(base_dir, commit_file)
-        date_file_path = os.path.join(base_dir, date_file)
-
-        # コミットハッシュファイルの読み込み
-        with open(commit_file_path, 'r') as f:
-            commit = f.read().strip()
-    except FileNotFoundError:
-        # ファイルがない場合は警告ログを出す（エラーにはしない）
-        app.logger.warning(f"Build info file not found: {commit_file_path}") 
-    except Exception as e:
-         # その他の読み込みエラー
-         app.logger.error(f"Error reading {commit_file_path}: {e}")
-
-    try:
-        # ビルド日時ファイルの読み込み
-        with open(date_file_path, 'r') as f:
-            build_date = f.read().strip()
-    except FileNotFoundError:
-        app.logger.warning(f"Build info file not found: {date_file_path}")
-    except Exception as e:
-        app.logger.error(f"Error reading {date_file_path}: {e}")
-
-    # 表示用文字列の組み立て
-    return f"Commit: {commit} / Built: {build_date}"
-# --- ▲▲▲ ヘルパー関数ここまで ▲▲▲ ---
-
+# ★★★ ファイル読み込みヘルパー関数は削除 ★★★
 
 def create_app(config_name=None):
     """Flaskアプリケーションインスタンスを作成するファクトリ関数"""
@@ -117,7 +75,7 @@ def create_app(config_name=None):
         app.register_blueprint(maintenance.maintenance_bp)
         app.register_blueprint(notes.notes_bp)
 
-        if app.config['ENV'] == 'development':
+        if app.config['ENV'] == 'development' or app.debug: # デバッグモードでも開発用BPを有効にする
             app.register_blueprint(dev_auth.dev_auth_bp)
             app.logger.info("Registered development blueprint: dev_auth")
 
@@ -132,38 +90,50 @@ def create_app(config_name=None):
         return f"Hello from Flask! SECRET_KEY Status: {key_status}"
 
     # --- コンテキストプロセッサ ---
-    # ▼▼▼ 既存のコンテキストプロセッサを修正 ▼▼▼
+    # ▼▼▼ コンテキストプロセッサを修正 ▼▼▼
     @app.context_processor
     def inject_global_variables():
-        # まずファイルからビルド情報を取得試行
-        build_info = get_build_info_from_files(app)
+        commit_hash_short = 'N/A'
+        source_info = "" # どこから情報を取得したかの補助情報
 
-        # --- ローカル開発環境向けのフォールバック (ファイルがない場合) ---
-        # Render環境以外 (例: ローカル) でファイルが見つからず 'N/A' が含まれ、
-        # かつデバッグモードが有効な場合にGitコマンドを試す
-        if 'N/A' in build_info and app.debug: 
-            app.logger.info("Build info files not found, attempting to get info via git command (debug mode).")
+        # 1. Render 環境変数を試す (最優先)
+        render_commit = os.environ.get('RENDER_GIT_COMMIT')
+        if render_commit:
+            commit_hash_short = render_commit[:7] # 短いハッシュ
+            source_info = "(Render Build)"
+        
+        # 2. ローカル開発環境向けのフォールバック (Render環境変数がない場合)
+        elif app.debug: 
+            app.logger.info("RENDER_GIT_COMMIT not found, attempting to get info via git command (debug mode).")
             try:
                  # git rev-parse --short HEAD を実行してコミットハッシュを取得
-                 commit = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD'], cwd=app.root_path).decode('utf-8').strip()
-                 # ローカルのビルド時間は正確ではないので固定文字列など
-                 build_info = f"Commit: {commit} / Built: (local dev)" 
+                 commit_hash_short = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD'], cwd=app.root_path).decode('utf-8').strip()
+                 source_info = "(local dev)" 
             except FileNotFoundError:
                  app.logger.warning("Git command not found. Cannot determine commit hash.")
-                 build_info = "Commit: N/A / Built: (local dev - git not found)" # gitコマンドが見つからない場合
+                 commit_hash_short = "N/A"
+                 source_info = "(local dev - git not found)"
             except subprocess.CalledProcessError:
                  app.logger.warning("Not a git repository or no commits yet.")
-                 build_info = "Commit: N/A / Built: (local dev - not a git repo?)" # gitリポジトリでない場合
+                 commit_hash_short = "N/A"
+                 source_info = "(local dev - not a git repo?)"
             except Exception as e:
                  app.logger.error(f"Error getting git info locally: {e}")
-                 build_info = "Commit: N/A / Built: (local dev - error)" # その他のエラー
-        # --- フォールバックここまで ---
+                 commit_hash_short = "N/A"
+                 source_info = "(local dev - error)"
         
+        # 3. 上記いずれでも取得できなかった場合
+        else:
+            commit_hash_short = "N/A"
+            source_info = "(unknown)"
+            
+        # 表示用文字列を組み立てる
+        build_version_string = f"Commit: {commit_hash_short} {source_info}".strip()
+
         # テンプレートで使う変数を辞書で返す
         return {
             'current_year': datetime.datetime.now(datetime.timezone.utc).year,
-            'build_version': build_info # ファイル or git or 'N/A' が入る
-            # 'app_version' は削除 (build_version に統合)
+            'build_version': build_version_string 
         }
     # --- ▲▲▲ 修正ここまで ▲▲▲ ---
 
