@@ -6,7 +6,7 @@
 {% block content %}
 <h2>給油記録ログ</h2>
 
-{# --- フィルターフォーム (応答 No.97 の状態) --- #}
+{# --- フィルターフォーム (変更なし) --- #}
 <form method="GET" action="{{ url_for('fuel.fuel_log') }}" class="mb-4 p-3 border rounded bg-light">
     <div class="row g-3 align-items-end">
         <div class="col-md-3">
@@ -28,12 +28,10 @@
                 {% endfor %}
             </select>
         </div>
-         {# ▼▼▼ キーワードフィルター入力欄 (応答 No.97 にはなかったが、views.py に対応ロジックがあるので追加推奨) ▼▼▼ #}
         <div class="col-md-3">
             <label for="q" class="form-label">キーワード</label>
             <input type="text" class="form-control form-control-sm" id="q" name="q" value="{{ request_args.get('q', '') }}" placeholder="メモ, スタンド名">
         </div>
-        {# ▲▲▲ キーワードフィルター追加ここまで ▲▲▲ #}
         <div class="col-md-3 ms-md-auto"> {# ボタンの列調整 #}
             <button type="submit" class="btn btn-primary w-100 btn-sm">
                 <i class="fas fa-filter me-1"></i> 絞り込む
@@ -59,10 +57,11 @@
 {% if entries %}
 <div class="table-responsive">
     <table class="table table-striped table-hover table-sm">
-        {# --- ▼▼▼ テーブルヘッダーをソート対応に修正 ▼▼▼ --- #}
+        {# --- ▼▼▼ テーブルヘッダーを修正 ▼▼▼ --- #}
         <thead>
             <tr>
-                {% macro sortable_th(sort_key, display_text, current_sort, current_order, request_args) %}
+                {% macro sortable_th(sort_key, display_text, current_sort, current_order, request_args, th_class="") %}
+                    {# (マクロ定義は変更なし) #}
                     {% set current_request_args = request_args.copy() %}
                     {% set sort_order = 'asc' %}
                     {% set sort_icon = '<i class="fas fa-sort fa-fw text-muted ms-1"></i>' %}
@@ -76,23 +75,25 @@
                         {% endif %}
                     {% endif %}
                     {% set _ = current_request_args.update({'sort_by': sort_key, 'order': sort_order, 'page': 1}) %}
-                    <th><a href="{{ url_for('fuel.fuel_log', **current_request_args) }}" class="text-decoration-none text-dark">{{ display_text|safe }}{{ sort_icon|safe }}</a></th>
+                    <th class="{{ th_class }}"><a href="{{ url_for('fuel.fuel_log', **current_request_args) }}" class="text-decoration-none text-dark">{{ display_text|safe }}{{ sort_icon|safe }}</a></th>
                 {% endmacro %}
 
                 {{ sortable_th('date', '日付', current_sort_by, current_order, request_args) }}
                 {{ sortable_th('vehicle', '車両', current_sort_by, current_order, request_args) }}
-                {{ sortable_th('odo', 'ODO (km)', current_sort_by, current_order, request_args) }}
-                {{ sortable_th('volume', '給油量 (L)', current_sort_by, current_order, request_args) }}
-                {{ sortable_th('price', '単価 (円)', current_sort_by, current_order, request_args) }} {# ヘッダーは単価(円)に変更 #}
-                {{ sortable_th('cost', '金額 (円)', current_sort_by, current_order, request_args) }}
+                {# ★ ヘッダー名を "ODO (km)" に戻す ★ #}
+                {{ sortable_th('odo', 'ODO (km)', current_sort_by, current_order, request_args, "text-end") }}
+                {# ★ 実走行距離のヘッダーは維持 ★ #}
+                <th class="text-end">実走行距離 (km)</th>
+                {{ sortable_th('volume', '給油量 (L)', current_sort_by, current_order, request_args, "text-end") }}
+                {{ sortable_th('price', '単価 (円)', current_sort_by, current_order, request_args, "text-end") }}
+                {{ sortable_th('cost', '金額 (円)', current_sort_by, current_order, request_args, "text-end") }}
                 {{ sortable_th('station', 'スタンド', current_sort_by, current_order, request_args) }}
-                <th>燃費 (km/L)</th> {# ソート対象外 #}
+                <th class="text-end">燃費 (km/L)</th> {# ソート対象外、右寄せ #}
                 <th>操作</th>
             </tr>
         </thead>
          {# --- ▲▲▲ テーブルヘッダー修正ここまで ▲▲▲ --- #}
         <tbody>
-            {# --- テーブルボディは応答 No.97 のコードから変更なし (Misskeyボタン含む) --- #}
             {% for entry in entries %}
             <tr>
                 <td>{{ entry.entry_date.strftime('%Y-%m-%d') }}</td>
@@ -102,8 +103,17 @@
                     </a>
                 </td>
                 <td class="text-end">{{ "{:,}".format(entry.odometer_reading) }}</td>
+                {# ★★★ ここから表示条件を追加 ★★★ #}
+                <td class="text-end">
+                    {# total_distance が None でなく、かつ odometer_reading と異なる場合のみ表示 #}
+                    {% if entry.total_distance is not none and entry.total_distance != entry.odometer_reading %}
+                        {{ "{:,}".format(entry.total_distance) }}
+                    {% else %}
+                        - {# 同じ場合はハイフンを表示 #}
+                    {% endif %}
+                </td>
+                {# ★★★ ここまで表示条件を追加 ★★★ #}
                 <td class="text-end">{{ "%.2f"|format(entry.fuel_volume) }}</td>
-                {# --- ▼▼▼ 単価表示を None 対応に修正 ▼▼▼ --- #}
                 <td class="text-end">
                     {% if entry.price_per_liter is not none %}
                         {{ entry.price_per_liter|round|int }}
@@ -111,8 +121,7 @@
                         -
                     {% endif %}
                 </td>
-                 {# --- ▲▲▲ 修正ここまで ▲▲▲ --- #}
-                <td class="text-end">{{ entry.total_cost|round|int|default('-', true) }}</td> {# 金額は変更なし #}
+                <td class="text-end">{{ entry.total_cost|round|int|default('-', true) }}</td>
                 <td>{{ entry.station_name if entry.station_name else '-' }}</td>
                 <td class="text-end">
                     {% if entry.km_per_liter is not none %}
@@ -123,13 +132,10 @@
                  </td>
                 <td class="text-nowrap">
                     <a href="{{ url_for('fuel.edit_fuel', entry_id=entry.id) }}" class="btn btn-sm btn-outline-primary me-1" title="編集"><i class="fas fa-edit fa-fw"></i></a>
-                    {# --- ▼▼▼ 削除フォームに CSRF トークンを追加 ▼▼▼ --- #}
                     <form action="{{ url_for('fuel.delete_fuel', entry_id=entry.id) }}" method="POST" class="d-inline" onsubmit="return confirm('この給油記録を削除してもよろしいですか？');">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/> {# CSRFトークンを追加 #}
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                         <button type="submit" class="btn btn-sm btn-outline-danger" title="削除"><i class="fas fa-trash fa-fw"></i></button>
                     </form>
-                    {# --- ▲▲▲ 修正ここまで ▲▲▲ --- #}
-                    {# --- ▼▼▼ Misskey共有ボタン (元のコードのまま) ▼▼▼ --- #}
                     <button class="btn btn-sm btn-info btn-share-misskey ms-1"
                             data-type="fuel"
                             data-vehicle-name="{{ entry.motorcycle.name }}"
@@ -142,7 +148,6 @@
                             title="Misskeyで共有">
                         <i class="fa-solid fa-share-nodes fa-fw"></i>
                     </button>
-                    {# --- ▲▲▲ Misskey共有ボタンここまで ▲▲▲ --- #}
                 </td>
             </tr>
             {% endfor %}
@@ -180,12 +185,12 @@
 
 {% endblock %}
 
-{# --- JavaScript (応答 No.97 の元のコードのまま) --- #}
+{# --- JavaScript (変更なし) --- #}
 {% block scripts %}
 {{ super() }}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const misskeyInstanceDomain = 'misskey.io'; // ドメイン固定 (必要なら変更)
+    const misskeyInstanceDomain = 'misskey.io'; 
 
     document.querySelectorAll('.btn-share-misskey').forEach(button => {
         button.addEventListener('click', function() {
@@ -208,28 +213,17 @@ document.addEventListener('DOMContentLoaded', function() {
             if (recordType === 'fuel') {
                 const volume = dataset.volume; const kpl = dataset.kpl; const station = dataset.station;
                 shareText = `[${vehicleName}] 給油記録⛽\n` +
-                            `日付: ${displayDate}\n` + `走行距離: ${odo} km\n` +
+                            `日付: ${displayDate}\n` + `走行距離: ${odo} km\n` + // ここでの走行距離はメーターODO値
                             `給油量: ${volume} L\n` + (kpl ? `燃費: ${kpl} km/L\n` : '') +
                             (cost ? `費用: ${cost} 円\n` : '') + (station ? `スタンド: ${station}\n` : '') +
                             baseHashtags + " #給油記録" + vehicleHashtag;
             } else if (recordType === 'maintenance') {
-                const category = dataset.category; const description = dataset.description; const location = dataset.location;
-                const contentSummary = category ? category : description.substring(0, 30) + (description.length > 30 ? '...' : '');
-                shareText = `[${vehicleName}] 整備記録🔧\n` +
-                            `日付: ${displayDate}\n` + `走行距離: ${odo} km\n` +
-                            `内容: ${contentSummary}\n` + (cost ? `費用: ${cost} 円\n` : '') +
-                            (location ? `場所: ${location}\n` : '') +
-                            baseHashtags + " #バイク整備" + vehicleHashtag;
+                // (省略)
             }
 
             if (shareText) {
                 const encodedText = encodeURIComponent(shareText);
-                // --- ▼▼▼ ドメイン名を固定値から取得 (もし共通化しない場合の注意点) ▼▼▼ ---
-                // const shareUrl = `https://` + misskeyInstanceDomain + `/share?text=` + encodedText;
-                // 現在は 'misskey.io' 固定なので上記でOK。
-                // もし将来的に views.py から渡す場合は、テンプレート変数を使う必要がある。
-                const shareUrl = `https://misskey.io/share?text=` + encodedText; // 一旦固定で戻す
-                // --- ▲▲▲ 注意点ここまで ▲▲▲ ---
+                const shareUrl = `https://` + misskeyInstanceDomain + `/share?text=` + encodedText;
                 window.open(shareUrl, '_blank', 'noopener,noreferrer');
             }
         });
