@@ -1,10 +1,8 @@
-# motopuppu/models.py
-
 from . import db
 from datetime import datetime, date # date をインポートリストに追加 (または確認)
 from sqlalchemy.dialects.postgresql import JSONB
 # インデックス定義のために追加
-from sqlalchemy import Index
+from sqlalchemy import Index, func # func をインポートリストに追加
 
 # --- データベースモデル定義 ---
 
@@ -40,22 +38,18 @@ class Motorcycle(db.Model):
     
     odo_reset_logs = db.relationship(
         'OdoResetLog',
-        backref='motorcycle',
+        backref='motorcycle', # motorcycle_obj から motorcycle に戻す (FuelEntry等と合わせる)
         lazy='dynamic',
         order_by="desc(OdoResetLog.reset_date)", 
         cascade="all, delete-orphan" 
     )
 
-    # ▼▼▼ ヘルパーメソッドを追加 ▼▼▼
     def calculate_cumulative_offset_from_logs(self, target_date=None):
         """
         指定された日付（またはそれ以前）のOdoResetLogに基づいて
         累積オフセット値を計算する。
         target_dateがNoneの場合は、すべて（最新）のログを対象とする。
         """
-        # OdoResetLog をインポート (メソッド内インポートは必要に応じて)
-        # from .models import OdoResetLog # 通常はファイル先頭でインポートされていれば不要
-
         query = db.session.query(
             db.func.sum(OdoResetLog.offset_increment)
         ).filter(
@@ -67,7 +61,53 @@ class Motorcycle(db.Model):
         result = query.scalar() # 合計値を取得 (結果がない場合はNone)
 
         return result if result is not None else 0 # 結果がNoneなら0を返す
-    # ▲▲▲ ヘルパーメソッドここまで ▲▲▲
+
+    # ▼▼▼ ここから新しいメソッドを追加 ▼▼▼
+    def get_display_total_mileage(self):
+        """
+        この車両の表示用の総走行距離を取得します。
+        main.py の get_latest_total_distance 関数のロジックを適用。
+        """
+        latest_fuel_dist = db.session.query(func.max(FuelEntry.total_distance)).filter(FuelEntry.motorcycle_id == self.id).scalar() or 0
+        latest_maint_dist = db.session.query(func.max(MaintenanceEntry.total_distance_at_maintenance)).filter(MaintenanceEntry.motorcycle_id == self.id).scalar() or 0
+        
+        current_offset = self.odometer_offset if self.odometer_offset is not None else 0
+        
+        return max(latest_fuel_dist, latest_maint_dist, current_offset)
+
+    def get_display_average_kpl(self):
+        """
+        この車両の表示用の平均燃費 (km/L) を計算します。
+        main.py の calculate_average_kpl 関数のロジックを適用。
+        """
+        full_tank_entries = FuelEntry.query.filter(
+            FuelEntry.motorcycle_id == self.id, 
+            FuelEntry.is_full_tank == True
+        ).order_by(FuelEntry.total_distance.asc()).all()
+
+        if len(full_tank_entries) < 2:
+            return None
+
+        total_distance_traveled = full_tank_entries[-1].total_distance - full_tank_entries[0].total_distance
+        
+        first_entry_dist = full_tank_entries[0].total_distance
+        last_entry_dist = full_tank_entries[-1].total_distance
+        
+        entries_in_period = FuelEntry.query.filter(
+            FuelEntry.motorcycle_id == self.id,
+            FuelEntry.total_distance > first_entry_dist,
+            FuelEntry.total_distance <= last_entry_dist
+        ).all()
+        
+        total_fuel_consumed = sum(entry.fuel_volume for entry in entries_in_period if entry.fuel_volume is not None)
+
+        if total_fuel_consumed > 0 and total_distance_traveled > 0:
+            try:
+                return round(float(total_distance_traveled) / float(total_fuel_consumed), 2)
+            except ZeroDivisionError: # 念のため
+                return None
+        return None
+    # ▲▲▲ 新しいメソッドここまで ▲▲▲
 
     def __repr__(self):
         return f'<Motorcycle id={self.id} name={self.name}>'
