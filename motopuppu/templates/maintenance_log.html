@@ -1,52 +1,57 @@
 {# motopuppu/templates/maintenance_log.html #}
 {% extends "base.html" %}
 
-{% block title %}給油記録ログ - もとぷっぷー{% endblock %}
+{% block title %}整備記録ログ - もとぷっぷー{% endblock %}
 
 {% block content %}
-<h2>給油記録ログ</h2>
+<h2>整備記録ログ</h2>
 
-{# 「新しい給油記録を追加」ボタンをここに移動 #}
+{# 「新しい整備記録を追加」ボタンをここに移動 #}
 <div class="mb-3">
-     <a href="{{ url_for('fuel.add_fuel') }}" class="btn btn-success">
-        <i class="fas fa-plus me-1"></i> 新しい給油記録を追加
+    <a href="{{ url_for('maintenance.add_maintenance') }}" class="btn btn-success">
+        <i class="fas fa-plus me-1"></i> 新しい整備記録を追加
     </a>
 </div>
 
 {# --- フィルターフォーム (変更なし) --- #}
-<form method="GET" action="{{ url_for('fuel.fuel_log') }}" class="mb-4 p-3 border rounded bg-light">
+<form method="GET" action="{{ url_for('maintenance.maintenance_log') }}" class="mb-4 p-3 border rounded bg-light">
     <div class="row g-3 align-items-end">
-        <div class="col-md-3">
+        <div class="col-md-2">
             <label for="start_date" class="form-label">開始日</label>
             <input type="date" class="form-control form-control-sm" id="start_date" name="start_date" value="{{ request_args.get('start_date', '') }}">
         </div>
-        <div class="col-md-3">
+        <div class="col-md-2">
             <label for="end_date" class="form-label">終了日</label>
             <input type="date" class="form-control form-control-sm" id="end_date" name="end_date" value="{{ request_args.get('end_date', '') }}">
         </div>
-        <div class="col-md-3">
+        <div class="col-md-2">
             <label for="vehicle_id" class="form-label">車両</label>
             <select class="form-select form-select-sm" id="vehicle_id" name="vehicle_id">
-                <option value="">すべての車両</option>
+                <option value="">全車両</option>
                 {% for motorcycle in motorcycles %}
-                <option value="{{ motorcycle.id }}" {% if request_args.get('vehicle_id')|string == motorcycle.id|string %}selected{% endif %}>
+                <option value="{{ motorcycle.id }}" {% if request_args.get('vehicle_id')|int == motorcycle.id %}selected{% endif %}>
                     {{ motorcycle.name }}
                 </option>
                 {% endfor %}
             </select>
         </div>
-        <div class="col-md-3">
-            <label for="q" class="form-label">キーワード</label>
-            <input type="text" class="form-control form-control-sm" id="q" name="q" value="{{ request_args.get('q', '') }}" placeholder="メモ, スタンド名">
+        <div class="col-md-2">
+            <label for="category" class="form-label">カテゴリ</label>
+            <input type="text" class="form-control form-control-sm" id="category" name="category" value="{{ request_args.get('category', '') }}" placeholder="カテゴリ名(部分一致)">
         </div>
-        <div class="col-md-3 ms-md-auto"> {# ボタンの列調整 #}
-            <button type="submit" class="btn btn-primary w-100 btn-sm">
+        <div class="col-md-2">
+            <label for="q" class="form-label">キーワード</label>
+            <input type="text" class="form-control form-control-sm" id="q" name="q" value="{{ request_args.get('q', '') }}" placeholder="内容, 場所, メモ">
+        </div>
+        <div class="col-md-2">
+            <button type="submit" class="btn btn-primary btn-sm w-100">
                 <i class="fas fa-filter me-1"></i> 絞り込む
             </button>
-             <a href="{{ url_for('fuel.fuel_log') }}" class="btn btn-outline-secondary w-100 mt-1 btn-sm">リセット</a>
+            <a href="{{ url_for('maintenance.maintenance_log') }}" class="btn btn-outline-secondary btn-sm w-100 mt-1">リセット</a>
         </div>
     </div>
 </form>
+{# --- フィルターフォームここまで --- #}
 
 {# --- フラッシュメッセージ表示 (変更なし) --- #}
 {% with messages = get_flashed_messages(with_categories=true) %}
@@ -59,6 +64,7 @@
         {% endfor %}
     {% endif %}
 {% endwith %}
+{# --- フラッシュメッセージ表示 ここまで --- #}
 
 {# --- 記録テーブル --- #}
 {% if entries %}
@@ -67,8 +73,8 @@
         {# --- ▼▼▼ テーブルヘッダーを修正 ▼▼▼ --- #}
         <thead>
             <tr>
+                {# ソート用マクロ (変更なし) #}
                 {% macro sortable_th(sort_key, display_text, current_sort, current_order, request_args, th_class="") %}
-                    {# (マクロ定義は変更なし) #}
                     {% set current_request_args = request_args.copy() %}
                     {% set sort_order = 'asc' %}
                     {% set sort_icon = '<i class="fas fa-sort fa-fw text-muted ms-1"></i>' %}
@@ -77,84 +83,75 @@
                             {% set sort_order = 'desc' %}
                             {% set sort_icon = '<i class="fas fa-sort-up fa-fw ms-1"></i>' %}
                         {% else %}
-                            {# sort_order は 'asc' のまま #}
                             {% set sort_icon = '<i class="fas fa-sort-down fa-fw ms-1"></i>' %}
                         {% endif %}
                     {% endif %}
                     {% set _ = current_request_args.update({'sort_by': sort_key, 'order': sort_order, 'page': 1}) %}
-                    <th class="{{ th_class }}"><a href="{{ url_for('fuel.fuel_log', **current_request_args) }}" class="text-decoration-none text-dark">{{ display_text|safe }}{{ sort_icon|safe }}</a></th>
+                    <th class="{{ th_class }}"><a href="{{ url_for('maintenance.maintenance_log', **current_request_args) }}" class="text-decoration-none text-dark">{{ display_text|safe }}{{ sort_icon|safe }}</a></th>
                 {% endmacro %}
 
+                {# 各ヘッダーにソート用マクロを適用 #}
                 {{ sortable_th('date', '日付', current_sort_by, current_order, request_args) }}
                 {{ sortable_th('vehicle', '車両', current_sort_by, current_order, request_args) }}
-                {# ★ ヘッダー名を "ODO (km)" に戻す ★ #}
+                {# ★ ODO列: ソートキーは 'odo' のままだが、表示する内容は後で変更 ★ #}
                 {{ sortable_th('odo', 'ODO (km)', current_sort_by, current_order, request_args, "text-end") }}
-                {# ★ 実走行距離のヘッダーは維持 ★ #}
+                {# ★ 実走行距離のヘッダーを追加 ★ #}
                 <th class="text-end">実走行距離 (km)</th>
-                {{ sortable_th('volume', '給油量 (L)', current_sort_by, current_order, request_args, "text-end") }}
-                {{ sortable_th('price', '単価 (円)', current_sort_by, current_order, request_args, "text-end") }}
-                {{ sortable_th('cost', '金額 (円)', current_sort_by, current_order, request_args, "text-end") }}
-                {{ sortable_th('station', 'スタンド', current_sort_by, current_order, request_args) }}
-                <th class="text-end">燃費 (km/L)</th> {# ソート対象外、右寄せ #}
+                {{ sortable_th('category', 'カテゴリ', current_sort_by, current_order, request_args) }}
+                <th>内容</th> {# 内容はソート対象外 #}
+                <th class="text-end">費用 (円)</th> {# 費用はソート対象外 #}
                 <th>操作</th>
             </tr>
         </thead>
-         {# --- ▲▲▲ テーブルヘッダー修正ここまで ▲▲▲ --- #}
+        {# --- ▲▲▲ テーブルヘッダー修正ここまで ▲▲▲ --- #}
         <tbody>
             {% for entry in entries %}
             <tr>
-                <td>{{ entry.entry_date.strftime('%Y-%m-%d') }}</td>
+                <td>{{ entry.maintenance_date.strftime('%Y-%m-%d') }}</td>
                 <td>
                     <a href="{{ url_for('vehicle.edit_vehicle', vehicle_id=entry.motorcycle_id) }}" title="車両情報を見る">
                         {{ entry.motorcycle.name }}
                     </a>
                 </td>
-                <td class="text-end">{{ "{:,}".format(entry.odometer_reading) }}</td>
-                {# ★★★ ここから表示条件を追加 ★★★ #}
+                {# ★★★ ODO列: メーター表示値 (odometer_reading_at_maintenance) を表示 ★★★ #}
+                <td class="text-end">{{ "{:,}".format(entry.odometer_reading_at_maintenance) }}</td>
+                {# ★★★ ここから新しいセルを追加 (実走行距離) ★★★ #}
                 <td class="text-end">
-                    {# total_distance が None でなく、かつ odometer_reading と異なる場合のみ表示 #}
-                    {% if entry.total_distance is not none and entry.total_distance != entry.odometer_reading %}
-                        {{ "{:,}".format(entry.total_distance) }}
+                    {# 実走行距離が None でなく、かつ メーター表示値と異なる場合のみ表示 #}
+                    {% if entry.total_distance_at_maintenance is not none and entry.total_distance_at_maintenance != entry.odometer_reading_at_maintenance %}
+                        {{ "{:,}".format(entry.total_distance_at_maintenance) }}
                     {% else %}
                         - {# 同じ場合はハイフンを表示 #}
                     {% endif %}
                 </td>
-                {# ★★★ ここまで表示条件を追加 ★★★ #}
-                <td class="text-end">{{ "%.2f"|format(entry.fuel_volume) }}</td>
-                <td class="text-end">
-                    {% if entry.price_per_liter is not none %}
-                        {{ entry.price_per_liter|round|int }}
-                    {% else %}
-                        -
-                    {% endif %}
+                {# ★★★ ここまで新しいセルを追加 ★★★ #}
+                <td>{{ entry.category if entry.category else '-' }}</td>
+                <td>
+                    <span title="{{ entry.description }}" data-bs-toggle="tooltip" data-bs-placement="top">
+                        {{ entry.description|truncate(30) }}
+                    </span>
                 </td>
                 <td class="text-end">{{ entry.total_cost|round|int|default('-', true) }}</td>
-                <td>{{ entry.station_name if entry.station_name else '-' }}</td>
-                <td class="text-end">
-                    {% if entry.km_per_liter is not none %}
-                        {{ "%.2f"|format(entry.km_per_liter) }}
-                    {% else %}
-                        -
-                    {% endif %}
-                 </td>
                 <td class="text-nowrap">
-                    <a href="{{ url_for('fuel.edit_fuel', entry_id=entry.id) }}" class="btn btn-sm btn-outline-primary me-1" title="編集"><i class="fas fa-edit fa-fw"></i></a>
-                    <form action="{{ url_for('fuel.delete_fuel', entry_id=entry.id) }}" method="POST" class="d-inline" onsubmit="return confirm('この給油記録を削除してもよろしいですか？');">
+                    <a href="{{ url_for('maintenance.edit_maintenance', entry_id=entry.id) }}" class="btn btn-sm btn-outline-primary me-1" title="編集"><i class="fas fa-edit fa-fw"></i></a>
+                    <form action="{{ url_for('maintenance.delete_maintenance', entry_id=entry.id) }}" method="POST" class="d-inline" onsubmit="return confirm('この整備記録を削除してもよろしいですか？');">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                         <button type="submit" class="btn btn-sm btn-outline-danger" title="削除"><i class="fas fa-trash fa-fw"></i></button>
                     </form>
+                    {# ★★★ Misskey共有ボタンの data-odo を修正 ★★★ #}
                     <button class="btn btn-sm btn-info btn-share-misskey ms-1"
-                            data-type="fuel"
+                            data-type="maintenance"
                             data-vehicle-name="{{ entry.motorcycle.name }}"
-                            data-date="{{ entry.entry_date.isoformat() }}"
-                            data-odo="{{ entry.odometer_reading }}"
-                            data-volume="{{ entry.fuel_volume }}"
-                            data-kpl="{{ entry.km_per_liter if entry.km_per_liter is not none else '' }}"
-                            data-cost="{{ entry.total_cost|round|int if entry.total_cost is not none else '' }}"
-                            data-station="{{ entry.station_name or '' }}"
+                            data-date="{{ entry.maintenance_date.isoformat() }}"
+                            data-odo="{{ entry.odometer_reading_at_maintenance }}" {# ★ メーター表示値を渡すように変更 ★ #}
+                            data-category="{{ entry.category or '' }}"
+                            data-description="{{ entry.description }}"
+                            data-cost="{{ entry.total_cost|round|int if entry.total_cost else '' }}"
+                            data-location="{{ entry.location or '' }}"
                             title="Misskeyで共有">
                         <i class="fa-solid fa-share-nodes fa-fw"></i>
                     </button>
+                    {# ★★★ 修正ここまで ★★★ #}
                 </td>
             </tr>
             {% endfor %}
@@ -166,20 +163,29 @@
 {% if pagination and pagination.pages > 1 %}
 <nav aria-label="Page navigation">
     <ul class="pagination justify-content-center">
-        <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}"> <a class="page-link" href="{{ url_for('fuel.fuel_log', page=pagination.prev_num, **request_args) }}" aria-label="Previous"> <span aria-hidden="true">&laquo;</span> </a> </li>
+        <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+            <a class="page-link" href="{{ url_for('maintenance.maintenance_log', page=pagination.prev_num, sort_by=current_sort_by, order=current_order, **request_args) }}" aria-label="Previous">&laquo;</a>
+        </li>
         {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
-            {% if page_num %} <li class="page-item {% if page_num == pagination.page %}active{% endif %}"> <a class="page-link" href="{{ url_for('fuel.fuel_log', page=page_num, **request_args) }}">{{ page_num }}</a> </li>
-            {% else %} <li class="page-item disabled"><span class="page-link">...</span></li>
+            {% if page_num %}
+                <li class="page-item {% if page_num == pagination.page %}active{% endif %}">
+                    <a class="page-link" href="{{ url_for('maintenance.maintenance_log', page=page_num, sort_by=current_sort_by, order=current_order, **request_args) }}">{{ page_num }}</a>
+                </li>
+            {% else %}
+                <li class="page-item disabled"><span class="page-link">...</span></li>
             {% endif %}
         {% endfor %}
-        <li class="page-item {% if not pagination.has_next %}disabled{% endif %}"> <a class="page-link" href="{{ url_for('fuel.fuel_log', page=pagination.next_num, **request_args) }}" aria-label="Next"> <span aria-hidden="true">&raquo;</span> </a> </li>
+        <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+            <a class="page-link" href="{{ url_for('maintenance.maintenance_log', page=pagination.next_num, sort_by=current_sort_by, order=current_order, **request_args) }}" aria-label="Next">&raquo;</a>
+        </li>
     </ul>
 </nav>
 {% endif %}
+{# --- ページネーションここまで --- #}
 
 {% else %}
 <div class="alert alert-info" role="alert">
-  表示できる給油記録がありません。
+  表示できる整備記録がありません。
 </div>
 {% endif %}
 
@@ -187,44 +193,56 @@
 
 {# --- JavaScript (変更なし) --- #}
 {% block scripts %}
-{{ super() }}
+{{ super() }} {# base.html のスクリプトを継承 #}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const misskeyInstanceDomain = 'misskey.io'; 
+    // --- Bootstrap Tooltipの初期化 (変更なし) ---
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl)
+    })
 
+    // --- Misskey共有ボタンの処理 (変更なし) ---
+    const misskeyInstanceDomain = 'misskey.io'; 
     document.querySelectorAll('.btn-share-misskey').forEach(button => {
         button.addEventListener('click', function() {
             const dataset = this.dataset;
-            const recordType = dataset.type;
+            const recordType = dataset.type; 
             const vehicleName = dataset.vehicleName;
-            const recordDate = dataset.date;
-            const odo = dataset.odo;
+            const recordDate = dataset.date; 
+            const odo = dataset.odo; // ★ スクリプトは data-odo 属性から値を取得 ★
             const cost = dataset.cost;
 
             let shareText = "";
             const vehicleHashtag = vehicleName ? "\n#" + vehicleName.replace(/[\s#$&\+,:;=\?@\[\]\^`\{|\}~.]/g, '_') : '';
-            const baseHashtags = "\n#もとぷっぷー";
+            const baseHashtags = "\n#もとぷっぷー"; 
 
             let displayDate = recordDate;
             try {
                 displayDate = new Date(recordDate).toLocaleDateString('ja-JP', { year: 'numeric', month: 'short', day: 'numeric' });
-            } catch(e) { /* ignore */}
+            } catch(e) { /* 変換失敗時は元の形式 */}
 
             if (recordType === 'fuel') {
-                const volume = dataset.volume; const kpl = dataset.kpl; const station = dataset.station;
-                shareText = `[${vehicleName}] 給油記録⛽\n` +
-                            `日付: ${displayDate}\n` + `走行距離: ${odo} km\n` + // ここでの走行距離はメーターODO値
-                            `給油量: ${volume} L\n` + (kpl ? `燃費: ${kpl} km/L\n` : '') +
-                            (cost ? `費用: ${cost} 円\n` : '') + (station ? `スタンド: ${station}\n` : '') +
-                            baseHashtags + " #給油記録" + vehicleHashtag;
+                // (省略) fuel_log.html側のスクリプトで処理される想定
             } else if (recordType === 'maintenance') {
-                // (省略)
+                const category = dataset.category;
+                const description = dataset.description;
+                const location = dataset.location;
+                const contentSummary = category ? category : description.substring(0, 30) + (description.length > 30 ? '...' : '');
+
+                shareText = `[${vehicleName}] 整備記録🔧\n` +
+                            `日付: ${displayDate}\n` +
+                            `走行距離: ${odo} km\n` + // ★ ここには data-odo の値が入る ★
+                            `内容: ${contentSummary}\n` +
+                            (cost ? `費用: ${cost} 円\n` : '') +
+                            (location ? `場所: ${location}\n` : '') +
+                            baseHashtags + " #バイク整備" + vehicleHashtag;
             }
 
             if (shareText) {
                 const encodedText = encodeURIComponent(shareText);
                 const shareUrl = `https://` + misskeyInstanceDomain + `/share?text=` + encodedText;
-                window.open(shareUrl, '_blank', 'noopener,noreferrer');
+                window.open(shareUrl, '_blank', 'noopener,noreferrer'); 
             }
         });
     });
