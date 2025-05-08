@@ -1,128 +1,79 @@
 こんにちは、Gemini。Flask Webアプリケーション「もとぷっぷー」の開発支援をお願いします。
-
 1. プロジェクト概要:
-   - 名称: もとぷっぷー
-   - 目的: オートバイ所有者向けの車両情報、燃費、整備記録、リマインダー、メモ管理Webアプリ。
-   - 認証: Misskey MiAuth
-
+ * 名称: もとぷっぷー
+ * 目的: オートバイ所有者向けの車両情報、燃費、整備記録、リマインダー、メモ管理Webアプリ。
+ * 認証: Misskey MiAuth
 2. 主要技術スタック:
-   - バックエンド: Python, Flask, SQLAlchemy, PostgreSQL (本番: Render)
-   - フロントエンド: Jinja2, Bootstrap 5, JavaScript (jQuery, FullCalendar.io等)
-- フォーム処理: Flask-WTF (バリデーション、CSRF対策)
-   - DBマイグレーション: Flask-Migrate
-   - デプロイ: Render (Gunicorn)
-   - 開発環境: Podman (Mac/Fedora), Python venv
-   - その他: python-dotenv, requests, python-dateutil, zoneinfo (Python 3.9+)
-
+ * バックエンド: Python, Flask, SQLAlchemy, PostgreSQL (本番: Render)
+ * フロントエンド: Jinja2, Bootstrap 5, JavaScript (FullCalendar.io等)
+ * フォーム処理: Flask-WTF (バリデーション、CSRF対策)
+ * DBマイグレーション: Flask-Migrate (Alembic)
+ * デプロイ: Render (Gunicorn)
+ * 開発環境: Podman (Mac/Fedora), Python venv
+ * その他: python-dotenv, requests, python-dateutil, zoneinfo (Python 3.9+)
 3. アーキテクチャ・構成:
-   - 標準的なFlask構成（アプリケーションファクトリ使用）。
-   - 機能ごとにBlueprintを使用 (auth, main, vehicle, fuel, maintenance, notes, dev_auth など)。
-   * models.py にDBモデル定義。
-* forms.py にFlask-WTFフォームクラス定義。
-   * motopuppu/views/ 以下に各Blueprintのルート定義。
-   * templates/, static/ ディレクトリ。
-
+ * 標準的なFlask構成（アプリケーションファクトリ使用）。
+ * 機能ごとにBlueprintを使用 (auth, main, vehicle, fuel, maintenance, notes, dev_auth など)。
+ * models.py にDBモデル定義。
+ * forms.py にFlask-WTFフォームクラス定義。
+ * motopuppu/views/ 以下に各Blueprintのルート定義。
+ * templates/, static/ ディレクトリ。
 4. 主要な実装済み機能:
-   * ユーザー認証 (MiAuth, ローカル開発用ログイン)
-   * 車両管理 (CRUD, 複数対応) - フォームはFlask-WTFで処理
-   * ODOメーターリセット機能:
-* リセット操作（リセット日、リセット前後のメーター表示値）の記録 (OdoResetLog モデル) - フォームはFlask-WTFで処理
-* 累積オフセットキャッシュ (Motorcycle.odometer_offset) の更新 (リセットログ全体からの再計算)
-* ODOリセット履歴の表示、編集、削除、過去の履歴の新規追加 (CRUD) - フォームはFlask-WTFで処理
-   * 給油記録 (CRUD, 燃費計算, ログ表示) - フォームはFlask-WTFで処理
-   * 整備記録 (CRUD, 費用計算, ログ表示) - フォームはFlask-WTFで処理
-   * ノート (CRUD、カテゴリ別[ノート/タスクリスト]) - フォームはFlask-WTFで処理 (FieldListによるTODOアイテム管理含む)
-   * メンテナンスリマインダー (CRUD) - フォームはFlask-WTFで処理
-   * ダッシュボード (統計概要, カレンダー表示, 直近ログ表示)
-   * その他: SNS共有ボタン, Favicon
-
-5. 現在の状況・課題 [毎回更新]:
-   * マイグレーション:
-* general_notesテーブルのcontentカラムをNULL許容に変更するマイグレーション適用済み。
-* 現在の最新リビジョン: cb61b6485ca8 の後に content NULL化のマイグレーションが適用されている状態です。 (注: 正確な最新リビジョンIDは flask db history で再度ご確認ください。)
-# 以前の確認結果 (最新ではない可能性あり) cd7db2474a21 -> cb61b6485ca8 (head), Add missing general_notes and odo_reset_logs tables cbc2495d2f76 -> cd7db2474a21, Check sync after fixing relationship <base> -> cbc2495d2f76, Initial migration.
-   * 直近の作業: (このスレッドでの作業)
-* 主要なフォーム処理（給油、整備、車両、ODOリセット、リマインダー、ノート/タスク）にFlask-WTFを導入し、バリデーション効率化、CSRF対策強化、コード簡潔化を実施。
-* ノートのcontentカラムNULL許容化（DBマイグレーション含む）。
-* 給油記録リッター単価の整数化。
-* ODOリセット記録フォームのバリデーション修正（0入力許容）。
-* ノート編集時のTODOアイテム削除機能の修正（JavaScript）。
-* CSRFトークン不足エラーの修正（リマインダー追加、ノート削除、給油記録削除など）。
-* テンプレートエラー（Jinja2構文エラー、None値処理）の修正。
-* 軽微なUI調整（ボタンデザイン統一、ラベル修正）。
-   * 現在の課題:
-* (解決済み) 給油記録が重複登録される問題があったが、記録追加直後の500エラー修正と、二重送信防止策（JSでのボタン無効化、未実装だが推奨）により解消された（と思われるが、引き続き監視は必要）。
-* 車両一覧ページ等の削除ボタン、デフォルト設定ボタンなど、未対応箇所のCSRF対策の完了。
-* ODOメーターのリセット機能について、「累積オフセットを0に戻す」専用機能の追加や、日付との紐付けによる走行距離計算の正確性向上の検討。
-* 給油記録・整備記録の「総走行距離（推定実走行距離）」計算ロジックの精度向上（記録日時点の正確なオフセット値を使用）。
-* Motorcycle.is_default カラムのデータベーススキーマレベルでの DEFAULT false 制約設定。
-* 将来的には Motorcycle.odometer_offset カラムを廃止し、常に OdoResetLog から動的に計算することを検討。
-* 給油・整備記録一覧でのODO値の表示方法（実走行距離とメーター値の併記など）の最終決定と実装。
-* テストコード（単体テスト、結合テスト）の拡充。
-   * 現在のプロジェクトディレクトリ (Flask-WTF化後の想定)
-
-./
-├── announcements.json
-├── compose.yml
-├── Containerfile
-├── instance
-├── LICENSE
-├── migrations
-│   ├── alembic.ini
-│   ├── env.py
-│   ├── README
-│   ├── script.py.mako
-│   └── versions
-│       ├── xxxxxxx_allow_null_for_content_in_general_notes.py # (実際のファイル名)
-│       ├── cb61b6485ca8_add_missing_general_notes_and_odo_reset_.py
-│       ├── cbc2495d2f76_initial_migration.py
-│       └── cd7db2474a21_check_sync_after_fixing_relationship.py
-├── motopuppu
-│   ├── __init__.py
-│   ├── forms.py        # ★ 新規追加
-│   ├── models.py
-│   ├── static
-│   │   ├── css/style.css
-│   │   └── favicons/ (省略)
-│   ├── templates
-│   │   ├── base.html
-│   │   ├── dashboard.html
-│   │   ├── fuel_form.html
-│   │   ├── fuel_log.html
-│   │   ├── index.html
-│   │   ├── login.html
-│   │   ├── maintenance_form.html
-│   │   ├── maintenance_log.html
-│   │   ├── navigation.html
-│   │   ├── note_form.html
-│   │   ├── notes_log.html
-│   │   ├── odo_reset_log_form.html # ★ 新規/修正
-│   │   ├── reminder_form.html
-│   │   ├── vehicle_form.html
-│   │   └── vehicles.html
-│   └── views
-│       ├── auth.py
-│       ├── dev_auth.py
-│       ├── fuel.py
-│       ├── main.py
-│       ├── maintenance.py
-│       ├── notes.py
-│       └── vehicle.py
-├── README.md
-└── requirements.txt
-
-
+ * ユーザー認証 (Misskey MiAuth, ローカル開発用ログイン) - 堅牢な実装
+ * 車両管理 (CRUD, 複数対応、デフォルト設定) - フォーム(Flask-WTF), CSRF対策済
+ * ODOメーターリセット機能:
+   * リセット操作（リセット日、リセット前後のメーター表示値）の記録 (OdoResetLog モデル) - フォーム(Flask-WTF)
+   * 累積オフセットキャッシュ (Motorcycle.odometer_offset) の更新 (関連ログの追加/編集/削除時に OdoResetLog 全体から再計算)
+   * ODOリセット履歴の表示、編集、削除、過去の履歴の新規追加 (CRUD) - フォーム(Flask-WTF), CSRF対策済
+ * 給油記録 (CRUD, ログ表示, フィルター/ソート, Misskey共有) - フォーム(Flask-WTF), CSRF対策済
+   * 実走行距離 (total_distance) の記録 (記録日時点のオフセットを考慮)
+   * 燃費計算 (km_per_liter プロパティ、平均燃費計算)
+ * 整備記録 (CRUD, ログ表示, フィルター/ソート, Misskey共有) - フォーム(Flask-WTF), CSRF対策済
+   * 実走行距離 (total_distance_at_maintenance) の記録 (記録日時点のオフセットを考慮)
+   * 費用計算 (total_cost プロパティ)
+   * メンテナンスリマインダーとの連携 (最終実施記録の自動更新)
+ * ノート (CRUD、カテゴリ別[ノート/タスクリスト], ログ表示, フィルター, Misskey共有) - フォーム(Flask-WTF), CSRF対策済
+   * FieldList によるTODOアイテム管理、JavaScriptによる動的追加/削除
+ * メンテナンスリマインダー (CRUD) - フォーム(Flask-WTF), CSRF対策済
+ * ダッシュボード (統計概要, FullCalendarによる記録カレンダー表示, 直近ログ表示, リマインダー通知)
+   * FullCalendarの高度なカスタマイズ（日本語化、祝日表示、イベントポップオーバー）
+ * その他: Favicon, 詳細なロギング
+5. 現在の状況・課題 [次回更新]:
+ * マイグレーション:
+   * general_notesテーブルのcontentカラムNULL許容化済み。
+   * 現在の最新リビジョン: cb61b6485ca8 の後に content NULL化のマイグレーションが適用されている状態 (要 flask db history で再確認)。
+ * 直近の作業 (完了済み):
+   * 主要機能への Flask-WTF導入完了 (バリデーション強化、コード簡潔化)。
+   * 総走行距離計算の精度向上: 給油・整備記録時に記録日時点のオフセットを calculate_cumulative_offset_from_logs で取得し、実走行距離を計算・保存するよう修正。
+   * ODOメーターリセット周りの改善: 関連ログ変更時のオフセットキャッシュ (Motorcycle.odometer_offset) 更新ロジック実装。
+   * CSRF対策の実施: 主要なフォーム送信に加え、一覧ページ等での削除・状態変更ボタン（車両削除、デフォルト設定、ODO履歴削除、リマインダー削除など）にフォームとトークンを追加し、対策を実施。
+   * ダッシュボード機能の強化（FullCalendarカスタマイズ、統計表示）。
+   * ノート機能の改善（タスクリスト対応、FieldList連携）。
+   * 各種テンプレートの改善、UI調整。
+ * 現在の課題・改善点:
+   * a. CSRF対策の最終確認: フォーム未使用のPOSTルートが残っていないか、既存の対策が意図通り機能しているか最終確認。
+   * b. SQLAlchemyクエリスタイルの統一: 1.x系 (Model.query) と2.0系 (db.session.execute(select(...))) の混在解消 (2.0スタイルへの統一を推奨)。
+   * c. DBスキーマレベルの制約適用: Motorcycle.is_default カラムにDBレベルでの DEFAULT false 制約を適用 (要マイグレーション)。
+   * d. 型整合性の最終確認: フォーム(Integer/Decimal)とモデル(Float)間の型変換、特に整備記録のコスト関連フィールドの挙動を確認。
+   * e. JS内ハードコード修正: fuel_log.html, maintenance_log.html のMisskey共有スクリプト内のインスタンスドメインを設定値から渡すように修正。
+   * f. ヘルパー関数 vs モデルメソッド: main.py のヘルパー関数 (get_latest_total_distance, calculate_average_kpl) を Motorcycle モデルのメソッドに集約・整理。
+   * g. CSS/JSの整理検討: base.html のインラインCSSの外部化、複数テンプレートに存在するMisskey共有JS等の共通化検討。
+   * h. ODOメーターリセット: 「累積オフセットを0に戻す」専用機能の追加検討。
+   * i. ODO値表示方法: 給油・整備記録一覧等でのODO値（メーター値と実走行距離）の表示方法の最終決定と実装。
+   * j. Motorcycle.odometer_offset の将来: 現在のキャッシュ方式から、常に OdoResetLog から動的に計算する方式への移行検討。
+   * k. テストコード: 単体テスト・結合テストの拡充。
+ * 現在のプロジェクトディレクトリ: (変更なし、省略可能)
 6. 今回のセッションでの目標 [毎回更新]:
-   * [ここに、新しいチャットセッションで達成したい具体的な目標を記述。例: 給油・整備記録の総走行距離計算ロジックの改善に着手する / 車両一覧ページのCSRF対策を完了させる など]
-　 * 現在ダッシュボード(dashboard.html)に「統計情報」として表示している各車両ごとの「総走行距離」および平均燃費を、車両管理ページ(vehicles.html)の各車両のエントリの下にそれぞれ参考情報として掲載したい。
+ *
 7. Geminiに期待する役割:
-   * コードの提案、修正案の提示 (ファイル全体の表示希望)
-   * 実装に関する質問への回答
-   * コードレビュー
-   * エラー分析と解決策の提案
-   * [その他、必要に応じて追記]
-
+ * コードの提案、修正案の提示 (ファイル全体の表示希望)
+ * 実装に関する質問への回答
+ * コードレビュー
+ * エラー分析と解決策の提案
+ * [その他、必要に応じて追記]
 8. その他 [必要に応じて]:
-   * DBスキーマの変更については、過去に問題が発生した経験があるため、特に慎重に進めたい。
-   * 修正は既存のUIや他の機能への影響を最小限に抑えたい。
-   * 現在CSRF対策としてFlask-WTFが導入されているため、CSRFトークンのエラーが発生しないよう注意すること
+ * DBスキーマの変更については、過去に問題が発生した経験があるため、特に慎重に進めたい。
+ * 修正は既存のUIや他の機能への影響を最小限に抑えたい。
+ * 現在CSRF対策としてFlask-WTFが導入されているため、CSRFトークンのエラーが発生しないよう注意すること。
+このプロンプトで、次回のGeminiとのセッションを開始できるかと思います。
+「現在の状況・課題」セクションは、レビュー結果を反映してかなり詳細になっていますので、新しいGeminiもプロジェクトの現状を正確に把握できるはずです。
