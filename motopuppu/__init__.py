@@ -8,9 +8,8 @@ from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
 from flask_migrate import Migrate
 from flask_wtf.csrf import CSRFProtect # Flask-WTF導入時にコメント解除済み
-
-# --- logging モジュールをインポート ---
 import logging
+import subprocess # ★ ローカル開発時のgitコマンド実行用にインポート ★
 
 # .envファイルから環境変数を読み込む
 dotenv_path = os.path.join(os.path.dirname(__file__), '..', '.env')
@@ -24,53 +23,89 @@ db = SQLAlchemy()
 migrate = Migrate()
 csrf = CSRFProtect() # Flask-WTF導入時にコメント解除済み
 
+# --- ▼▼▼ ビルド情報読み込みヘルパー関数 ▼▼▼ ---
+def get_build_info_from_files(app):
+    """
+    プロジェクトルートにある想定の .git_commit と .build_date ファイルから
+    ビルド情報を読み込み、整形された文字列を返す。
+    ファイルが見つからない場合は 'N/A' を含む文字列を返す。
+    """
+    commit = 'N/A'
+    build_date = 'N/A'
+    # Render環境などでの一般的なプロジェクトルートからの相対パス
+    commit_file = '.git_commit' 
+    date_file = '.build_date'
+    
+    try:
+        # アプリケーションのルートディレクトリを取得 (例: /opt/render/project/src)
+        # __file__ は __init__.py のパスなので、その親ディレクトリが motopuppu、さらにその親がプロジェクトルート
+        base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+        commit_file_path = os.path.join(base_dir, commit_file)
+        date_file_path = os.path.join(base_dir, date_file)
+
+        # コミットハッシュファイルの読み込み
+        with open(commit_file_path, 'r') as f:
+            commit = f.read().strip()
+    except FileNotFoundError:
+        # ファイルがない場合は警告ログを出す（エラーにはしない）
+        app.logger.warning(f"Build info file not found: {commit_file_path}") 
+    except Exception as e:
+         # その他の読み込みエラー
+         app.logger.error(f"Error reading {commit_file_path}: {e}")
+
+    try:
+        # ビルド日時ファイルの読み込み
+        with open(date_file_path, 'r') as f:
+            build_date = f.read().strip()
+    except FileNotFoundError:
+        app.logger.warning(f"Build info file not found: {date_file_path}")
+    except Exception as e:
+        app.logger.error(f"Error reading {date_file_path}: {e}")
+
+    # 表示用文字列の組み立て
+    return f"Commit: {commit} / Built: {build_date}"
+# --- ▲▲▲ ヘルパー関数ここまで ▲▲▲ ---
+
+
 def create_app(config_name=None):
     """Flaskアプリケーションインスタンスを作成するファクトリ関数"""
     app = Flask(__name__, instance_relative_config=True)
 
     # --- 設定の読み込み ---
     app.config.from_mapping(
-        SECRET_KEY=os.environ.get('SECRET_KEY', 'dev-secret-key-replace-me'), # 本番環境では必ず.envで設定してください
+        SECRET_KEY=os.environ.get('SECRET_KEY', 'dev-secret-key-replace-me'), 
         SQLALCHEMY_DATABASE_URI=os.environ.get('DATABASE_URI', f"sqlite:///{os.path.join(app.instance_path, 'app.db')}"),
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
         MAX_CONTENT_LENGTH = int(os.environ.get('MAX_CONTENT_LENGTH', 16)) * 1024 * 1024,
         MISSKEY_INSTANCE_URL=os.environ.get('MISSKEY_INSTANCE_URL', 'https://misskey.io'),
-        LOCAL_ADMIN_USERNAME=os.environ.get('LOCAL_ADMIN_USERNAME'), # 現在未使用
-        LOCAL_ADMIN_PASSWORD=os.environ.get('LOCAL_ADMIN_PASSWORD'), # 現在未使用
+        LOCAL_ADMIN_USERNAME=os.environ.get('LOCAL_ADMIN_USERNAME'), 
+        LOCAL_ADMIN_PASSWORD=os.environ.get('LOCAL_ADMIN_PASSWORD'), 
         ENV=os.environ.get('FLASK_ENV', 'production'),
-        LOCAL_DEV_USER_ID=os.environ.get('LOCAL_DEV_USER_ID'), # ローカル開発用ユーザーID
+        LOCAL_DEV_USER_ID=os.environ.get('LOCAL_DEV_USER_ID'), 
         FUEL_ENTRIES_PER_PAGE = int(os.environ.get('FUEL_ENTRIES_PER_PAGE', 20)),
         MAINTENANCE_ENTRIES_PER_PAGE = int(os.environ.get('MAINTENANCE_ENTRIES_PER_PAGE', 20)),
         NOTES_PER_PAGE = int(os.environ.get('NOTES_PER_PAGE', 20)),
-        # Flask-WTF の CSRF 設定 (任意、デフォルトで有効)
-        # WTF_CSRF_ENABLED = True
-        # WTF_CSRF_TIME_LIMIT = 3600 # CSRFトークンの有効期限 (秒)
     )
     if app.config['SECRET_KEY'] == 'dev-secret-key-replace-me' and app.config['ENV'] != 'development':
         app.logger.warning("CRITICAL: SECRET_KEY is set to the default development value in a non-development environment. This is a security risk!")
     elif app.config['SECRET_KEY'] == 'dev-secret-key-replace-me':
         print("Warning: SECRET_KEY is set to the default development value. Set it in .env for production!")
 
-
-    # --- ここからログ設定 ---
+    # --- ログ設定 ---
     log_level_name = os.environ.get('LOG_LEVEL', 'INFO').upper()
     log_level = getattr(logging, log_level_name, logging.INFO)
     app.logger.setLevel(log_level)
 
     if not app.logger.handlers:
         stream_handler = logging.StreamHandler()
-        # formatter = logging.Formatter('%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]')
-        # stream_handler.setFormatter(formatter)
         app.logger.addHandler(stream_handler)
     
     app.logger.info(f"Flask logger initialized. Application log level set to: {log_level_name} ({log_level})")
-    # --- ログ設定ここまで ---
 
     # --- 拡張機能の初期化 ---
     db.init_app(app)
     migrate.init_app(app, db)
-    csrf.init_app(app) # Flask-WTF導入時にコメント解除済み
-    # (他のFlask拡張機能もここで初期化)
+    csrf.init_app(app) 
 
     # --- ルート (Blueprints) の登録 ---
     try:
@@ -97,31 +132,56 @@ def create_app(config_name=None):
         return f"Hello from Flask! SECRET_KEY Status: {key_status}"
 
     # --- コンテキストプロセッサ ---
+    # ▼▼▼ 既存のコンテキストプロセッサを修正 ▼▼▼
     @app.context_processor
     def inject_global_variables():
-        commit_hash = os.environ.get('RENDER_GIT_COMMIT')
-        display_version = commit_hash[:7] if commit_hash else 'local'
+        # まずファイルからビルド情報を取得試行
+        build_info = get_build_info_from_files(app)
+
+        # --- ローカル開発環境向けのフォールバック (ファイルがない場合) ---
+        # Render環境以外 (例: ローカル) でファイルが見つからず 'N/A' が含まれ、
+        # かつデバッグモードが有効な場合にGitコマンドを試す
+        if 'N/A' in build_info and app.debug: 
+            app.logger.info("Build info files not found, attempting to get info via git command (debug mode).")
+            try:
+                 # git rev-parse --short HEAD を実行してコミットハッシュを取得
+                 commit = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD'], cwd=app.root_path).decode('utf-8').strip()
+                 # ローカルのビルド時間は正確ではないので固定文字列など
+                 build_info = f"Commit: {commit} / Built: (local dev)" 
+            except FileNotFoundError:
+                 app.logger.warning("Git command not found. Cannot determine commit hash.")
+                 build_info = "Commit: N/A / Built: (local dev - git not found)" # gitコマンドが見つからない場合
+            except subprocess.CalledProcessError:
+                 app.logger.warning("Not a git repository or no commits yet.")
+                 build_info = "Commit: N/A / Built: (local dev - not a git repo?)" # gitリポジトリでない場合
+            except Exception as e:
+                 app.logger.error(f"Error getting git info locally: {e}")
+                 build_info = "Commit: N/A / Built: (local dev - error)" # その他のエラー
+        # --- フォールバックここまで ---
+        
+        # テンプレートで使う変数を辞書で返す
         return {
-            'current_year': datetime.datetime.now(datetime.timezone.utc).year, # タイムゾーンを考慮
-            'app_version': display_version
-            }
+            'current_year': datetime.datetime.now(datetime.timezone.utc).year,
+            'build_version': build_info # ファイル or git or 'N/A' が入る
+            # 'app_version' は削除 (build_version に統合)
+        }
+    # --- ▲▲▲ 修正ここまで ▲▲▲ ---
 
     # --- アプリケーションコンテキスト ---
     @app.shell_context_processor
     def make_shell_context():
-        from .models import db, User, Motorcycle, FuelEntry, MaintenanceEntry, MaintenanceReminder, GeneralNote, OdoResetLog # OdoResetLog を追加
+        from .models import db, User, Motorcycle, FuelEntry, MaintenanceEntry, MaintenanceReminder, GeneralNote, OdoResetLog 
         return {
             'db': db, 'User': User, 'Motorcycle': Motorcycle, 'FuelEntry': FuelEntry,
             'MaintenanceEntry': MaintenanceEntry, 'MaintenanceReminder': MaintenanceReminder,
             'GeneralNote': GeneralNote, 'OdoResetLog': OdoResetLog
-            # 'ConsumableLog' と 'Attachment' はコメントアウトされていたため削除 (必要なら戻してください)
         }
 
     # --- instanceフォルダの作成 ---
     try:
         os.makedirs(app.instance_path)
     except OSError:
-        pass # フォルダが既に存在する場合は何もしない
+        pass 
 
     # --- DB初期化コマンド ---
     @app.cli.command("init-db")
@@ -130,7 +190,6 @@ def create_app(config_name=None):
         click.echo("Initializing the database tables via db.create_all()...")
         try:
             with app.app_context():
-                # from .models import db # dbはグローバルスコープで定義済み
                 db.create_all()
             click.echo("Database tables initialized successfully (if they didn't exist).")
         except Exception as e:
