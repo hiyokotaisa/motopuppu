@@ -50,11 +50,13 @@
     </main>
     {# --- メインコンテンツ ここまで --- #}
 
-    {# --- フッター (変更なし) --- #}
+    {# --- フッター --- #}
     <footer class="footer mt-auto py-3 bg-light border-top">
       <div class="container text-center">
         {# current_year はコンテキストプロセッサから渡される想定 #}
-        <span class="text-muted">&copy; {{ current_year }} もとぷっぷー</span>
+        <span class="text-muted">&copy; {% if current_year %}{{ current_year }}{% else %}{{ now.year if now else '2025'}}{% endif %} もとぷっぷー
+          | <a href="{{ url_for('main.privacy_policy') }}">プライバシーポリシー</a>
+        </span>
         {# バージョン情報 (Gitハッシュ) を表示 #}
         {% if g.git_commit_hash %}
           <span class="ms-3 text-muted small">{{ g.git_commit_hash[:7] }}</span>
