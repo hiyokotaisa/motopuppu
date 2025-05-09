@@ -6,12 +6,27 @@
 {% block content %}
 <h2>給油記録ログ</h2>
 
-{# 「新しい給油記録を追加」ボタンをここに移動 #}
-<div class="mb-3">
-     <a href="{{ url_for('fuel.add_fuel') }}" class="btn btn-success">
+{# 「新しい給油記録を追加」ボタンと「CSVエクスポート」ボタン #}
+<div class="mb-3 d-flex justify-content-between align-items-center">
+    <a href="{{ url_for('fuel.add_fuel') }}" class="btn btn-success">
         <i class="fas fa-plus me-1"></i> 新しい給油記録を追加
     </a>
+    {# --- CSVエクスポートボタン (車両選択時のみ表示) --- #}
+    {% if request_args.get('vehicle_id') and request_args.get('vehicle_id') != '' %}
+        {% set selected_vehicle_id = request_args.get('vehicle_id')|int %}
+        {# motorcycles リストから選択された車両オブジェクトを取得 #}
+        {% set selected_vehicle = none %}
+        {% for mc in motorcycles %}
+            {% if mc.id == selected_vehicle_id %}
+                {% set selected_vehicle = mc %}
+            {% endif %}
+        {% endfor %}
+        <a href="{{ url_for('fuel.export_fuel_records_csv', motorcycle_id=selected_vehicle_id) }}" class="btn btn-info">
+            <i class="fas fa-file-csv me-1"></i> {{ selected_vehicle.name if selected_vehicle else '選択車両' }}の記録をCSVエクスポート
+        </a>
+    {% endif %}
 </div>
+
 
 {# --- フィルターフォーム --- #}
 <form method="GET" action="{{ url_for('fuel.fuel_log') }}" class="mb-4 p-3 border rounded bg-light">
@@ -179,12 +194,4 @@
 {# --- JavaScript --- #}
 {% block scripts %}
 {{ super() }} {# base.html のスクリプトを継承 #}
-{# このテンプレート固有のMisskey共有スクリプトは削除されました。共通スクリプトが base.html で読み込まれます。 #}
-{# もし他のこのページ固有のJavaScriptがあればここに記述します。例:
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // このページ固有の他のJavaScript処理
-});
-</script>
-#}
 {% endblock %}

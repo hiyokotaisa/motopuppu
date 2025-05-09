@@ -6,12 +6,27 @@
 {% block content %}
 <h2>整備記録ログ</h2>
 
-{# 「新しい整備記録を追加」ボタンをここに移動 #}
-<div class="mb-3">
+{# 「新しい整備記録を追加」ボタンと「CSVエクスポート」ボタン #}
+<div class="mb-3 d-flex justify-content-between align-items-center">
     <a href="{{ url_for('maintenance.add_maintenance') }}" class="btn btn-success">
         <i class="fas fa-plus me-1"></i> 新しい整備記録を追加
     </a>
+    {# --- CSVエクスポートボタン (車両選択時のみ表示) --- #}
+    {% if request_args.get('vehicle_id') and request_args.get('vehicle_id') != '' %}
+        {% set selected_vehicle_id = request_args.get('vehicle_id')|int %}
+        {# motorcycles リストから選択された車両オブジェクトを取得 #}
+        {% set selected_vehicle = none %}
+        {% for mc in motorcycles %}
+            {% if mc.id == selected_vehicle_id %}
+                {% set selected_vehicle = mc %}
+            {% endif %}
+        {% endfor %}
+        <a href="{{ url_for('maintenance.export_maintenance_logs_csv', motorcycle_id=selected_vehicle_id) }}" class="btn btn-info">
+            <i class="fas fa-file-csv me-1"></i> {{ selected_vehicle.name if selected_vehicle else '選択車両' }}の記録をCSVエクスポート
+        </a>
+    {% endif %}
 </div>
+
 
 {# --- フィルターフォーム --- #}
 <form method="GET" action="{{ url_for('maintenance.maintenance_log') }}" class="mb-4 p-3 border rounded bg-light">
@@ -29,7 +44,7 @@
             <select class="form-select form-select-sm" id="vehicle_id" name="vehicle_id">
                 <option value="">全車両</option>
                 {% for motorcycle in motorcycles %}
-                <option value="{{ motorcycle.id }}" {% if request_args.get('vehicle_id')|int == motorcycle.id %}selected{% endif %}>
+                <option value="{{ motorcycle.id }}" {% if request_args.get('vehicle_id')|string == motorcycle.id|string %}selected{% endif %}>
                     {{ motorcycle.name }}
                 </option>
                 {% endfor %}
@@ -150,19 +165,19 @@
 <nav aria-label="Page navigation">
     <ul class="pagination justify-content-center">
         <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
-            <a class="page-link" href="{{ url_for('maintenance.maintenance_log', page=pagination.prev_num, sort_by=current_sort_by, order=current_order, **request_args) }}" aria-label="Previous">&laquo;</a>
+            <a class="page-link" href="{{ url_for('maintenance.maintenance_log', page=pagination.prev_num, **request_args) }}" aria-label="Previous">&laquo;</a>
         </li>
         {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
             {% if page_num %}
                 <li class="page-item {% if page_num == pagination.page %}active{% endif %}">
-                    <a class="page-link" href="{{ url_for('maintenance.maintenance_log', page=page_num, sort_by=current_sort_by, order=current_order, **request_args) }}">{{ page_num }}</a>
+                    <a class="page-link" href="{{ url_for('maintenance.maintenance_log', page=page_num, **request_args) }}">{{ page_num }}</a>
                 </li>
             {% else %}
                 <li class="page-item disabled"><span class="page-link">...</span></li>
             {% endif %}
         {% endfor %}
         <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
-            <a class="page-link" href="{{ url_for('maintenance.maintenance_log', page=pagination.next_num, sort_by=current_sort_by, order=current_order, **request_args) }}" aria-label="Next">&raquo;</a>
+            <a class="page-link" href="{{ url_for('maintenance.maintenance_log', page=pagination.next_num, **request_args) }}" aria-label="Next">&raquo;</a>
         </li>
     </ul>
 </nav>
@@ -186,7 +201,6 @@ document.addEventListener('DOMContentLoaded', function() {
     var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
         return new bootstrap.Tooltip(tooltipTriggerEl)
     })
-    // このテンプレート固有のMisskey共有スクリプトは削除されました。共通スクリプトが base.html で読み込まれます。
 });
 </script>
 {% endblock %}

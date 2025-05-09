@@ -1,7 +1,11 @@
+# motopuppu/views/maintenance.py
+import csv # ★ 追加
+import io  # ★ 追加
+from datetime import date, datetime # ★ datetime オブジェクト全体をインポート (ファイル名生成用)
+
 from flask import (
-    Blueprint, flash, g, redirect, render_template, request, url_for, abort, current_app
+    Blueprint, flash, g, redirect, render_template, request, url_for, abort, current_app, Response # ★ Response を追加
 )
-from datetime import date # dateオブジェクトのみ使用
 from sqlalchemy import or_, asc, desc
 
 from .auth import login_required_custom, get_current_user # ユーザー認証関連
@@ -17,7 +21,6 @@ def _update_reminder_last_done(maintenance_entry: MaintenanceEntry):
     最終実施日と最終実施距離を更新する。
     照合は整備記録のカテゴリとリマインダーのタスク内容で行う (ケースインセンシティブ)。
     """
-    # (このヘルパー関数のロジックは変更なし)
     if not maintenance_entry or not maintenance_entry.category:
         current_app.logger.debug(f"Skipping reminder update for maintenance {maintenance_entry.id}: No category.")
         return
@@ -63,7 +66,7 @@ def _update_reminder_last_done(maintenance_entry: MaintenanceEntry):
                      matched_reminder.last_done_date = maintenance_entry.maintenance_date
                      update_needed = True
                      current_app.logger.info(f"{log_prefix} Updating last_done_date to {matched_reminder.last_done_date} (KM unchanged).")
-            
+
             if not update_needed and matched_reminder.last_done_date is not None and maintenance_entry.maintenance_date == matched_reminder.last_done_date and \
                matched_reminder.last_done_km is None and maintenance_entry.total_distance_at_maintenance is not None:
                 matched_reminder.last_done_km = maintenance_entry.total_distance_at_maintenance
@@ -83,7 +86,6 @@ def _update_reminder_last_done(maintenance_entry: MaintenanceEntry):
 @login_required_custom
 def maintenance_log():
     """整備記録の一覧を表示 (フィルター・ソート機能付き)"""
-    # (このルートのロジックは変更なし)
     start_date_str = request.args.get('start_date')
     end_date_str = request.args.get('end_date')
     vehicle_id_str = request.args.get('vehicle_id')
@@ -98,7 +100,7 @@ def maintenance_log():
     if not user_motorcycles:
         flash('整備記録を閲覧・追加するには、まず車両を登録してください。', 'info')
         return redirect(url_for('vehicle.add_vehicle'))
-        
+
     user_motorcycle_ids = [m.id for m in user_motorcycles]
 
     query = db.session.query(MaintenanceEntry).join(Motorcycle).filter(MaintenanceEntry.motorcycle_id.in_(user_motorcycle_ids))
@@ -128,7 +130,7 @@ def maintenance_log():
 
     if category_filter:
         query = query.filter(MaintenanceEntry.category.ilike(f'%{category_filter}%'))
-    
+
     if keyword:
         search_term = f'%{keyword}%'
         query = query.filter(or_(
@@ -140,7 +142,7 @@ def maintenance_log():
     sort_column_map = {
         'date': MaintenanceEntry.maintenance_date,
         'vehicle': Motorcycle.name,
-        'odo': MaintenanceEntry.total_distance_at_maintenance,
+        'odo': MaintenanceEntry.total_distance_at_maintenance, # 実走行距離でソート
         'category': MaintenanceEntry.category,
     }
     current_sort_by = sort_by if sort_by in sort_column_map else 'date'
@@ -153,9 +155,9 @@ def maintenance_log():
             query = query.order_by(sort_modifier(MaintenanceEntry.maintenance_date), desc(MaintenanceEntry.total_distance_at_maintenance))
         elif current_sort_by == 'odo':
             query = query.order_by(sort_modifier(MaintenanceEntry.total_distance_at_maintenance), desc(MaintenanceEntry.maintenance_date))
-        else: 
+        else:
             query = query.order_by(sort_modifier(sort_column), desc(MaintenanceEntry.maintenance_date))
-    else: 
+    else: # デフォルトソート
         query = query.order_by(desc(MaintenanceEntry.maintenance_date), desc(MaintenanceEntry.total_distance_at_maintenance))
 
 
@@ -165,7 +167,7 @@ def maintenance_log():
     return render_template('maintenance_log.html',
                            entries=entries,
                            pagination=pagination,
-                           motorcycles=user_motorcycles, 
+                           motorcycles=user_motorcycles,
                            request_args=request_args_dict,
                            current_sort_by=current_sort_by,
                            current_order=current_order
@@ -188,41 +190,38 @@ def add_maintenance():
         default_vehicle = next((m for m in user_motorcycles if m.is_default), user_motorcycles[0] if user_motorcycles else None)
         if default_vehicle:
             form.motorcycle_id.data = default_vehicle.id
-        
+
         preselected_motorcycle_id = request.args.get('motorcycle_id', type=int)
         if preselected_motorcycle_id and any(m.id == preselected_motorcycle_id for m in user_motorcycles):
             form.motorcycle_id.data = preselected_motorcycle_id
-            
-        form.maintenance_date.data = date.today() 
+
+        form.maintenance_date.data = date.today()
 
     if form.validate_on_submit():
         motorcycle = Motorcycle.query.filter_by(id=form.motorcycle_id.data, user_id=g.user.id).first()
         if not motorcycle:
             flash('選択された車両が見つかりません。再度お試しください。', 'danger')
-            form.motorcycle_id.choices = [(m.id, f"{m.name} ({m.maker or 'メーカー不明'})") for m in user_motorcycles]
+            form.motorcycle_id.choices = [(m.id, f"{m.name} ({m.maker or 'メーカー不明'})") for m in user_motorcycles] # 選択肢を再設定
             return render_template('maintenance_form.html', form_action='add', form=form, today_iso=date.today().isoformat())
 
-        # ★ 修正 ★
-        # 総走行距離の計算 (ODO + 記録日時点のオフセット)
         offset_at_maintenance_date = motorcycle.calculate_cumulative_offset_from_logs(target_date=form.maintenance_date.data)
         total_distance = form.odometer_reading_at_maintenance.data + offset_at_maintenance_date
-        # ★ 修正ここまで ★
 
         new_entry = MaintenanceEntry(
             motorcycle_id=motorcycle.id,
             maintenance_date=form.maintenance_date.data,
             odometer_reading_at_maintenance=form.odometer_reading_at_maintenance.data,
-            total_distance_at_maintenance=total_distance, # ★ 修正された total_distance を使用
+            total_distance_at_maintenance=total_distance,
             description=form.description.data.strip(),
             location=form.location.data.strip() if form.location.data else None,
             category=form.category.data.strip() if form.category.data else None,
-            parts_cost=form.parts_cost.data, 
-            labor_cost=form.labor_cost.data, 
+            parts_cost=form.parts_cost.data,
+            labor_cost=form.labor_cost.data,
             notes=form.notes.data.strip() if form.notes.data else None
         )
         try:
             db.session.add(new_entry)
-            _update_reminder_last_done(new_entry) 
+            _update_reminder_last_done(new_entry)
             db.session.commit()
             flash('整備記録を追加しました。', 'success')
             return redirect(url_for('maintenance.maintenance_log'))
@@ -230,14 +229,14 @@ def add_maintenance():
             db.session.rollback()
             flash(f'記録のデータベース保存中にエラーが発生しました。詳細は管理者にお問い合わせください。', 'error')
             current_app.logger.error(f"Error saving new maintenance entry: {e}", exc_info=True)
-            
-    elif request.method == 'POST': 
-        form.motorcycle_id.choices = [(m.id, f"{m.name} ({m.maker or 'メーカー不明'})") for m in user_motorcycles]
+
+    elif request.method == 'POST': # バリデーション失敗時
+        form.motorcycle_id.choices = [(m.id, f"{m.name} ({m.maker or 'メーカー不明'})") for m in user_motorcycles] # 選択肢を再設定
 
     return render_template('maintenance_form.html',
                            form_action='add',
                            form=form,
-                           today_iso=date.today().isoformat() 
+                           today_iso=date.today().isoformat()
                            )
 
 
@@ -248,32 +247,29 @@ def edit_maintenance(entry_id):
     entry = MaintenanceEntry.query.filter(MaintenanceEntry.id == entry_id)\
                                .join(Motorcycle).filter(Motorcycle.user_id == g.user.id)\
                                .first_or_404()
-    
-    form = MaintenanceForm(obj=entry) 
+
+    form = MaintenanceForm(obj=entry)
     form.motorcycle_id.choices = [(entry.motorcycle.id, f"{entry.motorcycle.name} ({entry.motorcycle.maker or 'メーカー不明'})")]
-    form.motorcycle_id.data = entry.motorcycle.id 
+    form.motorcycle_id.data = entry.motorcycle.id
 
     if form.validate_on_submit():
-        motorcycle = entry.motorcycle 
+        motorcycle = entry.motorcycle
 
-        # ★ 修正 ★
-        # 総走行距離の計算 (ODO + 記録日時点のオフセット)
         offset_at_maintenance_date = motorcycle.calculate_cumulative_offset_from_logs(target_date=form.maintenance_date.data)
         total_distance = form.odometer_reading_at_maintenance.data + offset_at_maintenance_date
-        # ★ 修正ここまで ★
 
         entry.maintenance_date = form.maintenance_date.data
         entry.odometer_reading_at_maintenance = form.odometer_reading_at_maintenance.data
-        entry.total_distance_at_maintenance = total_distance # ★ 修正された total_distance を使用
+        entry.total_distance_at_maintenance = total_distance
         entry.description = form.description.data.strip()
         entry.location = form.location.data.strip() if form.location.data else None
         entry.category = form.category.data.strip() if form.category.data else None
         entry.parts_cost = form.parts_cost.data
         entry.labor_cost = form.labor_cost.data
         entry.notes = form.notes.data.strip() if form.notes.data else None
-        
+
         try:
-            _update_reminder_last_done(entry) 
+            _update_reminder_last_done(entry)
             db.session.commit()
             flash('整備記録を更新しました。', 'success')
             return redirect(url_for('maintenance.maintenance_log'))
@@ -282,14 +278,15 @@ def edit_maintenance(entry_id):
             flash(f'記録の更新中にエラーが発生しました。詳細は管理者にお問い合わせください。', 'error')
             current_app.logger.error(f"Error updating maintenance entry ID {entry_id}: {e}", exc_info=True)
 
-    elif request.method == 'POST': 
-        form.motorcycle_id.choices = [(entry.motorcycle.id, f"{entry.motorcycle.name} ({entry.motorcycle.maker or 'メーカー不明'})")]
+    elif request.method == 'POST': # バリデーション失敗時
+        form.motorcycle_id.choices = [(entry.motorcycle.id, f"{entry.motorcycle.name} ({entry.motorcycle.maker or 'メーカー不明'})")] # 選択肢を再設定
         form.motorcycle_id.data = entry.motorcycle.id
+
 
     return render_template('maintenance_form.html',
                            form_action='edit',
                            form=form,
-                           entry_id=entry.id, 
+                           entry_id=entry.id,
                            today_iso=date.today().isoformat()
                            )
 
@@ -298,7 +295,6 @@ def edit_maintenance(entry_id):
 @login_required_custom
 def delete_maintenance(entry_id):
     """整備記録を削除"""
-    # (このルートのロジックは変更なし)
     entry = MaintenanceEntry.query.filter(MaintenanceEntry.id == entry_id)\
                                .join(Motorcycle).filter(Motorcycle.user_id == g.user.id)\
                                .first_or_404()
@@ -311,3 +307,66 @@ def delete_maintenance(entry_id):
         flash(f'記録の削除中にエラーが発生しました。詳細は管理者にお問い合わせください。', 'error')
         current_app.logger.error(f"Error deleting maintenance entry ID {entry_id}: {e}", exc_info=True)
     return redirect(url_for('maintenance.maintenance_log'))
+
+
+@maintenance_bp.route('/motorcycle/<int:motorcycle_id>/export_csv') # ★ 新しいルート
+@login_required_custom
+def export_maintenance_logs_csv(motorcycle_id):
+    motorcycle = Motorcycle.query.filter_by(id=motorcycle_id, user_id=g.user.id).first_or_404()
+
+    maintenance_logs = MaintenanceEntry.query.filter_by(motorcycle_id=motorcycle.id).order_by(MaintenanceEntry.maintenance_date.asc(), MaintenanceEntry.total_distance_at_maintenance.asc()).all()
+
+    if not maintenance_logs:
+        flash(f'{motorcycle.name}にはエクスポート対象の整備記録がありません。', 'info')
+        return redirect(url_for('maintenance.maintenance_log', vehicle_id=motorcycle.id))
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    # ヘッダー行
+    header = [
+        'id', 'motorcycle_id', 'motorcycle_name', 'maintenance_date',
+        'odometer_reading_at_maintenance', 'total_distance_at_maintenance',
+        'category', 'description', 'parts_cost', 'labor_cost', 'total_cost',
+        'location', 'notes'
+    ]
+    writer.writerow(header)
+
+    # データ行
+    for record in maintenance_logs:
+        total_cost_val = record.total_cost
+
+        row = [
+            record.id,
+            record.motorcycle_id,
+            motorcycle.name,
+            record.maintenance_date.strftime('%Y-%m-%d') if record.maintenance_date else '',
+            record.odometer_reading_at_maintenance,
+            record.total_distance_at_maintenance,
+            record.category if record.category else '',
+            record.description if record.description else '',
+            f"{record.parts_cost:.2f}" if record.parts_cost is not None else '',
+            f"{record.labor_cost:.2f}" if record.labor_cost is not None else '',
+            f"{total_cost_val:.2f}" if total_cost_val is not None else '',
+            record.location if record.location else '',
+            record.notes if record.notes else ''
+        ]
+        writer.writerow(row)
+
+    output.seek(0)
+
+    # ファイル名の生成
+    safe_vehicle_name = "".join(c for c in motorcycle.name if c.isalnum() or c in ['_', '-']).strip()
+    if not safe_vehicle_name:
+        safe_vehicle_name = "vehicle"
+    timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+    filename = f"motopuppu_maintenance_logs_{safe_vehicle_name}_{motorcycle.id}_{timestamp}.csv"
+
+    return Response(
+        output.getvalue(),
+        mimetype="text/csv",
+        headers={
+            "Content-Disposition": f"attachment;filename=\"{filename}\"",
+            "Content-Type": "text/csv; charset=utf-8-sig"
+        }
+    )

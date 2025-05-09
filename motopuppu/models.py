@@ -1,3 +1,4 @@
+# motopuppu/models.py
 from . import db
 from datetime import datetime, date # date をインポートリストに追加 (または確認)
 from sqlalchemy.dialects.postgresql import JSONB
