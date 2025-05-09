@@ -30,14 +30,16 @@ def local_login():
 
     try:
         user_id_int = int(local_dev_user_id)
-        user = User.query.get(user_id_int)
+        # SQLAlchemy 1.x スタイルの User.query.get(user_id_int) から
+        # SQLAlchemy 2.0 スタイルの db.session.get(User, user_id_int) に変更
+        user = db.session.get(User, user_id_int)
     except ValueError:
         flash(f'無効なユーザーID形式です: {local_dev_user_id}', 'error')
         current_app.logger.error(f"Invalid LOCAL_DEV_USER_ID format: {local_dev_user_id}")
         user = None
-    except Exception as e:
+    except Exception as e: # db.session.get が他の例外を投げる可能性は低いが、念のため残す
         flash(f'ユーザー検索中にエラーが発生しました: {e}', 'error')
-        current_app.logger.error(f"Error querying user by ID {local_dev_user_id}: {e}", exc_info=True)
+        current_app.logger.error(f"Error querying user by ID {local_dev_user_id} with db.session.get: {e}", exc_info=True)
         user = None
 
     if user:
