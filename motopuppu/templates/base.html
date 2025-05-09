@@ -57,7 +57,7 @@
         <span class="text-muted">&copy; {{ current_year }} もとぷっぷー</span>
         {# バージョン情報 (Gitハッシュ) を表示 #}
         {% if g.git_commit_hash %}
-          <span class="ms-3 text-muted small">version: {{ g.git_commit_hash[:7] }}</span>
+          <span class="ms-3 text-muted small">{{ g.git_commit_hash[:7] }}</span>
         {% elif build_version %} {# build_version はコンテキストプロセッサから #}
           <span class="ms-3 text-muted small">version: {{ build_version }}</span>
         {% endif %}

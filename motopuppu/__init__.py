@@ -117,7 +117,7 @@ def create_app(config_name=None):
         else:
             commit_hash_short = "N/A"; source_info = "(unknown)"
 
-        build_version_string = f"Commit: {commit_hash_short} {source_info}".strip()
+        build_version_string = f"Version: {commit_hash_short} {source_info}".strip()
 
         # Misskeyインスタンスドメインの処理 (フォールバック強化)
         misskey_instance_url = app.config.get('MISSKEY_INSTANCE_URL') # 環境変数またはデフォルト値('https://misskey.io')がここで取得される
