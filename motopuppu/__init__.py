@@ -90,6 +90,9 @@ def create_app(config_name=None):
     # --- コンテキストプロセッサ ---
     @app.context_processor
     def inject_global_variables():
+        app.logger.info(f"--- Start inject_global_variables ---")
+        app.logger.info(f"RENDER_GIT_COMMIT raw value: {os.environ.get('RENDER_GIT_COMMIT')}")
+        app.logger.info(f"app.debug value: {app.debug}")
         commit_hash_short = 'N/A'
         source_info = ""
 
