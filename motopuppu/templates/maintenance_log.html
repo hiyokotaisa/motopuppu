@@ -13,7 +13,7 @@
     </a>
 </div>
 
-{# --- フィルターフォーム (変更なし) --- #}
+{# --- フィルターフォーム --- #}
 <form method="GET" action="{{ url_for('maintenance.maintenance_log') }}" class="mb-4 p-3 border rounded bg-light">
     <div class="row g-3 align-items-end">
         <div class="col-md-2">
@@ -51,9 +51,8 @@
         </div>
     </div>
 </form>
-{# --- フィルターフォームここまで --- #}
 
-{# --- フラッシュメッセージ表示 (変更なし) --- #}
+{# --- フラッシュメッセージ表示 --- #}
 {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
         {% for category, message in messages %}
@@ -64,16 +63,13 @@
         {% endfor %}
     {% endif %}
 {% endwith %}
-{# --- フラッシュメッセージ表示 ここまで --- #}
 
 {# --- 記録テーブル --- #}
 {% if entries %}
 <div class="table-responsive">
     <table class="table table-striped table-hover table-sm">
-        {# --- ▼▼▼ テーブルヘッダーを修正 ▼▼▼ --- #}
         <thead>
             <tr>
-                {# ソート用マクロ (変更なし) #}
                 {% macro sortable_th(sort_key, display_text, current_sort, current_order, request_args, th_class="") %}
                     {% set current_request_args = request_args.copy() %}
                     {% set sort_order = 'asc' %}
@@ -90,20 +86,16 @@
                     <th class="{{ th_class }}"><a href="{{ url_for('maintenance.maintenance_log', **current_request_args) }}" class="text-decoration-none text-dark">{{ display_text|safe }}{{ sort_icon|safe }}</a></th>
                 {% endmacro %}
 
-                {# 各ヘッダーにソート用マクロを適用 #}
                 {{ sortable_th('date', '日付', current_sort_by, current_order, request_args) }}
                 {{ sortable_th('vehicle', '車両', current_sort_by, current_order, request_args) }}
-                {# ★ ODO列: ソートキーは 'odo' のままだが、表示する内容は後で変更 ★ #}
                 {{ sortable_th('odo', 'ODO (km)', current_sort_by, current_order, request_args, "text-end") }}
-                {# ★ 実走行距離のヘッダーを追加 ★ #}
                 <th class="text-end">実走行距離 (km)</th>
                 {{ sortable_th('category', 'カテゴリ', current_sort_by, current_order, request_args) }}
-                <th>内容</th> {# 内容はソート対象外 #}
-                <th class="text-end">費用 (円)</th> {# 費用はソート対象外 #}
+                <th>内容</th>
+                <th class="text-end">費用 (円)</th>
                 <th>操作</th>
             </tr>
         </thead>
-        {# --- ▲▲▲ テーブルヘッダー修正ここまで ▲▲▲ --- #}
         <tbody>
             {% for entry in entries %}
             <tr>
@@ -113,18 +105,14 @@
                         {{ entry.motorcycle.name }}
                     </a>
                 </td>
-                {# ★★★ ODO列: メーター表示値 (odometer_reading_at_maintenance) を表示 ★★★ #}
                 <td class="text-end">{{ "{:,}".format(entry.odometer_reading_at_maintenance) }}</td>
-                {# ★★★ ここから新しいセルを追加 (実走行距離) ★★★ #}
                 <td class="text-end">
-                    {# 実走行距離が None でなく、かつ メーター表示値と異なる場合のみ表示 #}
                     {% if entry.total_distance_at_maintenance is not none and entry.total_distance_at_maintenance != entry.odometer_reading_at_maintenance %}
                         {{ "{:,}".format(entry.total_distance_at_maintenance) }}
                     {% else %}
-                        - {# 同じ場合はハイフンを表示 #}
+                        -
                     {% endif %}
                 </td>
-                {# ★★★ ここまで新しいセルを追加 ★★★ #}
                 <td>{{ entry.category if entry.category else '-' }}</td>
                 <td>
                     <span title="{{ entry.description }}" data-bs-toggle="tooltip" data-bs-placement="top">
@@ -138,12 +126,11 @@
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                         <button type="submit" class="btn btn-sm btn-outline-danger" title="削除"><i class="fas fa-trash fa-fw"></i></button>
                     </form>
-                    {# ★★★ Misskey共有ボタンの data-odo を修正 ★★★ #}
                     <button class="btn btn-sm btn-info btn-share-misskey ms-1"
                             data-type="maintenance"
                             data-vehicle-name="{{ entry.motorcycle.name }}"
                             data-date="{{ entry.maintenance_date.isoformat() }}"
-                            data-odo="{{ entry.odometer_reading_at_maintenance }}" {# ★ メーター表示値を渡すように変更 ★ #}
+                            data-odo="{{ entry.odometer_reading_at_maintenance }}"
                             data-category="{{ entry.category or '' }}"
                             data-description="{{ entry.description }}"
                             data-cost="{{ entry.total_cost|round|int if entry.total_cost else '' }}"
@@ -151,7 +138,6 @@
                             title="Misskeyで共有">
                         <i class="fa-solid fa-share-nodes fa-fw"></i>
                     </button>
-                    {# ★★★ 修正ここまで ★★★ #}
                 </td>
             </tr>
             {% endfor %}
@@ -159,7 +145,7 @@
     </table>
 </div>
 
-{# --- ページネーション (変更なし) --- #}
+{# --- ページネーション --- #}
 {% if pagination and pagination.pages > 1 %}
 <nav aria-label="Page navigation">
     <ul class="pagination justify-content-center">
@@ -181,7 +167,6 @@
     </ul>
 </nav>
 {% endif %}
-{# --- ページネーションここまで --- #}
 
 {% else %}
 <div class="alert alert-info" role="alert">
@@ -191,61 +176,17 @@
 
 {% endblock %}
 
-{# --- JavaScript (変更なし) --- #}
+{# --- JavaScript --- #}
 {% block scripts %}
 {{ super() }} {# base.html のスクリプトを継承 #}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // --- Bootstrap Tooltipの初期化 (変更なし) ---
+    // Bootstrap Tooltipの初期化
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
     var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
         return new bootstrap.Tooltip(tooltipTriggerEl)
     })
-
-    // --- Misskey共有ボタンの処理 (変更なし) ---
-    const misskeyInstanceDomain = 'misskey.io'; 
-    document.querySelectorAll('.btn-share-misskey').forEach(button => {
-        button.addEventListener('click', function() {
-            const dataset = this.dataset;
-            const recordType = dataset.type; 
-            const vehicleName = dataset.vehicleName;
-            const recordDate = dataset.date; 
-            const odo = dataset.odo; // ★ スクリプトは data-odo 属性から値を取得 ★
-            const cost = dataset.cost;
-
-            let shareText = "";
-            const vehicleHashtag = vehicleName ? "\n#" + vehicleName.replace(/[\s#$&\+,:;=\?@\[\]\^`\{|\}~.]/g, '_') : '';
-            const baseHashtags = "\n#もとぷっぷー"; 
-
-            let displayDate = recordDate;
-            try {
-                displayDate = new Date(recordDate).toLocaleDateString('ja-JP', { year: 'numeric', month: 'short', day: 'numeric' });
-            } catch(e) { /* 変換失敗時は元の形式 */}
-
-            if (recordType === 'fuel') {
-                // (省略) fuel_log.html側のスクリプトで処理される想定
-            } else if (recordType === 'maintenance') {
-                const category = dataset.category;
-                const description = dataset.description;
-                const location = dataset.location;
-                const contentSummary = category ? category : description.substring(0, 30) + (description.length > 30 ? '...' : '');
-
-                shareText = `[${vehicleName}] 整備記録🔧\n` +
-                            `日付: ${displayDate}\n` +
-                            `走行距離: ${odo} km\n` + // ★ ここには data-odo の値が入る ★
-                            `内容: ${contentSummary}\n` +
-                            (cost ? `費用: ${cost} 円\n` : '') +
-                            (location ? `場所: ${location}\n` : '') +
-                            baseHashtags + " #バイク整備" + vehicleHashtag;
-            }
-
-            if (shareText) {
-                const encodedText = encodeURIComponent(shareText);
-                const shareUrl = `https://` + misskeyInstanceDomain + `/share?text=` + encodedText;
-                window.open(shareUrl, '_blank', 'noopener,noreferrer'); 
-            }
-        });
-    });
+    // このテンプレート固有のMisskey共有スクリプトは削除されました。共通スクリプトが base.html で読み込まれます。
 });
 </script>
 {% endblock %}

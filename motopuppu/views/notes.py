@@ -57,11 +57,11 @@ def notes_log():
         elif vehicle_id_str:
              flash('車両フィルターの値が無効です。', 'warning')
              request_args_dict.pop('vehicle_id', None)
-    
+
     if keyword:
         search_term = f'%{keyword}%'
         query = query.filter(or_(GeneralNote.title.ilike(search_term), GeneralNote.content.ilike(search_term)))
-    
+
     allowed_category_values = [cat_val for cat_val, _ in NOTE_CATEGORIES]
     if category_filter and category_filter in allowed_category_values:
         query = query.filter(GeneralNote.category == category_filter)
@@ -72,8 +72,9 @@ def notes_log():
     pagination = query.order_by(GeneralNote.note_date.desc(), GeneralNote.created_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
     entries = pagination.items
 
-    misskey_instance_url = current_app.config.get('MISSKEY_INSTANCE_URL', 'https://misskey.io')
-    misskey_instance_domain = misskey_instance_url.replace('https://', '').replace('http://', '').split('/')[0]
+    # misskey_instance_domain はコンテキストプロセッサから渡されるため、ここでの設定は不要
+    # misskey_instance_url = current_app.config.get('MISSKEY_INSTANCE_URL', 'https://misskey.io')
+    # misskey_instance_domain = misskey_instance_url.replace('https://', '').replace('http://', '').split('/')[0]
 
     return render_template('notes_log.html',
                            entries=entries,
@@ -81,8 +82,8 @@ def notes_log():
                            motorcycles=user_motorcycles,
                            request_args=request_args_dict,
                            allowed_categories_for_template=[{'value': val, 'display': disp} for val, disp in NOTE_CATEGORIES],
-                           selected_category=category_filter,
-                           misskey_instance_domain=misskey_instance_domain
+                           selected_category=category_filter
+                           # misskey_instance_domain は渡さない
                            )
 
 @notes_bp.route('/add', methods=['GET', 'POST'])
@@ -98,7 +99,7 @@ def add_note():
             form.motorcycle_id.data = default_vehicle.id
         else:
             form.motorcycle_id.data = 0
-        
+
         preselected_motorcycle_id = request.args.get('motorcycle_id', type=int)
         if preselected_motorcycle_id and any(m.id == preselected_motorcycle_id for m in user_motorcycles):
             form.motorcycle_id.data = preselected_motorcycle_id
@@ -107,18 +108,16 @@ def add_note():
         new_note = GeneralNote(user_id=g.user.id)
         selected_motorcycle_id = form.motorcycle_id.data
         new_note.motorcycle_id = selected_motorcycle_id if selected_motorcycle_id != 0 else None
-        
+
         new_note.note_date = form.note_date.data
         new_note.category = form.category.data
         new_note.title = form.title.data.strip() if form.title.data else None
-        
+
         if new_note.category == 'note':
             new_note.content = form.content.data.strip() if form.content.data else None
             new_note.todos = None
         elif new_note.category == 'task':
-            # ▼▼▼ content に空文字列を設定 ▼▼▼
-            new_note.content = '' 
-            # ▲▲▲ 変更ここまで ▲▲▲
+            new_note.content = ''
             todos_data = []
             for item_form in form.todos:
                 if item_form.text.data and item_form.text.data.strip():
@@ -127,7 +126,7 @@ def add_note():
                         'checked': item_form.checked.data
                     })
             new_note.todos = todos_data if todos_data else None
-        
+
         new_note.created_at = datetime.now(timezone.utc)
         new_note.updated_at = datetime.now(timezone.utc)
 
@@ -140,7 +139,7 @@ def add_note():
             db.session.rollback()
             flash(f'ノートの保存中にエラーが発生しました: {e}', 'error')
             current_app.logger.error(f"Error saving new general note for user {g.user.id}: {e}", exc_info=True)
-            
+
     elif request.method == 'POST':
         form.motorcycle_id.choices = [(0, '-- 車両に紐付けない --')] + [(m.id, m.name) for m in user_motorcycles]
 
@@ -176,18 +175,16 @@ def edit_note(note_id):
     if form.validate_on_submit():
         selected_motorcycle_id = form.motorcycle_id.data
         note.motorcycle_id = selected_motorcycle_id if selected_motorcycle_id != 0 else None
-        
+
         note.note_date = form.note_date.data
         note.category = form.category.data
         note.title = form.title.data.strip() if form.title.data else None
-        
+
         if note.category == 'note':
             note.content = form.content.data.strip() if form.content.data else None
             note.todos = None
         elif note.category == 'task':
-            # ▼▼▼ content に空文字列を設定 ▼▼▼
             note.content = ''
-            # ▲▲▲ 変更ここまで ▲▲▲
             todos_data = []
             for item_form in form.todos:
                 if item_form.text.data and item_form.text.data.strip():
@@ -196,7 +193,7 @@ def edit_note(note_id):
                         'checked': item_form.checked.data
                     })
             note.todos = todos_data if todos_data else None
-        
+
         note.updated_at = datetime.now(timezone.utc)
 
         try:
@@ -207,7 +204,7 @@ def edit_note(note_id):
             db.session.rollback()
             flash(f'ノートの更新中にエラーが発生しました: {e}', 'error')
             current_app.logger.error(f"Error updating general note ID {note_id}: {e}", exc_info=True)
-            
+
     elif request.method == 'POST':
         form.motorcycle_id.choices = [(0, '-- 車両に紐付けない --')] + [(m.id, m.name) for m in user_motorcycles]
 

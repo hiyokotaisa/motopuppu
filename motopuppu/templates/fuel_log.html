@@ -13,7 +13,7 @@
     </a>
 </div>
 
-{# --- フィルターフォーム (変更なし) --- #}
+{# --- フィルターフォーム --- #}
 <form method="GET" action="{{ url_for('fuel.fuel_log') }}" class="mb-4 p-3 border rounded bg-light">
     <div class="row g-3 align-items-end">
         <div class="col-md-3">
@@ -39,7 +39,7 @@
             <label for="q" class="form-label">キーワード</label>
             <input type="text" class="form-control form-control-sm" id="q" name="q" value="{{ request_args.get('q', '') }}" placeholder="メモ, スタンド名">
         </div>
-        <div class="col-md-3 ms-md-auto"> {# ボタンの列調整 #}
+        <div class="col-md-3 ms-md-auto">
             <button type="submit" class="btn btn-primary w-100 btn-sm">
                 <i class="fas fa-filter me-1"></i> 絞り込む
             </button>
@@ -48,7 +48,7 @@
     </div>
 </form>
 
-{# --- フラッシュメッセージ表示 (変更なし) --- #}
+{# --- フラッシュメッセージ表示 --- #}
 {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
         {% for category, message in messages %}
@@ -64,11 +64,9 @@
 {% if entries %}
 <div class="table-responsive">
     <table class="table table-striped table-hover table-sm">
-        {# --- ▼▼▼ テーブルヘッダーを修正 ▼▼▼ --- #}
         <thead>
             <tr>
                 {% macro sortable_th(sort_key, display_text, current_sort, current_order, request_args, th_class="") %}
-                    {# (マクロ定義は変更なし) #}
                     {% set current_request_args = request_args.copy() %}
                     {% set sort_order = 'asc' %}
                     {% set sort_icon = '<i class="fas fa-sort fa-fw text-muted ms-1"></i>' %}
@@ -77,7 +75,6 @@
                             {% set sort_order = 'desc' %}
                             {% set sort_icon = '<i class="fas fa-sort-up fa-fw ms-1"></i>' %}
                         {% else %}
-                            {# sort_order は 'asc' のまま #}
                             {% set sort_icon = '<i class="fas fa-sort-down fa-fw ms-1"></i>' %}
                         {% endif %}
                     {% endif %}
@@ -87,19 +84,16 @@
 
                 {{ sortable_th('date', '日付', current_sort_by, current_order, request_args) }}
                 {{ sortable_th('vehicle', '車両', current_sort_by, current_order, request_args) }}
-                {# ★ ヘッダー名を "ODO (km)" に戻す ★ #}
                 {{ sortable_th('odo', 'ODO (km)', current_sort_by, current_order, request_args, "text-end") }}
-                {# ★ 実走行距離のヘッダーは維持 ★ #}
                 <th class="text-end">実走行距離 (km)</th>
                 {{ sortable_th('volume', '給油量 (L)', current_sort_by, current_order, request_args, "text-end") }}
                 {{ sortable_th('price', '単価 (円)', current_sort_by, current_order, request_args, "text-end") }}
                 {{ sortable_th('cost', '金額 (円)', current_sort_by, current_order, request_args, "text-end") }}
                 {{ sortable_th('station', 'スタンド', current_sort_by, current_order, request_args) }}
-                <th class="text-end">燃費 (km/L)</th> {# ソート対象外、右寄せ #}
+                <th class="text-end">燃費 (km/L)</th>
                 <th>操作</th>
             </tr>
         </thead>
-         {# --- ▲▲▲ テーブルヘッダー修正ここまで ▲▲▲ --- #}
         <tbody>
             {% for entry in entries %}
             <tr>
@@ -110,16 +104,13 @@
                     </a>
                 </td>
                 <td class="text-end">{{ "{:,}".format(entry.odometer_reading) }}</td>
-                {# ★★★ ここから表示条件を追加 ★★★ #}
                 <td class="text-end">
-                    {# total_distance が None でなく、かつ odometer_reading と異なる場合のみ表示 #}
                     {% if entry.total_distance is not none and entry.total_distance != entry.odometer_reading %}
                         {{ "{:,}".format(entry.total_distance) }}
                     {% else %}
-                        - {# 同じ場合はハイフンを表示 #}
+                        -
                     {% endif %}
                 </td>
-                {# ★★★ ここまで表示条件を追加 ★★★ #}
                 <td class="text-end">{{ "%.2f"|format(entry.fuel_volume) }}</td>
                 <td class="text-end">
                     {% if entry.price_per_liter is not none %}
@@ -162,7 +153,7 @@
     </table>
 </div>
 
-{# --- ページネーション (変更なし) --- #}
+{# --- ページネーション --- #}
 {% if pagination and pagination.pages > 1 %}
 <nav aria-label="Page navigation">
     <ul class="pagination justify-content-center">
@@ -185,49 +176,15 @@
 
 {% endblock %}
 
-{# --- JavaScript (変更なし) --- #}
+{# --- JavaScript --- #}
 {% block scripts %}
-{{ super() }}
+{{ super() }} {# base.html のスクリプトを継承 #}
+{# このテンプレート固有のMisskey共有スクリプトは削除されました。共通スクリプトが base.html で読み込まれます。 #}
+{# もし他のこのページ固有のJavaScriptがあればここに記述します。例:
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const misskeyInstanceDomain = 'misskey.io'; 
-
-    document.querySelectorAll('.btn-share-misskey').forEach(button => {
-        button.addEventListener('click', function() {
-            const dataset = this.dataset;
-            const recordType = dataset.type;
-            const vehicleName = dataset.vehicleName;
-            const recordDate = dataset.date;
-            const odo = dataset.odo;
-            const cost = dataset.cost;
-
-            let shareText = "";
-            const vehicleHashtag = vehicleName ? "\n#" + vehicleName.replace(/[\s#$&\+,:;=\?@\[\]\^`\{|\}~.]/g, '_') : '';
-            const baseHashtags = "\n#もとぷっぷー";
-
-            let displayDate = recordDate;
-            try {
-                displayDate = new Date(recordDate).toLocaleDateString('ja-JP', { year: 'numeric', month: 'short', day: 'numeric' });
-            } catch(e) { /* ignore */}
-
-            if (recordType === 'fuel') {
-                const volume = dataset.volume; const kpl = dataset.kpl; const station = dataset.station;
-                shareText = `[${vehicleName}] 給油記録⛽\n` +
-                            `日付: ${displayDate}\n` + `走行距離: ${odo} km\n` + // ここでの走行距離はメーターODO値
-                            `給油量: ${volume} L\n` + (kpl ? `燃費: ${kpl} km/L\n` : '') +
-                            (cost ? `費用: ${cost} 円\n` : '') + (station ? `スタンド: ${station}\n` : '') +
-                            baseHashtags + " #給油記録" + vehicleHashtag;
-            } else if (recordType === 'maintenance') {
-                // (省略)
-            }
-
-            if (shareText) {
-                const encodedText = encodeURIComponent(shareText);
-                const shareUrl = `https://` + misskeyInstanceDomain + `/share?text=` + encodedText;
-                window.open(shareUrl, '_blank', 'noopener,noreferrer');
-            }
-        });
-    });
+    // このページ固有の他のJavaScript処理
 });
 </script>
+#}
 {% endblock %}

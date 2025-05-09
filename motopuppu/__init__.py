@@ -23,23 +23,21 @@ db = SQLAlchemy()
 migrate = Migrate()
 csrf = CSRFProtect()
 
-# ★★★ ファイル読み込みヘルパー関数は削除 ★★★
-
 def create_app(config_name=None):
     """Flaskアプリケーションインスタンスを作成するファクトリ関数"""
     app = Flask(__name__, instance_relative_config=True)
 
     # --- 設定の読み込み ---
     app.config.from_mapping(
-        SECRET_KEY=os.environ.get('SECRET_KEY', 'dev-secret-key-replace-me'), 
+        SECRET_KEY=os.environ.get('SECRET_KEY', 'dev-secret-key-replace-me'),
         SQLALCHEMY_DATABASE_URI=os.environ.get('DATABASE_URI', f"sqlite:///{os.path.join(app.instance_path, 'app.db')}"),
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
         MAX_CONTENT_LENGTH = int(os.environ.get('MAX_CONTENT_LENGTH', 16)) * 1024 * 1024,
-        MISSKEY_INSTANCE_URL=os.environ.get('MISSKEY_INSTANCE_URL', 'https://misskey.io'),
-        LOCAL_ADMIN_USERNAME=os.environ.get('LOCAL_ADMIN_USERNAME'), 
-        LOCAL_ADMIN_PASSWORD=os.environ.get('LOCAL_ADMIN_PASSWORD'), 
+        MISSKEY_INSTANCE_URL=os.environ.get('MISSKEY_INSTANCE_URL', 'https://misskey.io'), # Misskey URL設定
+        LOCAL_ADMIN_USERNAME=os.environ.get('LOCAL_ADMIN_USERNAME'),
+        LOCAL_ADMIN_PASSWORD=os.environ.get('LOCAL_ADMIN_PASSWORD'),
         ENV=os.environ.get('FLASK_ENV', 'production'),
-        LOCAL_DEV_USER_ID=os.environ.get('LOCAL_DEV_USER_ID'), 
+        LOCAL_DEV_USER_ID=os.environ.get('LOCAL_DEV_USER_ID'),
         FUEL_ENTRIES_PER_PAGE = int(os.environ.get('FUEL_ENTRIES_PER_PAGE', 20)),
         MAINTENANCE_ENTRIES_PER_PAGE = int(os.environ.get('MAINTENANCE_ENTRIES_PER_PAGE', 20)),
         NOTES_PER_PAGE = int(os.environ.get('NOTES_PER_PAGE', 20)),
@@ -57,13 +55,13 @@ def create_app(config_name=None):
     if not app.logger.handlers:
         stream_handler = logging.StreamHandler()
         app.logger.addHandler(stream_handler)
-    
+
     app.logger.info(f"Flask logger initialized. Application log level set to: {log_level_name} ({log_level})")
 
     # --- 拡張機能の初期化 ---
     db.init_app(app)
     migrate.init_app(app, db)
-    csrf.init_app(app) 
+    csrf.init_app(app)
 
     # --- ルート (Blueprints) の登録 ---
     try:
@@ -90,57 +88,66 @@ def create_app(config_name=None):
         return f"Hello from Flask! SECRET_KEY Status: {key_status}"
 
     # --- コンテキストプロセッサ ---
-    # ▼▼▼ コンテキストプロセッサを修正 ▼▼▼
     @app.context_processor
     def inject_global_variables():
         commit_hash_short = 'N/A'
-        source_info = "" # どこから情報を取得したかの補助情報
+        source_info = ""
 
-        # 1. Render 環境変数を試す (最優先)
         render_commit = os.environ.get('RENDER_GIT_COMMIT')
         if render_commit:
-            commit_hash_short = render_commit[:7] # 短いハッシュ
+            commit_hash_short = render_commit[:7]
             source_info = "(Render Build)"
-        
-        # 2. ローカル開発環境向けのフォールバック (Render環境変数がない場合)
-        elif app.debug: 
+        elif app.debug:
             app.logger.info("RENDER_GIT_COMMIT not found, attempting to get info via git command (debug mode).")
             try:
-                 # git rev-parse --short HEAD を実行してコミットハッシュを取得
                  commit_hash_short = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD'], cwd=app.root_path).decode('utf-8').strip()
-                 source_info = "(local dev)" 
+                 source_info = "(local dev)"
             except FileNotFoundError:
                  app.logger.warning("Git command not found. Cannot determine commit hash.")
-                 commit_hash_short = "N/A"
-                 source_info = "(local dev - git not found)"
+                 commit_hash_short = "N/A"; source_info = "(local dev - git not found)"
             except subprocess.CalledProcessError:
                  app.logger.warning("Not a git repository or no commits yet.")
-                 commit_hash_short = "N/A"
-                 source_info = "(local dev - not a git repo?)"
+                 commit_hash_short = "N/A"; source_info = "(local dev - not a git repo?)"
             except Exception as e:
                  app.logger.error(f"Error getting git info locally: {e}")
-                 commit_hash_short = "N/A"
-                 source_info = "(local dev - error)"
-        
-        # 3. 上記いずれでも取得できなかった場合
+                 commit_hash_short = "N/A"; source_info = "(local dev - error)"
         else:
-            commit_hash_short = "N/A"
-            source_info = "(unknown)"
-            
-        # 表示用文字列を組み立てる
+            commit_hash_short = "N/A"; source_info = "(unknown)"
+
         build_version_string = f"Commit: {commit_hash_short} {source_info}".strip()
 
-        # テンプレートで使う変数を辞書で返す
+        # Misskeyインスタンスドメインの処理 (フォールバック強化)
+        misskey_instance_url = app.config.get('MISSKEY_INSTANCE_URL') # 環境変数またはデフォルト値('https://misskey.io')がここで取得される
+
+        # URLがNoneや空文字列の場合、明示的にデフォルトURLを設定
+        if not misskey_instance_url:
+            misskey_instance_url = 'https://misskey.io'
+            app.logger.info("MISSKEY_INSTANCE_URL was not set or empty, using default 'https://misskey.io'.")
+
+        # URLからプロトコル部分を除き、最初のパス区切りまでを取得してドメイン名とする
+        # strip() を追加して前後の空白も除去
+        temp_domain = misskey_instance_url.replace('https://', '').replace('http://', '').split('/')[0].strip()
+
+        # 抽出したドメイン名が空文字列の場合、最終フォールバックとして 'misskey.io' を設定
+        if not temp_domain:
+            misskey_instance_domain = 'misskey.io'
+            app.logger.warning(
+                f"Misskey instance domain derived from '{misskey_instance_url}' was empty. "
+                f"Defaulting to 'misskey.io'. Check MISSKEY_INSTANCE_URL configuration."
+            )
+        else:
+            misskey_instance_domain = temp_domain
+
         return {
             'current_year': datetime.datetime.now(datetime.timezone.utc).year,
-            'build_version': build_version_string 
+            'build_version': build_version_string,
+            'misskey_instance_domain': misskey_instance_domain # テンプレートに渡す
         }
-    # --- ▲▲▲ 修正ここまで ▲▲▲ ---
 
     # --- アプリケーションコンテキスト ---
     @app.shell_context_processor
     def make_shell_context():
-        from .models import db, User, Motorcycle, FuelEntry, MaintenanceEntry, MaintenanceReminder, GeneralNote, OdoResetLog 
+        from .models import db, User, Motorcycle, FuelEntry, MaintenanceEntry, MaintenanceReminder, GeneralNote, OdoResetLog
         return {
             'db': db, 'User': User, 'Motorcycle': Motorcycle, 'FuelEntry': FuelEntry,
             'MaintenanceEntry': MaintenanceEntry, 'MaintenanceReminder': MaintenanceReminder,
@@ -151,7 +158,7 @@ def create_app(config_name=None):
     try:
         os.makedirs(app.instance_path)
     except OSError:
-        pass 
+        pass
 
     # --- DB初期化コマンド ---
     @app.cli.command("init-db")
