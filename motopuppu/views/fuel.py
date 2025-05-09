@@ -1,25 +1,21 @@
 # motopuppu/views/fuel.py
-import csv # ★ 追加
-import io  # ★ 追加
-from datetime import date, datetime # ★ datetime オブジェクト全体をインポート (ファイル名生成用)
+import csv
+import io
+from datetime import date, datetime # datetime オブジェクト全体をインポート
 
 from flask import (
-    Blueprint, flash, g, redirect, render_template, request, url_for, abort, current_app, Response # ★ Response を追加
+    Blueprint, flash, g, redirect, render_template, request, url_for, abort, current_app, Response
 )
-# sqlalchemy, auth, models, forms のインポートは既存のまま
-from sqlalchemy import or_, asc, desc
+from sqlalchemy import or_, asc, desc, func # ★ func を追加 (countで使用する可能性を考慮)
 
-from .auth import login_required_custom, get_current_user # ユーザー認証関連
+from .auth import login_required_custom, get_current_user
 from ..models import db, Motorcycle, FuelEntry # DBモデル
-from ..forms import FuelForm, GAS_STATION_BRANDS # ★ 作成したFuelFormとスタンド名リストをインポート
+from ..forms import FuelForm, GAS_STATION_BRANDS
 
 fuel_bp = Blueprint('fuel', __name__, url_prefix='/fuel')
 
 def get_previous_fuel_entry(motorcycle_id, current_entry_date, current_entry_id=None):
-    """
-    指定された車両IDと日付に基づいて、直前の給油記録を取得する。
-    current_entry_id が指定された場合、そのIDの記録は除外する (編集時用)。
-    """
+    # (この関数は変更なし)
     if not motorcycle_id or not current_entry_date:
         return None
     query = FuelEntry.query.filter(
@@ -34,7 +30,7 @@ def get_previous_fuel_entry(motorcycle_id, current_entry_date, current_entry_id=
 @fuel_bp.route('/')
 @login_required_custom
 def fuel_log():
-    """給油記録の一覧を表示 (フィルター・ソート機能付き)"""
+    # (この関数は変更なし - 前回の修正を維持)
     start_date_str = request.args.get('start_date')
     end_date_str = request.args.get('end_date')
     vehicle_id_str = request.args.get('vehicle_id')
@@ -53,23 +49,13 @@ def fuel_log():
 
     query = db.session.query(FuelEntry).join(Motorcycle).filter(FuelEntry.motorcycle_id.in_(user_motorcycle_ids))
 
-    request_args_dict = request.args.to_dict()
-    # ページネーション、ソート関連のキーを request_args_dict から削除
-    # これにより、ソートリンクやページネーションリンク以外でこれらのパラメータがクリアされるのを防ぐ
-    # request_args_dict.pop('page', None) # ページネーションリンクではpageが更新される
-    # request_args_dict.pop('sort_by', None) # ソートリンクではsort_byが更新される
-    # request_args_dict.pop('order', None) # ソートリンクではorderが更新される
-    # フィルターフォームの値のみを保持する意図なら、明示的にキーを指定して構築する方が安全
     active_filters = {k: v for k, v in request.args.items() if k not in ['page', 'sort_by', 'order']}
-
 
     try:
         if start_date_str:
             query = query.filter(FuelEntry.entry_date >= date.fromisoformat(start_date_str))
-        # else: active_filters.pop('start_date', None) # フィルターがなければactive_filtersからも削除
         if end_date_str:
             query = query.filter(FuelEntry.entry_date <= date.fromisoformat(end_date_str))
-        # else: active_filters.pop('end_date', None)
     except ValueError:
         flash('日付の形式が無効です。YYYY-MM-DD形式で入力してください。', 'warning')
         active_filters.pop('start_date', None)
@@ -85,13 +71,10 @@ def fuel_log():
                 active_filters.pop('vehicle_id', None)
         except ValueError:
             active_filters.pop('vehicle_id', None)
-    # else:
-    #     active_filters.pop('vehicle_id', None) # vehicle_idがなければactive_filtersからも削除
 
     if keyword:
         search_term = f'%{keyword}%'
         query = query.filter(or_(FuelEntry.notes.ilike(search_term), FuelEntry.station_name.ilike(search_term)))
-    # else: active_filters.pop('q', None)
 
     sort_column_map = {
         'date': FuelEntry.entry_date,
@@ -105,7 +88,6 @@ def fuel_log():
     sort_column = sort_column_map.get(sort_by, FuelEntry.entry_date)
     current_sort_by = sort_by if sort_by in sort_column_map else 'date'
     current_order = 'desc' if order == 'desc' else 'asc'
-
     sort_modifier = desc if current_order == 'desc' else asc
 
     if sort_column == FuelEntry.entry_date:
@@ -113,9 +95,7 @@ def fuel_log():
     elif sort_column == FuelEntry.odometer_reading:
         query = query.order_by(sort_modifier(FuelEntry.odometer_reading), desc(FuelEntry.entry_date))
     else:
-        # Motorcycle.name でソートする場合、join が必要だが既にされている
         query = query.order_by(sort_modifier(sort_column))
-
 
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
     fuel_entries = pagination.items
@@ -124,16 +104,15 @@ def fuel_log():
                            entries=fuel_entries,
                            pagination=pagination,
                            motorcycles=user_motorcycles,
-                           request_args=active_filters, # ★ 修正: active_filters を渡す
+                           request_args=active_filters,
                            current_sort_by=current_sort_by,
                            current_order=current_order
                            )
 
-
 @fuel_bp.route('/add', methods=['GET', 'POST'])
 @login_required_custom
 def add_fuel():
-    """新しい給油記録を追加"""
+    # (この関数は変更なし - 前回の修正を維持)
     user_motorcycles = Motorcycle.query.filter_by(user_id=g.user.id).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
     if not user_motorcycles:
         flash('給油記録を追加するには、まず車両を登録してください。', 'warning')
@@ -141,18 +120,14 @@ def add_fuel():
 
     form = FuelForm()
     form.motorcycle_id.choices = [(m.id, f"{m.name} ({m.maker or 'メーカー不明'})") for m in user_motorcycles]
-
     previous_entry_info = None
 
     if request.method == 'GET':
         default_vehicle = next((m for m in user_motorcycles if m.is_default), user_motorcycles[0] if user_motorcycles else None)
-        if default_vehicle:
-            form.motorcycle_id.data = default_vehicle.id
-
+        if default_vehicle: form.motorcycle_id.data = default_vehicle.id
         preselected_motorcycle_id = request.args.get('motorcycle_id', type=int)
         if preselected_motorcycle_id and any(m.id == preselected_motorcycle_id for m in user_motorcycles):
             form.motorcycle_id.data = preselected_motorcycle_id
-
         form.entry_date.data = date.today()
         form.is_full_tank.data = True
 
@@ -161,176 +136,141 @@ def add_fuel():
         if not motorcycle:
             flash('選択された車両が見つかりません。再度お試しください。', 'danger')
             return render_template('fuel_form.html', form_action='add', form=form, gas_station_brands=GAS_STATION_BRANDS, previous_entry_info=None)
-
         offset_at_entry_date = motorcycle.calculate_cumulative_offset_from_logs(target_date=form.entry_date.data)
         total_distance = form.odometer_reading.data + offset_at_entry_date
-
         previous_entry_for_check = get_previous_fuel_entry(motorcycle.id, form.entry_date.data)
         if previous_entry_for_check and total_distance < previous_entry_for_check.total_distance:
             flash(f'注意: 今回の総走行距離 ({total_distance:,}km) が、前回記録 ({previous_entry_for_check.entry_date.strftime("%Y-%m-%d")} の {previous_entry_for_check.total_distance:,}km) より小さくなっています。入力内容を確認してください。', 'warning')
-
         total_cost_val = form.total_cost.data
         if total_cost_val is None and form.price_per_liter.data is not None and form.fuel_volume.data is not None:
-            try:
-                total_cost_val = round(float(form.price_per_liter.data) * float(form.fuel_volume.data))
-            except TypeError:
-                total_cost_val = None
-        elif total_cost_val is not None:
-            total_cost_val = int(round(float(total_cost_val)))
-
-
+            try: total_cost_val = round(float(form.price_per_liter.data) * float(form.fuel_volume.data))
+            except TypeError: total_cost_val = None
+        elif total_cost_val is not None: total_cost_val = int(round(float(total_cost_val)))
         new_entry = FuelEntry(
-            motorcycle_id=motorcycle.id,
-            entry_date=form.entry_date.data,
-            odometer_reading=form.odometer_reading.data,
-            total_distance=total_distance,
-            fuel_volume=float(form.fuel_volume.data),
+            motorcycle_id=motorcycle.id, entry_date=form.entry_date.data, odometer_reading=form.odometer_reading.data,
+            total_distance=total_distance, fuel_volume=float(form.fuel_volume.data),
             price_per_liter=float(form.price_per_liter.data) if form.price_per_liter.data is not None else None,
-            total_cost=total_cost_val,
-            station_name=form.station_name.data.strip() if form.station_name.data else None,
+            total_cost=total_cost_val, station_name=form.station_name.data.strip() if form.station_name.data else None,
             fuel_type=form.fuel_type.data.strip() if form.fuel_type.data else None,
-            notes=form.notes.data.strip() if form.notes.data else None,
-            is_full_tank=form.is_full_tank.data
-        )
+            notes=form.notes.data.strip() if form.notes.data else None, is_full_tank=form.is_full_tank.data)
         try:
-            db.session.add(new_entry)
-            db.session.commit()
+            db.session.add(new_entry); db.session.commit()
             flash('給油記録を追加しました。', 'success')
             return redirect(url_for('fuel.fuel_log'))
         except Exception as e:
             db.session.rollback()
             flash(f'記録のデータベース保存中にエラーが発生しました。詳細は管理者にお問い合わせください。', 'error')
             current_app.logger.error(f"Error saving new fuel entry: {e}", exc_info=True)
-
     elif request.method == 'POST':
         form.motorcycle_id.choices = [(m.id, f"{m.name} ({m.maker or 'メーカー不明'})") for m in user_motorcycles]
-
     selected_motorcycle_id_for_prev = form.motorcycle_id.data
     entry_date_for_prev = form.entry_date.data
     if selected_motorcycle_id_for_prev and entry_date_for_prev:
         previous_fuel = get_previous_fuel_entry(selected_motorcycle_id_for_prev, entry_date_for_prev)
-        if previous_fuel:
-            previous_entry_info = {
-                'date': previous_fuel.entry_date.strftime('%Y-%m-%d'),
-                'odo': f"{previous_fuel.odometer_reading:,}km"
-            }
-
-    return render_template('fuel_form.html',
-                           form_action='add',
-                           form=form,
-                           gas_station_brands=GAS_STATION_BRANDS,
-                           previous_entry_info=previous_entry_info)
-
+        if previous_fuel: previous_entry_info = {'date': previous_fuel.entry_date.strftime('%Y-%m-%d'), 'odo': f"{previous_fuel.odometer_reading:,}km"}
+    return render_template('fuel_form.html', form_action='add', form=form, gas_station_brands=GAS_STATION_BRANDS, previous_entry_info=previous_entry_info)
 
 @fuel_bp.route('/<int:entry_id>/edit', methods=['GET', 'POST'])
 @login_required_custom
 def edit_fuel(entry_id):
-    """既存の給油記録を編集"""
-    entry = FuelEntry.query.filter(FuelEntry.id == entry_id)\
-                           .join(Motorcycle).filter(Motorcycle.user_id == g.user.id)\
-                           .first_or_404()
-
+    # (この関数は変更なし - 前回の修正を維持)
+    entry = FuelEntry.query.filter(FuelEntry.id == entry_id).join(Motorcycle).filter(Motorcycle.user_id == g.user.id).first_or_404()
     form = FuelForm(obj=entry)
-
     form.motorcycle_id.choices = [(entry.motorcycle.id, f"{entry.motorcycle.name} ({entry.motorcycle.maker or 'メーカー不明'})")]
     form.motorcycle_id.data = entry.motorcycle_id
-
     previous_entry_info = None
-
     if form.validate_on_submit():
         motorcycle = entry.motorcycle
-
         offset_at_entry_date = motorcycle.calculate_cumulative_offset_from_logs(target_date=form.entry_date.data)
         total_distance = form.odometer_reading.data + offset_at_entry_date
-
         previous_entry_for_check = get_previous_fuel_entry(motorcycle.id, form.entry_date.data, entry.id)
         if previous_entry_for_check and total_distance < previous_entry_for_check.total_distance:
              flash(f'注意: 今回の総走行距離 ({total_distance:,}km) が、前回記録 ({previous_entry_for_check.entry_date.strftime("%Y-%m-%d")} の {previous_entry_for_check.total_distance:,}km) より小さくなっています。入力内容を確認してください。', 'warning')
-
         total_cost_val = form.total_cost.data
         if total_cost_val is None and form.price_per_liter.data is not None and form.fuel_volume.data is not None:
-            try:
-                total_cost_val = round(float(form.price_per_liter.data) * float(form.fuel_volume.data))
-            except TypeError:
-                total_cost_val = None
-        elif total_cost_val is not None:
-            total_cost_val = int(round(float(total_cost_val)))
-
-        entry.entry_date = form.entry_date.data
-        entry.odometer_reading = form.odometer_reading.data
-        entry.total_distance = total_distance
-        entry.fuel_volume = float(form.fuel_volume.data)
+            try: total_cost_val = round(float(form.price_per_liter.data) * float(form.fuel_volume.data))
+            except TypeError: total_cost_val = None
+        elif total_cost_val is not None: total_cost_val = int(round(float(total_cost_val)))
+        entry.entry_date = form.entry_date.data; entry.odometer_reading = form.odometer_reading.data
+        entry.total_distance = total_distance; entry.fuel_volume = float(form.fuel_volume.data)
         entry.price_per_liter = float(form.price_per_liter.data) if form.price_per_liter.data is not None else None
-        entry.total_cost = total_cost_val
-        entry.station_name = form.station_name.data.strip() if form.station_name.data else None
+        entry.total_cost = total_cost_val; entry.station_name = form.station_name.data.strip() if form.station_name.data else None
         entry.fuel_type = form.fuel_type.data.strip() if form.fuel_type.data else None
-        entry.notes = form.notes.data.strip() if form.notes.data else None
-        entry.is_full_tank = form.is_full_tank.data
+        entry.notes = form.notes.data.strip() if form.notes.data else None; entry.is_full_tank = form.is_full_tank.data
         try:
-            db.session.commit()
-            flash('給油記録を更新しました。', 'success')
+            db.session.commit(); flash('給油記録を更新しました。', 'success')
             return redirect(url_for('fuel.fuel_log'))
         except Exception as e:
-            db.session.rollback()
-            flash(f'記録の更新中にエラーが発生しました。詳細は管理者にお問い合わせください。', 'error')
+            db.session.rollback(); flash(f'記録の更新中にエラーが発生しました。詳細は管理者にお問い合わせください。', 'error')
             current_app.logger.error(f"Error updating fuel entry ID {entry_id}: {e}", exc_info=True)
-
     elif request.method == 'POST':
         form.motorcycle_id.choices = [(entry.motorcycle.id, f"{entry.motorcycle.name} ({entry.motorcycle.maker or 'メーカー不明'})")]
         form.motorcycle_id.data = entry.motorcycle.id
-
     current_motorcycle_id_for_prev = entry.motorcycle_id
     entry_date_for_prev = form.entry_date.data if form.entry_date.data else entry.entry_date
-
     if current_motorcycle_id_for_prev and entry_date_for_prev:
         previous_fuel = get_previous_fuel_entry(current_motorcycle_id_for_prev, entry_date_for_prev, entry.id)
-        if previous_fuel:
-            previous_entry_info = {
-                'date': previous_fuel.entry_date.strftime('%Y-%m-%d'),
-                'odo': f"{previous_fuel.odometer_reading:,}km"
-            }
-
-    return render_template('fuel_form.html',
-                           form_action='edit',
-                           form=form,
-                           entry_id=entry.id,
-                           gas_station_brands=GAS_STATION_BRANDS,
-                           previous_entry_info=previous_entry_info)
-
+        if previous_fuel: previous_entry_info = {'date': previous_fuel.entry_date.strftime('%Y-%m-%d'), 'odo': f"{previous_fuel.odometer_reading:,}km"}
+    return render_template('fuel_form.html', form_action='edit', form=form, entry_id=entry.id, gas_station_brands=GAS_STATION_BRANDS, previous_entry_info=previous_entry_info)
 
 @fuel_bp.route('/<int:entry_id>/delete', methods=['POST'])
 @login_required_custom
 def delete_fuel(entry_id):
-    """給油記録を削除"""
-    entry = FuelEntry.query.filter(FuelEntry.id == entry_id)\
-                           .join(Motorcycle).filter(Motorcycle.user_id == g.user.id)\
-                           .first_or_404()
+    # (この関数は変更なし - 前回の修正を維持)
+    entry = FuelEntry.query.filter(FuelEntry.id == entry_id).join(Motorcycle).filter(Motorcycle.user_id == g.user.id).first_or_404()
     try:
-        db.session.delete(entry)
-        db.session.commit()
+        db.session.delete(entry); db.session.commit()
         flash('給油記録を削除しました。', 'success')
     except Exception as e:
-        db.session.rollback()
-        flash(f'記録の削除中にエラーが発生しました。詳細は管理者にお問い合わせください。', 'error')
+        db.session.rollback(); flash(f'記録の削除中にエラーが発生しました。詳細は管理者にお問い合わせください。', 'error')
         current_app.logger.error(f"Error deleting fuel entry ID {entry_id}: {e}", exc_info=True)
     return redirect(url_for('fuel.fuel_log'))
 
-
-@fuel_bp.route('/motorcycle/<int:motorcycle_id>/export_csv') # ★ 新しいルート
+@fuel_bp.route('/motorcycle/<int:motorcycle_id>/export_csv')
 @login_required_custom
 def export_fuel_records_csv(motorcycle_id):
+    # (この関数は変更なし - 前回のものを維持)
     motorcycle = Motorcycle.query.filter_by(id=motorcycle_id, user_id=g.user.id).first_or_404()
-
     fuel_records = FuelEntry.query.filter_by(motorcycle_id=motorcycle.id).order_by(FuelEntry.entry_date.asc(), FuelEntry.total_distance.asc()).all()
-
     if not fuel_records:
         flash(f'{motorcycle.name}にはエクスポート対象の燃費記録がありません。', 'info')
         return redirect(url_for('fuel.fuel_log', vehicle_id=motorcycle.id))
+    output = io.StringIO(); writer = csv.writer(output)
+    header = ['id', 'motorcycle_id', 'motorcycle_name', 'entry_date', 'odometer_reading', 'total_distance', 'fuel_volume', 'price_per_liter', 'total_cost', 'station_name', 'is_full_tank', 'km_per_liter', 'notes', 'fuel_type']
+    writer.writerow(header)
+    for record in fuel_records:
+        km_per_liter_val = record.km_per_liter
+        row = [record.id, record.motorcycle_id, motorcycle.name, record.entry_date.strftime('%Y-%m-%d') if record.entry_date else '', record.odometer_reading, record.total_distance, f"{record.fuel_volume:.2f}" if record.fuel_volume is not None else '', f"{record.price_per_liter:.1f}" if record.price_per_liter is not None else '', f"{record.total_cost:.0f}" if record.total_cost is not None else '', record.station_name if record.station_name else '', str(record.is_full_tank), f"{km_per_liter_val:.2f}" if km_per_liter_val is not None else '', record.notes if record.notes else '', record.fuel_type if record.fuel_type else '']
+        writer.writerow(row)
+    output.seek(0)
+    safe_vehicle_name = "".join(c for c in motorcycle.name if c.isalnum() or c in ['_', '-']).strip()
+    if not safe_vehicle_name: safe_vehicle_name = "vehicle"
+    timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+    filename = f"motopuppu_fuel_records_{safe_vehicle_name}_{motorcycle.id}_{timestamp}.csv"
+    return Response(output.getvalue(), mimetype="text/csv", headers={"Content-Disposition": f"attachment;filename=\"{filename}\"", "Content-Type": "text/csv; charset=utf-8-sig"})
+
+# ★★★ ここから全件エクスポート用の関数を追加 ★★★
+@fuel_bp.route('/export_all_csv')
+@login_required_custom
+def export_all_fuel_records_csv():
+    user_motorcycles = Motorcycle.query.filter_by(user_id=g.user.id).all()
+    if not user_motorcycles:
+        flash('エクスポート対象の車両が登録されていません。', 'info')
+        return redirect(url_for('fuel.fuel_log'))
+
+    user_motorcycle_ids = [m.id for m in user_motorcycles]
+    
+    all_fuel_records = FuelEntry.query.filter(FuelEntry.motorcycle_id.in_(user_motorcycle_ids))\
+                                      .options(db.joinedload(FuelEntry.motorcycle))\
+                                      .order_by(FuelEntry.motorcycle_id, FuelEntry.entry_date.asc(), FuelEntry.total_distance.asc()).all()
+
+    if not all_fuel_records:
+        flash('エクスポート対象の燃費記録がありません。', 'info')
+        return redirect(url_for('fuel.fuel_log'))
 
     output = io.StringIO()
     writer = csv.writer(output)
 
-    # ヘッダー行
     header = [
         'id', 'motorcycle_id', 'motorcycle_name', 'entry_date', 'odometer_reading',
         'total_distance', 'fuel_volume', 'price_per_liter', 'total_cost',
@@ -338,22 +278,20 @@ def export_fuel_records_csv(motorcycle_id):
     ]
     writer.writerow(header)
 
-    # データ行
-    for record in fuel_records:
+    for record in all_fuel_records:
         km_per_liter_val = record.km_per_liter
-
         row = [
             record.id,
             record.motorcycle_id,
-            motorcycle.name,
+            record.motorcycle.name, # joinedload した motorcycle オブジェクトから名前を取得
             record.entry_date.strftime('%Y-%m-%d') if record.entry_date else '',
             record.odometer_reading,
             record.total_distance,
             f"{record.fuel_volume:.2f}" if record.fuel_volume is not None else '',
             f"{record.price_per_liter:.1f}" if record.price_per_liter is not None else '',
-            f"{record.total_cost:.0f}" if record.total_cost is not None else '',
+            f"{record.total_cost:.0f}" if record.total_cost is not None else '', # または .2f など適宜調整
             record.station_name if record.station_name else '',
-            str(record.is_full_tank),
+            str(record.is_full_tank), # True / False 文字列
             f"{km_per_liter_val:.2f}" if km_per_liter_val is not None else '',
             record.notes if record.notes else '',
             record.fuel_type if record.fuel_type else ''
@@ -362,18 +300,16 @@ def export_fuel_records_csv(motorcycle_id):
 
     output.seek(0)
 
-    # ファイル名の生成
-    safe_vehicle_name = "".join(c for c in motorcycle.name if c.isalnum() or c in ['_', '-']).strip()
-    if not safe_vehicle_name:
-        safe_vehicle_name = "vehicle"
     timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
-    filename = f"motopuppu_fuel_records_{safe_vehicle_name}_{motorcycle.id}_{timestamp}.csv"
+    # ユーザーを識別する情報はファイル名に含めない (ログインユーザー自身のデータなので)
+    filename = f"motopuppu_fuel_records_all_vehicles_{timestamp}.csv"
 
     return Response(
         output.getvalue(),
         mimetype="text/csv",
         headers={
             "Content-Disposition": f"attachment;filename=\"{filename}\"",
-            "Content-Type": "text/csv; charset=utf-8-sig"
+            "Content-Type": "text/csv; charset=utf-8-sig" # BOM付きUTF-8
         }
     )
+# ★★★ 全件エクスポート用の関数ここまで ★★★
