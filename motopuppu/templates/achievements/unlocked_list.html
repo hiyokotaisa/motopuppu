@@ -1,11 +1,12 @@
 {# motopuppu/templates/achievements/unlocked_list.html #}
 {% extends "base.html" %}
 
-{% block title %}解除済み実績一覧 - もとぷっぷー{% endblock %}
+{% block title %}実績一覧 - もとぷっぷー{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-    <h1 class="h2"><i class="fas fa-trophy me-2"></i>解除済み実績一覧</h1>
+    {# ▼▼▼ タイトルを「実績一覧」に変更 ▼▼▼ #}
+    <h1 class="h2"><i class="fas fa-trophy me-2"></i>実績一覧</h1>
 </div>
 
 {% with messages = get_flashed_messages(with_categories=true) %}
@@ -19,6 +20,7 @@
     {% endif %}
 {% endwith %}
 
+{# ▼▼▼ categorized_achievements が空でも「まだ実績がありません」とはしないように変更 ▼▼▼ #}
 {% if categorized_achievements %}
     {% for category_name, achievements_in_category in categorized_achievements.items() %}
     <div class="card mb-4">
@@ -27,22 +29,29 @@
         </div>
         <div class="list-group list-group-flush">
             {% for ach in achievements_in_category %}
-            <div class="list-group-item">
+            {# ▼▼▼ is_unlocked でクラスを切り替え ▼▼▼ #}
+            <div class="list-group-item {% if not ach.is_unlocked %}bg-light text-muted{% endif %}">
                 <div class="row align-items-center">
                     <div class="col-auto text-center" style="width: 60px;">
                         {% if ach.icon_class %}
-                            <i class="{{ ach.icon_class }} fa-2x text-warning"></i>
+                            {# ▼▼▼ 未達成時はアイコンもグレーアウト気味に (例: text-muted を追加) ▼▼▼ #}
+                            <i class="{{ ach.icon_class }} fa-2x {% if ach.is_unlocked %}text-warning{% else %}text-secondary opacity-50{% endif %}"></i>
                         {% else %}
-                            <i class="fas fa-trophy fa-2x text-warning"></i> {# デフォルトアイコン #}
+                            <i class="fas fa-trophy fa-2x {% if ach.is_unlocked %}text-warning{% else %}text-secondary opacity-50{% endif %}"></i> {# デフォルトアイコン #}
                         {% endif %}
                     </div>
                     <div class="col">
                         <h6 class="mb-1">{{ ach.name }}</h6>
-                        <p class="mb-1 small text-muted">{{ ach.description }}</p>
-                        <small class="text-muted">解除日: {{ ach.unlocked_at.strftime('%Y年%m月%d日 %H:%M') if ach.unlocked_at else '不明' }}</small>
+                        <p class="mb-1 small {% if not ach.is_unlocked %}fst-italic{% else %}text-muted{% endif %}">{{ ach.description }}</p>
+                        {% if ach.is_unlocked %}
+                            <small class="text-success fw-bold">解除日: {{ ach.unlocked_at.strftime('%Y年%m月%d日 %H:%M') if ach.unlocked_at else '不明' }}</small>
+                        {% else %}
+                            <small class="text-danger">（未達成）</small>
+                        {% endif %}
                     </div>
                     <div class="col-auto">
-                        {% if ach.share_text_template %}
+                        {# ▼▼▼ 解除済みの場合のみ共有ボタンを表示 ▼▼▼ #}
+                        {% if ach.is_unlocked and ach.share_text_template %}
                         <button class="btn btn-sm btn-info btn-share-misskey-achievement"
                                 data-achievement-name="{{ ach.name }}"
                                 data-share-template="{{ ach.share_text_template }}"
@@ -57,10 +66,11 @@
         </div>
     </div>
     {% endfor %}
-{% else %}
-<div class="alert alert-info" role="alert">
-    まだ解除した実績はありません。アプリを使っていろいろな機能を試してみましょう！
-</div>
+{% else %} 
+    {# カテゴリ分けされた実績データそのものがない場合 (通常は実績定義があれば発生しないはず) #}
+    <div class="alert alert-info" role="alert">
+        表示できる実績情報がありません。
+    </div>
 {% endif %}
 
 {% endblock %}
@@ -73,7 +83,7 @@ document.addEventListener('DOMContentLoaded', function() {
         button.addEventListener('click', function() {
             console.log("Share button clicked. Button dataset:", this.dataset);
             
-            const misskeyInstanceDomain = 'misskey.io'; // ★★★ Misskeyインスタンスドメインをハードコード ★★★
+            const misskeyInstanceDomain = 'misskey.io'; 
             console.log("Misskey instance domain (hardcoded):", misskeyInstanceDomain);
 
             const achievementName = this.dataset.achievementName;
@@ -93,7 +103,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
             if (shareText) {
                 const encodedText = encodeURIComponent(shareText);
-                // URL生成部分を確実な文字列として結合
                 const shareUrl = 'https://' + misskeyInstanceDomain + '/share?text=' + encodedText;
                 console.log("Share URL:", shareUrl); 
                 

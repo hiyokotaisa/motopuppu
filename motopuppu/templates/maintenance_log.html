@@ -142,7 +142,13 @@
                         {{ entry.description|truncate(30) }}
                     </span>
                 </td>
-                <td class="text-end">{{ entry.total_cost|round|int|default('-', true) }}</td>
+                <td class="text-end">
+                    {% if entry.total_cost is not none %}
+                        {{ entry.total_cost|round|int }}
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
                 <td class="text-nowrap">
                     <a href="{{ url_for('maintenance.edit_maintenance', entry_id=entry.id) }}" class="btn btn-sm btn-outline-primary me-1" title="編集"><i class="fas fa-edit fa-fw"></i></a>
                     <form action="{{ url_for('maintenance.delete_maintenance', entry_id=entry.id) }}" method="POST" class="d-inline" onsubmit="return confirm('この整備記録を削除してもよろしいですか？');">

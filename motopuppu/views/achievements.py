@@ -9,37 +9,44 @@ achievements_bp = Blueprint('achievements', __name__, url_prefix='/achievements'
 @achievements_bp.route('/')
 @login_required_custom
 def index():
-    """解除済み実績の一覧を表示する"""
+    """全ての実績定義と、ユーザーの解除状況を一覧表示する"""
     if not g.user:
-        abort(403) # 通常 login_required_custom で防がれるはず
+        abort(403)
 
-    # ユーザーが解除した実績を取得し、実績定義も結合して取得
-    # unlocked_at の降順（新しいものから）で並べる
-    user_achievements_with_def = db.session.query(UserAchievement, AchievementDefinition)\
-        .join(AchievementDefinition, UserAchievement.achievement_code == AchievementDefinition.code)\
-        .filter(UserAchievement.user_id == g.user.id)\
-        .order_by(UserAchievement.unlocked_at.desc())\
-        .all()
+    # 全ての実績定義を取得
+    all_achievement_defs = AchievementDefinition.query.order_by(AchievementDefinition.category_name, AchievementDefinition.name).all()
 
-    # カテゴリごとに実績をグループ化
-    categorized_achievements = {}
-    if user_achievements_with_def:
-        for ua, ach_def in user_achievements_with_def:
-            category_name = ach_def.category_name # 表示用のカテゴリ名
-            if category_name not in categorized_achievements:
-                categorized_achievements[category_name] = []
-            categorized_achievements[category_name].append({
+    # ユーザーが解除した実績のコードと解除日時を辞書として取得
+    unlocked_achievements_info = {
+        ua.achievement_code: ua.unlocked_at
+        for ua in UserAchievement.query.filter_by(user_id=g.user.id).all()
+    }
+
+    # カテゴリごとに実績をグループ化し、解除情報を付加
+    categorized_achievements_with_status = {}
+    if all_achievement_defs:
+        for ach_def in all_achievement_defs:
+            category_name = ach_def.category_name
+            if category_name not in categorized_achievements_with_status:
+                categorized_achievements_with_status[category_name] = []
+            
+            is_unlocked = ach_def.code in unlocked_achievements_info
+            unlocked_at = unlocked_achievements_info.get(ach_def.code) if is_unlocked else None
+            
+            categorized_achievements_with_status[category_name].append({
+                'code': ach_def.code, # 実績コードも渡す
                 'name': ach_def.name,
-                'description': ach_def.description,
+                'description': ach_def.description, # これが解除条件
                 'icon_class': ach_def.icon_class,
-                'unlocked_at': ua.unlocked_at,
-                'share_text_template': ach_def.share_text_template, # Misskey共有用
-                'achievement_code': ach_def.code # Misskey共有時の識別等に使える
+                'is_unlocked': is_unlocked,
+                'unlocked_at': unlocked_at,
+                'share_text_template': ach_def.share_text_template if is_unlocked else None # 解除済みのみ共有可能
             })
-
-    current_app.logger.info(f"User {g.user.id} unlocked achievements (categorized): {categorized_achievements}")
+    
+    current_app.logger.info(f"User {g.user.id} achievements page data (categorized with status): {categorized_achievements_with_status}")
 
     return render_template(
         'achievements/unlocked_list.html',
-        categorized_achievements=categorized_achievements
+        # テンプレートに渡す変数名を変更 (categorized_achievements -> all_categorized_achievements など、より意味のある名前にしても良い)
+        categorized_achievements=categorized_achievements_with_status 
     )

@@ -219,7 +219,7 @@ class AchievementDefinition(db.Model):
     category_name = db.Column(db.String(100), nullable=False)
     share_text_template = db.Column(db.Text, nullable=True)
     trigger_event_type = db.Column(db.String(100), nullable=True, index=True) # どのイベントで評価されるか
-
+    criteria = db.Column(JSONB, nullable=True) # 実績の具体的な条件値 (例: {"type": "count", "value": 10})
     user_achievements = db.relationship('UserAchievement', backref='definition', lazy='dynamic')
 
     def __repr__(self):
