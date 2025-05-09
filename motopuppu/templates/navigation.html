@@ -45,12 +45,19 @@
             {# 右側の要素 (ユーザー名とログアウトボタン) #}
             <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
                  <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" href="#" id="navbarUserDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <a class="nav-link dropdown-toggle {% if request.endpoint.startswith('achievements.') %}active{% endif %}" href="#" id="navbarUserDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="fas fa-user me-1"></i> {{ g.user.misskey_username or 'ユーザー' }}
                     </a>
                     <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarUserDropdown">
+                        {# ▼▼▼ 実績一覧へのリンクを追加 ▼▼▼ #}
+                        <li>
+                            <a class="dropdown-item {% if request.endpoint == 'achievements.index' %}active{% endif %}" href="{{ url_for('achievements.index') }}">
+                                <i class="fas fa-trophy me-1"></i> 実績一覧
+                            </a>
+                        </li>
+                        {# ▲▲▲ 実績一覧へのリンクを追加 ▲▲▲ #}
                         {# <li><a class="dropdown-item" href="#">アカウント設定</a></li> #}
-                        {# <li><hr class="dropdown-divider"></li> #}
+                        <li><hr class="dropdown-divider"></li>
                         <li>
                             <a class="dropdown-item" href="{{ url_for('auth.logout') }}">
                                 <i class="fas fa-sign-out-alt me-1"></i> ログアウト

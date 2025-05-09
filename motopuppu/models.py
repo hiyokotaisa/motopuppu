@@ -8,7 +8,6 @@ from sqlalchemy import Index, func # func をインポートリストに追加
 # --- データベースモデル定義 ---
 
 class User(db.Model):
-    # (変更なし)
     __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
     misskey_user_id = db.Column(db.String(100), unique=True, nullable=False)
@@ -17,6 +16,7 @@ class User(db.Model):
 
     motorcycles = db.relationship('Motorcycle', backref='owner', lazy=True, cascade="all, delete-orphan")
     general_notes = db.relationship('GeneralNote', backref='owner', lazy=True, cascade="all, delete-orphan")
+    achievements = db.relationship('UserAchievement', backref='user', lazy='dynamic', cascade="all, delete-orphan")
 
     def __repr__(self):
         return f'<User id={self.id} username={self.misskey_username}>'
@@ -28,7 +28,7 @@ class Motorcycle(db.Model):
     maker = db.Column(db.String(80), nullable=True)
     name = db.Column(db.String(80), nullable=False)
     year = db.Column(db.Integer, nullable=True)
-    odometer_offset = db.Column(db.Integer, nullable=False, default=0, server_default='0') # 累積オフセットキャッシュとして維持
+    odometer_offset = db.Column(db.Integer, nullable=False, default=0, server_default='0') 
     is_default = db.Column(db.Boolean, nullable=False, server_default='false')
 
     fuel_entries = db.relationship('FuelEntry', backref='motorcycle', lazy='dynamic', order_by="desc(FuelEntry.entry_date)", cascade="all, delete-orphan")
@@ -36,86 +36,45 @@ class Motorcycle(db.Model):
     consumable_logs = db.relationship('ConsumableLog', backref='motorcycle', lazy='dynamic', order_by="desc(ConsumableLog.change_date)", cascade="all, delete-orphan")
     maintenance_reminders = db.relationship('MaintenanceReminder', backref='motorcycle', lazy=True, cascade="all, delete-orphan")
     general_notes = db.relationship('GeneralNote', backref='motorcycle', lazy=True)
-    
     odo_reset_logs = db.relationship(
-        'OdoResetLog',
-        backref='motorcycle', # motorcycle_obj から motorcycle に戻す (FuelEntry等と合わせる)
-        lazy='dynamic',
-        order_by="desc(OdoResetLog.reset_date)", 
-        cascade="all, delete-orphan" 
+        'OdoResetLog', backref='motorcycle', lazy='dynamic',
+        order_by="desc(OdoResetLog.reset_date)", cascade="all, delete-orphan"
     )
 
     def calculate_cumulative_offset_from_logs(self, target_date=None):
-        """
-        指定された日付（またはそれ以前）のOdoResetLogに基づいて
-        累積オフセット値を計算する。
-        target_dateがNoneの場合は、すべて（最新）のログを対象とする。
-        """
-        query = db.session.query(
-            db.func.sum(OdoResetLog.offset_increment)
-        ).filter(
-            OdoResetLog.motorcycle_id == self.id # 対象車両に限定
-        )
-        if target_date:
-             query = query.filter(OdoResetLog.reset_date <= target_date)
-        
-        result = query.scalar() # 合計値を取得 (結果がない場合はNone)
+        query = db.session.query(db.func.sum(OdoResetLog.offset_increment)).filter(OdoResetLog.motorcycle_id == self.id)
+        if target_date: query = query.filter(OdoResetLog.reset_date <= target_date)
+        result = query.scalar() 
+        return result if result is not None else 0
 
-        return result if result is not None else 0 # 結果がNoneなら0を返す
-
-    # ▼▼▼ ここから新しいメソッドを追加 ▼▼▼
     def get_display_total_mileage(self):
-        """
-        この車両の表示用の総走行距離を取得します。
-        main.py の get_latest_total_distance 関数のロジックを適用。
-        """
         latest_fuel_dist = db.session.query(func.max(FuelEntry.total_distance)).filter(FuelEntry.motorcycle_id == self.id).scalar() or 0
         latest_maint_dist = db.session.query(func.max(MaintenanceEntry.total_distance_at_maintenance)).filter(MaintenanceEntry.motorcycle_id == self.id).scalar() or 0
-        
         current_offset = self.odometer_offset if self.odometer_offset is not None else 0
-        
         return max(latest_fuel_dist, latest_maint_dist, current_offset)
 
     def get_display_average_kpl(self):
-        """
-        この車両の表示用の平均燃費 (km/L) を計算します。
-        main.py の calculate_average_kpl 関数のロジックを適用。
-        """
-        full_tank_entries = FuelEntry.query.filter(
-            FuelEntry.motorcycle_id == self.id, 
-            FuelEntry.is_full_tank == True
-        ).order_by(FuelEntry.total_distance.asc()).all()
-
-        if len(full_tank_entries) < 2:
-            return None
-
+        full_tank_entries = FuelEntry.query.filter(FuelEntry.motorcycle_id == self.id, FuelEntry.is_full_tank == True).order_by(FuelEntry.total_distance.asc()).all()
+        if len(full_tank_entries) < 2: return None
         total_distance_traveled = full_tank_entries[-1].total_distance - full_tank_entries[0].total_distance
-        
         first_entry_dist = full_tank_entries[0].total_distance
         last_entry_dist = full_tank_entries[-1].total_distance
-        
         entries_in_period = FuelEntry.query.filter(
             FuelEntry.motorcycle_id == self.id,
             FuelEntry.total_distance > first_entry_dist,
             FuelEntry.total_distance <= last_entry_dist
         ).all()
-        
         total_fuel_consumed = sum(entry.fuel_volume for entry in entries_in_period if entry.fuel_volume is not None)
-
         if total_fuel_consumed > 0 and total_distance_traveled > 0:
-            try:
-                return round(float(total_distance_traveled) / float(total_fuel_consumed), 2)
-            except ZeroDivisionError: # 念のため
-                return None
+            try: return round(float(total_distance_traveled) / float(total_fuel_consumed), 2)
+            except ZeroDivisionError: return None
         return None
-    # ▲▲▲ 新しいメソッドここまで ▲▲▲
 
     def __repr__(self):
         return f'<Motorcycle id={self.id} name={self.name}>'
 
 
 class FuelEntry(db.Model):
-    # (変更なし)
     __tablename__ = 'fuel_entries'
     id = db.Column(db.Integer, primary_key=True)
     motorcycle_id = db.Column(db.Integer, db.ForeignKey('motorcycles.id', ondelete='CASCADE'), nullable=False)
@@ -133,11 +92,9 @@ class FuelEntry(db.Model):
 
     @property
     def km_per_liter(self):
-        # (変更なし)
         if not self.is_full_tank: return None
         prev_full_entry = FuelEntry.query.filter(
-            FuelEntry.motorcycle_id == self.motorcycle_id,
-            FuelEntry.is_full_tank == True,
+            FuelEntry.motorcycle_id == self.motorcycle_id, FuelEntry.is_full_tank == True,
             FuelEntry.total_distance < self.total_distance
         ).order_by(FuelEntry.total_distance.desc()).first()
         if not prev_full_entry: return None
@@ -158,7 +115,6 @@ class FuelEntry(db.Model):
 
 
 class MaintenanceEntry(db.Model):
-    # (変更なし)
     __tablename__ = 'maintenance_entries'
     id = db.Column(db.Integer, primary_key=True)
     motorcycle_id = db.Column(db.Integer, db.ForeignKey('motorcycles.id', ondelete='CASCADE'), nullable=False)
@@ -185,7 +141,6 @@ class MaintenanceEntry(db.Model):
 
 
 class ConsumableLog(db.Model):
-    # (変更なし)
     __tablename__ = 'consumable_logs'
     id = db.Column(db.Integer, primary_key=True)
     motorcycle_id = db.Column(db.Integer, db.ForeignKey('motorcycles.id', ondelete='CASCADE'), nullable=False)
@@ -200,7 +155,6 @@ class ConsumableLog(db.Model):
 
 
 class MaintenanceReminder(db.Model):
-    # (変更なし)
     __tablename__ = 'maintenance_reminders'
     id = db.Column(db.Integer, primary_key=True)
     motorcycle_id = db.Column(db.Integer, db.ForeignKey('motorcycles.id', ondelete='CASCADE'), nullable=False)
@@ -214,7 +168,6 @@ class MaintenanceReminder(db.Model):
         return f'<MaintenanceReminder id={self.id} task={self.task_description}>'
 
 class Attachment(db.Model):
-    # (変更なし)
     __tablename__ = 'attachments'
     id = db.Column(db.Integer, primary_key=True)
     maintenance_entry_id = db.Column(db.Integer, db.ForeignKey('maintenance_entries.id', ondelete='CASCADE'), nullable=False)
@@ -226,7 +179,6 @@ class Attachment(db.Model):
         return f'<Attachment id={self.id} filename={self.filename}>'
 
 class GeneralNote(db.Model):
-    # (変更なし)
     __tablename__ = 'general_notes'
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
@@ -243,7 +195,6 @@ class GeneralNote(db.Model):
         return f'<GeneralNote id={self.id} user_id={self.user_id} title="{self.title[:20]}">'
 
 class OdoResetLog(db.Model):
-    # (変更なし - フェーズ1で確定した定義)
     __tablename__ = 'odo_reset_logs'
     id = db.Column(db.Integer, primary_key=True)
     motorcycle_id = db.Column(db.Integer, db.ForeignKey('motorcycles.id', ondelete='CASCADE'), nullable=False)
@@ -255,3 +206,34 @@ class OdoResetLog(db.Model):
 
     def __repr__(self):
         return f'<OdoResetLog id={self.id} mc_id={self.motorcycle_id} date={self.reset_date} offset_inc={self.offset_increment}>'
+
+class AchievementDefinition(db.Model):
+    """実績の種類を定義するモデル"""
+    __tablename__ = 'achievement_definitions'
+    id = db.Column(db.Integer, primary_key=True)
+    code = db.Column(db.String(100), unique=True, nullable=False, index=True)
+    name = db.Column(db.String(150), nullable=False)
+    description = db.Column(db.Text, nullable=False)
+    icon_class = db.Column(db.String(100), nullable=True)
+    category_code = db.Column(db.String(50), nullable=False, index=True)
+    category_name = db.Column(db.String(100), nullable=False)
+    share_text_template = db.Column(db.Text, nullable=True)
+    trigger_event_type = db.Column(db.String(100), nullable=True, index=True) # どのイベントで評価されるか
+
+    user_achievements = db.relationship('UserAchievement', backref='definition', lazy='dynamic')
+
+    def __repr__(self):
+        return f'<AchievementDefinition code={self.code} name="{self.name}">'
+
+class UserAchievement(db.Model):
+    """ユーザーが解除した実績を記録するモデル"""
+    __tablename__ = 'user_achievements'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+    achievement_code = db.Column(db.String(100), db.ForeignKey('achievement_definitions.code', ondelete='CASCADE'), nullable=False, index=True)
+    unlocked_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    
+    __table_args__ = (db.UniqueConstraint('user_id', 'achievement_code', name='uq_user_achievement'),)
+
+    def __repr__(self):
+        return f'<UserAchievement user_id={self.user_id} achievement_code={self.achievement_code} unlocked_at={self.unlocked_at}>'

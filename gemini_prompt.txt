@@ -1,8 +1,3 @@
-はい、承知いたしました。
-このセッションで実施した修正内容（燃費記録・整備記録の個別車両および全車両対応のCSVエクスポート機能の実装、および関連するUI改善）を反映して、Geminiプロンプトのフォーマットを更新します。
-
-以下が更新されたプロンプトです。次回このフォーマットをご利用ください。
-
 こんにちは、Gemini。Flask Webアプリケーション「もとぷっぷー」の開発支援をお願いします。
 
 1.  **プロジェクト概要:**
@@ -83,10 +78,78 @@
         * i. `Motorcycle.odometer_offset` の将来: 現在のキャッシュ方式から、常に `OdoResetLog` から動的に計算する方式への移行検討。
         * j. テストコード: 単体テスト・結合テストの拡充。
         * k. (新規) CSVインポート機能の実装検討 (バックアップデータの復元や他アプリからの移行用)。
-    * 現在のプロジェクトディレクトリ: (変更なし、省略可能)
+    * 現在のプロジェクトディレクトリ: 
+    kyagisaw@kyagisaw-mac motopuppu % tree
+.
+├── announcements.json
+├── compose.yml
+├── Containerfile
+├── gemini_prompt.txt
+├── instance
+├── LICENSE
+├── migrations
+│   ├── alembic.ini
+│   ├── env.py
+│   ├── README
+│   ├── script.py.mako
+│   └── versions
+│       ├── 5d18f0a4938e_allow_null_for_content_in_general_notes.py
+│       ├── 896791ff77ea_add_odo_reset_log_table_and_data_.py
+│       ├── cb61b6485ca8_add_missing_general_notes_and_odo_reset_.py
+│       ├── cbc2495d2f76_initial_migration.py
+│       └── cd7db2474a21_check_sync_after_fixing_relationship.py
+├── motopuppu
+│   ├── __init__.py
+│   ├── forms.py
+│   ├── models.py
+│   ├── static
+│   │   ├── css
+│   │   │   └── style.css
+│   │   ├── favicons
+│   │   │   ├── apple-touch-icon.png
+│   │   │   ├── favicon-96x96.png
+│   │   │   ├── favicon.ico
+│   │   │   ├── favicon.svg
+│   │   │   ├── web-app-manifest-192x192.png
+│   │   │   └── web-app-manifest-512x512.png
+│   │   ├── images
+│   │   │   └── blobcat_8bit.webp
+│   │   └── js
+│   │       ├── misskey_share.js
+│   │       └── odo_toggle.js
+│   ├── templates
+│   │   ├── base.html
+│   │   ├── dashboard.html
+│   │   ├── fuel_form.html
+│   │   ├── fuel_log.html
+│   │   ├── index.html
+│   │   ├── login.html
+│   │   ├── maintenance_form.html
+│   │   ├── maintenance_log.html
+│   │   ├── navigation.html
+│   │   ├── note_form.html
+│   │   ├── notes_log.html
+│   │   ├── odo_reset_log_form.html
+│   │   ├── reminder_form.html
+│   │   ├── vehicle_form.html
+│   │   └── vehicles.html
+│   └── views
+│       ├── auth.py
+│       ├── dev_auth.py
+│       ├── fuel.py
+│       ├── main.py
+│       ├── maintenance.py
+│       ├── notes.py
+│       └── vehicle.py
+├── README.md
+└── requirements.txt
+
+12 directories, 51 files
 
 6.  **今回のセッションでの目標 [毎回更新]:**
-    * 
+    * 「実績」機能の追加。具体的には、給油記録・整備記録の追加や車両登録、走行距離などをトリガーに実績が解除された旨をダッシュボードでユーザーに通知し、アプリの利用意欲を喚起する。
+    * 「実績」機能実装にあたっては、既存の機能やUIへの影響を最小限にし、またインスタンスへの負荷を考慮して過度な条件分岐などがないなるべくシンプルな機能にとどめる
+    * 解除した「実績」は、ユーザーのメニューを開くと確認できるページに飛べるようにしたい。
 
 7.  **Geminiに期待する役割:**
     * コードの提案、修正案の提示 (ファイル全体の表示希望)

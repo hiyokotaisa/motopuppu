@@ -1,0 +1,114 @@
+{# motopuppu/templates/achievements/unlocked_list.html #}
+{% extends "base.html" %}
+
+{% block title %}解除済み実績一覧 - もとぷっぷー{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2"><i class="fas fa-trophy me-2"></i>解除済み実績一覧</h1>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+            <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show" role="alert">
+                {{ message | safe }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
+
+{% if categorized_achievements %}
+    {% for category_name, achievements_in_category in categorized_achievements.items() %}
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">{{ category_name }}</h5>
+        </div>
+        <div class="list-group list-group-flush">
+            {% for ach in achievements_in_category %}
+            <div class="list-group-item">
+                <div class="row align-items-center">
+                    <div class="col-auto text-center" style="width: 60px;">
+                        {% if ach.icon_class %}
+                            <i class="{{ ach.icon_class }} fa-2x text-warning"></i>
+                        {% else %}
+                            <i class="fas fa-trophy fa-2x text-warning"></i> {# デフォルトアイコン #}
+                        {% endif %}
+                    </div>
+                    <div class="col">
+                        <h6 class="mb-1">{{ ach.name }}</h6>
+                        <p class="mb-1 small text-muted">{{ ach.description }}</p>
+                        <small class="text-muted">解除日: {{ ach.unlocked_at.strftime('%Y年%m月%d日 %H:%M') if ach.unlocked_at else '不明' }}</small>
+                    </div>
+                    <div class="col-auto">
+                        {% if ach.share_text_template %}
+                        <button class="btn btn-sm btn-info btn-share-misskey-achievement"
+                                data-achievement-name="{{ ach.name }}"
+                                data-share-template="{{ ach.share_text_template }}"
+                                title="この実績をMisskeyで共有">
+                            <i class="fa-solid fa-share-nodes fa-fw me-1"></i> 共有
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+{% else %}
+<div class="alert alert-info" role="alert">
+    まだ解除した実績はありません。アプリを使っていろいろな機能を試してみましょう！
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.btn-share-misskey-achievement').forEach(button => {
+        button.addEventListener('click', function() {
+            console.log("Share button clicked. Button dataset:", this.dataset);
+            
+            const misskeyInstanceDomain = 'misskey.io'; // ★★★ Misskeyインスタンスドメインをハードコード ★★★
+            console.log("Misskey instance domain (hardcoded):", misskeyInstanceDomain);
+
+            const achievementName = this.dataset.achievementName;
+            let shareTemplate = this.dataset.shareTemplate;
+            
+            console.log("Achievement Name:", achievementName);
+            console.log("Share Template (original):", shareTemplate);
+
+            if (!achievementName || typeof shareTemplate === 'undefined') {
+                console.error("Achievement name or share template is missing from data attributes.");
+                alert("共有に必要な情報が取得できませんでした。");
+                return;
+            }
+            
+            let shareText = shareTemplate.replace(/{achievement_name}/g, achievementName);
+            console.log("Share Text (after replace):", shareText);
+
+            if (shareText) {
+                const encodedText = encodeURIComponent(shareText);
+                // URL生成部分を確実な文字列として結合
+                const shareUrl = 'https://' + misskeyInstanceDomain + '/share?text=' + encodedText;
+                console.log("Share URL:", shareUrl); 
+                
+                try {
+                    window.open(shareUrl, '_blank', 'width=600,height=400,noopener,noreferrer');
+                } catch (e) {
+                    console.error("Error on window.open:", e);
+                    alert("共有ウィンドウを開く際にエラーが発生しました。URLを確認してください: " + shareUrl);
+                }
+            } else {
+                console.warn("Share text is empty after processing.");
+                alert("共有する内容がありません。");
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

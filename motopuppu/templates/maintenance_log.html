@@ -66,12 +66,12 @@
     </div>
 </form>
 
-{# --- フラッシュメッセージ表示 --- #}
+{# --- フラッシュメッセージ表示 (修正箇所) --- #}
 {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
         {% for category, message in messages %}
             <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show" role="alert">
-                {{ message }}
+                {{ message | safe }} {# <--- ここに |safe フィルタを追加 #}
                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             </div>
         {% endfor %}
@@ -153,8 +153,8 @@
                             data-type="maintenance"
                             data-vehicle-name="{{ entry.motorcycle.name }}"
                             data-date="{{ entry.maintenance_date.isoformat() }}"
-                            data-odo="{{ entry.odometer_reading_at_maintenance }}" {# Misskey共有時は常にODOメーター値を使用するか、JSで切り替えるか検討 #}
-                            data-total-distance = "{{ entry.total_distance_at_maintenance if entry.total_distance_at_maintenance is not none else '' }}" {# 必要なら追加 #}
+                            data-odo="{{ entry.odometer_reading_at_maintenance }}" 
+                            data-total-distance = "{{ entry.total_distance_at_maintenance if entry.total_distance_at_maintenance is not none else '' }}" 
                             data-category="{{ entry.category or '' }}"
                             data-description="{{ entry.description }}"
                             data-cost="{{ entry.total_cost|round|int if entry.total_cost else '' }}"
