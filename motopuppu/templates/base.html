@@ -76,11 +76,13 @@
     <script>
         var misskey_instance_domain = {{ misskey_instance_domain | tojson | safe }};
         // 他に必要なグローバル変数があればここに追加できます
-        // (エラーの原因となった行は削除しました)
     </script>
 
     {# 共通Misskey共有スクリプトの読み込み #}
     <script src="{{ url_for('static', filename='js/misskey_share.js') }}"></script>
+
+    {# --- ODO表示トグル用JavaScript --- #}
+    <script src="{{ url_for('static', filename='js/odo_toggle.js') }}"></script>
 
     {# 各ページ固有のJavaScriptを読み込むためのブロック #}
     {% block scripts %}{% endblock %}

@@ -30,12 +30,11 @@ def get_previous_fuel_entry(motorcycle_id, current_entry_date, current_entry_id=
 @fuel_bp.route('/')
 @login_required_custom
 def fuel_log():
-    # (この関数は変更なし - 前回の修正を維持)
     start_date_str = request.args.get('start_date')
     end_date_str = request.args.get('end_date')
     vehicle_id_str = request.args.get('vehicle_id')
     keyword = request.args.get('q', '').strip()
-    sort_by = request.args.get('sort_by', 'date')
+    sort_by = request.args.get('sort_by', 'date') # デフォルトは日付順
     order = request.args.get('order', 'desc')
     page = request.args.get('page', 1, type=int)
     per_page = current_app.config.get('FUEL_ENTRIES_PER_PAGE', 20)
@@ -76,26 +75,34 @@ def fuel_log():
         search_term = f'%{keyword}%'
         query = query.filter(or_(FuelEntry.notes.ilike(search_term), FuelEntry.station_name.ilike(search_term)))
 
+    # --- ソートキーの修正 ---
     sort_column_map = {
         'date': FuelEntry.entry_date,
         'vehicle': Motorcycle.name,
-        'odo': FuelEntry.odometer_reading,
+        'odo_reading': FuelEntry.odometer_reading,       # ODOメーター値
+        'actual_distance': FuelEntry.total_distance,     # 実走行距離
         'volume': FuelEntry.fuel_volume,
         'price': FuelEntry.price_per_liter,
         'cost': FuelEntry.total_cost,
         'station': FuelEntry.station_name,
     }
-    sort_column = sort_column_map.get(sort_by, FuelEntry.entry_date)
+    # デフォルトのソートキーを 'date' に設定
     current_sort_by = sort_by if sort_by in sort_column_map else 'date'
+    sort_column = sort_column_map.get(current_sort_by, FuelEntry.entry_date) # 安全策
+
     current_order = 'desc' if order == 'desc' else 'asc'
     sort_modifier = desc if current_order == 'desc' else asc
 
+    # ソートの優先順位を調整
     if sort_column == FuelEntry.entry_date:
-        query = query.order_by(sort_modifier(FuelEntry.entry_date), desc(FuelEntry.total_distance))
-    elif sort_column == FuelEntry.odometer_reading:
-        query = query.order_by(sort_modifier(FuelEntry.odometer_reading), desc(FuelEntry.entry_date))
+        query = query.order_by(sort_modifier(FuelEntry.entry_date), desc(FuelEntry.total_distance), FuelEntry.id.desc())
+    elif sort_column == FuelEntry.odometer_reading: # odo_reading
+        query = query.order_by(sort_modifier(FuelEntry.odometer_reading), desc(FuelEntry.entry_date), FuelEntry.id.desc())
+    elif sort_column == FuelEntry.total_distance: # actual_distance
+        query = query.order_by(sort_modifier(FuelEntry.total_distance), desc(FuelEntry.entry_date), FuelEntry.id.desc())
     else:
-        query = query.order_by(sort_modifier(sort_column))
+        query = query.order_by(sort_modifier(sort_column), desc(FuelEntry.entry_date), FuelEntry.id.desc())
+
 
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
     fuel_entries = pagination.items
@@ -249,10 +256,10 @@ def export_fuel_records_csv(motorcycle_id):
     filename = f"motopuppu_fuel_records_{safe_vehicle_name}_{motorcycle.id}_{timestamp}.csv"
     return Response(output.getvalue(), mimetype="text/csv", headers={"Content-Disposition": f"attachment;filename=\"{filename}\"", "Content-Type": "text/csv; charset=utf-8-sig"})
 
-# ★★★ ここから全件エクスポート用の関数を追加 ★★★
 @fuel_bp.route('/export_all_csv')
 @login_required_custom
 def export_all_fuel_records_csv():
+    # (この関数は変更なし - 前回のものを維持)
     user_motorcycles = Motorcycle.query.filter_by(user_id=g.user.id).all()
     if not user_motorcycles:
         flash('エクスポート対象の車両が登録されていません。', 'info')
@@ -283,15 +290,15 @@ def export_all_fuel_records_csv():
         row = [
             record.id,
             record.motorcycle_id,
-            record.motorcycle.name, # joinedload した motorcycle オブジェクトから名前を取得
+            record.motorcycle.name,
             record.entry_date.strftime('%Y-%m-%d') if record.entry_date else '',
             record.odometer_reading,
             record.total_distance,
             f"{record.fuel_volume:.2f}" if record.fuel_volume is not None else '',
             f"{record.price_per_liter:.1f}" if record.price_per_liter is not None else '',
-            f"{record.total_cost:.0f}" if record.total_cost is not None else '', # または .2f など適宜調整
+            f"{record.total_cost:.0f}" if record.total_cost is not None else '',
             record.station_name if record.station_name else '',
-            str(record.is_full_tank), # True / False 文字列
+            str(record.is_full_tank),
             f"{km_per_liter_val:.2f}" if km_per_liter_val is not None else '',
             record.notes if record.notes else '',
             record.fuel_type if record.fuel_type else ''
@@ -301,7 +308,6 @@ def export_all_fuel_records_csv():
     output.seek(0)
 
     timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
-    # ユーザーを識別する情報はファイル名に含めない (ログインユーザー自身のデータなので)
     filename = f"motopuppu_fuel_records_all_vehicles_{timestamp}.csv"
 
     return Response(
@@ -309,7 +315,6 @@ def export_all_fuel_records_csv():
         mimetype="text/csv",
         headers={
             "Content-Disposition": f"attachment;filename=\"{filename}\"",
-            "Content-Type": "text/csv; charset=utf-8-sig" # BOM付きUTF-8
+            "Content-Type": "text/csv; charset=utf-8-sig"
         }
     )
-# ★★★ 全件エクスポート用の関数ここまで ★★★

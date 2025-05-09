@@ -55,48 +55,75 @@ def _update_reminder_last_done(maintenance_entry: MaintenanceEntry):
 @maintenance_bp.route('/')
 @login_required_custom
 def maintenance_log():
-    # (この関数は変更なし - 前回の修正を維持)
     start_date_str = request.args.get('start_date'); end_date_str = request.args.get('end_date')
     vehicle_id_str = request.args.get('vehicle_id'); category_filter = request.args.get('category', '').strip()
-    keyword = request.args.get('q', '').strip(); sort_by = request.args.get('sort_by', 'date')
+    keyword = request.args.get('q', '').strip(); sort_by = request.args.get('sort_by', 'date') # デフォルトは日付順
     order = request.args.get('order', 'desc'); page = request.args.get('page', 1, type=int)
     per_page = current_app.config.get('MAINTENANCE_ENTRIES_PER_PAGE', 20)
+
     user_motorcycles = Motorcycle.query.filter_by(user_id=g.user.id).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
     if not user_motorcycles:
         flash('整備記録を閲覧・追加するには、まず車両を登録してください。', 'info')
         return redirect(url_for('vehicle.add_vehicle'))
+
     user_motorcycle_ids = [m.id for m in user_motorcycles]
     query = db.session.query(MaintenanceEntry).join(Motorcycle).filter(MaintenanceEntry.motorcycle_id.in_(user_motorcycle_ids))
     active_filters = {k: v for k, v in request.args.items() if k not in ['page', 'sort_by', 'order']}
+
     try:
         if start_date_str: query = query.filter(MaintenanceEntry.maintenance_date >= date.fromisoformat(start_date_str))
         if end_date_str: query = query.filter(MaintenanceEntry.maintenance_date <= date.fromisoformat(end_date_str))
     except ValueError:
         flash('日付の形式が無効です。YYYY-MM-DD形式で入力してください。', 'warning')
         active_filters.pop('start_date', None); active_filters.pop('end_date', None)
+
     if vehicle_id_str:
         try:
             vehicle_id = int(vehicle_id_str)
             if vehicle_id in user_motorcycle_ids: query = query.filter(MaintenanceEntry.motorcycle_id == vehicle_id)
             else: flash('選択された車両は有効ではありません。', 'warning'); active_filters.pop('vehicle_id', None)
         except ValueError: active_filters.pop('vehicle_id', None)
+
     if category_filter: query = query.filter(MaintenanceEntry.category.ilike(f'%{category_filter}%'))
     if keyword:
         search_term = f'%{keyword}%'
         query = query.filter(or_(MaintenanceEntry.description.ilike(search_term), MaintenanceEntry.location.ilike(search_term), MaintenanceEntry.notes.ilike(search_term)))
-    sort_column_map = {'date': MaintenanceEntry.maintenance_date, 'vehicle': Motorcycle.name, 'odo': MaintenanceEntry.total_distance_at_maintenance, 'category': MaintenanceEntry.category}
+
+    # --- ソートキーの修正 ---
+    sort_column_map = {
+        'date': MaintenanceEntry.maintenance_date,
+        'vehicle': Motorcycle.name,
+        'odo_reading': MaintenanceEntry.odometer_reading_at_maintenance, # ODOメーター値
+        'actual_distance': MaintenanceEntry.total_distance_at_maintenance,  # 実走行距離 (旧'odo'キーの対象)
+        'category': MaintenanceEntry.category
+    }
+    # デフォルトのソートキーを 'date' に設定
     current_sort_by = sort_by if sort_by in sort_column_map else 'date'
-    sort_column = sort_column_map.get(current_sort_by)
+    sort_column = sort_column_map.get(current_sort_by, MaintenanceEntry.maintenance_date) # 安全策
+
     current_order = 'desc' if order == 'desc' else 'asc'
     sort_modifier = desc if current_order == 'desc' else asc
-    if sort_column:
-        if current_sort_by == 'date': query = query.order_by(sort_modifier(MaintenanceEntry.maintenance_date), desc(MaintenanceEntry.total_distance_at_maintenance))
-        elif current_sort_by == 'odo': query = query.order_by(sort_modifier(MaintenanceEntry.total_distance_at_maintenance), desc(MaintenanceEntry.maintenance_date))
-        else: query = query.order_by(sort_modifier(sort_column), desc(MaintenanceEntry.maintenance_date))
-    else: query = query.order_by(desc(MaintenanceEntry.maintenance_date), desc(MaintenanceEntry.total_distance_at_maintenance))
+    
+    # ソートの優先順位を調整
+    if sort_column == MaintenanceEntry.maintenance_date: # date
+        query = query.order_by(sort_modifier(MaintenanceEntry.maintenance_date), desc(MaintenanceEntry.total_distance_at_maintenance), MaintenanceEntry.id.desc())
+    elif sort_column == MaintenanceEntry.odometer_reading_at_maintenance: # odo_reading
+        query = query.order_by(sort_modifier(MaintenanceEntry.odometer_reading_at_maintenance), desc(MaintenanceEntry.maintenance_date), MaintenanceEntry.id.desc())
+    elif sort_column == MaintenanceEntry.total_distance_at_maintenance: # actual_distance
+        query = query.order_by(sort_modifier(MaintenanceEntry.total_distance_at_maintenance), desc(MaintenanceEntry.maintenance_date), MaintenanceEntry.id.desc())
+    else: # category, vehicle
+        query = query.order_by(sort_modifier(sort_column), desc(MaintenanceEntry.maintenance_date), MaintenanceEntry.id.desc())
+
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
     entries = pagination.items
-    return render_template('maintenance_log.html', entries=entries, pagination=pagination, motorcycles=user_motorcycles, request_args=active_filters, current_sort_by=current_sort_by, current_order=current_order)
+    return render_template('maintenance_log.html',
+                           entries=entries,
+                           pagination=pagination,
+                           motorcycles=user_motorcycles,
+                           request_args=active_filters,
+                           current_sort_by=current_sort_by,
+                           current_order=current_order
+                           )
 
 @maintenance_bp.route('/add', methods=['GET', 'POST'])
 @login_required_custom
@@ -187,10 +214,10 @@ def export_maintenance_logs_csv(motorcycle_id):
     filename = f"motopuppu_maintenance_logs_{safe_vehicle_name}_{motorcycle.id}_{timestamp}.csv"
     return Response(output.getvalue(), mimetype="text/csv", headers={"Content-Disposition": f"attachment;filename=\"{filename}\"", "Content-Type": "text/csv; charset=utf-8-sig"})
 
-# ★★★ ここから全件エクスポート用の関数を追加 ★★★
 @maintenance_bp.route('/export_all_csv')
 @login_required_custom
 def export_all_maintenance_logs_csv():
+    # (この関数は変更なし - 前回のものを維持)
     user_motorcycles = Motorcycle.query.filter_by(user_id=g.user.id).all()
     if not user_motorcycles:
         flash('エクスポート対象の車両が登録されていません。', 'info')
@@ -222,7 +249,7 @@ def export_all_maintenance_logs_csv():
         row = [
             record.id,
             record.motorcycle_id,
-            record.motorcycle.name, # joinedload した motorcycle オブジェクトから名前を取得
+            record.motorcycle.name,
             record.maintenance_date.strftime('%Y-%m-%d') if record.maintenance_date else '',
             record.odometer_reading_at_maintenance,
             record.total_distance_at_maintenance,
@@ -230,7 +257,7 @@ def export_all_maintenance_logs_csv():
             record.description if record.description else '',
             f"{record.parts_cost:.2f}" if record.parts_cost is not None else '',
             f"{record.labor_cost:.2f}" if record.labor_cost is not None else '',
-            f"{total_cost_val:.2f}" if total_cost_val is not None else '', # または .0f など
+            f"{total_cost_val:.2f}" if total_cost_val is not None else '',
             record.location if record.location else '',
             record.notes if record.notes else ''
         ]
@@ -249,4 +276,3 @@ def export_all_maintenance_logs_csv():
             "Content-Type": "text/csv; charset=utf-8-sig"
         }
     )
-# ★★★ 全件エクスポート用の関数ここまで ★★★
