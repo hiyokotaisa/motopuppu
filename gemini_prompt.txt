@@ -2,7 +2,7 @@
 
 1.  **プロジェクト概要:**
     * 名称: もとぷっぷー
-    * 目的: オートバイ所有者向けの車両情報、燃費、整備記録、リマインダー、メモ管理Webアプリ。
+    * 目的: オートバイ所有者向けの車両情報、燃費、整備記録、リマインダー、メモ管理、**実績**Webアプリ。
     * 認証: Misskey MiAuth
 
 2.  **主要技術スタック:**
@@ -16,140 +16,83 @@
 
 3.  **アーキテクチャ・構成:**
     * 標準的なFlask構成（アプリケーションファクトリ使用）。
-    * 機能ごとにBlueprintを使用 (auth, main, vehicle, fuel, maintenance, notes, dev_auth など)。
-    * `models.py` にDBモデル定義。
+    * 機能ごとにBlueprintを使用 (auth, main, vehicle, fuel, maintenance, notes, dev_auth, **achievements** など)。
+    * `models.py` にDBモデル定義 (`User`, `Motorcycle`, `FuelEntry`, `MaintenanceEntry`, `OdoResetLog`, `GeneralNote`, **`AchievementDefinition`**, **`UserAchievement`** など)。
     * `forms.py` にFlask-WTFフォームクラス定義。
     * `motopuppu/views/` 以下に各Blueprintのルート定義。
     * `templates/`, `static/` ディレクトリ。
     * Misskey共有機能は `static/js/misskey_share.js` に共通化し、インスタンスドメインはコンテキストプロセッサ経由で提供。
+    * **実績評価ロジックは `motopuppu/achievement_evaluator.py` に集約。**
+    * **実績解除の共通処理は `motopuppu/achievements_utils.py` に実装。**
+    * **実績遡及処理用のCLIコマンドを `motopuppu/manage_commands.py` に実装。**
 
 4.  **主要な実装済み機能:**
     * ユーザー認証 (Misskey MiAuth, ローカル開発用ログイン) - 堅牢な実装
     * 車両管理 (CRUD, 複数対応、デフォルト設定) - フォーム(Flask-WTF), CSRF対策済
     * ODOメーターリセット機能:
-        * リセット操作（リセット日、リセット前後のメーター表示値）の記録 (`OdoResetLog` モデル) - フォーム(Flask-WTF)
-        * 累積オフセットキャッシュ (`Motorcycle.odometer_offset`) の更新 (関連ログの追加/編集/削除時に `OdoResetLog` 全体から再計算)
+        * リセット操作の記録 (`OdoResetLog` モデル) - フォーム(Flask-WTF)
+        * 累積オフセットキャッシュ (`Motorcycle.odometer_offset`) の更新
         * ODOリセット履歴の表示、編集、削除、過去の履歴の新規追加 (CRUD) - フォーム(Flask-WTF), CSRF対策済
-    * 給油記録 (CRUD, ログ表示, フィルター/ソート, **CSVエクスポート機能（個別車両/全車両対応）**) - フォーム(Flask-WTF), CSRF対策済
-        * 実走行距離 (`total_distance`) の記録 (記録日時点のオフセットを考慮)
+    * 給油記録 (CRUD, ログ表示, フィルター/ソート, CSVエクスポート機能（個別車両/全車両対応）) - フォーム(Flask-WTF), CSRF対策済
+        * 実走行距離 (`total_distance`) の記録
         * 燃費計算 (`km_per_liter` プロパティ、平均燃費計算)
-    * 整備記録 (CRUD, ログ表示, フィルター/ソート, **CSVエクスポート機能（個別車両/全車両対応）**) - フォーム(Flask-WTF), CSRF対策済
-        * 実走行距離 (`total_distance_at_maintenance`) の記録 (記録日時点のオフセットを考慮)
+    * 整備記録 (CRUD, ログ表示, フィルター/ソート, CSVエクスポート機能（個別車両/全車両対応）) - フォーム(Flask-WTF), CSRF対策済
+        * 実走行距離 (`total_distance_at_maintenance`) の記録
         * 費用計算 (`total_cost` プロパティ)
-        * メンテナンスリマインダーとの連携 (最終実施記録の自動更新)
+        * メンテナンスリマインダーとの連携
     * ノート (CRUD、カテゴリ別[ノート/タスクリスト], ログ表示, フィルター) - フォーム(Flask-WTF), CSRF対策済
         * FieldList によるTODOアイテム管理、JavaScriptによる動的追加/削除
-    * **Misskey共有機能**: 給油記録、整備記録、ノートの各情報をMisskeyに共有する機能（JavaScriptで共通化済み、インスタンスドメインはFlask設定から取得し、フォールバック処理あり）。
+    * **Misskey共有機能**: 給油記録、整備記録、ノート、**解除済み実績**の各情報をMisskeyに共有する機能。
     * メンテナンスリマインダー (CRUD) - フォーム(Flask-WTF), CSRF対策済
     * ダッシュボード (統計概要, FullCalendarによる記録カレンダー表示, 直近ログ表示, リマインダー通知)
-        * FullCalendarの高度なカスタマイズ（日本語化、祝日表示、イベントポップオーバー）
-    * その他: Favicon, 詳細なロギング
+        * FullCalendarの高度なカスタマイズ
+    * **実績機能:**
+        * 実績定義 (`AchievementDefinition`): 名称、説明、アイコン、カテゴリ、解除条件(criteria: JSONB)、Misskey共有テンプレート、トリガーイベントタイプ。
+        * ユーザー実績記録 (`UserAchievement`): ユーザーと解除済み実績の紐付け、解除日時。
+        * イベントドリブンな実績解除: 各記録追加アクション（車両、給油、整備、ノート、ODOリセット）の完了後に、関連実績の条件を評価し自動解除。
+            * 「初めての○○」系実績 (車両登録、給油、整備、ノート、ODOリセット)
+            * 回数系実績 (給油、整備、ノート: 各10, 50, 100回)
+            * 走行距離系実績 (車両ごと: 1000, 10000, 100000km)
+            * 車両登録台数系実績 (3, 5, 10台)
+        * 実績一覧ページ: 解除済み実績と未達成実績（グレーアウト表示）をカテゴリ別に表示。解除条件の確認。
+        * 実績解除時のフラッシュメッセージ通知 (アイコン付き)。
+        * 解除済み実績のMisskey共有機能。
+        * **既存ユーザーへの実績遡及処理用Flask CLIコマンド (`flask backfill-achievements`) の実装。**
+    * その他: Favicon, 詳細なロギング。
 
 5.  **現在の状況・課題 [次回更新]:**
     * マイグレーション:
-        * `general_notes`テーブルの`content`カラムNULL許容化済み。
-        * 現在の最新リビジョン: `cb61b6485ca8` の後に `content` NULL化のマイグレーションが適用されている状態 (要 `flask db history` で再確認)。
+        * **最新リビジョン: `(760969e7b61d の次のリビジョンID - 新しい実績定義データを投入したもの)`** (要 `flask db history` で確認)
+            * `AchievementDefinition` テーブルに `criteria` (JSONB) カラム追加済み。
+            * `AchievementDefinition` テーブルに多数の新しい実績定義（回数、距離、台数系）データを投入済み。
     * **直近の作業 (完了済み):**
-        * 主要機能への Flask-WTF導入完了 (バリデーション強化、コード簡潔化)。
-        * 総走行距離計算の精度向上: 給油・整備記録時に記録日時点のオフセットを `calculate_cumulative_offset_from_logs` で取得し、実走行距離を計算・保存するよう修正。
-        * ODOメーターリセット周りの改善: 関連ログ変更時のオフセットキャッシュ (`Motorcycle.odometer_offset`) 更新ロジック実装。
-        * CSRF対策の実施: 主要なフォーム送信に加え、一覧ページ等での削除・状態変更ボタン（車両削除、デフォルト設定、ODO履歴削除、リマインダー削除など）にフォームとトークンを追加し、対策を実施。
-        * ダッシュボード機能の強化（FullCalendarカスタマイズ、統計表示）。
-        * ノート機能の改善（タスクリスト対応、FieldList連携）。
-        * 各種テンプレートの改善、UI調整。
-        * Misskey共有機能の共通化:
-            * 各テンプレートに個別に記述されていたMisskey共有JavaScriptを `static/js/misskey_share.js` に集約。
-            * MisskeyインスタンスドメインをFlaskアプリケーションのコンテキストプロセッサ経由で全テンプレートに提供。
-            * インスタンスドメイン取得処理において、未設定時や空の場合に `'misskey.io'` へフォールバックする処理を強化。
-        * **燃費記録および整備記録のCSVエクスポート機能実装**:
-            * 個別車両ごとの記録をエクスポートする機能。
-            * ログインユーザーの全車両の記録を一括でエクスポートする機能（一覧フィルターと連動）。
-            * エクスポートボタンのUI調整（車両選択状態に応じた表示切り替え）。
-        * 記録追加フォームへの車両ID引き継ぎ改善（一覧フィルターで選択中の車両IDを「新規追加」時に引き継ぐ）。
+        * (以前の完了項目は維持)
+        * ...
+        * **「実績」機能の追加:**
+            * 実績関連のDBモデル (`AchievementDefinition`, `UserAchievement`) 作成とマイグレーション。
+            * 実績評価・解除ロジック (`achievement_evaluator.py`, `achievements_utils.py`) の実装。
+            * 各記録追加処理への実績解除トリガーの組み込み。
+            * 多数の新しい実績（初回系、回数系、距離系、車両登録台数系）の定義とデータ投入。
+            * 実績一覧ページ（未達成含む、カテゴリ別表示、Misskey共有）の実装。
+            * 既存ユーザーへの実績遡及処理用CLIコマンド (`flask backfill-achievements`) の実装。
+            * 関連するUI/バグ修正（フラッシュメッセージのHTML表示、インポートエラー修正など）。
     * **現在の課題・改善点:**
-        * a. CSRF対策の最終確認: フォーム未使用のPOSTルートが残っていないか、既存の対策が意図通り機能しているか最終確認。
-        * b. （既に対応済）SQLAlchemyクエリスタイルの統一: 1.x系 (`Model.query`) と2.0系 (`db.session.execute(select(...))`) の混在解消 (2.0スタイルへの統一を推奨)。
-        * c. DBスキーマレベルの制約適用: `Motorcycle.is_default` カラムにDBレベルでの `DEFAULT false` 制約を適用 (要マイグレーション)。
-        * d. 型整合性の最終確認: フォーム(Integer/Decimal)とモデル(Float)間の型変換、特に整備記録のコスト関連フィールドの挙動を確認。
-        * e. ヘルパー関数 vs モデルメソッド: `main.py` のヘルパー関数 (`get_latest_total_distance`, `calculate_average_kpl`) を `Motorcycle` モデルのメソッドに集約・整理。
-        * f. CSSの整理検討: `base.html` のインラインCSS（TODOリスト用など）の外部 `style.css` への移行検討。
-        * g. ODOメーターリセット: 「累積オフセットを0に戻す」専用機能の追加検討。
-        * h. ODO値表示方法: 給油・整備記録一覧等でのODO値（メーター値と実走行距離）の表示方法の最終決定と実装。
-        * i. `Motorcycle.odometer_offset` の将来: 現在のキャッシュ方式から、常に `OdoResetLog` から動的に計算する方式への移行検討。
-        * j. テストコード: 単体テスト・結合テストの拡充。
-        * k. (新規) CSVインポート機能の実装検討 (バックアップデータの復元や他アプリからの移行用)。
-    * 現在のプロジェクトディレクトリ: 
-    kyagisaw@kyagisaw-mac motopuppu % tree
-.
-├── announcements.json
-├── compose.yml
-├── Containerfile
-├── gemini_prompt.txt
-├── instance
-├── LICENSE
-├── migrations
-│   ├── alembic.ini
-│   ├── env.py
-│   ├── README
-│   ├── script.py.mako
-│   └── versions
-│       ├── 5d18f0a4938e_allow_null_for_content_in_general_notes.py
-│       ├── 896791ff77ea_add_odo_reset_log_table_and_data_.py
-│       ├── cb61b6485ca8_add_missing_general_notes_and_odo_reset_.py
-│       ├── cbc2495d2f76_initial_migration.py
-│       └── cd7db2474a21_check_sync_after_fixing_relationship.py
-├── motopuppu
-│   ├── __init__.py
-│   ├── forms.py
-│   ├── models.py
-│   ├── static
-│   │   ├── css
-│   │   │   └── style.css
-│   │   ├── favicons
-│   │   │   ├── apple-touch-icon.png
-│   │   │   ├── favicon-96x96.png
-│   │   │   ├── favicon.ico
-│   │   │   ├── favicon.svg
-│   │   │   ├── web-app-manifest-192x192.png
-│   │   │   └── web-app-manifest-512x512.png
-│   │   ├── images
-│   │   │   └── blobcat_8bit.webp
-│   │   └── js
-│   │       ├── misskey_share.js
-│   │       └── odo_toggle.js
-│   ├── templates
-│   │   ├── base.html
-│   │   ├── dashboard.html
-│   │   ├── fuel_form.html
-│   │   ├── fuel_log.html
-│   │   ├── index.html
-│   │   ├── login.html
-│   │   ├── maintenance_form.html
-│   │   ├── maintenance_log.html
-│   │   ├── navigation.html
-│   │   ├── note_form.html
-│   │   ├── notes_log.html
-│   │   ├── odo_reset_log_form.html
-│   │   ├── reminder_form.html
-│   │   ├── vehicle_form.html
-│   │   └── vehicles.html
-│   └── views
-│       ├── auth.py
-│       ├── dev_auth.py
-│       ├── fuel.py
-│       ├── main.py
-│       ├── maintenance.py
-│       ├── notes.py
-│       └── vehicle.py
-├── README.md
-└── requirements.txt
-
-12 directories, 51 files
+        * a. CSRF対策の最終確認。
+        * c. DBスキーマレベルの制約適用: `Motorcycle.is_default` カラム。
+        * d. 型整合性の最終確認。
+        * e. ヘルパー関数 vs モデルメソッド整理。
+        * f. CSSの整理検討。
+        * g. ODOメーターリセット: 「累積オフセットを0に戻す」機能検討。
+        * h. ODO値表示方法の最終決定と実装。
+        * i. `Motorcycle.odometer_offset` の将来検討。
+        * j. テストコード: 単体テスト・結合テストの拡充 (特に実績機能周り)。
+        * k. CSVインポート機能の実装検討。
+        * **l. (新規) 実績機能のさらなる拡充（新しい実績のアイデア検討・実装）。**
+        * **m. (新規) 実績遡及処理コマンドの本番環境での慎重な実行と確認。**
+    * 現在のプロジェクトディレクトリ: (適宜更新、特に `motopuppu/` 配下の新しいファイル `achievement_evaluator.py`, `achievements_utils.py`, `manage_commands.py` と `views/achievements.py`, `templates/achievements/` を反映)
 
 6.  **今回のセッションでの目標 [毎回更新]:**
-    * 「実績」機能の追加。具体的には、給油記録・整備記録の追加や車両登録、走行距離などをトリガーに実績が解除された旨をダッシュボードでユーザーに通知し、アプリの利用意欲を喚起する。
-    * 「実績」機能実装にあたっては、既存の機能やUIへの影響を最小限にし、またインスタンスへの負荷を考慮して過度な条件分岐などがないなるべくシンプルな機能にとどめる
-    * 解除した「実績」は、ユーザーのメニューを開くと確認できるページに飛べるようにしたい。
+    * (今回の実績機能実装は完了のため、次回目標を記載)
 
 7.  **Geminiに期待する役割:**
     * コードの提案、修正案の提示 (ファイル全体の表示希望)
@@ -162,3 +105,4 @@
     * DBスキーマの変更については、過去に問題が発生した経験があるため、特に慎重に進めたい。
     * 修正は既存のUIや他の機能への影響を最小限に抑えたい。
     * 現在CSRF対策としてFlask-WTFが導入されているため、CSRFトークンのエラーが発生しないよう注意すること。
+    * **実績評価ロジックは、パフォーマンスに大きな影響を与えないよう注意し、特にループやDBアクセスが多い処理は慎重に設計する。**
