@@ -69,9 +69,7 @@ def create_app(config_name=None):
     # --- ルート (Blueprints) の登録 ---
     try:
         from .views import auth, main, vehicle, fuel, maintenance, notes, dev_auth
-        # ▼▼▼ achievements Blueprint をインポート ▼▼▼
-        from .views import achievements as achievements_view # エイリアスでインポートも可
-        # ▲▲▲ achievements Blueprint をインポート ▲▲▲
+        from .views import achievements as achievements_view 
 
         app.register_blueprint(auth.auth_bp)
         app.register_blueprint(main.main_bp)
@@ -79,18 +77,15 @@ def create_app(config_name=None):
         app.register_blueprint(fuel.fuel_bp)
         app.register_blueprint(maintenance.maintenance_bp)
         app.register_blueprint(notes.notes_bp)
-        # ▼▼▼ achievements Blueprint を登録 ▼▼▼
-        app.register_blueprint(achievements_view.achievements_bp) # インポートしたものを登録
-        # ▲▲▲ achievements Blueprint を登録 ▲▲▲
+        app.register_blueprint(achievements_view.achievements_bp) 
 
-        if app.config['ENV'] == 'development' or app.debug: # デバッグモードでも開発用BPを有効にする
+        if app.config['ENV'] == 'development' or app.debug: 
             app.register_blueprint(dev_auth.dev_auth_bp)
             app.logger.info("Registered development blueprint: dev_auth")
 
     except ImportError as e:
         app.logger.error(f"Error importing or registering blueprints: {e}", exc_info=True)
-        # アプリケーション起動時にエラーが分かるように標準出力にも出す
-        print(f"Error importing or registering blueprints: {e}") # この行は本番では削除または調整を検討
+        print(f"Error importing or registering blueprints: {e}") 
 
     # --- テスト用ルート ---
     @app.route('/hello_world_test')
@@ -101,9 +96,6 @@ def create_app(config_name=None):
     # --- コンテキストプロセッサ ---
     @app.context_processor
     def inject_global_variables():
-        # app.logger.info(f"--- Start inject_global_variables ---") # デバッグ用、本番ではコメントアウト推奨
-        # app.logger.info(f"RENDER_GIT_COMMIT raw value: {os.environ.get('RENDER_GIT_COMMIT')}")
-        # app.logger.info(f"app.debug value: {app.debug}")
         commit_hash_short = 'N/A'
         source_info = ""
 
@@ -111,10 +103,8 @@ def create_app(config_name=None):
         if render_commit:
             commit_hash_short = render_commit[:7]
             source_info = "(Render Build)"
-        elif app.debug: # デバッグモードの時のみgitコマンド試行
-            # app.logger.info("RENDER_GIT_COMMIT not found, attempting to get info via git command (debug mode).")
+        elif app.debug: 
             try:
-                 # プロジェクトルートを正しく指定 (現在のファイルの位置から相対的に)
                  project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
                  commit_hash_short = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD'], cwd=project_root).decode('utf-8').strip()
                  source_info = "(local dev)"
@@ -127,7 +117,7 @@ def create_app(config_name=None):
             except Exception as e:
                  app.logger.error(f"Error getting git info locally: {e}")
                  commit_hash_short = "N/A (git error)"; source_info = ""
-        else: # Renderでもなくデバッグモードでもない場合
+        else: 
             commit_hash_short = "N/A"; source_info = "(unknown)"
 
         build_version_string = f"{commit_hash_short} {source_info}".strip()
@@ -135,12 +125,10 @@ def create_app(config_name=None):
         misskey_instance_url = app.config.get('MISSKEY_INSTANCE_URL') 
         if not misskey_instance_url:
             misskey_instance_url = 'https://misskey.io'
-            # app.logger.info("MISSKEY_INSTANCE_URL was not set or empty, using default 'https://misskey.io'.")
 
         temp_domain = misskey_instance_url.replace('https://', '').replace('http://', '').split('/')[0].strip()
         if not temp_domain:
             misskey_instance_domain = 'misskey.io'
-            # app.logger.warning(f"Misskey instance domain derived from '{misskey_instance_url}' was empty. Defaulting to 'misskey.io'.")
         else:
             misskey_instance_domain = temp_domain
 
@@ -153,7 +141,6 @@ def create_app(config_name=None):
     # --- アプリケーションコンテキスト ---
     @app.shell_context_processor
     def make_shell_context():
-        # ▼▼▼ AchievementDefinition, UserAchievement を追加 ▼▼▼
         from .models import db, User, Motorcycle, FuelEntry, MaintenanceEntry, MaintenanceReminder, GeneralNote, OdoResetLog, AchievementDefinition, UserAchievement
         return {
             'db': db, 'User': User, 'Motorcycle': Motorcycle, 'FuelEntry': FuelEntry,
@@ -161,13 +148,12 @@ def create_app(config_name=None):
             'GeneralNote': GeneralNote, 'OdoResetLog': OdoResetLog,
             'AchievementDefinition': AchievementDefinition, 'UserAchievement': UserAchievement
         }
-        # ▲▲▲ AchievementDefinition, UserAchievement を追加 ▲▲▲
 
     # --- instanceフォルダの作成 ---
     try:
         os.makedirs(app.instance_path)
     except OSError:
-        pass # 既に存在する場合は何もしない
+        pass 
 
     # --- DB初期化コマンド ---
     @app.cli.command("init-db")
@@ -175,26 +161,34 @@ def create_app(config_name=None):
         """データベーステーブルを作成します。(Flask-Migrate管理下では通常 flask db upgrade を使用)"""
         click.echo("Initializing the database tables via db.create_all()...")
         try:
-            with app.app_context(): # アプリケーションコンテキスト内で実行
+            with app.app_context(): 
                 db.create_all()
             click.echo("Database tables initialized successfully (if they didn't exist).")
         except Exception as e:
-            # エラー発生時はロールバックを試みる
             try:
-                with app.app_context(): # ロールバックもコンテキスト内で
+                with app.app_context(): 
                     db.session.rollback()
-            except Exception as rb_exc: # ロールバック中のエラーもキャッチ
+            except Exception as rb_exc: 
                 click.echo(f"Additionally, an error occurred during rollback: {rb_exc}", err=True)
             click.echo(f"Error initializing database tables: {e}", err=True)
             app.logger.error(f"[ERROR] Error initializing database tables: {e}", exc_info=True)
-        # --- デバッグ用: 登録ルートの確認 ---
-        if app.debug or app.config['ENV'] == 'development': # デバッグモードまたは開発環境でのみ実行
-            with app.app_context():
-                app.logger.info("--- Registered URL Rules START ---")
-                rules = sorted(list(app.url_map.iter_rules()), key=lambda rule: str(rule))
-                for rule in rules:
-                    app.logger.info(f"Endpoint: {rule.endpoint}, Methods: {','.join(rule.methods)}, Rule: {str(rule)}")
-                app.logger.info("--- Registered URL Rules END ---")
-        # --- デバッグ用ここまで ---
+    
+    # ▼▼▼ カスタムCLIコマンドの登録 ▼▼▼
+    from . import manage_commands # 新しく作成する manage_commands.py をインポート
+    if hasattr(manage_commands, 'register_commands'): # register_commands 関数が存在するか確認
+        manage_commands.register_commands(app)
+        app.logger.info("Registered custom CLI commands from manage_commands.")
+    else:
+        app.logger.warning("manage_commands.py found, but no register_commands function was present or an error occurred during import.")
+    # ▲▲▲ カスタムCLIコマンドの登録 ▲▲▲
+
+    # --- デバッグ用: 登録ルートの確認 (前回追加したものは削除またはコメントアウトしました) ---
+    # if app.debug or app.config['ENV'] == 'development':
+    #     with app.app_context():
+    #         app.logger.info("--- Registered URL Rules START ---")
+    #         rules = sorted(list(app.url_map.iter_rules()), key=lambda rule: str(rule))
+    #         for rule in rules:
+    #             app.logger.info(f"Endpoint: {rule.endpoint}, Methods: {','.join(rule.methods)}, Rule: {str(rule)}")
+    #         app.logger.info("--- Registered URL Rules END ---")
 
     return app
