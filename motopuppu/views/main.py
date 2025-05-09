@@ -353,3 +353,10 @@ def dashboard_events_api():
     # --- ▲▲▲ 一般ノートここまで ▲▲▲ ---
 
     return jsonify(events)
+
+# --- プライバシーポリシーページ ---
+@main_bp.route('/privacy')
+def privacy_policy():
+    """プライバシーポリシーページを表示します。"""
+    return render_template('privacy_policy.html')
+
