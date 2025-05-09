@@ -1,10 +1,11 @@
 # motopuppu/manage_commands.py
 import click
 from flask.cli import with_appcontext
-from .. import db # アプリケーションインスタンスではなく、dbオブジェクトを直接インポート
-from .models import User, AchievementDefinition, UserAchievement # 必要なモデルをインポート
-from .achievement_evaluator import evaluate_achievement_condition_for_backfill # 遡及評価関数
+from . import db # ← このように変更 (ドットを1つにする)
+from .models import User, AchievementDefinition, UserAchievement 
+from .achievement_evaluator import evaluate_achievement_condition_for_backfill 
 from sqlalchemy.exc import IntegrityError
+from flask import current_app
 
 # このファイルに関数を定義し、__init__.py からコマンドを登録することもできるが、
 # ここでは直接 app.cli.command を使わずに、登録用の関数を用意する
