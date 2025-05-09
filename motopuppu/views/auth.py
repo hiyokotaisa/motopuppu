@@ -173,7 +173,7 @@ def login_page():
         return redirect(url_for('main.dashboard'))
 
     announcements = []
-    build_version = os.environ.get('APP_VERSION', 'N/A')
+    # build_version = os.environ.get('APP_VERSION', 'N/A') # この行を削除しました
     try:
         announcement_file = os.path.join(current_app.root_path, '..', 'announcements.json')
         if os.path.exists(announcement_file):
@@ -186,8 +186,8 @@ def login_page():
         current_app.logger.error(f"An unexpected error occurred loading announcements: {e}", exc_info=True)
 
     return render_template('login.html',
-                           announcements=announcements,
-                           build_version=build_version)
+                           announcements=announcements)
+                           # build_version 引数を削除しました
 
 def login_required_custom(f):
     @wraps(f)
