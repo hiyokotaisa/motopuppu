@@ -1,7 +1,7 @@
 // motopuppu/static/js/odo_toggle.js
 document.addEventListener('DOMContentLoaded', function() {
     const toggleSwitch = document.getElementById('odoDisplayToggle');
-    const toggleLabel = document.getElementById('odoDisplayToggleLabel'); // ラベル要素は取得しますが、テキストは固定
+    const toggleLabel = document.getElementById('odoDisplayToggleLabel');
     const distanceHeader = document.getElementById('distance_header');
     const distanceValueCells = document.querySelectorAll('.distance-value-cell');
 
@@ -11,45 +11,62 @@ document.addEventListener('DOMContentLoaded', function() {
     const ACTUAL_SORT_KEY = 'actual_distance';
     const FIXED_TOGGLE_LABEL_TEXT = '実走行距離を表示'; // 固定ラベルテキスト
 
-    // LocalStorageから設定を読み込む (キー名は 'showActualDistance' のまま)
     let showActualDistance = localStorage.getItem('showActualDistance') === 'true';
 
-    // ラベルテキストを固定で設定
     if (toggleLabel) {
         toggleLabel.textContent = FIXED_TOGGLE_LABEL_TEXT;
     }
 
     function updateDisplay(isActual) {
-        // トグルスイッチ自体の状態は更新するが、ラベルテキストは変更しない
-
         if (distanceHeader) {
             const headerLink = distanceHeader.querySelector('a');
             const headerTextSpan = distanceHeader.querySelector('a .header-text');
-            if (headerLink && headerTextSpan) {
-                const currentSortKey = isActual ? ACTUAL_SORT_KEY : ODO_SORT_KEY;
-                const currentHeaderText = isActual ? ACTUAL_DISTANCE_TEXT : ODO_READING_TEXT;
+            const sortIconSpan = distanceHeader.querySelector('a .sort-icon');
 
-                headerTextSpan.textContent = currentHeaderText;
+            if (headerLink && headerTextSpan && sortIconSpan) {
+                const targetSortKey = isActual ? ACTUAL_SORT_KEY : ODO_SORT_KEY;
+                const targetHeaderText = isActual ? ACTUAL_DISTANCE_TEXT : ODO_READING_TEXT;
 
-                const url = new URL(headerLink.href);
-                url.searchParams.set('sort_by', currentSortKey);
-                const currentOrder = url.searchParams.get('order') || 'desc';
-                url.searchParams.set('order', currentOrder);
-                headerLink.href = url.toString();
+                headerTextSpan.textContent = targetHeaderText;
 
-                const sortIconSpan = distanceHeader.querySelector('a .sort-icon');
-                 if (sortIconSpan) {
-                    const params = new URLSearchParams(window.location.search);
-                    const pageSortBy = params.get('sort_by');
-                    const pageOrder = params.get('order') || 'desc';
+                const currentUrlParams = new URLSearchParams(window.location.search);
+                const pageSortBy = currentUrlParams.get('sort_by');
+                const pageOrder = currentUrlParams.get('order');
 
-                    if (pageSortBy === currentSortKey) {
-                        sortIconSpan.innerHTML = pageOrder === 'asc' ?
-                            '<i class="fas fa-sort-up fa-fw ms-1"></i>' :
-                            '<i class="fas fa-sort-down fa-fw ms-1"></i>';
+                let nextOrder = 'asc'; // デフォルトの次のオーダー
+
+                if (pageSortBy === targetSortKey) { // 現在ソート中のキーが、このヘッダーの担当キーと同じなら
+                    if (pageOrder === 'asc') {
+                        nextOrder = 'desc'; // 現在昇順なら次は降順
                     } else {
-                        sortIconSpan.innerHTML = '<i class="fas fa-sort fa-fw text-muted ms-1"></i>';
+                        nextOrder = 'asc'; // 現在降順(または指定なしで実質降順の場合も含む)なら次は昇順
                     }
+                }
+                // もし pageSortBy が targetSortKey と異なる場合は、初回クリックとみなし nextOrder は 'asc' のまま
+
+                // ベースURL（パス部分）を取得
+                const baseUrl = window.location.origin + window.location.pathname;
+
+                // 新しいクエリパラメータを構築 (既存のフィルター条件は維持)
+                const newParams = new URLSearchParams();
+                currentUrlParams.forEach((value, key) => {
+                    if (key !== 'sort_by' && key !== 'order' && key !== 'page') {
+                        newParams.append(key, value);
+                    }
+                });
+                newParams.append('sort_by', targetSortKey);
+                newParams.append('order', nextOrder);
+                newParams.append('page', '1'); // ソート条件変更時は1ページ目に戻す
+
+                headerLink.href = `${baseUrl}?${newParams.toString()}`;
+
+                // アイコン更新
+                if (pageSortBy === targetSortKey) {
+                    sortIconSpan.innerHTML = (pageOrder === 'asc') ?
+                        '<i class="fas fa-sort-up fa-fw ms-1"></i>' :
+                        '<i class="fas fa-sort-down fa-fw ms-1"></i>';
+                } else {
+                    sortIconSpan.innerHTML = '<i class="fas fa-sort fa-fw text-muted ms-1"></i>';
                 }
             }
         }
@@ -71,17 +88,16 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     if (toggleSwitch) {
-        toggleSwitch.checked = showActualDistance; // スイッチの状態はlocalStorageに基づいて設定
-        updateDisplay(showActualDistance); // 表示を更新
+        toggleSwitch.checked = showActualDistance;
+        updateDisplay(showActualDistance); // 初期表示を更新
 
         toggleSwitch.addEventListener('change', function() {
             showActualDistance = this.checked;
             localStorage.setItem('showActualDistance', showActualDistance);
-            updateDisplay(showActualDistance);
+            updateDisplay(showActualDistance); // トグル変更時も表示を更新
         });
     } else {
         // スイッチがないページ（または要素が見つからない場合）のフォールバック
-        // デフォルトではODOメーター値を表示する (isActual = false)
-        updateDisplay(false); 
+        updateDisplay(false); // デフォルトはODOメーター値を表示
     }
 });
