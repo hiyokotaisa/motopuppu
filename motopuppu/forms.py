@@ -320,3 +320,17 @@ class NoteForm(FlaskForm):
             # is_empty = all(not entry.text.data for entry in field.entries) # 全て空かどうかのチェックも可能
             # if is_empty:
             #     raise ValidationError('タスクカテゴリの場合、TODOアイテムを1つ以上入力してください。')
+
+# ▼▼▼ 退会確認フォームを追加 ▼▼▼
+class DeleteAccountForm(FlaskForm):
+    """アカウント削除確認フォーム"""
+    confirm_text = StringField(
+        '確認のため「削除します」と入力してください。',
+        validators=[DataRequired(message="このフィールドは必須です。")]
+    )
+    submit = SubmitField('退会して全てのデータを削除する')
+
+    def validate_confirm_text(self, field):
+        if field.data != "削除します":
+            raise ValidationError("入力された文字列が一致しません。「削除します」と正しく入力してください。")
+# ▲▲▲ 退会確認フォームを追加 ▲▲▲

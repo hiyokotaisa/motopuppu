@@ -1,0 +1,52 @@
+{# motopuppu/templates/auth/delete_account_complete.html #}
+{% extends "base.html" %}
+
+{% block title %}{{ title }} - もとぷっぷー{% endblock %}
+
+{% block content %} {# base.html の content ブロックを上書き #}
+<div class="container mt-5 mb-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8 col-md-10">
+            <div class="card shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <h1 class="h4 card-title mb-0"><i class="fas fa-check-circle me-2"></i>{{ title }}</h1>
+                </div>
+                <div class="card-body p-4 text-center">
+                    <p class="lead mt-3 mb-4" style="font-size: 1.25rem;">
+                        退会処理が完了しました。<br>
+                        もとぷっぷーのご利用、誠にありがとうございました。
+                    </p>
+                    <img src="{{ url_for('static', filename='images/blobcat_8bit.webp') }}" alt="ありがとうございました" class="img-fluid mb-4" style="max-height: 150px;">
+                    <p>
+                        <a href="{{ url_for('main.index') }}" class="btn btn-primary btn-lg">
+                            <i class="fas fa-home me-2"></i>トップページへ戻る
+                        </a>
+                    </p>
+                    <p class="text-muted small mt-3">
+                        このページは <span id="countdown">10</span> 秒後に自動的にトップページへ移動します。
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# 自動リダイレクト用のJavaScript #}
+<script>
+    (function() {
+        var seconds = 10; // リダイレクトまでの秒数
+        var countdownElement = document.getElementById('countdown');
+
+        function updateCountdown() {
+            countdownElement.textContent = seconds;
+            seconds--;
+            if (seconds < 0) {
+                window.location.href = "{{ url_for('main.index') }}";
+            } else {
+                setTimeout(updateCountdown, 1000);
+            }
+        }
+        setTimeout(updateCountdown, 1000);
+    })();
+</script>
+{% endblock %}

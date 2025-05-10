@@ -1,0 +1,58 @@
+{# motopuppu/templates/auth/delete_account.html #}
+{% extends "base.html" %}
+
+{% block title %}{{ title }} - もとぷっぷー{% endblock %}
+
+{% block content %} {# base.html の content ブロックを上書き #}
+<div class="container mt-4 mb-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8 col-md-10">
+            <div class="card shadow-lg">
+                <div class="card-header bg-danger text-white">
+                    <h1 class="h4 card-title mb-0"><i class="fas fa-exclamation-triangle me-2"></i>{{ title }}</h1>
+                </div>
+                <div class="card-body p-4">
+                    <p class="lead">ユーザー名: <strong>{{ user_to_delete_name }}</strong> 様</p>
+                    
+                    <div class="alert alert-danger mt-3" role="alert">
+                        <h4 class="alert-heading">本当に退会しますか？ 必ずお読みください。</h4>
+                        <p>この操作を実行すると、あなたのアカウントおよび、このアカウントに関連付けられた全てのデータ（車両情報、燃費記録、整備記録、ノート、実績など）が<strong>データベースから即時に完全に削除されます</strong>。</p>
+                        <hr>
+                        <p class="mb-0 fw-bold">この操作は取り消すことができません。一度削除されたデータは二度と復元できませんので、十分に確認の上、実行してください。</p>
+                    </div>
+
+                    <p class="mt-4">退会処理を続行するには、以下のテキストボックスに「<strong class="text-danger">削除します</strong>」と正確に入力し、「退会して全てのデータを削除する」ボタンをクリックしてください。</p>
+
+                    <form method="POST" action="{{ url_for('auth.delete_account') }}" novalidate class="mt-3">
+                        {{ form.hidden_tag() }} {# CSRFトークン #}
+                        
+                        <div class="mb-3">
+                            {{ form.confirm_text.label(class="form-label fw-bold") }}
+                            {{ form.confirm_text(class="form-control form-control-lg" + (" is-invalid" if form.confirm_text.errors else ""), autocomplete="off", autofocus=true) }}
+                            {% if form.confirm_text.errors %}
+                                <div class="invalid-feedback">
+                                    {% for error in form.confirm_text.errors %}
+                                        <span>{{ error }}</span><br>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <hr class="my-4">
+
+                        <div class="d-flex justify-content-between align-items-center">
+                            <a href="{{ url_for('main.dashboard') }}" class="btn btn-outline-secondary btn-lg">
+                                <i class="fas fa-arrow-left me-2"></i>キャンセルして戻る
+                            </a>
+                            {{ form.submit(class="btn btn-danger btn-lg") }}
+                        </div>
+                    </form>
+                </div>
+                <div class="card-footer text-muted small">
+                    ご不明な点がある場合は、操作を行う前にお問い合わせください。
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
