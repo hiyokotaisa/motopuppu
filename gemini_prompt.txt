@@ -2,8 +2,9 @@
 
 1.  **プロジェクト概要:**
     * 名称: もとぷっぷー
-    * 目的: オートバイ所有者向けの車両情報、燃費、整備記録、リマインダー、メモ管理、**実績**Webアプリ。
+    * 目的: オートバイ所有者向けの車両情報、燃費、整備記録、リマインダー、メモ管理、実績Webアプリ。
     * 認証: Misskey MiAuth
+    * **ドキュメント**: プライバシーポリシー、利用規約 (テスト版としての免責事項を含む)
 
 2.  **主要技術スタック:**
     * バックエンド: Python, Flask, SQLAlchemy, PostgreSQL (本番: Render)
@@ -16,15 +17,18 @@
 
 3.  **アーキテクチャ・構成:**
     * 標準的なFlask構成（アプリケーションファクトリ使用）。
-    * 機能ごとにBlueprintを使用 (auth, main, vehicle, fuel, maintenance, notes, dev_auth, **achievements** など)。
-    * `models.py` にDBモデル定義 (`User`, `Motorcycle`, `FuelEntry`, `MaintenanceEntry`, `OdoResetLog`, `GeneralNote`, **`AchievementDefinition`**, **`UserAchievement`** など)。
+    * 機能ごとにBlueprintを使用 (auth, main, vehicle, fuel, maintenance, notes, dev_auth, achievements など)。
+        * **`main` Blueprint にプライバシーポリシーおよび利用規約表示用のルートを追加済み。**
+    * `models.py` にDBモデル定義 (`User`, `Motorcycle`, `FuelEntry`, `MaintenanceEntry`, `OdoResetLog`, `GeneralNote`, `AchievementDefinition`, `UserAchievement` など)。
     * `forms.py` にFlask-WTFフォームクラス定義。
     * `motopuppu/views/` 以下に各Blueprintのルート定義。
     * `templates/`, `static/` ディレクトリ。
+        * **`templates/` に `privacy_policy.html`, `terms_of_service.html` を追加済み。**
+        * **`base.html` のフッターおよび `login.html` に上記ドキュメントへのリンクを追加済み。**
     * Misskey共有機能は `static/js/misskey_share.js` に共通化し、インスタンスドメインはコンテキストプロセッサ経由で提供。
-    * **実績評価ロジックは `motopuppu/achievement_evaluator.py` に集約。**
-    * **実績解除の共通処理は `motopuppu/achievements_utils.py` に実装。**
-    * **実績遡及処理用のCLIコマンドを `motopuppu/manage_commands.py` に実装。**
+    * 実績評価ロジックは `motopuppu/achievement_evaluator.py` に集約。
+    * 実績解除の共通処理は `motopuppu/achievements_utils.py` に実装。
+    * 実績遡及処理用のCLIコマンドを `motopuppu/manage_commands.py` に実装。
 
 4.  **主要な実装済み機能:**
     * ユーザー認証 (Misskey MiAuth, ローカル開発用ログイン) - 堅牢な実装
@@ -42,11 +46,11 @@
         * メンテナンスリマインダーとの連携
     * ノート (CRUD、カテゴリ別[ノート/タスクリスト], ログ表示, フィルター) - フォーム(Flask-WTF), CSRF対策済
         * FieldList によるTODOアイテム管理、JavaScriptによる動的追加/削除
-    * **Misskey共有機能**: 給油記録、整備記録、ノート、**解除済み実績**の各情報をMisskeyに共有する機能。
+    * Misskey共有機能: 給油記録、整備記録、ノート、解除済み実績の各情報をMisskeyに共有する機能。
     * メンテナンスリマインダー (CRUD) - フォーム(Flask-WTF), CSRF対策済
     * ダッシュボード (統計概要, FullCalendarによる記録カレンダー表示, 直近ログ表示, リマインダー通知)
         * FullCalendarの高度なカスタマイズ
-    * **実績機能:**
+    * 実績機能:
         * 実績定義 (`AchievementDefinition`): 名称、説明、アイコン、カテゴリ、解除条件(criteria: JSONB)、Misskey共有テンプレート、トリガーイベントタイプ。
         * ユーザー実績記録 (`UserAchievement`): ユーザーと解除済み実績の紐付け、解除日時。
         * イベントドリブンな実績解除: 各記録追加アクション（車両、給油、整備、ノート、ODOリセット）の完了後に、関連実績の条件を評価し自動解除。
@@ -57,8 +61,8 @@
         * 実績一覧ページ: 解除済み実績と未達成実績（グレーアウト表示）をカテゴリ別に表示。解除条件の確認。
         * 実績解除時のフラッシュメッセージ通知 (アイコン付き)。
         * 解除済み実績のMisskey共有機能。
-        * **既存ユーザーへの実績遡及処理用Flask CLIコマンド (`flask backfill-achievements`) の実装。**
-    * その他: Favicon, 詳細なロギング。
+        * 既存ユーザーへの実績遡及処理用Flask CLIコマンド (`flask backfill-achievements`) の実装。
+    * その他: Favicon, 詳細なロギング, **プライバシーポリシーおよび利用規約の策定とWebページとしての設置。**
 
 5.  **現在の状況・課題 [次回更新]:**
     * マイグレーション:
@@ -68,7 +72,7 @@
     * **直近の作業 (完了済み):**
         * (以前の完了項目は維持)
         * ...
-        * **「実績」機能の追加:**
+        * 「実績」機能の追加:
             * 実績関連のDBモデル (`AchievementDefinition`, `UserAchievement`) 作成とマイグレーション。
             * 実績評価・解除ロジック (`achievement_evaluator.py`, `achievements_utils.py`) の実装。
             * 各記録追加処理への実績解除トリガーの組み込み。
@@ -76,23 +80,109 @@
             * 実績一覧ページ（未達成含む、カテゴリ別表示、Misskey共有）の実装。
             * 既存ユーザーへの実績遡及処理用CLIコマンド (`flask backfill-achievements`) の実装。
             * 関連するUI/バグ修正（フラッシュメッセージのHTML表示、インポートエラー修正など）。
+        * **プライバシーポリシーの策定とWebページとしての設置。**
+            * `main` Blueprintに表示用ルートを追加。
+            * `templates/privacy_policy.html` を作成。
+            * フッターおよびログインページにリンクを設置。
+        * **利用規約の策定とWebページとしての設置。**
+            * テスト版であることの免責事項、MIT Licenseでのソースコード提供に関する記述を含む。
+            * `main` Blueprintに表示用ルートを追加。
+            * `templates/terms_of_service.html` を作成。
+            * フッターおよびログインページにリンクを設置。
     * **現在の課題・改善点:**
         * a. CSRF対策の最終確認。
         * c. DBスキーマレベルの制約適用: `Motorcycle.is_default` カラム。
         * d. 型整合性の最終確認。
         * e. ヘルパー関数 vs モデルメソッド整理。
         * f. CSSの整理検討。
-        * g. ODOメーターリセット: 「累積オフセットを0に戻す」機能検討。
         * h. ODO値表示方法の最終決定と実装。
         * i. `Motorcycle.odometer_offset` の将来検討。
         * j. テストコード: 単体テスト・結合テストの拡充 (特に実績機能周り)。
         * k. CSVインポート機能の実装検討。
         * **l. (新規) 実績機能のさらなる拡充（新しい実績のアイデア検討・実装）。**
         * **m. (新規) 実績遡及処理コマンドの本番環境での慎重な実行と確認。**
-    * 現在のプロジェクトディレクトリ: (適宜更新、特に `motopuppu/` 配下の新しいファイル `achievement_evaluator.py`, `achievements_utils.py`, `manage_commands.py` と `views/achievements.py`, `templates/achievements/` を反映)
+    * 現在のプロジェクトディレクトリ: 
+    kyagisaw@hiyoko-fedora:~/Dev/motopuppu$ tree
+.
+├── Containerfile
+├── LICENSE
+├── README.md
+├── announcements.json
+├── compose.yml
+├── gemini_prompt.txt
+├── instance
+├── migrations
+│   ├── README
+│   ├── alembic.ini
+│   ├── env.py
+│   ├── script.py.mako
+│   └── versions
+│       ├── 03b74d3f953e_add_criteria_column_to_.py
+│       ├── 414794921235_add_achievement_and_userachievement_.py
+│       ├── 4ec29611c9b5_add_trigger_event_type_to_.py
+│       ├── 5d18f0a4938e_allow_null_for_content_in_general_notes.py
+│       ├── 760969e7b61d_populate_new_achievement_definitions_.py
+│       ├── 896791ff77ea_add_odo_reset_log_table_and_data_.py
+│       ├── cb61b6485ca8_add_missing_general_notes_and_odo_reset_.py
+│       ├── cbc2495d2f76_initial_migration.py
+│       └── cd7db2474a21_check_sync_after_fixing_relationship.py
+├── motopuppu
+│   ├── __init__.py
+│   ├── achievement_evaluator.py
+│   ├── achievements_utils.py
+│   ├── forms.py
+│   ├── manage_commands.py
+│   ├── models.py
+│   ├── static
+│   │   ├── css
+│   │   │   └── style.css
+│   │   ├── favicons
+│   │   │   ├── apple-touch-icon.png
+│   │   │   ├── favicon-96x96.png
+│   │   │   ├── favicon.ico
+│   │   │   ├── favicon.svg
+│   │   │   ├── web-app-manifest-192x192.png
+│   │   │   └── web-app-manifest-512x512.png
+│   │   ├── images
+│   │   │   └── blobcat_8bit.webp
+│   │   └── js
+│   │       ├── misskey_share.js
+│   │       └── odo_toggle.js
+│   ├── templates
+│   │   ├── achievements
+│   │   │   └── unlocked_list.html
+│   │   ├── base.html
+│   │   ├── dashboard.html
+│   │   ├── fuel_form.html
+│   │   ├── fuel_log.html
+│   │   ├── index.html
+│   │   ├── login.html
+│   │   ├── maintenance_form.html
+│   │   ├── maintenance_log.html
+│   │   ├── navigation.html
+│   │   ├── note_form.html
+│   │   ├── notes_log.html
+│   │   ├── odo_reset_log_form.html
+│   │   ├── privacy_policy.html
+│   │   ├── reminder_form.html
+│   │   ├── terms_of_service.html
+│   │   ├── vehicle_form.html
+│   │   └── vehicles.html
+│   └── views
+│       ├── achievements.py
+│       ├── auth.py
+│       ├── dev_auth.py
+│       ├── fuel.py
+│       ├── main.py
+│       ├── maintenance.py
+│       ├── notes.py
+│       └── vehicle.py
+└── requirements.txt
+
+13 directories, 62 files
 
 6.  **今回のセッションでの目標 [毎回更新]:**
-    * (今回の実績機能実装は完了のため、次回目標を記載)
+    * (次回目標を記載)
 
 7.  **Geminiに期待する役割:**
     * コードの提案、修正案の提示 (ファイル全体の表示希望)
@@ -105,4 +195,4 @@
     * DBスキーマの変更については、過去に問題が発生した経験があるため、特に慎重に進めたい。
     * 修正は既存のUIや他の機能への影響を最小限に抑えたい。
     * 現在CSRF対策としてFlask-WTFが導入されているため、CSRFトークンのエラーが発生しないよう注意すること。
-    * **実績評価ロジックは、パフォーマンスに大きな影響を与えないよう注意し、特にループやDBアクセスが多い処理は慎重に設計する。**
+    * 実績評価ロジックは、パフォーマンスに大きな影響を与えないよう注意し、特にループやDBアクセスが多い処理は慎重に設計する。
