@@ -1,11 +1,17 @@
 {# motopuppu/templates/notes_log.html #}
 {% extends "base.html" %}
 
-{% block title %}ノート一覧 - もとぷっぷー{% endblock %}
+{% block title %}ノート - もとぷっぷー{% endblock %}
 
 {% block content %}
-<h2>ノート一覧</h2>
+<h2>ノート</h2>
 <p>車両に関するノートや、一般的な記録を残すことができます。</p>
+{# --- ノート追加ボタン --- #}
+<div class="mb-3">
+    <a href="{{ url_for('notes.add_note') }}" class="btn btn-success">
+        <i class="fas fa-plus me-1"></i> 新しいノートを追加
+    </a>
+</div>
 
 {# --- フィルターフォーム --- #}
 <form method="GET" action="{{ url_for('notes.notes_log') }}" class="mb-4 p-3 border rounded bg-light">
@@ -64,13 +70,6 @@
         {% endfor %}
     {% endif %}
 {% endwith %}
-
-{# --- ノート追加ボタン --- #}
-<div class="mb-3">
-    <a href="{{ url_for('notes.add_note') }}" class="btn btn-success">
-        <i class="fas fa-plus me-1"></i> 新しいノートを追加
-    </a>
-</div>
 
 {# --- ノート一覧テーブル --- #}
 {% if entries %}
