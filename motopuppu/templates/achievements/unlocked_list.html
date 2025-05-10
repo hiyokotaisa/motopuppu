@@ -83,8 +83,8 @@ document.addEventListener('DOMContentLoaded', function() {
         button.addEventListener('click', function() {
             console.log("Share button clicked. Button dataset:", this.dataset);
             
-            const misskeyInstanceDomain = 'misskey.io'; 
-            console.log("Misskey instance domain (hardcoded):", misskeyInstanceDomain);
+            const misskeyInstanceDomain = {{ misskey_instance_domain | tojson | safe }}; 
+            console.log("Misskey instance domain (from context):", misskeyInstanceDomain);
 
             const achievementName = this.dataset.achievementName;
             let shareTemplate = this.dataset.shareTemplate;
@@ -102,6 +102,11 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log("Share Text (after replace):", shareText);
 
             if (shareText) {
+                if (!misskeyInstanceDomain) {
+                    console.error("Misskey instance domain is not configured.");
+                    alert("Misskeyインスタンスのドメインが設定されていません。");
+                    return;
+                }
                 const encodedText = encodeURIComponent(shareText);
                 const shareUrl = 'https://' + misskeyInstanceDomain + '/share?text=' + encodedText;
                 console.log("Share URL:", shareUrl); 

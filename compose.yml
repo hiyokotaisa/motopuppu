@@ -40,7 +40,7 @@ services:
       # .envファイルから読み込む (必須)
       SECRET_KEY: ${SECRET_KEY?err}
       # .envファイルから読み込むか、なければデフォルト値
-      MISSKEY_INSTANCE_URL: ${MISSKEY_INSTANCE_URL:-https://misskey.io}
+      MISSKEY_INSTANCE_URL: https://misskey.io
       # .envファイルから読み込む (後で設定)
       LOCAL_DEV_USER_ID: ${LOCAL_DEV_USER_ID}
       # 他の環境変数...
