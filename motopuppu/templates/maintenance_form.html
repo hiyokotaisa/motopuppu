@@ -58,6 +58,23 @@
         {% endif %}
     </div>
 
+    {# カテゴリ #}
+    <div class="mb-3">
+         {{ form.category.label(class="form-label") }}
+        {{ form.category(class="form-control" + (" is-invalid" if form.category.errors else ""), list=(form.category.render_kw.get("list", "category_options") if form.category.render_kw else "category_options"), placeholder=(form.category.render_kw.get("placeholder", "") if form.category.render_kw else "")) }}
+         <datalist id="category_options">
+              {# MAINTENANCE_CATEGORIES は forms.py からインポートしてビュー経由で渡すか、ここで直接定義 #}
+              {% for cat_opt in ['エンジンオイル交換', 'タイヤ交換', 'ブレーキパッド交換', 'チェーンメンテナンス', '定期点検', '洗車', 'その他'] %}
+              <option value="{{ cat_opt }}">
+              {% endfor %}
+         </datalist>
+        {% if form.category.errors %}
+            <div class="invalid-feedback">
+                {% for error in form.category.errors %}<span>{{ error }}</span><br>{% endfor %}
+            </div>
+        {% endif %}
+    </div>
+
     {# 整備内容 #}
     <div class="mb-3">
          {{ form.description.label(class="form-label") }} {% if form.description.flags.required %}<span class="text-danger">*</span>{% endif %}
@@ -79,23 +96,6 @@
             </div>
         {% else %}
             <div class="form-text">例: 自宅、〇〇バイクショップ</div>
-        {% endif %}
-    </div>
-
-    {# カテゴリ #}
-    <div class="mb-3">
-         {{ form.category.label(class="form-label") }}
-        {{ form.category(class="form-control" + (" is-invalid" if form.category.errors else ""), list=(form.category.render_kw.get("list", "category_options") if form.category.render_kw else "category_options"), placeholder=(form.category.render_kw.get("placeholder", "") if form.category.render_kw else "")) }}
-         <datalist id="category_options">
-              {# MAINTENANCE_CATEGORIES は forms.py からインポートしてビュー経由で渡すか、ここで直接定義 #}
-              {% for cat_opt in ['エンジンオイル交換', 'タイヤ交換', 'ブレーキパッド交換', 'チェーンメンテナンス', '定期点検', '洗車', 'その他'] %}
-              <option value="{{ cat_opt }}">
-              {% endfor %}
-         </datalist>
-        {% if form.category.errors %}
-            <div class="invalid-feedback">
-                {% for error in form.category.errors %}<span>{{ error }}</span><br>{% endfor %}
-            </div>
         {% endif %}
     </div>
 
