@@ -1,0 +1,39 @@
+{
+    "name": "もとぷっぷー",
+    "short_name": "もとぷっぷー",
+    "description": "オートバイ所有者向けの車両情報、燃費、整備記録、リマインダー、メモ管理、実績Webアプリ。",
+    "icons": [
+      {
+        "src": "/static/favicons/web-app-manifest-192x192.png",
+        "sizes": "192x192",
+        "type": "image/png",
+        "purpose": "any"
+      },
+      {
+        "src": "/static/favicons/web-app-manifest-512x512.png",
+        "sizes": "512x512",
+        "type": "image/png",
+        "purpose": "any"
+      },
+      {
+        "src": "/static/favicons/apple-touch-icon.png",
+        "sizes": "180x180",
+        "type": "image/png",
+        "purpose": "any"
+      },
+      {
+        "src": "/static/favicons/favicon-96x96.png",
+        "sizes": "96x96",
+        "type": "image/png",
+        "purpose": "any"
+      }
+    ],
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#212529",
+    "scope": "/",
+    "launch_handler": {
+      "client_mode": "navigate-existing"
+    }
+  }
