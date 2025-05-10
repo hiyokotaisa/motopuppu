@@ -360,3 +360,7 @@ def privacy_policy():
     """プライバシーポリシーページを表示します。"""
     return render_template('privacy_policy.html')
 
+@main_bp.route('/terms')
+def terms_of_service():
+    """利用規約ページを表示します。"""
+    return render_template('terms_of_service.html')

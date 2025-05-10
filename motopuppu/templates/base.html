@@ -53,14 +53,13 @@
     {# --- フッター --- #}
     <footer class="footer mt-auto py-3 bg-light border-top">
       <div class="container text-center">
-        {# current_year はコンテキストプロセッサから渡される想定 #}
-        <span class="text-muted">&copy; {% if current_year %}{{ current_year }}{% else %}{{ now.year if now else '2025'}}{% endif %} もとぷっぷー
+        <span class="text-muted small">&copy; {% if current_year %}{{ current_year }}{% else %}{{ now.year if now else '2025'}}{% endif %} もとぷっぷー
           | <a href="{{ url_for('main.privacy_policy') }}">プライバシーポリシー</a>
+          | <a href="{{ url_for('main.terms_of_service') }}">利用規約</a>
         </span>
-        {# バージョン情報 (Gitハッシュ) を表示 #}
         {% if g.git_commit_hash %}
           <span class="ms-3 text-muted small">{{ g.git_commit_hash[:7] }}</span>
-        {% elif build_version %} {# build_version はコンテキストプロセッサから #}
+        {% elif build_version %}
           <span class="ms-3 text-muted small">version: {{ build_version }}</span>
         {% endif %}
       </div>
@@ -68,25 +67,13 @@
     {# --- フッター ここまで --- #}
 
     {# --- JavaScript ライブラリ --- #}
-    {# Bootstrap Bundle (JS) #}
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" integrity="sha384-geWF76RCwLtnZ8qwWowPQNguL3RmwHVBC9FhGdlKrxdiJJigb/j/68SIy3Te4Bkz" crossorigin="anonymous"></script>
-
-    {# FullCalendar (JS) - 本体 #}
     <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js'></script>
-
-    {# グローバル変数をJavaScriptで利用可能にする #}
     <script>
         var misskey_instance_domain = {{ misskey_instance_domain | tojson | safe }};
-        // 他に必要なグローバル変数があればここに追加できます
     </script>
-
-    {# 共通Misskey共有スクリプトの読み込み #}
     <script src="{{ url_for('static', filename='js/misskey_share.js') }}"></script>
-
-    {# --- ODO表示トグル用JavaScript --- #}
     <script src="{{ url_for('static', filename='js/odo_toggle.js') }}"></script>
-
-    {# 各ページ固有のJavaScriptを読み込むためのブロック #}
     {% block scripts %}{% endblock %}
 
   </body>

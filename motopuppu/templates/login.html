@@ -1,15 +1,14 @@
 {# motopuppu/templates/login.html #}
-{% extends "base.html" %} {# ベーステンプレートを継承 #}
+{% extends "base.html" %}
 
 {% block title %}ログイン - もとぷっぷー{% endblock %}
 
 {% block content %}
 <div class="container mt-5">
     <div class="row justify-content-center">
-        <div class="col-md-6 col-lg-5"> {# 少し幅を調整 #}
+        <div class="col-md-6 col-lg-5">
             <h2 class="text-center mb-4">もとぷっぷー ログイン</h2>
 
-            {# --- フラッシュメッセージ表示 --- #}
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
                     {% for category, message in messages %}
@@ -20,9 +19,7 @@
                     {% endfor %}
                 {% endif %}
             {% endwith %}
-            {# --- フラッシュメッセージ表示 ここまで --- #}
 
-            {# --- Misskey ログインボタン --- #}
             <div class="card mb-4 shadow-sm">
                 <div class="card-body text-center">
                     <h5 class="card-title">Misskey アカウントでログイン</h5>
@@ -34,20 +31,17 @@
                 </div>
             </div>
 
-            {# --- プライバシーポリシーへのリンク --- #}
             <div class="text-center my-3">
                 <small class="text-muted">
-                    本サービスのご利用にあたっては、<a href="{{ url_for('main.privacy_policy') }}" target="_blank" rel="noopener noreferrer">プライバシーポリシー</a>をご確認ください。
+                    本サービスを利用することにより、<a href="{{ url_for('main.terms_of_service') }}" target="_blank" rel="noopener noreferrer">利用規約</a>および<a href="{{ url_for('main.privacy_policy') }}" target="_blank" rel="noopener noreferrer">プライバシーポリシー</a>に同意したものとみなされます。
                 </small>
             </div>
 
-            {# --- ▼▼▼ 開発用ログインセクション (最小限) ▼▼▼ --- #}
             {% if config.ENV == 'development' %}
-            <div class="text-center my-4"> {# 上下のマージンを追加 #}
+            <div class="text-center my-4">
                 <p class="small text-muted">開発用ログイン (.envのLOCAL_DEV_USER_IDを使用)</p>
-                {# LOCAL_DEV_USER_ID が設定されている場合のみボタンを有効化 #}
                 {% if config.LOCAL_DEV_USER_ID %}
-                <a href="{{ url_for('dev_auth.local_login') }}" class="btn btn-secondary btn-sm"> {# ボタンサイズを小さく #}
+                <a href="{{ url_for('dev_auth.local_login') }}" class="btn btn-secondary btn-sm">
                     開発用ログイン
                 </a>
                 {% else %}
@@ -55,10 +49,7 @@
                 {% endif %}
             </div>
             {% endif %}
-            {# --- ▲▲▲ 開発用ログインセクションここまで ▲▲▲ --- #}
 
-
-            {# --- お知らせ欄 --- #}
             {% if announcements %}
             <div class="card mb-4">
                 <div class="card-header">
@@ -74,8 +65,6 @@
                 </div>
             </div>
             {% endif %}
-            {# --- お知らせ欄ここまで --- #}
-
         </div>
     </div>
 </div>
