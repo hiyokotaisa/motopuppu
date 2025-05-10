@@ -65,7 +65,7 @@
     <h4>ODOメーターリセット記録</h4>
     <p>バイク本体のODOメーターをリセットした場合に記録します。</p>
     <p>現在の累積オフセット: <strong>{{ "{:,}".format(vehicle.odometer_offset) }} km</strong></p>
-    <form method="POST" action="{{ url_for('vehicle.record_reset', vehicle_id=vehicle.id) }}">
+    <form method="POST" action="{{ url_for('vehicle.add_odo_reset_log', vehicle_id=vehicle.id) }}">
         {{ odo_form.hidden_tag() }} {# CSRFトークン等 (OdoResetLogForm) #}
         <div class="row g-3 align-items-end">
             <div class="col-md-4">
