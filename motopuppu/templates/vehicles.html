@@ -34,12 +34,12 @@
             <tr>
                 <th>#</th>
                 <th>メーカー</th>
-                <th>車両名</th>
+                <th>車両名 <small class="text-muted">(タイプ)</small></th> {# タイプ表示のための小見出し変更 #}
                 <th>年式</th>
-                {# ▼▼▼ 列ヘッダー追加 ▼▼▼ #}
-                <th class="text-end">総走行距離</th>
-                <th class="text-end">平均燃費</th>
-                {# ▲▲▲ 列ヘッダー追加 ▲▲▲ #}
+                {# ▼▼▼ フェーズ1変更点 (列ヘッダー変更) ▼▼▼ #}
+                <th class="text-end">稼働記録</th>
+                <th class="text-end">平均燃費 (公道車のみ)</th>
+                {# ▲▲▲ フェーズ1変更点 ▲▲▲ #}
                 <th>デフォルト</th>
                 <th>操作</th>
             </tr>
@@ -49,45 +49,59 @@
             <tr>
                 <td>{{ loop.index }}</td>
                 <td>{{ motorcycle.maker if motorcycle.maker else '-' }}</td>
-                <td>{{ motorcycle.name }}</td>
+                <td>
+                    {# ▼▼▼ フェーズ1変更点 (車両名とタイプバッジ表示) ▼▼▼ #}
+                    {{ motorcycle.name }}
+                    {% if motorcycle.is_racer %}
+                        <span class="badge bg-info ms-1">レーサー</span>
+                    {% else %}
+                        <span class="badge bg-secondary ms-1">公道車</span>
+                    {% endif %}
+                    {# ▲▲▲ フェーズ1変更点 ▲▲▲ #}
+                </td>
                 <td>{{ motorcycle.year if motorcycle.year else '-' }}</td>
-                {# ▼▼▼ データセル追加 ▼▼▼ #}
+                {# ▼▼▼ フェーズ1変更点 (稼働記録の表示分け) ▼▼▼ #}
                 <td class="text-end">
-                    {% set total_mileage = motorcycle.get_display_total_mileage() %}
-                    {% if total_mileage is not none %}
-                        {{ "{:,.0f}".format(total_mileage | int) }} km
+                    {% if motorcycle.is_racer %}
+                        {{ "%.2f"|format(motorcycle.total_operating_hours if motorcycle.total_operating_hours is not none else 0) }} 時間
                     {% else %}
-                        -
+                        {% set total_mileage = motorcycle.get_display_total_mileage() %}
+                        {% if total_mileage is not none %}
+                            {{ "{:,.0f}".format(total_mileage | int) }} km
+                        {% else %}
+                            -
+                        {% endif %}
                     {% endif %}
                 </td>
                 <td class="text-end">
-                    {% set avg_kpl = motorcycle.get_display_average_kpl() %}
-                    {% if avg_kpl is not none and avg_kpl > 0 %}
-                        {{ "%.2f"|format(avg_kpl) }} km/L
+                    {% if not motorcycle.is_racer %}
+                        {% set avg_kpl = motorcycle.get_display_average_kpl() %}
+                        {% if avg_kpl is not none and avg_kpl > 0 %}
+                            {{ "%.2f"|format(avg_kpl) }} km/L
+                        {% else %}
+                            -
+                        {% endif %}
                     {% else %}
-                        -
+                        <span class="text-muted">-</span> {# レーサー車両は燃費なし #}
                     {% endif %}
                 </td>
-                {# ▲▲▲ データセル追加 ▲▲▲ #}
+                {# ▲▲▲ フェーズ1変更点 ▲▲▲ #}
                 <td>
                     {% if motorcycle.is_default %}
                         <span class="badge bg-success">はい</span>
                     {% else %}
-                        {# デフォルト設定用フォーム #}
                         <form action="{{ url_for('vehicle.set_default_vehicle', vehicle_id=motorcycle.id) }}" method="POST" class="d-inline">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/> {# CSRFトークンを追加 #}
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                             <button type="submit" class="btn btn-sm btn-outline-secondary">設定</button>
                         </form>
                     {% endif %}
                 </td>
                 <td>
-                    {# 編集ボタン #}
                     <a href="{{ url_for('vehicle.edit_vehicle', vehicle_id=motorcycle.id) }}" class="btn btn-sm btn-warning me-1" title="編集">
                         <i class="fas fa-edit"></i> <span class="d-none d-md-inline">編集</span>
                     </a>
-                    {# 削除ボタン (確認付き推奨) #}
                     <form action="{{ url_for('vehicle.delete_vehicle', vehicle_id=motorcycle.id) }}" method="POST" class="d-inline" onsubmit="return confirm('車両「{{ motorcycle.name }}」を削除してもよろしいですか？関連する燃費・整備記録も全て削除されます。');">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/> {# CSRFトークンを追加 #}
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                         <button type="submit" class="btn btn-sm btn-danger" title="削除">
                             <i class="fas fa-trash"></i> <span class="d-none d-md-inline">削除</span>
                         </button>

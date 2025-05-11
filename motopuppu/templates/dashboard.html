@@ -65,12 +65,12 @@
     </div>
 </div>
 
-{# --- フラッシュメッセージ (修正箇所) --- #}
+{# --- フラッシュメッセージ --- #}
 {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
         {% for category, message in messages %}
             <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show" role="alert">
-                {{ message | safe }} {# <--- ここに |safe フィルタを追加 #}
+                {{ message | safe }}
                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             </div>
         {% endfor %}
@@ -92,14 +92,20 @@
                     <div class="d-flex justify-content-between align-items-center flex-wrap">
                         <div class="mb-1 me-3">
                             <span class="badge bg-{{ reminder.status }} me-2 align-middle"><i class="fas {% if reminder.status == 'danger' %}fa-exclamation-triangle{% else %}fa-exclamation-circle{% endif %} fa-fw"></i> {{ '期限超過' if reminder.status == 'danger' else '時期接近' }}</span>
-                            <strong class="align-middle">{{ reminder.motorcycle_name }}</strong> <span class="align-middle"> - {{ reminder.task }}</span>
+                            <strong class="align-middle">{{ reminder.motorcycle_name }} {% if reminder.is_racer %}<span class="badge bg-info small">レーサー</span>{% endif %}</strong> <span class="align-middle"> - {{ reminder.task }}</span>
                             {% if reminder.message %}<small class="d-block text-muted ms-4 ps-2 pt-1">↳ {{ reminder.message }}</small>{% endif %}
                         </div>
                         <div class="text-end small">
                              <div class="text-muted">目安: {{ reminder.due_info if reminder.due_info else '未設定' }}</div>
                              <div class="text-muted mb-1">最終実施: {{ reminder.last_done }}</div>
                              <a href="{{ url_for('vehicle.edit_reminder', reminder_id=reminder.reminder_id) }}" class="btn btn-sm btn-outline-secondary py-0 px-1 me-1" title="リマインダー設定を編集"><i class="fas fa-cog fa-xs"></i> 設定</a>
+                             {# ▼▼▼ フェーズ1変更点: レーサー車両の場合は整備記録追加ボタンを非表示または無効化 ▼▼▼ #}
+                             {% if not reminder.is_racer %}
                              <a href="{{ url_for('maintenance.add_maintenance', motorcycle_id=reminder.motorcycle_id) }}" class="btn btn-sm btn-outline-success py-0 px-1" title="この車両の整備記録を追加"><i class="fas fa-tools fa-xs"></i> 記録追加</a>
+                             {% else %}
+                             <span class="btn btn-sm btn-outline-success py-0 px-1 disabled" title="レーサー車両の整備記録は現在対応していません"><i class="fas fa-tools fa-xs"></i> 記録追加</span>
+                             {% endif %}
+                             {# ▲▲▲ フェーズ1変更点 ▲▲▲ #}
                         </div>
                     </div>
                 </li>
@@ -114,35 +120,58 @@
 <div class="card mb-4">
     <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
         <span class="me-2"><i class="fas fa-chart-line me-1"></i> <strong>統計情報</strong></span>
+        {# motorcycles は全車両リスト (ビューから渡される) #}
         <form method="GET" action="{{ url_for('main.dashboard') }}" class="d-inline-block ms-auto" style="min-width: 180px;">
             {% if selected_fuel_vehicle_id %} <input type="hidden" name="fuel_vehicle_id" value="{{ selected_fuel_vehicle_id }}"> {% endif %}
             {% if selected_maint_vehicle_id %} <input type="hidden" name="maint_vehicle_id" value="{{ selected_maint_vehicle_id }}"> {% endif %}
             <select name="stats_vehicle_id" class="form-select form-select-sm" onchange="this.form.submit()" aria-label="統計対象車両で絞り込み">
                 <option value="" {% if not selected_stats_vehicle_id %}selected{% endif %}>すべての車両 (デフォルト)</option>
-                {% for m in motorcycles %}
-                <option value="{{ m.id }}" {% if selected_stats_vehicle_id == m.id %}selected{% endif %}>{{ m.name }}</option>
+                {% for m_stats in motorcycles %} {# motorcycles は全車両リスト #}
+                <option value="{{ m_stats.id }}" {% if selected_stats_vehicle_id == m_stats.id %}selected{% endif %}>{{ m_stats.name }} {% if m_stats.is_racer %}(レーサー){% endif %}</option>
                 {% endfor %}
             </select>
         </form>
     </div>
     <div class="card-body">
         <div class="row text-center">
+            {# ▼▼▼ フェーズ1変更点: 主要稼働指標の表示変更 ▼▼▼ #}
             <div class="col-md-3 col-6 mb-3 mb-md-0">
-                <h6 class="card-title text-muted small">総走行距離</h6>
-                {% if dashboard_stats.vehicle_name %}<p class="card-text fs-4 fw-bold mb-0">{{ "{:,.0f}".format(dashboard_stats.total_distance | int) }} km</p><small class="text-muted">({{ dashboard_stats.vehicle_name }})</small>{% else %}<p class="card-text fs-4 fw-bold mb-0">-</p><small class="text-muted">(データなし)</small>{% endif %}
+                <h6 class="card-title text-muted small">
+                    {% if dashboard_stats.is_racer_for_stats %}総稼働時間{% else %}総走行距離{% endif %}
+                </h6>
+                {% if dashboard_stats.vehicle_name %}
+                    <p class="card-text fs-4 fw-bold mb-0">
+                        {% if dashboard_stats.is_racer_for_stats %}
+                            {{ "%.2f"|format(dashboard_stats.total_primary_metric if dashboard_stats.total_primary_metric is not none else 0) }}
+                        {% else %}
+                            {{ "{:,.0f}".format(dashboard_stats.total_primary_metric | int) }}
+                        {% endif %}
+                        <small class="fs-6">{{ dashboard_stats.total_primary_metric_unit }}</small>
+                    </p>
+                    <small class="text-muted">({{ dashboard_stats.vehicle_name }})</small>
+                {% else %}
+                    <p class="card-text fs-4 fw-bold mb-0">-</p><small class="text-muted">(データなし)</small>
+                {% endif %}
             </div>
             <div class="col-md-3 col-6 mb-3 mb-md-0">
                  <h6 class="card-title text-muted small">平均燃費</h6>
-                 {% if dashboard_stats.average_kpl is not none %}<p class="card-text fs-4 fw-bold mb-0">{{ "%.2f"|format(dashboard_stats.average_kpl) }} km/L</p><small class="text-muted">({{ dashboard_stats.vehicle_name }})</small>{% else %}<p class="card-text fs-4 fw-bold mb-0">-</p><small class="text-muted">({{ dashboard_stats.vehicle_name if dashboard_stats.vehicle_name else '計算不可' }})</small>{% endif %}
+                 {% if not dashboard_stats.is_racer_for_stats and dashboard_stats.average_kpl is not none %}
+                     <p class="card-text fs-4 fw-bold mb-0">{{ "%.2f"|format(dashboard_stats.average_kpl) }} <small class="fs-6">km/L</small></p>
+                     <small class="text-muted">({{ dashboard_stats.vehicle_name }})</small>
+                 {% else %}
+                     <p class="card-text fs-4 fw-bold mb-0">-</p>
+                     <small class="text-muted">({{ dashboard_stats.vehicle_name if dashboard_stats.vehicle_name else '計算不可' }}{% if dashboard_stats.is_racer_for_stats %} レーサー{% endif %})</small>
+                 {% endif %}
             </div>
+            {# ▲▲▲ フェーズ1変更点 ▲▲▲ #}
             <div class="col-md-3 col-6">
                  <h6 class="card-title text-muted small">累計 給油費用</h6>
-                 <p class="card-text fs-4 fw-bold mb-0">{{ "{:,.0f}".format(dashboard_stats.total_fuel_cost | int) }} 円</p>
+                 <p class="card-text fs-4 fw-bold mb-0">{{ "{:,.0f}".format(dashboard_stats.total_fuel_cost | int) }} <small class="fs-6">円</small></p>
                  <small class="text-muted">({{ dashboard_stats.vehicle_name_for_cost }})</small>
             </div>
             <div class="col-md-3 col-6">
                  <h6 class="card-title text-muted small">累計 整備費用</h6>
-                  <p class="card-text fs-4 fw-bold mb-0">{{ "{:,.0f}".format(dashboard_stats.total_maint_cost | int) }} 円</p>
+                  <p class="card-text fs-4 fw-bold mb-0">{{ "{:,.0f}".format(dashboard_stats.total_maint_cost | int) }} <small class="fs-6">円</small></p>
                   <small class="text-muted">({{ dashboard_stats.vehicle_name_for_cost }})</small>
             </div>
         </div>
@@ -156,21 +185,42 @@
         <div class="card">
             <div class="card-header"><i class="fas fa-motorcycle me-1"></i> 登録車両</div>
             <div class="card-body">
+                {# motorcycles は全車両リスト (ビューから渡される) #}
                 {% if motorcycles %}
                     <ul class="list-group list-group-flush">
-                        {% for motorcycle in motorcycles %}
+                        {% for motorcycle_item in motorcycles %} {# ループ変数名を変更して混乱を避ける #}
                             <li class="list-group-item d-flex justify-content-between align-items-center">
                                 <span>
-                                    {% if motorcycle.is_default %}<i class="fas fa-star text-warning me-1" title="デフォルト車両"></i>{% endif %}
-                                    <strong>{{ motorcycle.name }}</strong>
-                                    <small class="text-muted">({{ motorcycle.maker or 'メーカー不明' }} / {{ motorcycle.year or '年式不明' }})</small>
+                                    {% if motorcycle_item.is_default %}<i class="fas fa-star text-warning me-1" title="デフォルト車両"></i>{% endif %}
+                                    <strong>{{ motorcycle_item.name }}</strong>
+                                    {# ▼▼▼ フェーズ1変更点: タイプバッジ表示 ▼▼▼ #}
+                                    {% if motorcycle_item.is_racer %}
+                                        <span class="badge bg-info ms-1">レーサー</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary ms-1">公道車</span>
+                                    {% endif %}
+                                    {# ▲▲▲ フェーズ1変更点 ▲▲▲ #}
+                                    <small class="text-muted">({{ motorcycle_item.maker or 'メーカー不明' }} / {{ motorcycle_item.year or '年式不明' }})</small>
                                     <br>
-                                    <small class="text-info">{% if motorcycle._average_kpl is defined and motorcycle._average_kpl is not none %}<i class="fas fa-tachometer-alt me-1"></i> 平均燃費: <strong>{{"%.2f"|format(motorcycle._average_kpl)}}</strong> km/L{% endif %}</small>
+                                    {# ▼▼▼ フェーズ1変更点: 公道車のみ平均燃費を表示 ▼▼▼ #}
+                                    {% if not motorcycle_item.is_racer and motorcycle_item._average_kpl is defined and motorcycle_item._average_kpl is not none %}
+                                    <small class="text-info"><i class="fas fa-tachometer-alt me-1"></i> 平均燃費: <strong>{{"%.2f"|format(motorcycle_item._average_kpl)}}</strong> km/L</small>
+                                    {% elif motorcycle_item.is_racer %}
+                                    <small class="text-info"><i class="fas fa-stopwatch me-1"></i> 総稼働: <strong>{{ "%.2f"|format(motorcycle_item.total_operating_hours if motorcycle_item.total_operating_hours is not none else 0) }}</strong> 時間</small>
+                                    {% endif %}
+                                    {# ▲▲▲ フェーズ1変更点 ▲▲▲ #}
                                 </span>
                                 <div class="btn-group btn-group-sm">
-                                    <a href="{{ url_for('fuel.add_fuel', motorcycle_id=motorcycle.id) }}" class="btn btn-outline-success" title="この車両の給油記録を追加"><i class="fas fa-gas-pump"></i></a>
-                                    <a href="{{ url_for('maintenance.add_maintenance', motorcycle_id=motorcycle.id) }}" class="btn btn-outline-warning" title="この車両の整備記録を追加"><i class="fas fa-tools"></i></a>
-                                    <a href="{{ url_for('vehicle.edit_vehicle', vehicle_id=motorcycle.id) }}" class="btn btn-outline-secondary" title="車両情報を編集"><i class="fas fa-edit"></i></a>
+                                    {# ▼▼▼ フェーズ1変更点: 給油・整備ボタンの表示制御 ▼▼▼ #}
+                                    {% if not motorcycle_item.is_racer %}
+                                    <a href="{{ url_for('fuel.add_fuel', motorcycle_id=motorcycle_item.id) }}" class="btn btn-outline-success" title="この車両の給油記録を追加"><i class="fas fa-gas-pump"></i></a>
+                                    <a href="{{ url_for('maintenance.add_maintenance', motorcycle_id=motorcycle_item.id) }}" class="btn btn-outline-warning" title="この車両の整備記録を追加"><i class="fas fa-tools"></i></a>
+                                    {% else %}
+                                    <span class="btn btn-outline-success disabled" title="レーサー車両は給油記録の対象外です"><i class="fas fa-gas-pump"></i></span>
+                                    <span class="btn btn-outline-warning disabled" title="レーサー車両の整備記録は現在対応していません"><i class="fas fa-tools"></i></span>
+                                    {% endif %}
+                                    {# ▲▲▲ フェーズ1変更点 ▲▲▲ #}
+                                    <a href="{{ url_for('vehicle.edit_vehicle', vehicle_id=motorcycle_item.id) }}" class="btn btn-outline-secondary" title="車両情報を編集"><i class="fas fa-edit"></i></a>
                                 </div>
                             </li>
                         {% endfor %}
@@ -185,17 +235,19 @@
     <div class="col-md-6">
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
-                <span class="me-2"><i class="fas fa-gas-pump me-1"></i> 直近の給油記録</span>
+                <span class="me-2"><i class="fas fa-gas-pump me-1"></i> 直近の給油記録 (公道車のみ)</span>
+                {# motorcycles_public は公道車のみのリスト (ビューから渡される) #}
                 <form method="GET" action="{{ url_for('main.dashboard') }}" class="d-inline-block ms-auto" style="min-width: 150px;">
                      {% if selected_stats_vehicle_id %} <input type="hidden" name="stats_vehicle_id" value="{{ selected_stats_vehicle_id }}"> {% endif %}
                      {% if selected_maint_vehicle_id %} <input type="hidden" name="maint_vehicle_id" value="{{ selected_maint_vehicle_id }}"> {% endif %}
                      <select name="fuel_vehicle_id" class="form-select form-select-sm" onchange="this.form.submit()" aria-label="車両で絞り込み">
-                        <option value="" {% if not selected_fuel_vehicle_id %}selected{% endif %}>すべての車両</option>
-                        {% for m in motorcycles %} <option value="{{ m.id }}" {% if selected_fuel_vehicle_id == m.id %}selected{% endif %}>{{ m.name }}</option> {% endfor %}
+                        <option value="" {% if not selected_fuel_vehicle_id %}selected{% endif %}>すべての公道車</option>
+                        {% for m_fuel in motorcycles_public %} <option value="{{ m_fuel.id }}" {% if selected_fuel_vehicle_id == m_fuel.id %}selected{% endif %}>{{ m_fuel.name }}</option> {% endfor %}
                      </select>
                 </form>
             </div>
             <div class="card-body">
+                {# recent_fuel_entries はビュー側で公道車のみにフィルタリング済み #}
                 {% if recent_fuel_entries %}
                     <ul class="list-group list-group-flush">
                         {% for entry in recent_fuel_entries %} <li class="list-group-item">
@@ -215,17 +267,19 @@
     <div class="col-md-6">
         <div class="card">
              <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
-                 <span class="me-2"><i class="fas fa-tools me-1"></i> 直近の整備記録</span>
+                 <span class="me-2"><i class="fas fa-tools me-1"></i> 直近の整備記録 (公道車のみ)</span>
+                 {# motorcycles_public は公道車のみのリスト (ビューから渡される) #}
                  <form method="GET" action="{{ url_for('main.dashboard') }}" class="d-inline-block ms-auto" style="min-width: 150px;">
                      {% if selected_stats_vehicle_id %} <input type="hidden" name="stats_vehicle_id" value="{{ selected_stats_vehicle_id }}"> {% endif %}
                      {% if selected_fuel_vehicle_id %} <input type="hidden" name="fuel_vehicle_id" value="{{ selected_fuel_vehicle_id }}"> {% endif %}
                      <select name="maint_vehicle_id" class="form-select form-select-sm" onchange="this.form.submit()" aria-label="車両で絞り込み">
-                        <option value="" {% if not selected_maint_vehicle_id %}selected{% endif %}>すべての車両</option>
-                        {% for m in motorcycles %} <option value="{{ m.id }}" {% if selected_maint_vehicle_id == m.id %}selected{% endif %}>{{ m.name }}</option> {% endfor %}
+                        <option value="" {% if not selected_maint_vehicle_id %}selected{% endif %}>すべての公道車</option>
+                        {% for m_maint in motorcycles_public %} <option value="{{ m_maint.id }}" {% if selected_maint_vehicle_id == m_maint.id %}selected{% endif %}>{{ m_maint.name }}</option> {% endfor %}
                     </select>
                  </form>
             </div>
             <div class="card-body">
+                {# recent_maintenance_entries はビュー側で公道車のみにフィルタリング済み #}
                 {% if recent_maintenance_entries %}
                     <ul class="list-group list-group-flush">
                         {% for entry in recent_maintenance_entries %} <li class="list-group-item">
@@ -274,13 +328,13 @@
           initialView: 'dayGridMonth', locale: 'ja',
           headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,dayGridWeek,listMonth' },
           buttonText: { today: '今日', month: '月', week: '週', list: 'リスト(月)' },
-          contentHeight: 'auto', 
+          contentHeight: 'auto',
           dayCellContent: function(arg) {
              return { html: `<span class="fc-daygrid-day-number">${arg.date.getDate()}</span>` };
           },
           dayCellDidMount: function(arg) {
             const year = arg.date.getFullYear(); const month = (arg.date.getMonth() + 1).toString().padStart(2, '0'); const day = arg.date.getDate().toString().padStart(2, '0');
-            const dateStr = `<span class="math-inline">\{year\}\-</span>{month}-${day}`;
+            const dateStr = `${year}-${month}-${day}`; // テンプレートリテラルに変更
             const dayNumberEl = arg.el.querySelector('.fc-daygrid-day-number'); const dayTopEl = arg.el.querySelector('.fc-daygrid-day-top'); const dayOfWeek = arg.date.getDay();
             if (!dayNumberEl || !dayTopEl) return;
             arg.el.classList.remove('fc-day-holiday', 'fc-day-sun', 'fc-day-sat');
@@ -292,13 +346,13 @@
             } else if (dayOfWeek === 0) { arg.el.classList.add('fc-day-sun'); dayNumberEl.classList.add('is-sun'); }
             else if (dayOfWeek === 6) { arg.el.classList.add('fc-day-sat'); dayNumberEl.classList.add('is-sat'); }
           },
-          events: '/api/dashboard/events', 
+          events: '/api/dashboard/events', // API側で公道車のみのデータを返すように修正済み
 
           eventClick: function(info) {
-             info.jsEvent.preventDefault(); 
+             info.jsEvent.preventDefault();
              const editUrl = info.event.extendedProps?.editUrl || info.event.url;
              if (editUrl) {
-               window.location.href = editUrl; 
+               window.location.href = editUrl;
              }
           },
           eventDidMount: function(info) {
@@ -311,9 +365,9 @@
                     try { eventDateStr = info.event.start.toLocaleDateString('ja-JP', { year: 'numeric', month: 'short', day: 'numeric' }); }
                     catch (e) { eventDateStr = info.event.start.toISOString().split('T')[0]; console.warn("toLocaleDateString failed, using fallback date format:", eventDateStr, e); }
                }
-               var editUrl = props.editUrl; 
+               var editUrl = props.editUrl;
 
-               if (props.type === 'fuel') {
+               if (props.type === 'fuel') { // 公道車のみのはず
                  popoverTitle = `⛽ 給油 (${escapeHtml(props.motorcycleName || '車両不明')})`;
                  popoverContent = `<dl class="mb-0 small">` +
                                     `<dt>日付:</dt><dd>${escapeHtml(eventDateStr)}</dd>` +
@@ -324,8 +378,8 @@
                                     (props.stationName ? `<dt>スタンド:</dt><dd>${escapeHtml(props.stationName)}</dd>` : '') +
                                     (props.notes ? `<dt>メモ:</dt><dd style="white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(props.notes)}</dd>` : '') +
                                   `</dl>`;
-               } else if (props.type === 'maintenance') {
-                 popoverTitle = `🔧 <span class="math-inline">\{escapeHtml\(props\.category \|\| '整備'\)\} \(</span>{escapeHtml(props.motorcycleName || '車両不明')})`;
+               } else if (props.type === 'maintenance') { // 公道車のみのはず (フェーズ1)
+                 popoverTitle = `🔧 ${escapeHtml(props.category || '整備')} (${escapeHtml(props.motorcycleName || '車両不明')})`; // テンプレートリテラルを修正
                  popoverContent = `<dl class="mb-0 small">` +
                                     `<dt>日付:</dt><dd>${escapeHtml(eventDateStr)}</dd>` +
                                     `<dt>ODO:</dt><dd>${props.odometer ? escapeHtml(props.odometer.toLocaleString()) + ' km' : '-'}</dd>` +
@@ -335,9 +389,9 @@
                                     (props.location ? `<dt>場所:</dt><dd>${escapeHtml(props.location)}</dd>` : '') +
                                     (props.notes ? `<dt>メモ:</dt><dd style="white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(props.notes)}</dd>` : '') +
                                   `</dl>`;
-               } else if (props.type === 'note') {
-                  let noteTitle = props.title || '(無題のノート)'; 
-                  popoverTitle = `📝 ノート ${props.motorcycleName ? '(' + escapeHtml(props.motorcycleName) + ')' : ''}`;
+               } else if (props.type === 'note') { // これは全車両対象
+                  let noteTitle = props.title || '(無題のノート)';
+                  popoverTitle = `📝 ノート ${props.motorcycleName ? '(' + escapeHtml(props.motorcycleName) + (props.isRacer ? ' <span class="badge bg-info text-dark small">レーサー</span>' : '') + ')' : ''}`; // isRacer表示はAPI側で props.isRacer を渡す必要あり
                   popoverContent = `<dl class="mb-0 small">` +
                                       `<dt>日付:</dt><dd>${escapeHtml(props.noteDate || eventDateStr)}</dd>` +
                                       `<dt>タイトル:</dt><dd>${escapeHtml(noteTitle)}</dd>` +
@@ -346,28 +400,28 @@
                                       (props.createdAt ? `<dt>作成:</dt><dd>${escapeHtml(props.createdAt)}</dd>` : '') +
                                       (props.updatedAt ? `<dt>更新:</dt><dd>${escapeHtml(props.updatedAt)}</dd>` : '') +
                                     `</dl>`;
-               } else if (props.type === 'task') {
-                  let taskTitle = props.title || '(無題のタスク)'; 
-                  popoverTitle = `✅ タスク ${props.motorcycleName ? '(' + escapeHtml(props.motorcycleName) + ')' : ''}`;
+               } else if (props.type === 'task') { // これも全車両対象
+                  let taskTitle = props.title || '(無題のタスク)';
+                  popoverTitle = `✅ タスク ${props.motorcycleName ? '(' + escapeHtml(props.motorcycleName) + (props.isRacer ? ' <span class="badge bg-info text-dark small">レーサー</span>' : '') + ')' : ''}`; // isRacer表示はAPI側で props.isRacer を渡す必要あり
                   popoverContent = `<dl class="mb-0 small">` +
                                       `<dt>日付:</dt><dd>${escapeHtml(props.noteDate || eventDateStr)}</dd>` +
                                       `<dt>タイトル:</dt><dd>${escapeHtml(taskTitle)}</dd>` +
                                       (props.motorcycleName ? `<dt>関連車両:</dt><dd>${escapeHtml(props.motorcycleName)}</dd>` : '') +
                                       '<dt>TODO:</dt><dd>';
                   if (props.todos && Array.isArray(props.todos) && props.todos.length > 0) {
-                      popoverContent += '<ul class="list-unstyled mb-0 small ps-1">'; 
+                      popoverContent += '<ul class="list-unstyled mb-0 small ps-1">';
                       props.todos.forEach(function(todo, index) {
                           const isChecked = todo && todo.checked;
                           const text = todo && todo.text ? escapeHtml(todo.text) : '(空)';
-                          const checkboxId = `todo-<span class="math-inline">\{info\.event\.id\}\-</span>{index}`; 
+                          const checkboxId = `todo-${info.event.id}-${index}`; // テンプレートリテラルを修正
                           popoverContent += `<li class="d-flex align-items-center">` +
                                               `<input type="checkbox" id="${checkboxId}" disabled ${isChecked ? 'checked' : ''} class="form-check-input me-1">` +
-                                              `<label for="<span class="math-inline">\{checkboxId\}" class\="</span>{isChecked ? 'text-decoration-line-through text-muted' : ''}">${text}</label>` +
+                                              `<label for="${checkboxId}" class="${isChecked ? 'text-decoration-line-through text-muted' : ''}">${text}</label>` + // テンプレートリテラルを修正
                                             `</li>`;
                       });
                       popoverContent += '</ul>';
                   } else {
-                      popoverContent += '<span class="text-muted">TODOはありません</span>'; 
+                      popoverContent += '<span class="text-muted">TODOはありません</span>';
                   }
                   popoverContent += '</dd>';
                   popoverContent += (props.createdAt ? `<dt>作成:</dt><dd>${escapeHtml(props.createdAt)}</dd>` : '') +
@@ -384,15 +438,15 @@
                         title: popoverTitle,         content: popoverContent,
                         trigger: 'hover focus',      placement: 'auto',
                         boundary: 'viewport',        html: true,
-                        sanitize: false,             container: 'body', 
-                        customClass: 'motopuppu-popover' 
+                        sanitize: false,             container: 'body',
+                        customClass: 'motopuppu-popover'
                      });
-                     info.el.addEventListener('remove', () => { if (popover) { popover.dispose(); } });
+                     info.el.addEventListener('remove', () => { if (popover) { popover.dispose(); } }); // DOMから要素が削除されたらポップオーバーも破棄 (FullCalendar v6では通常不要だが念のため)
                  }
              }
            }
         });
-        calendar.render(); 
+        calendar.render();
     } else {
         console.error("Calendar element (#calendar) not found");
     }

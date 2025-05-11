@@ -12,7 +12,7 @@
     {% if messages %}
         {% for category, message in messages %}
             <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show" role="alert">
-                {{ message }}
+                {{ message | safe }} {# |safe を追加 (実績解除メッセージ等でHTMLが含まれる場合のため) #}
                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             </div>
         {% endfor %}
@@ -43,7 +43,8 @@
     </div>
     <div class="mb-3">
         {{ form.year.label(class="form-label") }}
-        {{ form.year(class="form-control" + (" is-invalid" if form.year.errors else ""), min="1900", max=(current_year + 1 if current_year else datetime.date.today().year + 1), placeholder=(form.year.render_kw.get("placeholder", "") if form.year.render_kw else "")) }}
+        {# current_year はビューから渡される想定 #}
+        {{ form.year(class="form-control" + (" is-invalid" if form.year.errors else ""), min="1900", max=(current_year if current_year else (now.year + 1)), placeholder=(form.year.render_kw.get("placeholder", "") if form.year.render_kw else "")) }}
         {% if form.year.errors %}
             <div class="invalid-feedback">
                 {% for error in form.year.errors %}<span>{{ error }}</span><br>{% endfor %}
@@ -52,116 +53,154 @@
             <div class="form-text">例: 2023</div>
         {% endif %}
     </div>
-    {{ form.submit(class="btn btn-primary", value=('登録する' if form_action == 'add' else '更新する')) }}
-    <a href="{{ url_for('vehicle.vehicle_list') }}" class="btn btn-secondary">キャンセル</a>
+
+    {# --- ▼▼▼ フェーズ1変更点 (is_racer と total_operating_hours フィールド追加) ▼▼▼ --- #}
+    <div class="mb-3 form-check">
+        {# is_racer フィールド。編集時は disabled にする #}
+        {{ form.is_racer(class="form-check-input" + (" is-invalid" if form.is_racer.errors else ""), id="is_racer_checkbox", **({'disabled': 'disabled'} if form_action == 'edit' else {})) }}
+        {{ form.is_racer.label(class="form-check-label") }}
+        {% if form.is_racer.errors %}
+            <div class="invalid-feedback d-block"> {# d-block を追加 #}
+                {% for error in form.is_racer.errors %}<span>{{ error }}</span><br>{% endfor %}
+            </div>
+        {% endif %}
+        <div class="form-text">
+            チェックするとレーサー車両として扱われ、総稼働時間で管理します。給油記録やODOメーター関連の機能は使用できません。
+            {% if form_action == 'add' %}<strong>登録後に車両タイプを変更することはできません。</strong>{% endif %}
+        </div>
+    </div>
+
+    <div class="mb-3" id="total_operating_hours_field_container" style="display: none;"> {# 初期状態は非表示 #}
+        {{ form.total_operating_hours.label(class="form-label") }}
+        {{ form.total_operating_hours(class="form-control" + (" is-invalid" if form.total_operating_hours.errors else ""), step="0.01", placeholder=(form.total_operating_hours.render_kw.get("placeholder", "") if form.total_operating_hours.render_kw else "")) }}
+        {% if form.total_operating_hours.errors %}
+            <div class="invalid-feedback">
+                {% for error in form.total_operating_hours.errors %}<span>{{ error }}</span><br>{% endfor %}
+            </div>
+        {% else %}
+            <div class="form-text">レーサー車両の現在の総稼働時間を時間単位で入力 (例: 123.50 時間)。公道車の場合は入力不要です。</div>
+        {% endif %}
+    </div>
+    {# --- ▲▲▲ フェーズ1変更点 ▲▲▲ --- #}
+
+    {{ form.submit(class="btn btn-primary mt-3", value=('登録する' if form_action == 'add' else '更新する')) }}
+    <a href="{{ url_for('vehicle.vehicle_list') }}" class="btn btn-secondary mt-3">キャンセル</a>
 </form>
 {# --- 車両基本情報フォーム ここまで --- #}
 
 {# --- 編集時のみ表示されるセクション --- #}
 {% if form_action == 'edit' and vehicle %}
 
-    {# --- ODOメーターリセットフォーム --- #}
-    <hr class="my-4">
-    <h4>ODOメーターリセット記録</h4>
-    <p>バイク本体のODOメーターをリセットした場合に記録します。</p>
-    <p>現在の累積オフセット: <strong>{{ "{:,}".format(vehicle.odometer_offset) }} km</strong></p>
-    <form method="POST" action="{{ url_for('vehicle.add_odo_reset_log', vehicle_id=vehicle.id) }}">
-        {{ odo_form.hidden_tag() }} {# CSRFトークン等 (OdoResetLogForm) #}
-        <div class="row g-3 align-items-end">
-            <div class="col-md-4">
-                {{ odo_form.reset_date.label(class="form-label") }} {% if odo_form.reset_date.flags.required %}<span class="text-danger">*</span>{% endif %}
-                {{ odo_form.reset_date(class="form-control" + (" is-invalid" if odo_form.reset_date.errors else "")) }}
-                {% if odo_form.reset_date.errors %}
-                    <div class="invalid-feedback">
-                        {% for error in odo_form.reset_date.errors %}<span>{{ error }}</span><br>{% endfor %}
-                    </div>
-                {% endif %}
+    {# --- ▼▼▼ フェーズ1変更点 (ODOメーターリセット関連は公道車のみ表示) ▼▼▼ --- #}
+    {% if not vehicle.is_racer %}
+        <hr class="my-4">
+        <h4>ODOメーターリセット記録</h4>
+        <p>バイク本体のODOメーターをリセットした場合に記録します。</p>
+        <p>現在の累積オフセット: <strong>{{ "{:,}".format(vehicle.odometer_offset) }} km</strong></p>
+        {# OdoResetLogForm はビューから odo_form として渡される想定 #}
+        <form method="POST" action="{{ url_for('vehicle.add_odo_reset_log', vehicle_id=vehicle.id) }}">
+            {{ odo_form.hidden_tag() }} {# CSRFトークン等 (OdoResetLogForm) #}
+            <div class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    {{ odo_form.reset_date.label(class="form-label") }} {% if odo_form.reset_date.flags.required %}<span class="text-danger">*</span>{% endif %}
+                    {{ odo_form.reset_date(class="form-control" + (" is-invalid" if odo_form.reset_date.errors else "")) }}
+                    {% if odo_form.reset_date.errors %}
+                        <div class="invalid-feedback">
+                            {% for error in odo_form.reset_date.errors %}<span>{{ error }}</span><br>{% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+                <div class="col-md-3">
+                    {{ odo_form.display_odo_before_reset.label(class="form-label") }} {% if odo_form.display_odo_before_reset.flags.required %}<span class="text-danger">*</span>{% endif %}
+                    {{ odo_form.display_odo_before_reset(class="form-control" + (" is-invalid" if odo_form.display_odo_before_reset.errors else ""), min="0") }}
+                    {% if odo_form.display_odo_before_reset.errors %}
+                        <div class="invalid-feedback">
+                            {% for error in odo_form.display_odo_before_reset.errors %}<span>{{ error }}</span><br>{% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="form-text">例: 30000</div>
+                    {% endif %}
+                </div>
+                <div class="col-md-3">
+                    {{ odo_form.display_odo_after_reset.label(class="form-label") }} {% if odo_form.display_odo_after_reset.flags.required %}<span class="text-danger">*</span>{% endif %}
+                    {{ odo_form.display_odo_after_reset(class="form-control" + (" is-invalid" if odo_form.display_odo_after_reset.errors else ""), min="0") }}
+                    {% if odo_form.display_odo_after_reset.errors %}
+                        <div class="invalid-feedback">
+                            {% for error in odo_form.display_odo_after_reset.errors %}<span>{{ error }}</span><br>{% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="form-text">通常は 0</div>
+                    {% endif %}
+                </div>
+                <div class="col-md-auto">
+                    {{ odo_form.submit_odo_reset(class="btn btn-info") }}
+                </div>
             </div>
-            <div class="col-md-3">
-                {{ odo_form.display_odo_before_reset.label(class="form-label") }} {% if odo_form.display_odo_before_reset.flags.required %}<span class="text-danger">*</span>{% endif %}
-                {{ odo_form.display_odo_before_reset(class="form-control" + (" is-invalid" if odo_form.display_odo_before_reset.errors else ""), min="0") }}
-                {% if odo_form.display_odo_before_reset.errors %}
-                    <div class="invalid-feedback">
-                        {% for error in odo_form.display_odo_before_reset.errors %}<span>{{ error }}</span><br>{% endfor %}
-                    </div>
-                {% else %}
-                    <div class="form-text">例: 30000</div>
-                {% endif %}
-            </div>
-            <div class="col-md-3">
-                {{ odo_form.display_odo_after_reset.label(class="form-label") }} {% if odo_form.display_odo_after_reset.flags.required %}<span class="text-danger">*</span>{% endif %}
-                {{ odo_form.display_odo_after_reset(class="form-control" + (" is-invalid" if odo_form.display_odo_after_reset.errors else ""), min="0") }}
-                {% if odo_form.display_odo_after_reset.errors %}
-                    <div class="invalid-feedback">
-                        {% for error in odo_form.display_odo_after_reset.errors %}<span>{{ error }}</span><br>{% endfor %}
-                    </div>
-                {% else %}
-                    <div class="form-text">通常は 0</div>
-                {% endif %}
-            </div>
-            <div class="col-md-auto">
-                {{ odo_form.submit_odo_reset(class="btn btn-info") }}
-            </div>
+            {# OdoResetLogForm のフォームレベルエラー表示 #}
+            {% if odo_form.errors %}
+                {% for field_name, error_list in odo_form.errors.items() %}
+                    {% if field_name not in odo_form._fields or field_name == '__all__' or (field_name != 'reset_date' and field_name != 'display_odo_before_reset' and field_name != 'display_odo_after_reset') %}
+                        {% for error in error_list %}
+                            <div class="alert alert-danger mt-2 py-1 px-2 small" role="alert">{{ error }}</div>
+                        {% endfor %}
+                    {% endif %}
+                {% endfor %}
+            {% endif %}
+        </form>
+        {# --- ODOメーターリセットフォーム ここまで --- #}
+
+        {# --- ODOリセット履歴表示テーブル --- #}
+        <hr class="my-4">
+        <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap">
+            <h5 class="mb-0"><i class="fas fa-history me-1"></i> ODOリセット履歴</h5>
+            <a href="{{ url_for('vehicle.add_odo_reset_log', vehicle_id=vehicle.id) }}" class="btn btn-sm btn-success">
+                <i class="fas fa-plus me-1"></i> 過去の履歴を追加
+            </a>
         </div>
-        {% if odo_form.errors %}
-            {% for field_name, error_list in odo_form.errors.items() %}
-                {% if field_name not in odo_form._fields or field_name == '__all__' or (field_name != 'reset_date' and field_name != 'display_odo_before_reset' and field_name != 'display_odo_after_reset') %}
-                    {% for error in error_list %}
-                        <div class="alert alert-danger mt-2 py-1 px-2 small" role="alert">{{ error }}</div>
-                    {% endfor %}
-                {% endif %}
-            {% endfor %}
+        {# odo_logs はビューから渡される想定 #}
+        {% if odo_logs %}
+            <div class="table-responsive">
+                <table class="table table-sm table-striped table-bordered">
+                    <thead class="table-light">
+                        <tr>
+                            <th>リセット日</th>
+                            <th class="text-end">リセット前 表示ODO (km)</th>
+                            <th class="text-end">リセット後 表示ODO (km)</th>
+                            <th class="text-end">オフセット増分 (km)</th>
+                            <th style="width: 100px;">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in odo_logs %}
+                        <tr>
+                            <td>{{ log.reset_date.strftime('%Y-%m-%d') }}</td>
+                            <td class="text-end">{{ "{:,}".format(log.display_odo_before_reset) }}</td>
+                            <td class="text-end">{{ "{:,}".format(log.display_odo_after_reset) }}</td>
+                            <td class="text-end">{{ "{:,}".format(log.offset_increment) }}</td>
+                            <td class="text-nowrap">
+                                <a href="{{ url_for('vehicle.edit_odo_reset_log', log_id=log.id) }}" class="btn btn-sm btn-outline-secondary py-0 px-1 me-1" title="編集"><i class="fas fa-edit fa-xs"></i></a>
+                                <form action="{{ url_for('vehicle.delete_odo_reset_log', log_id=log.id) }}" method="POST" class="d-inline" onsubmit="return confirm('このリセット履歴を削除してもよろしいですか？\n削除すると累積オフセット値も再計算されます。');">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                    <button type="submit" class="btn btn-sm btn-outline-danger py-0 px-1" title="削除"><i class="fas fa-trash fa-xs"></i></button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p class="text-muted">この車両のODOメーターリセット履歴はありません。</p>
         {% endif %}
-    </form>
-    {# --- ODOメーターリセットフォーム ここまで --- #}
+        {# --- ODOリセット履歴表示テーブルここまで --- #}
+    {% endif %} {# End of not vehicle.is_racer check #}
+    {# --- ▲▲▲ フェーズ1変更点 ▲▲▲ --- #}
 
-    {# --- ODOリセット履歴表示テーブル --- #}
-    <hr class="my-4">
-    <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap">
-        <h5 class="mb-0"><i class="fas fa-history me-1"></i> ODOリセット履歴</h5>
-        <a href="{{ url_for('vehicle.add_odo_reset_log', vehicle_id=vehicle.id) }}" class="btn btn-sm btn-success">
-            <i class="fas fa-plus me-1"></i> 過去の履歴を追加
-        </a>
-    </div>
-    {% if odo_logs %}
-        <div class="table-responsive">
-            <table class="table table-sm table-striped table-bordered">
-                <thead class="table-light">
-                    <tr>
-                        <th>リセット日</th>
-                        <th class="text-end">リセット前 表示ODO (km)</th>
-                        <th class="text-end">リセット後 表示ODO (km)</th>
-                        <th class="text-end">オフセット増分 (km)</th>
-                        <th style="width: 100px;">操作</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for log in odo_logs %}
-                    <tr>
-                        <td>{{ log.reset_date.strftime('%Y-%m-%d') }}</td>
-                        <td class="text-end">{{ "{:,}".format(log.display_odo_before_reset) }}</td>
-                        <td class="text-end">{{ "{:,}".format(log.display_odo_after_reset) }}</td>
-                        <td class="text-end">{{ "{:,}".format(log.offset_increment) }}</td>
-                        <td class="text-nowrap">
-                            <a href="{{ url_for('vehicle.edit_odo_reset_log', log_id=log.id) }}" class="btn btn-sm btn-outline-secondary py-0 px-1 me-1" title="編集"><i class="fas fa-edit fa-xs"></i></a>
-                            <form action="{{ url_for('vehicle.delete_odo_reset_log', log_id=log.id) }}" method="POST" class="d-inline" onsubmit="return confirm('このリセット履歴を削除してもよろしいですか？\n削除すると累積オフセット値も再計算されます。');">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                                <button type="submit" class="btn btn-sm btn-outline-danger py-0 px-1" title="削除"><i class="fas fa-trash fa-xs"></i></button>
-                            </form>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    {% else %}
-        <p class="text-muted">この車両のODOメーターリセット履歴はありません。</p>
-    {% endif %}
-    {# --- ODOリセット履歴表示テーブルここまで --- #}
 
-    {# --- リマインダーセクション --- #}
+    {# --- リマインダーセクション (フェーズ1では変更なし、公道車・レーサー車共通で表示) --- #}
     <hr class="my-4">
     <h4>メンテナンスリマインダー設定</h4>
+    {# reminders はビューから渡される想定 #}
     {% if reminders %}
         <ul class="list-group mb-3">
             {% for reminder in reminders %}
@@ -176,11 +215,12 @@
                     <small class="d-block text-muted">
                         最終実施:
                         {% if reminder.last_done_date %} {{ reminder.last_done_date.strftime('%Y-%m-%d') }} {% endif %}
-                        {% if reminder.last_done_km is not none %} ({{ reminder.last_done_km }} km) {% endif %}
+                        {# ▼▼▼ フェーズ1変更点 (公道車のみlast_done_kmを表示) ▼▼▼ #}
+                        {% if not vehicle.is_racer and reminder.last_done_km is not none %} ({{ reminder.last_done_km }} km) {% endif %}
+                        {# ▲▲▲ フェーズ1変更点 ▲▲▲ #}
                         {% if not reminder.last_done_date and reminder.last_done_km is none %} 未実施 {% endif %}
                     </small>
                 </div>
-                {# ▼▼▼ ボタンのデザインを fuel_log.html と統一 ▼▼▼ #}
                 <div class="btn-group mt-1 mt-md-0">
                     <a href="{{ url_for('vehicle.edit_reminder', reminder_id=reminder.id) }}" class="btn btn-sm btn-outline-primary me-1" title="編集"><i class="fas fa-edit fa-fw"></i></a>
                     <form action="{{ url_for('vehicle.delete_reminder', reminder_id=reminder.id) }}" method="POST" class="d-inline" onsubmit="return confirm('このリマインダーを削除してもよろしいですか？');">
@@ -188,7 +228,6 @@
                         <button type="submit" class="btn btn-sm btn-outline-danger" title="削除"><i class="fas fa-trash fa-fw"></i></button>
                     </form>
                 </div>
-                {# ▲▲▲ 修正ここまで ▲▲▲ #}
             </li>
             {% endfor %}
         </ul>
@@ -200,4 +239,50 @@
 
 {% endif %} {# End of form_action == 'edit' check #}
 
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+{# --- ▼▼▼ フェーズ1変更点 (JavaScript追加) ▼▼▼ --- #}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const isRacerCheckbox = document.getElementById('is_racer_checkbox');
+    const totalOperatingHoursFieldContainer = document.getElementById('total_operating_hours_field_container');
+    // もし既存のODOメーター関連フィールドがあれば、同様に取得します
+    //例: const initialOdometerFieldContainer = document.getElementById('initial_odometer_field_container');
+
+    function toggleVehicleSpecificFields() {
+        if (!isRacerCheckbox || !totalOperatingHoursFieldContainer) {
+            console.warn("Required elements for field toggling not found.");
+            return;
+        }
+
+        if (isRacerCheckbox.checked) {
+            totalOperatingHoursFieldContainer.style.display = ''; // 表示
+            // if (initialOdometerFieldContainer) initialOdometerFieldContainer.style.display = 'none'; // 非表示
+            // ODO関連フィールドの input 要素に disabled 属性を設定/解除
+        } else {
+            totalOperatingHoursFieldContainer.style.display = 'none'; // 非表示
+            // if (initialOdometerFieldContainer) initialOdometerFieldContainer.style.display = ''; // 表示
+        }
+    }
+
+    if (isRacerCheckbox) {
+        // 編集画面の場合、is_racer チェックボックスを無効化
+        {% if form_action == 'edit' %}
+            isRacerCheckbox.disabled = true;
+            // 既存の車両がレーサーの場合、チェックボックスを強制的にcheckedにする
+            {% if vehicle and vehicle.is_racer %}
+                if (!isRacerCheckbox.checked) { // ビューでdata設定されていれば不要な場合も
+                    isRacerCheckbox.checked = true;
+                }
+            {% endif %}
+        {% endif %}
+
+        isRacerCheckbox.addEventListener('change', toggleVehicleSpecificFields);
+        toggleVehicleSpecificFields(); // ページの初期読み込み時にも実行
+    }
+});
+</script>
+{# --- ▲▲▲ フェーズ1変更点 ▲▲▲ --- #}
 {% endblock %}

@@ -1,12 +1,12 @@
 # motopuppu/views/maintenance.py
 import csv
 import io
-from datetime import date, datetime 
+from datetime import date, datetime
 
 from flask import (
     Blueprint, flash, g, redirect, render_template, request, url_for, abort, current_app, Response
 )
-from sqlalchemy import or_, asc, desc, func 
+from sqlalchemy import or_, asc, desc, func
 
 from .auth import login_required_custom, get_current_user
 from ..models import db, Motorcycle, MaintenanceEntry, MaintenanceReminder
@@ -17,6 +17,9 @@ from ..achievement_evaluator import check_achievements_for_event, EVENT_ADD_MAIN
 maintenance_bp = Blueprint('maintenance', __name__, url_prefix='/maintenance')
 
 def _update_reminder_last_done(maintenance_entry: MaintenanceEntry):
+    # --- ▼▼▼ フェーズ1変更点 (この関数自体は変更なし。ただし呼び出し元でレーサー車両の整備記録は作成されない) ▼▼▼
+    # レーサー車両の整備記録が作成されないため、この関数がレーサー車両関連で呼び出されることはない想定。
+    # --- ▲▲▲ フェーズ1変更点 ▲▲▲
     if not maintenance_entry or not maintenance_entry.category:
         current_app.logger.debug(f"Skipping reminder update for maintenance {maintenance_entry.id}: No category.")
         return
@@ -62,13 +65,22 @@ def maintenance_log():
     order = request.args.get('order', 'desc'); page = request.args.get('page', 1, type=int)
     per_page = current_app.config.get('MAINTENANCE_ENTRIES_PER_PAGE', 20)
 
-    user_motorcycles = Motorcycle.query.filter_by(user_id=g.user.id).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
-    if not user_motorcycles:
+    # --- ▼▼▼ フェーズ1変更点 (車両リストからレーサーを除外) ▼▼▼
+    user_motorcycles_all = Motorcycle.query.filter_by(user_id=g.user.id).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
+    user_motorcycles_for_maintenance = [m for m in user_motorcycles_all if not m.is_racer] # レーサー車両を除外
+    # --- ▲▲▲ フェーズ1変更点 ▲▲▲
+
+    if not user_motorcycles_all: # 全車両が0台の場合
         flash('整備記録を閲覧・追加するには、まず車両を登録してください。', 'info')
         return redirect(url_for('vehicle.add_vehicle'))
+    if not user_motorcycles_for_maintenance and user_motorcycles_all: # 登録車両はあるが、全てレーサーの場合
+        flash('登録されている車両はすべてレーサー仕様のため、整備記録の対象外です。公道走行可能な車両を登録してください。', 'info')
+        # return redirect(url_for('vehicle.vehicle_list')) # 車両一覧に戻すか、このまま表示させるか
+        # 今回は、フィルター用の選択肢が空になるが、ログ表示はそのまま試みる（該当ログなしと表示される）
 
-    user_motorcycle_ids = [m.id for m in user_motorcycles]
-    query = db.session.query(MaintenanceEntry).join(Motorcycle).filter(MaintenanceEntry.motorcycle_id.in_(user_motorcycle_ids))
+    user_motorcycle_ids_for_maintenance = [m.id for m in user_motorcycles_for_maintenance]
+
+    query = db.session.query(MaintenanceEntry).join(Motorcycle).filter(MaintenanceEntry.motorcycle_id.in_(user_motorcycle_ids_for_maintenance)) # レーサー車両の整備記録は存在しないはず
     active_filters = {k: v for k, v in request.args.items() if k not in ['page', 'sort_by', 'order']}
 
     try:
@@ -81,8 +93,13 @@ def maintenance_log():
     if vehicle_id_str:
         try:
             vehicle_id = int(vehicle_id_str)
-            if vehicle_id in user_motorcycle_ids: query = query.filter(MaintenanceEntry.motorcycle_id == vehicle_id)
-            else: flash('選択された車両は有効ではありません。', 'warning'); active_filters.pop('vehicle_id', None)
+            # --- ▼▼▼ フェーズ1変更点 (フィルター対象IDもレーサー以外に限定) ▼▼▼
+            if vehicle_id in user_motorcycle_ids_for_maintenance: # レーサー以外の車両IDのみ許可
+                query = query.filter(MaintenanceEntry.motorcycle_id == vehicle_id)
+            else:
+                flash('選択された車両は整備記録の対象外か、有効ではありません。', 'warning')
+                active_filters.pop('vehicle_id', None)
+            # --- ▲▲▲ フェーズ1変更点 ▲▲▲
         except ValueError: active_filters.pop('vehicle_id', None)
 
     if category_filter: query = query.filter(MaintenanceEntry.category.ilike(f'%{category_filter}%'))
@@ -100,101 +117,116 @@ def maintenance_log():
     sort_column = sort_column_map.get(current_sort_by, MaintenanceEntry.maintenance_date)
     current_order = 'desc' if order == 'desc' else 'asc'
     sort_modifier = desc if current_order == 'desc' else asc
-    
+
     if sort_column == MaintenanceEntry.maintenance_date:
         query = query.order_by(sort_modifier(MaintenanceEntry.maintenance_date), desc(MaintenanceEntry.total_distance_at_maintenance), MaintenanceEntry.id.desc())
     elif sort_column == MaintenanceEntry.odometer_reading_at_maintenance:
         query = query.order_by(sort_modifier(MaintenanceEntry.odometer_reading_at_maintenance), desc(MaintenanceEntry.maintenance_date), MaintenanceEntry.id.desc())
     elif sort_column == MaintenanceEntry.total_distance_at_maintenance:
         query = query.order_by(sort_modifier(MaintenanceEntry.total_distance_at_maintenance), desc(MaintenanceEntry.maintenance_date), MaintenanceEntry.id.desc())
-    else: 
+    else:
         query = query.order_by(sort_modifier(sort_column), desc(MaintenanceEntry.maintenance_date), MaintenanceEntry.id.desc())
 
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
     entries = pagination.items
     return render_template('maintenance_log.html',
                            entries=entries, pagination=pagination,
-                           motorcycles=user_motorcycles, request_args=active_filters,
+                           motorcycles=user_motorcycles_for_maintenance, # フィルター用選択肢もレーサー以外
+                           request_args=active_filters,
                            current_sort_by=current_sort_by, current_order=current_order)
 
 @maintenance_bp.route('/add', methods=['GET', 'POST'])
 @login_required_custom
 def add_maintenance():
-    user_motorcycles = Motorcycle.query.filter_by(user_id=g.user.id).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
-    if not user_motorcycles: 
-        flash('整備記録を追加するには、まず車両を登録してください。', 'warning')
-        return redirect(url_for('vehicle.add_vehicle'))
-    
+    # --- ▼▼▼ フェーズ1変更点 (車両リストからレーサーを除外) ▼▼▼
+    user_motorcycles_for_maintenance = Motorcycle.query.filter_by(user_id=g.user.id, is_racer=False).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
+    # --- ▲▲▲ フェーズ1変更点 ▲▲▲
+    if not user_motorcycles_for_maintenance:
+        all_motorcycles_count = Motorcycle.query.filter_by(user_id=g.user.id).count()
+        if all_motorcycles_count > 0:
+            flash('登録されている車両はすべてレーサー仕様のため、整備記録を追加できません。公道走行可能な車両を登録してください。', 'warning')
+            return redirect(url_for('vehicle.vehicle_list'))
+        else:
+            flash('整備記録を追加するには、まず車両を登録してください。', 'warning')
+            return redirect(url_for('vehicle.add_vehicle'))
+
     form = MaintenanceForm()
-    form.motorcycle_id.choices = [(m.id, f"{m.name} ({m.maker or 'メーカー不明'})") for m in user_motorcycles]
-    
+    form.motorcycle_id.choices = [(m.id, f"{m.name} ({m.maker or 'メーカー不明'})") for m in user_motorcycles_for_maintenance]
+
     if request.method == 'GET':
-        default_vehicle = next((m for m in user_motorcycles if m.is_default), user_motorcycles[0] if user_motorcycles else None)
+        default_vehicle = next((m for m in user_motorcycles_for_maintenance if m.is_default), user_motorcycles_for_maintenance[0] if user_motorcycles_for_maintenance else None)
         if default_vehicle: form.motorcycle_id.data = default_vehicle.id
-        
+
         preselected_motorcycle_id = request.args.get('motorcycle_id', type=int)
-        if preselected_motorcycle_id and any(m.id == preselected_motorcycle_id for m in user_motorcycles): 
+        if preselected_motorcycle_id and any(m.id == preselected_motorcycle_id for m in user_motorcycles_for_maintenance):
             form.motorcycle_id.data = preselected_motorcycle_id
-            
+
         form.maintenance_date.data = date.today()
 
     if form.validate_on_submit():
-        motorcycle = Motorcycle.query.filter_by(id=form.motorcycle_id.data, user_id=g.user.id).first()
-        if not motorcycle:
-            flash('選択された車両が見つかりません。再度お試しください。', 'danger')
-            form.motorcycle_id.choices = [(m.id, f"{m.name} ({m.maker or 'メーカー不明'})") for m in user_motorcycles]
+        # --- ▼▼▼ フェーズ1変更点 (選択された車両がレーサーでないことを確認) ▼▼▼
+        motorcycle = Motorcycle.query.filter_by(id=form.motorcycle_id.data, user_id=g.user.id, is_racer=False).first()
+        # --- ▲▲▲ フェーズ1変更点 ▲▲▲
+        if not motorcycle: # is_racer=False の条件で取得できなかった場合も含む
+            flash('選択された車両が見つからないか、整備記録の対象外です。再度お試しください。', 'danger')
+            form.motorcycle_id.choices = [(m.id, f"{m.name} ({m.maker or 'メーカー不明'})") for m in user_motorcycles_for_maintenance] # 選択肢を再設定
             return render_template('maintenance_form.html', form_action='add', form=form, today_iso=date.today().isoformat())
-        
+
         offset_at_maintenance_date = motorcycle.calculate_cumulative_offset_from_logs(target_date=form.maintenance_date.data)
         total_distance = form.odometer_reading_at_maintenance.data + offset_at_maintenance_date
-        
+
         new_entry = MaintenanceEntry(
-            motorcycle_id=motorcycle.id, maintenance_date=form.maintenance_date.data, 
-            odometer_reading_at_maintenance=form.odometer_reading_at_maintenance.data, 
-            total_distance_at_maintenance=total_distance, 
-            description=form.description.data.strip(), 
-            location=form.location.data.strip() if form.location.data else None, 
-            category=form.category.data.strip() if form.category.data else None, 
-            parts_cost=form.parts_cost.data, labor_cost=form.labor_cost.data, 
+            motorcycle_id=motorcycle.id, maintenance_date=form.maintenance_date.data,
+            odometer_reading_at_maintenance=form.odometer_reading_at_maintenance.data,
+            total_distance_at_maintenance=total_distance,
+            description=form.description.data.strip(),
+            location=form.location.data.strip() if form.location.data else None,
+            category=form.category.data.strip() if form.category.data else None,
+            parts_cost=form.parts_cost.data, labor_cost=form.labor_cost.data,
             notes=form.notes.data.strip() if form.notes.data else None
         )
-        
+
         try:
             db.session.add(new_entry)
-            # _update_reminder_last_done はコミット前に呼び出して、関連リマインダーの変更も同一トランザクションに含める
-            _update_reminder_last_done(new_entry) 
-            db.session.commit() # まずメインの処理をコミット
+            _update_reminder_last_done(new_entry)
+            db.session.commit()
             flash('整備記録を追加しました。', 'success')
 
-            # ▼▼▼ コミット成功後に実績評価を呼び出し ▼▼▼
             event_data_for_ach = {'new_maintenance_log_id': new_entry.id, 'motorcycle_id': motorcycle.id, 'category': new_entry.category}
             check_achievements_for_event(g.user, EVENT_ADD_MAINTENANCE_LOG, event_data=event_data_for_ach)
-            # ▲▲▲ 実績評価の呼び出し ▲▲▲
 
             return redirect(url_for('maintenance.maintenance_log'))
         except Exception as e:
             db.session.rollback()
             flash(f'記録のデータベース保存中にエラーが発生しました。詳細は管理者にお問い合わせください。', 'error')
             current_app.logger.error(f"Error saving new maintenance entry: {e}", exc_info=True)
-            
-    elif request.method == 'POST': 
-        form.motorcycle_id.choices = [(m.id, f"{m.name} ({m.maker or 'メーカー不明'})") for m in user_motorcycles]
-        
+
+    elif request.method == 'POST': # バリデーション失敗時
+        form.motorcycle_id.choices = [(m.id, f"{m.name} ({m.maker or 'メーカー不明'})") for m in user_motorcycles_for_maintenance] # 選択肢を再設定
+        flash('入力内容にエラーがあります。ご確認ください。', 'danger')
+
+
     return render_template('maintenance_form.html', form_action='add', form=form, today_iso=date.today().isoformat())
 
 @maintenance_bp.route('/<int:entry_id>/edit', methods=['GET', 'POST'])
 @login_required_custom
 def edit_maintenance(entry_id):
-    entry = MaintenanceEntry.query.filter(MaintenanceEntry.id == entry_id).join(Motorcycle).filter(Motorcycle.user_id == g.user.id).first_or_404()
+    # --- ▼▼▼ フェーズ1変更点 (編集対象のMaintenanceEntryの車両がレーサーでないことを確認) ▼▼▼
+    entry = MaintenanceEntry.query.join(Motorcycle).filter(
+        MaintenanceEntry.id == entry_id,
+        Motorcycle.user_id == g.user.id,
+        Motorcycle.is_racer == False # レーサー車両の記録は編集対象外
+    ).first_or_404() # is_racer=False で見つからなければ404
+    # --- ▲▲▲ フェーズ1変更点 ▲▲▲
     form = MaintenanceForm(obj=entry)
     form.motorcycle_id.choices = [(entry.motorcycle.id, f"{entry.motorcycle.name} ({entry.motorcycle.maker or 'メーカー不明'})")]
-    form.motorcycle_id.data = entry.motorcycle.id 
-    
+    form.motorcycle_id.data = entry.motorcycle.id
+
     if form.validate_on_submit():
-        motorcycle = entry.motorcycle 
+        motorcycle = entry.motorcycle # is_racer=False は上記クエリで保証済み
         offset_at_maintenance_date = motorcycle.calculate_cumulative_offset_from_logs(target_date=form.maintenance_date.data)
         total_distance = form.odometer_reading_at_maintenance.data + offset_at_maintenance_date
-        
+
         entry.maintenance_date = form.maintenance_date.data
         entry.odometer_reading_at_maintenance = form.odometer_reading_at_maintenance.data
         entry.total_distance_at_maintenance = total_distance
@@ -204,9 +236,9 @@ def edit_maintenance(entry_id):
         entry.parts_cost = form.parts_cost.data
         entry.labor_cost = form.labor_cost.data
         entry.notes = form.notes.data.strip() if form.notes.data else None
-        
-        _update_reminder_last_done(entry) 
-        
+
+        _update_reminder_last_done(entry)
+
         try:
             db.session.commit()
             flash('整備記録を更新しました。', 'success')
@@ -215,17 +247,25 @@ def edit_maintenance(entry_id):
             db.session.rollback()
             flash(f'記録の更新中にエラーが発生しました。詳細は管理者にお問い合わせください。', 'error')
             current_app.logger.error(f"Error updating maintenance entry ID {entry_id}: {e}", exc_info=True)
-            
-    elif request.method == 'POST': 
+
+    elif request.method == 'POST': # バリデーション失敗時
         form.motorcycle_id.choices = [(entry.motorcycle.id, f"{entry.motorcycle.name} ({entry.motorcycle.maker or 'メーカー不明'})")]
         form.motorcycle_id.data = entry.motorcycle.id
-        
+        flash('入力内容にエラーがあります。ご確認ください。', 'danger')
+
+
     return render_template('maintenance_form.html', form_action='edit', form=form, entry_id=entry.id, today_iso=date.today().isoformat())
 
 @maintenance_bp.route('/<int:entry_id>/delete', methods=['POST'])
 @login_required_custom
 def delete_maintenance(entry_id):
-    entry = MaintenanceEntry.query.filter(MaintenanceEntry.id == entry_id).join(Motorcycle).filter(Motorcycle.user_id == g.user.id).first_or_404()
+    # --- ▼▼▼ フェーズ1変更点 (削除対象のMaintenanceEntryの車両がレーサーでないことを確認) ▼▼▼
+    entry = MaintenanceEntry.query.join(Motorcycle).filter(
+        MaintenanceEntry.id == entry_id,
+        Motorcycle.user_id == g.user.id,
+        Motorcycle.is_racer == False # レーサー車両の記録は削除対象外
+    ).first_or_404() # is_racer=False で見つからなければ404
+    # --- ▲▲▲ フェーズ1変更点 ▲▲▲
     try:
         db.session.delete(entry)
         db.session.commit()
@@ -239,7 +279,9 @@ def delete_maintenance(entry_id):
 @maintenance_bp.route('/motorcycle/<int:motorcycle_id>/export_csv')
 @login_required_custom
 def export_maintenance_logs_csv(motorcycle_id):
-    motorcycle = Motorcycle.query.filter_by(id=motorcycle_id, user_id=g.user.id).first_or_404()
+    # --- ▼▼▼ フェーズ1変更点 (対象車両がレーサーでないことを確認) ▼▼▼
+    motorcycle = Motorcycle.query.filter_by(id=motorcycle_id, user_id=g.user.id, is_racer=False).first_or_404()
+    # --- ▲▲▲ フェーズ1変更点 ▲▲▲
     maintenance_logs = MaintenanceEntry.query.filter_by(motorcycle_id=motorcycle.id).order_by(MaintenanceEntry.maintenance_date.asc(), MaintenanceEntry.total_distance_at_maintenance.asc()).all()
     if not maintenance_logs:
         flash(f'{motorcycle.name}にはエクスポート対象の整備記録がありません。', 'info')
@@ -262,13 +304,15 @@ def export_maintenance_logs_csv(motorcycle_id):
 @maintenance_bp.route('/export_all_csv')
 @login_required_custom
 def export_all_maintenance_logs_csv():
-    user_motorcycles = Motorcycle.query.filter_by(user_id=g.user.id).all()
-    if not user_motorcycles:
-        flash('エクスポート対象の車両が登録されていません。', 'info')
+    # --- ▼▼▼ フェーズ1変更点 (車両リストからレーサーを除外) ▼▼▼
+    user_motorcycles_for_maintenance = Motorcycle.query.filter_by(user_id=g.user.id, is_racer=False).all()
+    # --- ▲▲▲ フェーズ1変更点 ▲▲▲
+    if not user_motorcycles_for_maintenance:
+        flash('エクスポート対象の車両（公道車）が登録されていません。', 'info')
         return redirect(url_for('maintenance.maintenance_log'))
 
-    user_motorcycle_ids = [m.id for m in user_motorcycles]
-    all_maintenance_logs = MaintenanceEntry.query.filter(MaintenanceEntry.motorcycle_id.in_(user_motorcycle_ids))\
+    user_motorcycle_ids_for_maintenance = [m.id for m in user_motorcycles_for_maintenance]
+    all_maintenance_logs = MaintenanceEntry.query.filter(MaintenanceEntry.motorcycle_id.in_(user_motorcycle_ids_for_maintenance))\
                                                  .options(db.joinedload(MaintenanceEntry.motorcycle))\
                                                  .order_by(MaintenanceEntry.motorcycle_id, MaintenanceEntry.maintenance_date.asc(), MaintenanceEntry.total_distance_at_maintenance.asc()).all()
     if not all_maintenance_logs:

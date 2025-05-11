@@ -172,7 +172,35 @@ class VehicleForm(FlaskForm):
         ],
         render_kw={"placeholder": "例: 2023"}
     )
+    # --- ▼▼▼ フェーズ1変更点 ▼▼▼ ---
+    is_racer = BooleanField(
+        'レーサー車両として登録する (給油記録・ODOメーター管理の対象外となります)',
+        default=False
+    )
+    total_operating_hours = DecimalField(
+        '現在の総稼働時間 (時間)',
+        places=2, # 小数点以下2桁
+        validators=[Optional(), NumberRange(min=0, message='総稼働時間は0以上で入力してください。')],
+        render_kw={"placeholder": "例: 123.50"},
+        default=0.00 # フォーム表示時のデフォルト値
+    )
+    # --- ▲▲▲ フェーズ1変更点 ▲▲▲ ---
     submit = SubmitField('登録する')
+
+    # --- ▼▼▼ フェーズ1変更点 (バリデーション追加) ▼▼▼ ---
+    def validate_total_operating_hours(self, field):
+        """is_racer が True の場合のみ total_operating_hours を必須とするカスタムバリデーション（任意）"""
+        # is_racer の値はこのフォームインスタンスからは直接参照しづらいため、
+        # テンプレート側での表示制御と、ビュー側での値の処理で対応するのが一般的。
+        # もしフォームレベルでバリデーションするなら、ビューで is_racer の状態を渡して条件分岐するなどの工夫が必要。
+        # 今回は、Optional() とし、ビュー側で is_racer=True の場合に値がなければ0をセットする方針とします。
+        # もし is_racer=True の場合に必須としたいなら、ビュー側でチェックするか、
+        # フォームに is_racer の値を渡せるようにして、ここでチェックします。
+        # 例:
+        # if self.is_racer_input and self.is_racer_input.data and field.data is None:
+        #     raise ValidationError('レーサー車両の場合、総稼働時間を入力してください。')
+        pass # 今回は具体的なフォームレベルでの条件付き必須バリデーションは追加せず、ビューとテンプレートで制御
+    # --- ▲▲▲ フェーズ1変更点 ▲▲▲ ---
 
 
 class OdoResetLogForm(FlaskForm):
@@ -192,11 +220,11 @@ class OdoResetLogForm(FlaskForm):
         'リセット直後のメーター表示値 (km)',
         default=0,
         validators=[
-            InputRequired(message='リセット直後のメーター表示値は必須です。'),
+            InputRequired(message='リセット直後のメーター表示値は必須です。'), # InputRequired に変更 (0も有効な値として許可)
             NumberRange(min=0, message='メーター表示値は0以上である必要があります。')
         ]
     )
-    submit_odo_reset = SubmitField('リセットを記録')
+    submit_odo_reset = SubmitField('リセットを記録') # ボタンのテキストを変更
 
     def validate_display_odo_before_reset(self, field):
         if self.display_odo_after_reset.data is not None and field.data is not None:
@@ -278,7 +306,7 @@ class NoteForm(FlaskForm):
         '関連車両 (任意)',
         coerce=int,
         validators=[Optional()],
-        default=0 # ▼▼▼ 「車両に紐付けない」場合のデフォルト値を0に設定 ▼▼▼
+        default=0
     )
     note_date = DateField(
         '日付',
@@ -317,11 +345,7 @@ class NoteForm(FlaskForm):
         if self.category.data == 'task':
             if not field.entries:
                 raise ValidationError('タスクカテゴリの場合、TODOアイテムを1つ以上入力してください。')
-            # is_empty = all(not entry.text.data for entry in field.entries) # 全て空かどうかのチェックも可能
-            # if is_empty:
-            #     raise ValidationError('タスクカテゴリの場合、TODOアイテムを1つ以上入力してください。')
 
-# ▼▼▼ 退会確認フォームを追加 ▼▼▼
 class DeleteAccountForm(FlaskForm):
     """アカウント削除確認フォーム"""
     confirm_text = StringField(
@@ -333,4 +357,3 @@ class DeleteAccountForm(FlaskForm):
     def validate_confirm_text(self, field):
         if field.data != "削除します":
             raise ValidationError("入力された文字列が一致しません。「削除します」と正しく入力してください。")
-# ▲▲▲ 退会確認フォームを追加 ▲▲▲
