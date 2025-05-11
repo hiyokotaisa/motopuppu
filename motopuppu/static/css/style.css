@@ -1,7 +1,7 @@
 /* motopuppu/static/css/style.css */
 
 /* --- FullCalendar カスタマイズ --- */
-
+/* ... (既存のFullCalendarスタイルは変更なし) ... */
 /* ▼▼▼ 修正: 日付/祝日名を含むトップエリアにFlexboxを適用 ▼▼▼ */
 .fc .fc-daygrid-day-top {
     display: flex;                 /* Flexboxコンテナ */
@@ -104,3 +104,20 @@
 .motopuppu-popover .popover-body dd:first-of-type { margin-top: 0; }
 
 /* 既存の TODO スタイルなどがあれば、この下に追加 */
+
+/* --- お知らせモーダル用スタイル --- */
+#announcementsModal .modal-body .mb-3 h6 { /* 各お知らせのタイトル */
+    font-weight: bold;
+}
+
+#announcementsModal .modal-body .mb-3 .small { /* 各お知らせの内容 */
+    line-height: 1.6; /* 行間を少し広げて読みやすく */
+    color: #343a40; /* 少し濃いめの文字色で見やすく */
+}
+
+/* --- (新規追加) ログインページの主な機能ハイライト用スタイル --- */
+/* 基本的にはBootstrapのクラスで対応できるため、大きな追加は不要ですが、微調整が必要な場合はここに記述します。 */
+/* 例えば、アイコンとテキストの垂直方向の揃えなど、必要に応じて。 */
+/* 今回のHTMLでは d-flex と align-items-center を使用しているため、多くは不要なはずです。 */
+
+/* アイコンの色はHTML内の text-primary, text-success, text-warning で指定 */

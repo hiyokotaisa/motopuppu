@@ -155,6 +155,13 @@ def miauth_callback():
 
     session.clear()
     session['user_id'] = user.id
+    # g.user の設定: MiAuthコールバック成功時にg.userを明示的に設定すると、
+    # この直後のリダイレクト先での最初のリクエスト処理で get_current_user() を呼び出した際に、
+    # DBアクセスなしでg.userからユーザー情報を取得できる可能性があります（リクエストサイクルによる）。
+    # ただし、通常はリダイレクト後のリクエストではgコンテキストはリセットされるため、
+    # get_current_user()内で再度DBから取得されることが多いです。
+    # ここでの g.user = user の設定は、必須というよりは念のため、あるいは特定のケースでの最適化です。
+    g.user = user 
     current_app.logger.info(f"User {user.misskey_username} (App User ID: {user.id}) successfully logged in. Session 'user_id' set. Redirecting to dashboard.")
     flash('ログインしました。', 'success')
     return redirect(url_for('main.dashboard'))
@@ -176,19 +183,33 @@ def login_page():
     if 'user_id' in session and get_current_user() is not None:
         return redirect(url_for('main.dashboard'))
 
-    announcements = []
+    announcements_for_modal = []
+    important_notice_content = None # 固定表示用お知らせ
     try:
+        # announcements.json のパスを修正: current_app.root_path は motopuppu パッケージのパスを指す想定
+        # プロジェクトルートに announcements.json がある場合、'..' が必要
         announcement_file = os.path.join(current_app.root_path, '..', 'announcements.json')
         if os.path.exists(announcement_file):
             with open(announcement_file, 'r', encoding='utf-8') as f:
-                all_announcements = json.load(f)
-                announcements = [a for a in all_announcements if a.get('active', False)]
+                all_announcements_data = json.load(f)
+                for item in all_announcements_data:
+                    if item.get('active', False):
+                        if item.get('id') == 1: # id:1 のお知らせを特定
+                            important_notice_content = item # 固定表示用に保持
+                        else:
+                            announcements_for_modal.append(item) # モーダル用にリスト追加
         else:
              current_app.logger.warning(f"announcements.json not found at {announcement_file}")
     except Exception as e:
         current_app.logger.error(f"An unexpected error occurred loading announcements: {e}", exc_info=True)
+        # エラーが発生した場合でも、テンプレート変数が未定義にならないように空の値を設定することも検討
+        # announcements_for_modal = []
+        # important_notice_content = None
+        # (ただし、上記の初期化でカバーされている)
 
-    return render_template('login.html', announcements=announcements)
+    return render_template('login.html', 
+                           announcements=announcements_for_modal, # モーダル用のお知らせリスト
+                           important_notice=important_notice_content) # 固定表示用のお知らせ
 
 def login_required_custom(f):
     @wraps(f)

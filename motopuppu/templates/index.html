@@ -1,26 +1,179 @@
 {# motopuppu/templates/index.html #}
 {% extends "base.html" %}
 
-{% block title %}もとぷっぷーへようこそ{% endblock %}
+{# ブロック名は "ログイン" のままですが、実質トップページなので適宜変更してもOK #}
+{% block title %}もとぷっぷーへようこそ - ログイン{% endblock %} 
 
 {% block content %}
-<div class="px-4 py-5 my-5 text-center">
-    {# ▼▼▼ ここを修正 ▼▼▼ #}
-    <h1 class="display-5 fw-bold">
-        {# 画像ファイルを指定し、サイズや配置を調整 #}
-        <img src="{{ url_for('static', filename='images/blobcat_8bit.webp') }}" 
-             alt="blobcat_8bit" 
-             width="60" 
-             height="60" 
-             class="me-2 align-middle"> {# me-2で右に少しスペース、align-middleで縦中央揃え #}
-        もとぷっぷー
-    </h1>
-    {# ▲▲▲ 修正ここまで ▲▲▲ #}
-    <div class="col-lg-6 mx-auto">
-      <p class="lead mb-4">あなたのバイクライフを記録しよう。</p>
-      <div class="d-grid gap-2 d-sm-flex justify-content-sm-center">
-        <a href="{{ url_for('auth.login_page') }}" class="btn btn-primary btn-lg px-4 gap-3">ログイン</a>
-      </div>
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-5">
+            <h2 class="text-center mb-2">もとぷっぷー</h2> {# "ログイン" を削除してアプリ名のみに #}
+
+            {# --- サービス概要/キャッチコピー --- #}
+            <p class="text-center text-muted mb-4 px-3">
+                愛車の記録を、もっと手軽に、もっと楽しく。あなたのバイクライフをサポートします。
+            </p>
+            {# --- ここまで サービス概要/キャッチコピー --- #}
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category if category != 'message' else 'info' }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <div class="card mb-4 shadow-sm">
+                <div class="card-body text-center">
+                    <h5 class="card-title">Misskey アカウントでログイン</h5>
+                    <p class="card-text small text-muted">下のボタンをクリックして認証を開始します。</p>
+                    <a href="{{ url_for('auth.login') }}" class="btn btn-primary btn-lg">
+                        <i class="fas fa-key me-2"></i>Misskeyでログイン
+                    </a>
+                    <p class="mt-2 mb-0"><small>インスタンス: {{ config.MISSKEY_INSTANCE_URL }}</small></p>
+                </div>
+            </div>
+
+            {# --- 主な機能のハイライト --- #}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-star me-1"></i> もとぷっぷーの主な機能
+                </div>
+                <div class="list-group list-group-flush">
+                    <div class="list-group-item py-2">
+                        <div class="d-flex w-100 justify-content-start align-items-center">
+                            <div class="flex-shrink-0 me-3 text-center" style="width: 2.5rem;">
+                                <i class="fas fa-motorcycle fa-lg text-primary"></i>
+                            </div>
+                            <div>
+                                <h6 class="mb-0">オールインワン車両管理</h6>
+                                <small class="text-muted d-block">公道走行車両からレーサーまで、詳細情報を一元管理。</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="list-group-item py-2">
+                        <div class="d-flex w-100 justify-content-start align-items-center">
+                            <div class="flex-shrink-0 me-3 text-center" style="width: 2.5rem;">
+                                <i class="fas fa-clipboard-list fa-lg text-success"></i>
+                            </div>
+                            <div>
+                                <h6 class="mb-0">多角的な記録と分析</h6>
+                                <small class="text-muted d-block">燃費、整備、稼働時間、ノートなど、あらゆる活動を記録・分析。</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="list-group-item py-2">
+                        <div class="d-flex w-100 justify-content-start align-items-center">
+                             <div class="flex-shrink-0 me-3 text-center" style="width: 2.5rem;">
+                                <i class="fas fa-trophy fa-lg text-warning"></i>
+                            </div>
+                            <div>
+                                <h6 class="mb-0">リマインダー＆実績機能</h6>
+                                <small class="text-muted d-block">メンテナンス通知や、利用状況に応じた楽しい実績解除も。</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {# --- ここまで 主な機能のハイライト --- #}
+
+            {# --- 重要なお知らせの固定表示 --- #}
+            {% if important_notice %}
+            <div class="alert alert-warning p-3 mb-3 small" role="alert">
+                <h6 class="alert-heading fw-bold"><i class="fas fa-exclamation-triangle me-1"></i> {{ important_notice.title }}</h6>
+                <hr class="my-2">
+                <p class="mb-0">{{ important_notice.content | replace('\n', '<br>') | safe }}</p>
+            </div>
+            {% endif %}
+            {# --- ここまで 重要なお知らせの固定表示 --- #}
+
+            <div class="text-center my-3">
+                <small class="text-muted">
+                    本サービスを利用することにより、<a href="{{ url_for('main.terms_of_service') }}" target="_blank" rel="noopener noreferrer">利用規約</a>および<a href="{{ url_for('main.privacy_policy') }}" target="_blank" rel="noopener noreferrer">プライバシーポリシー</a>に同意したものとみなされます。
+                </small>
+            </div>
+
+            {% if config.ENV == 'development' %}
+            <div class="text-center my-4">
+                <p class="small text-muted">開発用ログイン (.envのLOCAL_DEV_USER_IDを使用)</p>
+                {% if config.LOCAL_DEV_USER_ID %}
+                <a href="{{ url_for('dev_auth.local_login') }}" class="btn btn-secondary btn-sm">
+                    開発用ログイン
+                </a>
+                {% else %}
+                <button class="btn btn-secondary btn-sm" disabled title=".envにLOCAL_DEV_USER_IDを設定してください">開発用ログイン (ID未設定)</button>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            {# --- 通常のお知らせ (モーダル表示) --- #}
+            {% if announcements %} 
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-info-circle me-1"></i> その他のお知らせ
+                </div>
+                <div class="list-group list-group-flush">
+                    {% set latest_notice_for_card = announcements | first %}
+                    {% if latest_notice_for_card %}
+                    <div class="list-group-item">
+                        <h6 class="mb-1">{{ latest_notice_for_card.title }}</h6>
+                        <p class="mb-1 small">
+                            {{ latest_notice_for_card.content | truncate(100, true, '...') | replace('\n', '<br>') | safe }}
+                        </p>
+                    </div>
+                    {% endif %}
+
+                    {% if announcements|length > 0 %}
+                    <div class="list-group-item text-center py-2">
+                        <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#announcementsModal">
+                            {% if announcements|length > 1 or (latest_notice_for_card and announcements|length == 1 and latest_notice_for_card.content|length > 100) %}
+                                他のお知らせも見る
+                            {% else %}
+                                お知らせ詳細を見る
+                            {% endif %}
+                        </button>
+                    </div>
+                    {% elif not latest_notice_for_card %}
+                    <div class="list-group-item text-muted small py-2">
+                        現在、他のお知らせはありません。
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="modal fade" id="announcementsModal" tabindex="-1" aria-labelledby="announcementsModalLabel" aria-hidden="true">
+                <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="announcementsModalLabel"><i class="fas fa-info-circle me-2"></i>お知らせ一覧</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            {% for notice in announcements %}
+                            <div class="mb-3 pb-2 {% if not loop.last %}border-bottom{% endif %}">
+                                <h6 class="mb-1">{{ notice.title }}</h6>
+                                <p class="mb-0 small">{{ notice.content | replace('\n', '<br>') | safe }}</p>
+                            </div>
+                            {% else %}
+                            <p>現在、表示できる他のお知らせはありません。</p>
+                            {% endfor %}
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">閉じる</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% elif not important_notice %} 
+            <div class="text-center text-muted small my-3">
+                <p><i class="fas fa-info-circle me-1"></i> 現在、お知らせはありません。</p>
+            </div>
+            {% endif %}
+        </div>
     </div>
-  </div>
+</div>
 {% endblock %}
