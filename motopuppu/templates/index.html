@@ -4,6 +4,14 @@
 {# ブロック名は "ログイン" のままですが、実質トップページなので適宜変更してもOK #}
 {% block title %}もとぷっぷーへようこそ - ログイン{% endblock %} 
 
+{# ▼▼▼ ページ固有のヘッド要素ブロックにPoppinsフォント読み込みを追加 ▼▼▼ #}
+{% block page_specific_head %}
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+{% endblock %}
+{# ▲▲▲ ページ固有のヘッド要素ブロック ▲▲▲ #}
+
 {% block content %}
 <div class="container mt-5">
     <div class="row justify-content-center">
@@ -39,7 +47,7 @@
             </div>
 
             {# --- 主な機能のハイライト --- #}
-            <div class="card mb-4">
+            <div class="card mb-4" id="indexFunctionalHighlights">
                 <div class="card-header">
                     <i class="fas fa-star me-1"></i> もとぷっぷーの主な機能
                 </div>

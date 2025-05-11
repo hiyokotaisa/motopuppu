@@ -6,6 +6,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     {# PWA用Manifest #}
     <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+
+    {# ▼▼▼ ページ固有のヘッド要素ブロック (フォント読み込み等に利用) ▼▼▼ #}
+    {% block page_specific_head %}{% endblock %}
+    {# ▲▲▲ ページ固有のヘッド要素ブロック ▲▲▲ #}
+
     {# Bootstrap CSS (CDN) #}
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-9ndCyUaIbzAi2FUVXJi0CjmCapSmO7SnpJef0486qhLnuZ2cdeRhO02iuK6FUUVM" crossorigin="anonymous">
 
@@ -38,7 +43,9 @@
     </style>
 
   </head>
-  <body>
+  {# ▼▼▼ body タグに条件付きでクラスを付与 ▼▼▼ #}
+  <body class="{{ 'page-landing' if request.endpoint == 'main.index' else '' }}">
+  {# ▲▲▲ body タグに条件付きでクラスを付与 ▲▲▲ #}
 
     {# --- ナビゲーションバー (変更なし - navigation.html をインクルード) --- #}
     {% include 'navigation.html' %}

@@ -1,123 +1,159 @@
 /* motopuppu/static/css/style.css */
 
 /* --- FullCalendar カスタマイズ --- */
-/* ... (既存のFullCalendarスタイルは変更なし) ... */
-/* ▼▼▼ 修正: 日付/祝日名を含むトップエリアにFlexboxを適用 ▼▼▼ */
-.fc .fc-daygrid-day-top {
-    display: flex;                 /* Flexboxコンテナ */
-    justify-content: space-between;/* 子要素(日付,祝日名)を左右に振り分け */
-    align-items: flex-start;     /* 子要素の上端を揃える */
-    padding: 1px 2px;              /* day-top内のパディング(上下左右) */
-    margin-bottom: 2px;            /* ★★★ 下のイベント表示域とのスペース ★★★ */
-    min-height: 1.4em;             /* 最小高さを確保 (line-height基準で調整) */
-    position: relative;            /* 必要に応じて */
-}
-/* ▲▲▲ 修正ここまで ▲▲▲ */
+.fc .fc-daygrid-day-top { display: flex; justify-content: space-between; align-items: flex-start; padding: 1px 2px; margin-bottom: 2px; min-height: 1.4em; position: relative; }
+.fc .fc-daygrid-day-number { order: 1; text-decoration: none !important; color: inherit; padding: 0; text-align: left; flex-shrink: 0; line-height: 1.2; font-weight: normal; }
+.fc-holiday-name { order: 2; font-size: 0.7em; line-height: 1.2; color: #dc3545; margin-left: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 1; text-align: right; cursor: default; }
+.fc-day-holiday .fc-daygrid-day-number, .fc .fc-daygrid-day-number.is-holiday { color: #dc3545 !important; font-weight: bold; }
+.fc-day-sun:not(.fc-day-holiday) .fc-daygrid-day-number, .fc .fc-daygrid-day-number.is-sun:not(.is-holiday) { color: #dc3545 !important; }
+.fc-day-sat:not(.fc-day-holiday):not(.fc-day-sun) .fc-daygrid-day-number, .fc .fc-daygrid-day-number.is-sat:not(.is-holiday):not(.is-sun) { color: #0d6efd !important; }
+.fc .fc-daygrid-day-frame { padding: 2px; min-height: 4.5em; position: relative; }
+.fc .fc-col-header-cell-cushion { text-decoration: none !important; color: inherit; display: block; padding: 4px; }
+.fc .fc-col-header-cell > a { text-decoration: none !important; color: inherit; }
+.fc-list-event-title a { text-decoration: none; color: inherit; }
+.fc-list-day-text, .fc-list-day-side-text { text-decoration: none; color: inherit; }
 
-/* ▼▼▼ 修正: 日付番号のスタイル (左上表示用) ▼▼▼ */
-.fc .fc-daygrid-day-number {
-    order: 1;                 /* Flexアイテム順序: 1番目 (左) */
-    text-decoration: none !important; /* 下線なし */
-    color: inherit;           /* デフォルト色 (状態クラスで上書き) */
-    padding: 0;               /* 個別パディング不要 */
-    text-align: left;         /* 左寄せ */
-    flex-shrink: 0;           /* 幅縮小しない */
-    line-height: 1.2;         /* 行の高さ */
-    font-weight: normal;      /* デフォルト太さ */
-}
-/* ▲▲▲ 修正ここまで ▲▲▲ */
-
-
-/* ▼▼▼ 修正: 祝日名のスタイル (右上表示用) ▼▼▼ */
-.fc-holiday-name {
-    order: 2;                 /* Flexアイテム順序: 2番目 (右) */
-    font-size: 0.7em;         /* 文字サイズ */
-    line-height: 1.2;         /* 行の高さ (日付と合わせる) */
-    color: #dc3545;           /* 祝日の色 (赤) */
-    margin-left: 4px;         /* 左隣の日付番号との最小間隔 */
-    white-space: nowrap;      /* 改行しない */
-    overflow: hidden;         /* はみ出し隠す */
-    text-overflow: ellipsis;  /* はみ出しを ... 表示 */
-    flex-shrink: 1;           /* 必要に応じて幅縮小 */
-    text-align: right;        /* 右寄せ */
-    cursor: default;          /* 標準カーソル */
-}
-/* ▲▲▲ 修正ここまで ▲▲▲ */
-
-
-/* ▼▼▼ 状態に応じた日付番号の色付け (変更なし) ▼▼▼ */
-/* 祝日 */
-.fc-day-holiday .fc-daygrid-day-number,
-.fc .fc-daygrid-day-number.is-holiday { color: #dc3545 !important; font-weight: bold; }
-/* 日曜 (非祝日) */
-.fc-day-sun:not(.fc-day-holiday) .fc-daygrid-day-number,
-.fc .fc-daygrid-day-number.is-sun:not(.is-holiday) { color: #dc3545 !important; }
-/* 土曜 (非祝日/非日曜) */
-.fc-day-sat:not(.fc-day-holiday):not(.fc-day-sun) .fc-daygrid-day-number,
-.fc .fc-daygrid-day-number.is-sat:not(.is-holiday):not(.is-sun) { color: #0d6efd !important; }
-/* ▲▲▲ 色付けここまで ▲▲▲ */
-
-/* --- イベント表示領域との調整 --- */
-/* .fc-daygrid-day-top の margin-bottom で調整済み。イベント側の調整が必要な場合↓ */
-/* .fc .fc-daygrid-day-events { margin-top: 2px; } */
-
-/* --- セルフレームのスタイル --- */
-/* Flexbox指定は day-top に移したため、ここでは主に高さや全体のパディングを調整 */
-.fc .fc-daygrid-day-frame {
-     padding: 2px;             /* セル全体のパディング (任意) */
-     min-height: 4.5em;        /* ★★★ イベント表示も考慮したセルの最小高さ (見た目で調整) ★★★ */
-     position: relative;
-}
-
-
-/* カレンダーの曜日ヘッダー (変更なし) */
-.fc .fc-col-header-cell-cushion {
-    text-decoration: none !important;
-    color: inherit;
-    display: block;
-    padding: 4px;
-}
-.fc .fc-col-header-cell > a {
-    text-decoration: none !important;
-    color: inherit;
-}
-
-/* リストビューのスタイル (変更なし) */
-.fc-list-event-title a {
-    text-decoration: none;
-    color: inherit;
-}
-.fc-list-day-text,
-.fc-list-day-side-text {
-    text-decoration: none;
-    color: inherit;
-}
-
-/* --- ポップオーバーのスタイル調整 (変更なし) --- */
-.motopuppu-popover {
-    max-width: 350px;
-    font-size: 0.875rem;
-}
+/* --- ポップオーバーのスタイル調整 --- */
+.motopuppu-popover { max-width: 350px; font-size: 0.875rem; }
 .motopuppu-popover .popover-body dl { margin-bottom: 0; }
 .motopuppu-popover .popover-body dt { font-weight: bold; color: #6c757d; margin-top: 0.3rem; }
 .motopuppu-popover .popover-body dd { margin-left: 0.5rem; word-wrap: break-word; overflow-wrap: break-word; white-space: pre-wrap; }
 .motopuppu-popover .popover-body dd:first-of-type { margin-top: 0; }
 
-/* 既存の TODO スタイルなどがあれば、この下に追加 */
-
-/* --- お知らせモーダル用スタイル --- */
-#announcementsModal .modal-body .mb-3 h6 { /* 各お知らせのタイトル */
-    font-weight: bold;
+/* --- お知らせモーダル用スタイル (共通) --- */
+#announcementsModal .modal-body .mb-3 h6 { 
+    font-weight: bold; /* Poppins/Ralewayのboldは600想定 */
+}
+#announcementsModal .modal-body .mb-3 .small { 
+    line-height: 1.6; 
+    /* color: #2c3e50; */ /* .page-landing で指定されるのでここではコメントアウト */
+}
+/* トップページの場合のフォント色を明示的に指定 (Poppinsに合わせる) */
+.page-landing #announcementsModal .modal-body .mb-3 .small {
+     color: #2c3e50;
 }
 
-#announcementsModal .modal-body .mb-3 .small { /* 各お知らせの内容 */
-    line-height: 1.6; /* 行間を少し広げて読みやすく */
-    color: #343a40; /* 少し濃いめの文字色で見やすく */
+
+/* --- デザイン案B: モダンフラット (トップページ専用) --- */
+/* Poppins フォントは index.html の page_specific_head ブロックで読み込まれる前提 */
+
+.page-landing { /* body.page-landing でトップページ全体の基本スタイルを設定 */
+    font-family: 'Poppins', sans-serif;
+    background-color: #eef2f5; /* 例: 薄いクールグレー背景 */
+    color: #2c3e50; /* ダークブルーグレー */
+    line-height: 1.7;
 }
 
-/* --- (新規追加) ログインページの主な機能ハイライト用スタイル --- */
-/* 基本的にはBootstrapのクラスで対応できるため、大きな追加は不要ですが、微調整が必要な場合はここに記述します。 */
-/* 例えば、アイコンとテキストの垂直方向の揃えなど、必要に応じて。 */
-/* 今回のHTMLでは d-flex と align-items-center を使用しているため、多くは不要なはずです。 */
+.page-landing h1, .page-landing h2, .page-landing h3, 
+.page-landing h4, .page-landing h5, .page-landing h6,
+.page-landing .h1, .page-landing .h2, .page-landing .h3, 
+.page-landing .h4, .page-landing .h5, .page-landing .h6 {
+    font-family: 'Poppins', sans-serif;
+    font-weight: 600;
+    color: #2c3e50; 
+}
 
-/* アイコンの色はHTML内の text-primary, text-success, text-warning で指定 */
+/* アプリ名の大見出し */
+.page-landing #main-content > .container h2.text-center {
+    font-size: 2.8rem;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    margin-bottom: 0.75rem !important;
+}
+
+/* キャッチコピー */
+.page-landing #main-content > .container p.text-center.text-muted {
+    font-size: 1.15rem;
+    color: #526272 !important; 
+    margin-bottom: 3rem !important;
+}
+
+/* Misskeyログインボタン */
+.page-landing .btn-primary {
+    background: linear-gradient(135deg, #1abc9c, #16a085);
+    border: none;
+    padding: 0.8rem 2rem;
+    font-size: 1.15rem;
+    font-weight: 600;
+    border-radius: 50px;
+    box-shadow: 0 4px 10px rgba(22, 160, 133, 0.25);
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    color: #fff; 
+}
+.page-landing .btn-primary:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 7px 18px rgba(22, 160, 133, 0.35);
+}
+
+/* カード共通スタイル */
+.page-landing .card {
+    border: none;
+    box-shadow: 0 5px 20px rgba(44, 62, 80, 0.1);
+    border-radius: 0.6rem;
+    overflow: hidden; 
+}
+.page-landing .card-header {
+    background-color: #ffffff; 
+    border-bottom: 1px solid #e7eaec;
+    color: #2c3e50;
+    font-weight: 600;
+    padding: 1rem 1.25rem;
+}
+
+/* 機能ハイライトのリストアイテム */
+.page-landing #indexFunctionalHighlights .list-group-item {
+    border:none;
+    padding: 1.25rem;
+    background-color: #fff; 
+    transition: background-color 0.2s ease-in-out;
+}
+.page-landing #indexFunctionalHighlights .list-group-item i {
+    color: #1abc9c; 
+    font-size: 1.6rem;
+}
+.page-landing #indexFunctionalHighlights .list-group-item h6 {
+    font-weight: 600;
+    margin-bottom: 0.2rem;
+}
+.page-landing #indexFunctionalHighlights .list-group-item small {
+    color: #7f8c8d; 
+}
+
+/* 重要なお知らせ */
+.page-landing .alert-warning { 
+    background-color: #fdf3d8; 
+    border: 1px solid #fce8b2;
+    color: #8a6d3b; 
+    border-radius: 0.375rem;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    padding: 1.25rem;
+}
+.page-landing .alert-warning .alert-heading {
+    color: inherit;
+    font-weight: 600;
+}
+
+/* その他お知らせボタン */
+.page-landing .btn-outline-primary {
+    color: #1abc9c;
+    border-color: #1abc9c;
+    border-radius: 50px;
+    font-weight: 500;
+    padding: 0.5rem 1.25rem;
+}
+.page-landing .btn-outline-primary:hover {
+    background-color: #1abc9c;
+    color: #fff;
+}
+
+/* フッターの text-muted の色もトップページでは調整 (任意) */
+.page-landing .footer .text-muted,
+.page-landing .footer a.text-muted { /* text-muted クラスを持つリンクも対象に */
+    color: #526272 !important; /* キャッチコピーの text-muted と合わせるなど */
+}
+.page-landing .footer a:not(.text-muted) { /* 通常のフッターリンク */
+     color: #1abc9c; /* アクセントカラー */
+}
+.page-landing .footer a:not(.text-muted):hover {
+    color: #16a085; /* ホバー色 */
+}
