@@ -2,7 +2,7 @@
 
 1.  **プロジェクト概要:**
     * 名称: もとぷっぷー
-    * 目的: オートバイ所有者向けの車両情報、燃費、整備記録、リマインダー、メモ管理、**実績**Webアプリ。
+    * 目的: オートバイ所有者向けの車両情報、燃費、整備記録、リマインダー、メモ管理、**実績**Webアプリ。**公道走行車両に加え、レーサーやモトクロッサーといった競技用車両の管理にも対応。**
     * 認証: Misskey MiAuth
 
 2.  **主要技術スタック:**
@@ -17,7 +17,7 @@
 3.  **アーキテクチャ・構成:**
     * 標準的なFlask構成（アプリケーションファクトリ使用）。
     * 機能ごとにBlueprintを使用 (auth, main, vehicle, fuel, maintenance, notes, dev_auth, **achievements** など)。
-    * `models.py` にDBモデル定義 (`User`, `Motorcycle`, `FuelEntry`, `MaintenanceEntry`, `OdoResetLog`, `GeneralNote`, **`AchievementDefinition`**, **`UserAchievement`** など)。
+    * `models.py` にDBモデル定義 (`User`, `Motorcycle`**(に `is_racer`, `total_operating_hours` を含む)**, `FuelEntry`, `MaintenanceEntry`, `OdoResetLog`, `GeneralNote`, **`AchievementDefinition`**, **`UserAchievement`** など)。
     * `forms.py` にFlask-WTFフォームクラス定義。
     * `motopuppu/views/` 以下に各Blueprintのルート定義。
     * `templates/`, `static/` ディレクトリ。
@@ -29,31 +29,41 @@
 4.  **主要な実装済み機能:**
     * ユーザー認証 (Misskey MiAuth, ローカル開発用ログイン) - 堅牢な実装
     * 車両管理 (CRUD, 複数対応、デフォルト設定) - フォーム(Flask-WTF), CSRF対策済
-    * ODOメーターリセット機能:
+        * **レーサー車両と公道車両の区別:**
+            * 車両登録時に「レーサー車両」フラグを設定可能。一度登録するとタイプ変更不可。
+            * レーサー車両は「総稼働時間」で管理（初期値設定、編集可能）。
+            * 公道車両は従来通りODOメーターで管理。
+    * ODOメーターリセット機能 (公道車両向け):
         * リセット操作の記録 (`OdoResetLog` モデル) - フォーム(Flask-WTF)
         * 累積オフセットキャッシュ (`Motorcycle.odometer_offset`) の更新
         * ODOリセット履歴の表示、編集、削除、過去の履歴の新規追加 (CRUD) - フォーム(Flask-WTF), CSRF対策済
-    * 給油記録 (CRUD, ログ表示, フィルター/ソート, CSVエクスポート機能（個別車両/全車両対応）) - フォーム(Flask-WTF), CSRF対策済
+    * 給油記録 (公道車両向け CRUD, ログ表示, フィルター/ソート, CSVエクスポート機能（個別車両/全車両対応）) - フォーム(Flask-WTF), CSRF対策済
         * 実走行距離 (`total_distance`) の記録
         * 燃費計算 (`km_per_liter` プロパティ、平均燃費計算)
+        * **レーサー車両は給油記録の対象外。**
     * 整備記録 (CRUD, ログ表示, フィルター/ソート, CSVエクスポート機能（個別車両/全車両対応）) - フォーム(Flask-WTF), CSRF対策済
-        * 実走行距離 (`total_distance_at_maintenance`) の記録
+        * 実走行距離 (`total_distance_at_maintenance`) の記録 (公道車両向け)
         * 費用計算 (`total_cost` プロパティ)
         * メンテナンスリマインダーとの連携
+        * **フェーズ1では、レーサー車両の整備記録は利用不可。** (フェーズ2で稼働時間ベースの記録に対応予定)
     * ノート (CRUD、カテゴリ別[ノート/タスクリスト], ログ表示, フィルター) - フォーム(Flask-WTF), CSRF対策済
         * FieldList によるTODOアイテム管理、JavaScriptによる動的追加/削除
+        * **レーサー車両でも利用可能。**
     * **Misskey共有機能**: 給油記録、整備記録、ノート、**解除済み実績**の各情報をMisskeyに共有する機能。
     * メンテナンスリマインダー (CRUD) - フォーム(Flask-WTF), CSRF対策済
+        * **現状は主に公道車両の距離・期間ベース。**
     * ダッシュボード (統計概要, FullCalendarによる記録カレンダー表示, 直近ログ表示, リマインダー通知)
         * FullCalendarの高度なカスタマイズ
+        * **車両タイプ（公道車/レーサー車）に応じた情報表示（稼働記録、統計等）。**
     * **実績機能:**
         * 実績定義 (`AchievementDefinition`): 名称、説明、アイコン、カテゴリ、解除条件(criteria: JSONB)、Misskey共有テンプレート、トリガーイベントタイプ。
         * ユーザー実績記録 (`UserAchievement`): ユーザーと解除済み実績の紐付け、解除日時。
-        * イベントドリブンな実績解除: 各記録追加アクション（車両、給油、整備、ノート、ODOリセット）の完了後に、関連実績の条件を評価し自動解除。
+        * イベントドリブンな実績解除: 各記録追加アクションの完了後に、関連実績の条件を評価し自動解除。
             * 「初めての○○」系実績 (車両登録、給油、整備、ノート、ODOリセット)
             * 回数系実績 (給油、整備、ノート: 各10, 50, 100回)
-            * 走行距離系実績 (車両ごと: 1000, 10000, 100000km)
-            * 車両登録台数系実績 (3, 5, 10台)
+            * 走行距離系実績 (車両ごと: 1000, 10000, 100000km) (公道車向け)
+            * 車両登録台数系実績 (全車種: 3, 5, 10台)
+            * **新規実績: 「初めてのレーサー車両登録」「レーサー車両X台登録」など。**
         * 実績一覧ページ: 解除済み実績と未達成実績（グレーアウト表示）をカテゴリ別に表示。解除条件の確認。
         * 実績解除時のフラッシュメッセージ通知 (アイコン付き)。
         * 解除済み実績のMisskey共有機能。
@@ -62,20 +72,21 @@
 
 5.  **現在の状況・課題 [次回更新]:**
     * マイグレーション:
-        * **最新リビジョン: `(760969e7b61d の次のリビジョンID - 新しい実績定義データを投入したもの)`** (要 `flask db history` で確認)
+        * **最新リビジョン: `(ここに 'Add is_racer and total_operating_hours to motorcycles table' のマイグレーションIDを記載)`** (要 `flask db history` で確認)
             * `AchievementDefinition` テーブルに `criteria` (JSONB) カラム追加済み。
             * `AchievementDefinition` テーブルに多数の新しい実績定義（回数、距離、台数系）データを投入済み。
+            * **`Motorcycle` テーブルに `is_racer` (Boolean) と `total_operating_hours` (Numeric) カラムを追加済み。**
+            * **新しい実績定義（レーサー車両関連）を投入済み。** (これは別途マイグレーションまたはデータ投入スクリプトで対応)
     * **直近の作業 (完了済み):**
         * (以前の完了項目は維持)
         * ...
-        * **「実績」機能の追加:**
-            * 実績関連のDBモデル (`AchievementDefinition`, `UserAchievement`) 作成とマイグレーション。
-            * 実績評価・解除ロジック (`achievement_evaluator.py`, `achievements_utils.py`) の実装。
-            * 各記録追加処理への実績解除トリガーの組み込み。
-            * 多数の新しい実績（初回系、回数系、距離系、車両登録台数系）の定義とデータ投入。
-            * 実績一覧ページ（未達成含む、カテゴリ別表示、Misskey共有）の実装。
-            * 既存ユーザーへの実績遡及処理用CLIコマンド (`flask backfill-achievements`) の実装。
-            * 関連するUI/バグ修正（フラッシュメッセージのHTML表示、インポートエラー修正など）。
+        * **「実績」機能の追加:** (内容は既存のまま)
+        * **「競技車両向け管理機能 (フェーズ1: レーサー車両の定義)」の追加:**
+            * `Motorcycle` モデルへの `is_racer`, `total_operating_hours` カラム追加とマイグレーションを実行。
+            * 車両登録/編集フォーム・処理にて、レーサー車両フラグおよび総稼働時間入力に対応。
+            * レーサー車両に対する給油記録、ODOメーターリセット機能、整備記録機能（フェーズ1では利用不可）の制限を実装。
+            * 車両一覧、ダッシュボード等のUIで、車両タイプに応じた情報表示（稼働記録、燃費表示制御等）に対応。
+            * レーサー車両関連の新しい実績（初めてのレーサー車両登録、レーサー車両X台登録など）の定義追加と評価ロジックを更新。
     * **現在の課題・改善点:**
         * a. CSRF対策の最終確認。
         * c. DBスキーマレベルの制約適用: `Motorcycle.is_default` カラム。
@@ -84,101 +95,84 @@
         * f. CSSの整理検討。
         * g. ODOメーターリセット: 「累積オフセットを0に戻す」機能検討。
         * h. ODO値表示方法の最終決定と実装。
-        * i. `Motorcycle.odometer_offset` の将来検討。
-        * j. テストコード: 単体テスト・結合テストの拡充 (特に実績機能周り)。
-        * k. CSVインポート機能の実装検討。
-        * **l. (新規) 実績機能のさらなる拡充（新しい実績のアイデア検討・実装）。**
-        * **m. (新規) 実績遡及処理コマンドの本番環境での慎重な実行と確認。**
-    * 現在のプロジェクトディレクトリ: 
-    kyagisaw@kyagisaw-mac motopuppu % tree
-.
-├── announcements.json
-├── compose.yml
-├── Containerfile
-├── gemini_prompt.txt
-├── instance
-├── LICENSE
-├── migrations
-│   ├── alembic.ini
-│   ├── env.py
-│   ├── README
-│   ├── script.py.mako
-│   └── versions
-│       ├── 03b74d3f953e_add_criteria_column_to_.py
-│       ├── 414794921235_add_achievement_and_userachievement_.py
-│       ├── 4ec29611c9b5_add_trigger_event_type_to_.py
-│       ├── 5d18f0a4938e_allow_null_for_content_in_general_notes.py
-│       ├── 760969e7b61d_populate_new_achievement_definitions_.py
-│       ├── 896791ff77ea_add_odo_reset_log_table_and_data_.py
-│       ├── cb61b6485ca8_add_missing_general_notes_and_odo_reset_.py
-│       ├── cbc2495d2f76_initial_migration.py
-│       └── cd7db2474a21_check_sync_after_fixing_relationship.py
-├── motopuppu
-│   ├── __init__.py
-│   ├── achievement_evaluator.py
-│   ├── achievements_utils.py
-│   ├── forms.py
-│   ├── manage_commands.py
-│   ├── models.py
-│   ├── static
-│   │   ├── css
-│   │   │   └── style.css
-│   │   ├── favicons
-│   │   │   ├── apple-touch-icon.png
-│   │   │   ├── favicon-96x96.png
-│   │   │   ├── favicon.ico
-│   │   │   ├── favicon.svg
-│   │   │   ├── web-app-manifest-192x192.png
-│   │   │   └── web-app-manifest-512x512.png
-│   │   ├── images
-│   │   │   └── blobcat_8bit.webp
-│   │   └── js
-│   │       ├── misskey_share.js
-│   │       └── odo_toggle.js
-│   ├── templates
-│   │   ├── achievements
-│   │   │   └── unlocked_list.html
-│   │   ├── base.html
-│   │   ├── dashboard.html
-│   │   ├── fuel_form.html
-│   │   ├── fuel_log.html
-│   │   ├── index.html
-│   │   ├── login.html
-│   │   ├── maintenance_form.html
-│   │   ├── maintenance_log.html
-│   │   ├── navigation.html
-│   │   ├── note_form.html
-│   │   ├── notes_log.html
-│   │   ├── odo_reset_log_form.html
-│   │   ├── reminder_form.html
-│   │   ├── vehicle_form.html
-│   │   └── vehicles.html
-│   └── views
-│       ├── achievements.py
-│       ├── auth.py
-│       ├── dev_auth.py
-│       ├── fuel.py
-│       ├── main.py
-│       ├── maintenance.py
-│       ├── notes.py
-│       └── vehicle.py
-├── README.md
-└── requirements.txt
+        * i. `Motorcycle.odometer_offset` の将来検討 (特に公道車とレーサー車の管理方法の明確化を受けて)。
+        * j. テストコード: 単体テスト・結合テストの拡充 **(特に実績機能およびレーサー車両関連機能周り)**。
+        * k. CSVインポート機能の実装検討 **(レーサー車両の総稼働時間も考慮)**。
+        * l. 実績機能のさらなる拡充（新しい実績のアイデア検討・実装）。
+        * m. 実績遡及処理コマンドの本番環境での慎重な実行と確認。
+        * **n. (新規) レーサー車両向け機能の拡充 (フェーズ2: 稼働時間ベースの整備記録、セッティング記録)。**
+        * **o. (新規) レーサー車両向け機能の拡充 (フェーズ3: 重要コンポーネントのライフサイクル管理)。**
+    * 現在のプロジェクトディレクトリ: (前回提示のツリーから、`migrations/versions/` に **`xxxx_add_is_racer_and_total_operating_hours_to_motorcycles_table.py`** (実際のファイル名に置き換えてください) のようなファイルが追加されていることを想定)
+        ```
+        .
+        ├── announcements.json
+        ├── compose.yml
+        ├── Containerfile
+        ├── gemini_prompt.txt (このファイル)
+        ├── instance
+        ├── LICENSE
+        ├── migrations
+        │   ├── alembic.ini
+        │   ├── env.py
+        │   ├── README
+        │   ├── script.py.mako
+        │   └── versions
+        │       ├── 03b74d3f953e_add_criteria_column_to_.py
+        │       ├── 414794921235_add_achievement_and_userachievement_.py
+        │       ├── 4ec29611c9b5_add_trigger_event_type_to_.py
+        │       ├── 5d18f0a4938e_allow_null_for_content_in_general_notes.py
+        │       ├── 760969e7b61d_populate_new_achievement_definitions_.py
+        │       ├── 896791ff77ea_add_odo_reset_log_table_and_data_.py
+        │       ├── cb61b6485ca8_add_missing_general_notes_and_odo_reset_.py
+        │       ├── cbc2495d2f76_initial_migration.py
+        │       ├── cd7db2474a21_check_sync_after_fixing_relationship.py
+        │       └── xxxx_add_is_racer_and_total_operating_hours_to_motorcycles_table.py  # (実際のファイル名に置き換え)
+        ├── motopuppu
+        │   ├── __init__.py
+        │   ├── achievement_evaluator.py
+        │   ├── achievements_utils.py
+        │   ├── forms.py
+        │   ├── manage_commands.py
+        │   ├── models.py
+        │   ├── static
+        │   │   ├── css
+        │   │   │   └── style.css
+        │   │   ├── favicons
+        │   │   │   ├── ... (省略)
+        │   │   └── js
+        │   │       ├── misskey_share.js
+        │   │       └── odo_toggle.js
+        │   ├── templates
+        │   │   ├── achievements
+        │   │   │   └── unlocked_list.html
+        │   │   ├── ... (その他テンプレートファイルは変更なし)
+        │   │   ├── vehicle_form.html
+        │   │   └── vehicles.html
+        │   └── views
+        │       ├── achievements.py
+        │       ├── auth.py
+        │       ├── dev_auth.py
+        │       ├── fuel.py
+        │       ├── main.py
+        │       ├── maintenance.py
+        │       ├── notes.py
+        │       └── vehicle.py
+        ├── README.md
+        └── requirements.txt
+        ```
 
-13 directories, 60 files
-
-6.  **今回のセッションでの目標 [毎回更新]:**
+6.  **今回のセッションでの目標 [毎回更新]:** (これはユーザーが次回設定するものなので、元の記述を維持します)
     * 「整備予測」機能の実装について検討したい
-    *  具体的には、ユーザーが入力した特定のカテゴリの整備（まずはエンジンオイル交換とタイヤ交換）について、初期値（オイル交換 5000km走行もしくは前回交換から半年経過 / タイヤ交換 10000km走行もしくは
+    * 具体的には、ユーザーが入力した特定のカテゴリの整備（まずはエンジンオイル交換とタイヤ交換）について、初期値（オイル交換 5000km走行もしくは前回交換から半年経過 / タイヤ交換 10000km走行もしくは...
 
-7.  **Geminiに期待する役割:**
+7.  **Geminiに期待する役割:** (変更なし)
     * コードの提案、修正案の提示 (ファイル全体の表示希望)
     * 実装に関する質問への回答
     * コードレビュー
     * エラー分析と解決策の提案
     * [その他、必要に応じて追記]
 
-8.  **その他 [必要に応じて]:**
+8.  **その他 [必要に応じて]:** (変更なし)
     * DBスキーマの変更については、過去に問題が発生した経験があるため、特に慎重に進めたい。
     * 修正は既存のUIや他の機能への影響を最小限に抑えたい。
     * 現在CSRF対策としてFlask-WTFが導入されているため、CSRFトークンのエラーが発生しないよう注意すること。
