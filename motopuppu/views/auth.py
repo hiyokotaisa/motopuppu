@@ -207,7 +207,7 @@ def login_page():
         # important_notice_content = None
         # (ただし、上記の初期化でカバーされている)
 
-    return render_template('login.html', 
+    return render_template('index.html', 
                            announcements=announcements_for_modal, # モーダル用のお知らせリスト
                            important_notice=important_notice_content) # 固定表示用のお知らせ
 
