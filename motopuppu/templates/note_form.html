@@ -112,9 +112,14 @@
             </div>
         {% endif %}
 
-        <div id="todo-items-container">
+        <div id="todo-items-container"> {# SortableJSの対象コンテナ #}
             {% for todo_item_form in form.todos %}
                 <div class="input-group mb-2 todo-item">
+                    <div class="input-group-text p-2 handle" style="cursor: move;" title="ドラッグして並び替え">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-grip-vertical" viewBox="0 0 16 16">
+                            <path d="M7 2a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 8a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
+                        </svg>
+                    </div>
                     <div class="input-group-text">
                         {{ todo_item_form.checked(class="form-check-input mt-0 todo-item-check" + (" is-invalid" if todo_item_form.checked.errors else "")) }}
                     </div>
@@ -161,6 +166,11 @@
 
 <template id="todo-item-template">
     <div class="input-group mb-2 todo-item">
+        <div class="input-group-text p-2 handle" style="cursor: move;" title="ドラッグして並び替え">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-grip-vertical" viewBox="0 0 16 16">
+                <path d="M7 2a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 8a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
+            </svg>
+        </div>
         <div class="input-group-text">
             <input class="form-check-input mt-0 todo-item-check" type="checkbox">
         </div>
@@ -185,6 +195,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const contentTextarea = document.getElementById('content');
     const contentRequiredIndicator = document.getElementById('content-required-indicator');
     const MAX_TODO_ITEMS = {{ MAX_TODO_ITEMS | int }};
+    // const noteForm = document.getElementById('note-form'); // noteForm変数は現在使用されていません
+
+    let sortableInstance = null; 
+
+    // Ajax通信関連の変数は削除しました (reorderTasksUrl, currentNoteId, csrfToken)
 
     function toggleSections() {
         const selectedCategoryRadio = document.querySelector('input[name="category"]:checked');
@@ -196,11 +211,17 @@ document.addEventListener('DOMContentLoaded', function() {
             contentSection.style.display = 'none';
             if (contentTextarea) contentTextarea.required = false;
             if (contentRequiredIndicator) contentRequiredIndicator.style.display = 'none';
-        } else { 
+            if (sortableInstance) { 
+                sortableInstance.option("disabled", false);
+            }
+        } else {
             todoListSection.style.display = 'none';
             contentSection.style.display = 'block';
-            if (contentTextarea) contentTextarea.required = true; 
+            if (contentTextarea) contentTextarea.required = true;
             if (contentRequiredIndicator) contentRequiredIndicator.style.display = 'inline';
+            if (sortableInstance) { 
+                sortableInstance.option("disabled", true);
+            }
         }
         updateAddButtonState();
     }
@@ -209,15 +230,13 @@ document.addEventListener('DOMContentLoaded', function() {
         radio.addEventListener('change', toggleSections);
     });
 
-    // ▼▼▼ 削除ボタンにイベントリスナーをアタッチする関数 ▼▼▼
     function attachRemoveListener(buttonElement) {
         buttonElement.addEventListener('click', function() {
-            this.closest('.todo-item').remove(); // this は button
+            this.closest('.todo-item').remove();
             updateTodoItemNamesAndIndices();
             updateAddButtonState();
         });
     }
-    // ▲▲▲ 関数ここまで ▲▲▲
 
     function addTodoItem(textValue = '', checkedValue = false) {
         if (todoItemsContainer.children.length >= MAX_TODO_ITEMS) {
@@ -231,11 +250,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const textInput = newItem.querySelector('.todo-item-text');
         const removeButton = newItem.querySelector('.remove-todo-item');
         
-        const itemIndex = todoItemsContainer.children.length;
-
-        checkbox.name = `todos-${itemIndex}-checked`;
-        textInput.name = `todos-${itemIndex}-text`;
-
         textInput.value = textValue;
         checkbox.checked = checkedValue;
 
@@ -249,11 +263,9 @@ document.addEventListener('DOMContentLoaded', function() {
         checkbox.addEventListener('change', applyDoneStyle);
         applyDoneStyle(); 
 
-        // ▼▼▼ 動的に追加された削除ボタンにもリスナーをアタッチ ▼▼▼
         attachRemoveListener(removeButton);
-        // ▲▲▲ 修正ここまで ▲▲▲
-
         todoItemsContainer.appendChild(newItem);
+        updateTodoItemNamesAndIndices();
         updateAddButtonState();
     }
     
@@ -285,20 +297,38 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // --- ▼▼▼ 初期ロード時の処理を修正 ▼▼▼ ---
-    // 初期表示のカテゴリに合わせて表示を切り替え
+    if (todoItemsContainer && typeof Sortable !== 'undefined') {
+        sortableInstance = new Sortable(todoItemsContainer, {
+            animation: 150,
+            handle: '.handle', 
+            ghostClass: 'bg-light', 
+            onEnd: function (evt) {
+                // DOM要素のname属性のインデックスを更新 (フォーム送信時に正しい順序を反映するため)
+                updateTodoItemNamesAndIndices();
+                // Ajaxによる即時保存処理は削除しました
+            }
+        });
+    }
+
     toggleSections(); 
-    // 既存の（サーバーからレンダリングされた）TODOアイテムの削除ボタンにイベントリスナーをアタッチ
+    
     todoItemsContainer.querySelectorAll('.remove-todo-item').forEach(button => {
         attachRemoveListener(button);
     });
-    // 既存のアイテムのname属性はサーバーレンダリング時に正しく設定されているはずなので、
-    // updateTodoItemNamesAndIndices(); の初期呼び出しは必須ではないかもしれないが、念のため。
-    // ただし、addTodoItemで動的に追加されたものと混在する場合、インデックスの整合性を保つためには
-    // サーバーレンダリングされたアイテムも考慮したインデックス管理が必要になる。
-    // 現状の updateTodoItemNamesAndIndices は全アイテムを走査するので、初期に呼んでも問題はない。
-    updateTodoItemNamesAndIndices(); 
-    // --- ▲▲▲ 修正ここまで ▲▲▲ ---
+    todoItemsContainer.querySelectorAll('.todo-item').forEach(item => {
+        const checkbox = item.querySelector('.todo-item-check');
+        const textInput = item.querySelector('.todo-item-text');
+        function applyDoneStyle() {
+             if (checkbox.checked) {
+                 textInput.classList.add('text-decoration-line-through', 'text-muted');
+             } else {
+                 textInput.classList.remove('text-decoration-line-through', 'text-muted');
+             }
+        }
+        checkbox.addEventListener('change', applyDoneStyle);
+        applyDoneStyle();
+    });
+    updateTodoItemNamesAndIndices();
 });
 </script>
 {% endblock %}

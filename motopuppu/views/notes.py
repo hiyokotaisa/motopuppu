@@ -2,14 +2,13 @@
 from flask import (
     Blueprint, flash, g, redirect, render_template, request, url_for, abort, current_app, jsonify
 )
-from datetime import date, timezone, datetime
+from datetime import date, timezone, datetime 
 from sqlalchemy import or_
 import json
 
-from .auth import login_required_custom, get_current_user
+from .auth import login_required_custom 
 from ..models import db, Motorcycle, GeneralNote
-from ..forms import NoteForm, NOTE_CATEGORIES, MAX_TODO_ITEMS
-# 実績評価モジュールとイベントタイプをインポート
+from ..forms import NoteForm, NOTE_CATEGORIES, MAX_TODO_ITEMS 
 from ..achievement_evaluator import check_achievements_for_event, EVENT_ADD_NOTE
 
 notes_bp = Blueprint('notes', __name__, url_prefix='/notes')
@@ -110,13 +109,11 @@ def add_note():
         
         try:
             db.session.add(new_note)
-            db.session.commit() # まずメインの処理をコミット
+            db.session.commit() 
             flash('ノートを追加しました。', 'success')
 
-            # ▼▼▼ コミット成功後に実績評価を呼び出し ▼▼▼
             event_data_for_ach = {'new_note_id': new_note.id, 'category': new_note.category}
             check_achievements_for_event(g.user, EVENT_ADD_NOTE, event_data=event_data_for_ach)
-            # ▲▲▲ 実績評価の呼び出し ▲▲▲
 
             return redirect(url_for('notes.notes_log'))
         except Exception as e:
@@ -132,7 +129,8 @@ def add_note():
                            form_action='add',
                            motorcycles=user_motorcycles,
                            today_iso=date.today().isoformat(),
-                           MAX_TODO_ITEMS=MAX_TODO_ITEMS
+                           MAX_TODO_ITEMS=MAX_TODO_ITEMS,
+                           note_id=None 
                            )
 
 @notes_bp.route('/<int:note_id>/edit', methods=['GET', 'POST'])
@@ -146,7 +144,11 @@ def edit_note(note_id):
     if request.method == 'GET':
         form.motorcycle_id.data = note.motorcycle_id if note.motorcycle_id is not None else 0
         if note.category == 'task' and note.todos:
-            while len(form.todos.entries) > 0: form.todos.pop_entry()
+            num_entries_to_pop = len(form.todos.entries)
+            for _ in range(num_entries_to_pop):
+                 if form.todos.entries: 
+                    form.todos.pop_entry()
+
             for item_data in note.todos:
                 if isinstance(item_data, dict) and item_data.get('text'): 
                     todo_item_form_entry = form.todos.append_entry()
@@ -166,11 +168,14 @@ def edit_note(note_id):
         elif note.category == 'task':
             note.content = '' 
             todos_data = []
-            for item_form in form.todos:
-                if item_form.text.data and item_form.text.data.strip(): 
+            # form.todos.data は FieldList によって、送信されたデータと
+            # DOMの順序に基づいて再構築されたPythonの辞書のリストになります。
+            # (WTFormsが name="todos-X-text" のような属性を解釈します)
+            for item_data_from_form in form.todos.data: # form.todos ではなく form.todos.data を使用
+                if item_data_from_form.get('text') and item_data_from_form['text'].strip(): 
                     todos_data.append({
-                        'text': item_form.text.data.strip(),
-                        'checked': item_form.checked.data
+                        'text': item_data_from_form['text'].strip(),
+                        'checked': item_data_from_form.get('checked', False) # .get() で安全に
                     })
             note.todos = todos_data if todos_data else None 
         
@@ -179,6 +184,9 @@ def edit_note(note_id):
         try:
             db.session.commit()
             flash('ノートを更新しました。', 'success')
+            # 必要であればノート更新の実績評価
+            # event_data_for_ach = {'note_id': note.id, 'category': note.category, 'action': 'edit'}
+            # check_achievements_for_event(g.user, EVENT_UPDATE_NOTE, event_data=event_data_for_ach)
             return redirect(url_for('notes.notes_log'))
         except Exception as e:
             db.session.rollback()
