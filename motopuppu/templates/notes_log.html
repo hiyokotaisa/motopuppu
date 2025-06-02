@@ -1,4 +1,3 @@
-{# motopuppu/templates/notes_log.html #}
 {% extends "base.html" %}
 
 {% block title %}ノート - もとぷっぷー{% endblock %}
@@ -88,7 +87,15 @@
             {% for note in entries %}
             <tr>
                 <td>{{ note.note_date.strftime('%Y-%m-%d') }}</td>
-                <td> {% if note.motorcycle %} <a href="{{ url_for('vehicle.edit_vehicle', vehicle_id=note.motorcycle_id) }}">{{ note.motorcycle.name }}</a> {% else %} <span class="text-muted">--</span> {% endif %} </td>
+                <td>
+                    {# --- ▼ここを変更▼ --- #}
+                    {% if note.motorcycle %}
+                    <a href="{{ url_for('notes.edit_note', note_id=note.id) }}" title="ノート「{{ note.title if note.title else '(タイトルなし)' }}」を編集 (車両: {{note.motorcycle.name}})">{{ note.motorcycle.name }}</a>
+                    {% else %}
+                    <span class="text-muted">--</span>
+                    {% endif %}
+                    {# --- ▲ここまで変更▲ --- #}
+                </td>
                 <td>
                      <span class="me-1" title="カテゴリー: {{ 'タスク' if note.category == 'task' else 'ノート' }}">
                          {% if note.category == 'task' %} <i class="fas fa-tasks text-primary"></i>

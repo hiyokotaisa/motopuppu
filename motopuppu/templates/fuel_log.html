@@ -1,4 +1,3 @@
-{# motopuppu/templates/fuel_log.html #}
 {% extends "base.html" %}
 
 {% block title %}給油記録 - もとぷっぷー{% endblock %}
@@ -123,9 +122,11 @@
             <tr>
                 <td>{{ entry.entry_date.strftime('%Y-%m-%d') }}</td>
                 <td>
-                    <a href="{{ url_for('vehicle.edit_vehicle', vehicle_id=entry.motorcycle_id) }}" title="車両情報を見る">
+                    {# --- ▼ここを変更▼ --- #}
+                    <a href="{{ url_for('fuel.edit_fuel', entry_id=entry.id) }}" title="給油記録「{{ entry.motorcycle.name }} - {{ entry.entry_date.strftime('%Y-%m-%d') }}」を編集">
                         {{ entry.motorcycle.name }}
                     </a>
+                    {# --- ▲ここまで変更▲ --- #}
                 </td>
                 {# --- 走行距離データセル (JavaScriptで制御) --- #}
                 <td class="text-end distance-value-cell"

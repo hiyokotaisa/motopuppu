@@ -1,4 +1,3 @@
-{# motopuppu/templates/maintenance_log.html #}
 {% extends "base.html" %}
 
 {% block title %}整備記録 - もとぷっぷー{% endblock %}
@@ -126,9 +125,11 @@
             <tr>
                 <td>{{ entry.maintenance_date.strftime('%Y-%m-%d') }}</td>
                 <td>
-                    <a href="{{ url_for('vehicle.edit_vehicle', vehicle_id=entry.motorcycle_id) }}" title="車両情報を見る">
+                    {# --- ▼ここを変更▼ --- #}
+                    <a href="{{ url_for('maintenance.edit_maintenance', entry_id=entry.id) }}" title="整備記録「{{ entry.motorcycle.name }} - {{ entry.description|truncate(15) }}」を編集">
                         {{ entry.motorcycle.name }}
                     </a>
+                    {# --- ▲ここまで変更▲ --- #}
                 </td>
                 {# --- 走行距離データセル (JavaScriptで制御) --- #}
                 <td class="text-end distance-value-cell"
@@ -159,8 +160,8 @@
                             data-type="maintenance"
                             data-vehicle-name="{{ entry.motorcycle.name }}"
                             data-date="{{ entry.maintenance_date.isoformat() }}"
-                            data-odo="{{ entry.odometer_reading_at_maintenance }}" 
-                            data-total-distance = "{{ entry.total_distance_at_maintenance if entry.total_distance_at_maintenance is not none else '' }}" 
+                            data-odo="{{ entry.odometer_reading_at_maintenance }}"
+                            data-total-distance = "{{ entry.total_distance_at_maintenance if entry.total_distance_at_maintenance is not none else '' }}"
                             data-category="{{ entry.category or '' }}"
                             data-description="{{ entry.description }}"
                             data-cost="{{ entry.total_cost|round|int if entry.total_cost else '' }}"
