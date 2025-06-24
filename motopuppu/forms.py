@@ -34,14 +34,28 @@ class FuelForm(FlaskForm):
         validators=[DataRequired(message='給油日は必須です。')],
         format='%Y-%m-%d'
     )
+    # --- ▼▼▼ トグルスイッチへの変更 ▼▼▼ ---
+    input_mode = BooleanField(
+        'トリップメーターで入力する', # ラベルを分かりやすく変更
+        default=False # デフォルトはOFF (ODOメーター入力)
+    )
     odometer_reading = IntegerField(
         'ODOメーター値 (km)',
         validators=[
-            DataRequired(message='ODOメーター値は必須です。'),
+            Optional(), # バリデーションはビュー側で実施するため変更なし
             NumberRange(min=0, message='ODOメーター値は0以上で入力してください。')
         ],
         render_kw={"placeholder": "例: 12345"}
     )
+    trip_distance = IntegerField(
+        'トリップメーター (km)',
+        validators=[
+            Optional(),
+            NumberRange(min=0, message='トリップメーターは0以上で入力してください。')
+        ],
+        render_kw={"placeholder": "前回給油からの走行距離"}
+    )
+    # --- ▲▲▲ トグルスイッチへの変更 ▲▲▲ ---
     fuel_volume = DecimalField(
         '給油量 (L)',
         places=2,

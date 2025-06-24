@@ -26,11 +26,15 @@ def get_previous_fuel_entry(motorcycle_id, current_entry_date, current_entry_id=
     # --- ▲▲▲ フェーズ1変更点 ▲▲▲
     query = FuelEntry.query.filter(
         FuelEntry.motorcycle_id == motorcycle_id,
-        FuelEntry.entry_date < current_entry_date
+        FuelEntry.entry_date <= current_entry_date # 同日も含むように変更
     )
     if current_entry_id is not None:
         query = query.filter(FuelEntry.id != current_entry_id)
-    previous_entry = query.order_by(FuelEntry.entry_date.desc(), FuelEntry.total_distance.desc()).first()
+
+    # --- ▼▼▼ トリップ入力機能のためソート順をより厳密に変更 ▼▼▼
+    # 同じ日付の記録がある場合、ODOメーター値が大きい方を「後」の記録とみなす
+    previous_entry = query.order_by(FuelEntry.entry_date.desc(), FuelEntry.odometer_reading.desc(), FuelEntry.id.desc()).first()
+    # --- ▲▲▲ トリップ入力機能のためソート順をより厳密に変更 ▲▲▲
     return previous_entry
 
 @fuel_bp.route('/')
@@ -138,7 +142,6 @@ def add_fuel():
 
     form = FuelForm()
     form.motorcycle_id.choices = [(m.id, f"{m.name} ({m.maker or 'メーカー不明'})") for m in user_motorcycles_for_fuel]
-    previous_entry_info = None
 
     if request.method == 'GET':
         default_vehicle = next((m for m in user_motorcycles_for_fuel if m.is_default), user_motorcycles_for_fuel[0] if user_motorcycles_for_fuel else None)
@@ -153,17 +156,36 @@ def add_fuel():
         # --- ▼▼▼ フェーズ1変更点 (選択された車両がレーサーでないことを再確認) ▼▼▼
         motorcycle = Motorcycle.query.filter_by(id=form.motorcycle_id.data, user_id=g.user.id, is_racer=False).first()
         # --- ▲▲▲ フェーズ1変更点 ▲▲▲
-        if not motorcycle: # is_racer=False の条件で取得できなかった場合も含む
+        if not motorcycle:
             flash('選択された車両が見つからないか、給油記録の対象外です。再度お試しください。', 'danger')
-            form.motorcycle_id.choices = [(m.id, f"{m.name} ({m.maker or 'メーカー不明'})") for m in user_motorcycles_for_fuel] # 選択肢を再設定
             return render_template('fuel_form.html', form_action='add', form=form, gas_station_brands=GAS_STATION_BRANDS, previous_entry_info=None)
+
+        # --- ▼▼▼ トグルスイッチ対応のバリデーションロジック ▼▼▼
+        previous_fuel = get_previous_fuel_entry(motorcycle.id, form.entry_date.data)
+
+        if form.input_mode.data:  # トグルがON (True) の場合、トリップ入力モード
+            if form.trip_distance.data is None:
+                form.trip_distance.errors.append('トリップメーターで入力する場合、この項目は必須です。')
+            elif previous_fuel:
+                # ODOを計算してフォームデータに上書き
+                form.odometer_reading.data = previous_fuel.odometer_reading + form.trip_distance.data
+            else:
+                # この車両で初めての給油記録の場合
+                form.trip_distance.errors.append('この車両で初めての給油です。トリップ入力は使用できません。ODOメーター値を直接入力してください。')
+        else:  # トグルがOFF (False) の場合、ODO入力モード
+            if form.odometer_reading.data is None:
+                form.odometer_reading.errors.append('ODOメーターで入力する場合、この項目は必須です。')
+        # --- ▲▲▲ トグルスイッチ対応のバリデーションロジック ▲▲▲
+
+        if form.errors:
+            flash('入力内容にエラーがあります。ご確認ください。', 'danger')
+            return render_template('fuel_form.html', form_action='add', form=form, gas_station_brands=GAS_STATION_BRANDS, previous_entry_info={'date': previous_fuel.entry_date.strftime('%Y-%m-%d'), 'odo': f"{previous_fuel.odometer_reading:,}km"} if previous_fuel else None)
 
         offset_at_entry_date = motorcycle.calculate_cumulative_offset_from_logs(target_date=form.entry_date.data)
         total_distance = form.odometer_reading.data + offset_at_entry_date
 
-        previous_entry_for_check = get_previous_fuel_entry(motorcycle.id, form.entry_date.data)
-        if previous_entry_for_check and total_distance < previous_entry_for_check.total_distance:
-            flash(f'注意: 今回の総走行距離 ({total_distance:,}km) が、前回記録 ({previous_entry_for_check.entry_date.strftime("%Y-%m-%d")} の {previous_entry_for_check.total_distance:,}km) より小さくなっています。入力内容を確認してください。', 'warning')
+        if previous_fuel and total_distance < previous_fuel.total_distance:
+            flash(f'注意: 今回の総走行距離 ({total_distance:,}km) が、前回記録 ({previous_fuel.entry_date.strftime("%Y-%m-%d")} の {previous_fuel.total_distance:,}km) より小さくなっています。入力内容を確認してください。', 'warning')
 
         total_cost_val = form.total_cost.data
         if total_cost_val is None and form.price_per_liter.data is not None and form.fuel_volume.data is not None:
@@ -195,11 +217,10 @@ def add_fuel():
             flash(f'記録のデータベース保存中にエラーが発生しました。詳細は管理者にお問い合わせください。', 'error')
             current_app.logger.error(f"Error saving new fuel entry: {e}", exc_info=True)
 
-    elif request.method == 'POST': # バリデーション失敗時
-        form.motorcycle_id.choices = [(m.id, f"{m.name} ({m.maker or 'メーカー不明'})") for m in user_motorcycles_for_fuel] # 選択肢を再設定
+    elif request.method == 'POST':
         flash('入力内容にエラーがあります。ご確認ください。', 'danger')
 
-
+    previous_entry_info = None
     selected_motorcycle_id_for_prev = form.motorcycle_id.data
     entry_date_for_prev = form.entry_date.data
     if selected_motorcycle_id_for_prev and entry_date_for_prev:
@@ -215,28 +236,45 @@ def add_fuel():
 @fuel_bp.route('/<int:entry_id>/edit', methods=['GET', 'POST'])
 @login_required_custom
 def edit_fuel(entry_id):
-    # --- ▼▼▼ フェーズ1変更点 (編集対象のFuelEntryの車両がレーサーでないことを確認) ▼▼▼
     entry = FuelEntry.query.join(Motorcycle).filter(
         FuelEntry.id == entry_id,
         Motorcycle.user_id == g.user.id,
-        Motorcycle.is_racer == False # レーサー車両の記録は編集対象外
-    ).first_or_404() # is_racer=False で見つからなければ404
-    # --- ▲▲▲ フェーズ1変更点 ▲▲▲
+        Motorcycle.is_racer == False
+    ).first_or_404()
+    
     form = FuelForm(obj=entry)
-    # 編集時は車両選択を無効化するため、選択肢は現在の車両のみで良い
     form.motorcycle_id.choices = [(entry.motorcycle.id, f"{entry.motorcycle.name} ({entry.motorcycle.maker or 'メーカー不明'})")]
     form.motorcycle_id.data = entry.motorcycle_id
-    previous_entry_info = None
+    
+    if request.method == 'GET':
+        form.input_mode.data = False # 編集時はデフォルトでトグルOFF
 
     if form.validate_on_submit():
-        motorcycle = entry.motorcycle # is_racer=False は上記クエリで保証済み
+        motorcycle = entry.motorcycle
+        previous_fuel = get_previous_fuel_entry(motorcycle.id, form.entry_date.data, entry.id)
+
+        # --- ▼▼▼ トグルスイッチ対応のバリデーションロジック (編集時) ▼▼▼
+        if form.input_mode.data: # トグルがON (True) の場合、トリップ入力モード
+            if form.trip_distance.data is None:
+                form.trip_distance.errors.append('トリップメーターで入力する場合、この項目は必須です。')
+            elif previous_fuel:
+                form.odometer_reading.data = previous_fuel.odometer_reading + form.trip_distance.data
+            else:
+                form.trip_distance.errors.append('この記録より前の給油記録がありません。トリップ入力は使用できません。ODOメーター値を直接入力してください。')
+        else: # トグルがOFF (False) の場合、ODO入力モード
+            if form.odometer_reading.data is None:
+                form.odometer_reading.errors.append('ODOメーターで入力する場合、この項目は必須です。')
+        # --- ▲▲▲ トグルスイッチ対応のバリデーションロジック (編集時) ▲▲▲
+
+        if form.errors:
+            flash('入力内容にエラーがあります。ご確認ください。', 'danger')
+            return render_template('fuel_form.html', form_action='edit', form=form, entry_id=entry.id, gas_station_brands=GAS_STATION_BRANDS, previous_entry_info={'date': previous_fuel.entry_date.strftime('%Y-%m-%d'), 'odo': f"{previous_fuel.odometer_reading:,}km"} if previous_fuel else None)
 
         offset_at_entry_date = motorcycle.calculate_cumulative_offset_from_logs(target_date=form.entry_date.data)
         total_distance = form.odometer_reading.data + offset_at_entry_date
 
-        previous_entry_for_check = get_previous_fuel_entry(motorcycle.id, form.entry_date.data, entry.id)
-        if previous_entry_for_check and total_distance < previous_entry_for_check.total_distance:
-             flash(f'注意: 今回の総走行距離 ({total_distance:,}km) が、前回記録 ({previous_entry_for_check.entry_date.strftime("%Y-%m-%d")} の {previous_entry_for_check.total_distance:,}km) より小さくなっています。入力内容を確認してください。', 'warning')
+        if previous_fuel and total_distance < previous_fuel.total_distance:
+             flash(f'注意: 今回の総走行距離 ({total_distance:,}km) が、前回記録 ({previous_fuel.entry_date.strftime("%Y-%m-%d")} の {previous_fuel.total_distance:,}km) より小さくなっています。入力内容を確認してください。', 'warning')
 
         total_cost_val = form.total_cost.data
         if total_cost_val is None and form.price_per_liter.data is not None and form.fuel_volume.data is not None:
@@ -265,16 +303,13 @@ def edit_fuel(entry_id):
             flash(f'記録の更新中にエラーが発生しました。詳細は管理者にお問い合わせください。', 'error')
             current_app.logger.error(f"Error updating fuel entry ID {entry_id}: {e}", exc_info=True)
 
-    elif request.method == 'POST': # バリデーション失敗時
-        form.motorcycle_id.choices = [(entry.motorcycle.id, f"{entry.motorcycle.name} ({entry.motorcycle.maker or 'メーカー不明'})")]
-        form.motorcycle_id.data = entry.motorcycle.id
+    elif request.method == 'POST':
         flash('入力内容にエラーがあります。ご確認ください。', 'danger')
 
-
-    current_motorcycle_id_for_prev = entry.motorcycle_id
-    entry_date_for_prev = form.entry_date.data if form.entry_date.errors else entry.entry_date
-    if current_motorcycle_id_for_prev and entry_date_for_prev:
-        previous_fuel = get_previous_fuel_entry(current_motorcycle_id_for_prev, entry_date_for_prev, entry.id)
+    previous_entry_info = None
+    entry_date_for_prev = form.entry_date.data if not form.entry_date.errors else entry.entry_date
+    if entry_date_for_prev:
+        previous_fuel = get_previous_fuel_entry(entry.motorcycle_id, entry_date_for_prev, entry.id)
         if previous_fuel:
             previous_entry_info = {
                 'date': previous_fuel.entry_date.strftime('%Y-%m-%d'),
@@ -286,13 +321,11 @@ def edit_fuel(entry_id):
 @fuel_bp.route('/<int:entry_id>/delete', methods=['POST'])
 @login_required_custom
 def delete_fuel(entry_id):
-    # --- ▼▼▼ フェーズ1変更点 (削除対象のFuelEntryの車両がレーサーでないことを確認) ▼▼▼
     entry = FuelEntry.query.join(Motorcycle).filter(
         FuelEntry.id == entry_id,
         Motorcycle.user_id == g.user.id,
-        Motorcycle.is_racer == False # レーサー車両の記録は削除対象外
-    ).first_or_404() # is_racer=False で見つからなければ404
-    # --- ▲▲▲ フェーズ1変更点 ▲▲▲
+        Motorcycle.is_racer == False
+    ).first_or_404()
     try:
         db.session.delete(entry)
         db.session.commit()
@@ -306,13 +339,11 @@ def delete_fuel(entry_id):
 @fuel_bp.route('/motorcycle/<int:motorcycle_id>/export_csv')
 @login_required_custom
 def export_fuel_records_csv(motorcycle_id):
-    # --- ▼▼▼ フェーズ1変更点 (対象車両がレーサーでないことを確認) ▼▼▼
     motorcycle = Motorcycle.query.filter_by(id=motorcycle_id, user_id=g.user.id, is_racer=False).first_or_404()
-    # --- ▲▲▲ フェーズ1変更点 ▲▲▲
     fuel_records = FuelEntry.query.filter_by(motorcycle_id=motorcycle.id).order_by(FuelEntry.entry_date.asc(), FuelEntry.total_distance.asc()).all()
     if not fuel_records:
         flash(f'{motorcycle.name}にはエクスポート対象の燃費記録がありません。', 'info')
-        return redirect(url_for('fuel.fuel_log', vehicle_id=motorcycle.id)) # 元のvehicle_idを渡す
+        return redirect(url_for('fuel.fuel_log', vehicle_id=motorcycle.id))
     output = io.StringIO()
     writer = csv.writer(output)
     header = ['id', 'motorcycle_id', 'motorcycle_name', 'entry_date', 'odometer_reading', 'total_distance', 'fuel_volume', 'price_per_liter', 'total_cost', 'station_name', 'is_full_tank', 'km_per_liter', 'exclude_from_average', 'notes', 'fuel_type']
@@ -331,9 +362,7 @@ def export_fuel_records_csv(motorcycle_id):
 @fuel_bp.route('/export_all_csv')
 @login_required_custom
 def export_all_fuel_records_csv():
-    # --- ▼▼▼ フェーズ1変更点 (車両リストからレーサーを除外) ▼▼▼
     user_motorcycles_for_fuel = Motorcycle.query.filter_by(user_id=g.user.id, is_racer=False).all()
-    # --- ▲▲▲ フェーズ1変更点 ▲▲▲
     if not user_motorcycles_for_fuel:
         flash('エクスポート対象の車両（公道車）が登録されていません。', 'info')
         return redirect(url_for('fuel.fuel_log'))

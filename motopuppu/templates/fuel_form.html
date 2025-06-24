@@ -45,23 +45,52 @@
         {% endif %}
     </div>
 
-    {# ODOメーター & 前回情報 #}
-    <div class="mb-3">
-        {{ form.odometer_reading.label(class="form-label") }} {% if form.odometer_reading.flags.required %}<span class="text-danger">*</span>{% endif %}
+    {# --- ▼▼▼ トグルスイッチ UI変更 ▼▼▼ --- #}
+    {# 入力モード選択 (トグルスイッチ) #}
+    <div class="form-check form-switch mb-3">
+        {{ form.input_mode(class="form-check-input", role="switch") }}
+        {{ form.input_mode.label(class="form-check-label") }}
+        {% if form.input_mode.errors %}
+            <div class="invalid-feedback d-block">
+                {% for error in form.input_mode.errors %}<span>{{ error }}</span><br>{% endfor %}
+            </div>
+        {% endif %}
+    </div>
+
+    {# ODOメーター入力グループ #}
+    <div id="odo-input-group" class="mb-3">
+        {{ form.odometer_reading.label(class="form-label") }} <span class="text-danger">*</span>
         {{ form.odometer_reading(class="form-control" + (" is-invalid" if form.odometer_reading.errors else ""), min="0", step="1", placeholder=(form.odometer_reading.render_kw.get("placeholder", "") if form.odometer_reading.render_kw else "")) }}
         {% if form.odometer_reading.errors %}
             <div class="invalid-feedback">
                 {% for error in form.odometer_reading.errors %}<span>{{ error }}</span><br>{% endfor %}
             </div>
         {% else %}
+            <div class="form-text">給油時のメーター表示値 (整数) を入力してください。</div>
+        {% endif %}
+    </div>
+
+    {# トリップメーター入力グループ #}
+    <div id="trip-input-group" class="mb-3" style="display: none;">
+        {{ form.trip_distance.label(class="form-label") }} <span class="text-danger">*</span>
+        {{ form.trip_distance(class="form-control" + (" is-invalid" if form.trip_distance.errors else ""), min="0", step="1", placeholder=(form.trip_distance.render_kw.get("placeholder", "") if form.trip_distance.render_kw else "")) }}
+        {% if form.trip_distance.errors %}
+            <div class="invalid-feedback">
+                {% for error in form.trip_distance.errors %}<span>{{ error }}</span><br>{% endfor %}
+            </div>
+        {% else %}
             <div class="form-text">
-                給油時のメーター表示値 (整数) を入力してください。
+                前回給油時からの走行距離 (整数) を入力してください。
                 {% if previous_entry_info %}
                     <br> <span class="text-info small"> <i class="fas fa-info-circle me-1"></i>前回給油: {{ previous_entry_info.date }} - {{ previous_entry_info.odo }}</span>
+                {% else %}
+                    <br> <span class="text-warning small"> <i class="fas fa-exclamation-triangle me-1"></i>この車両で初めての給油です。トリップ入力は利用できません。</span>
                 {% endif %}
             </div>
         {% endif %}
     </div>
+    {# --- ▲▲▲ トグルスイッチ UI変更 ▲▲▲ --- #}
+
 
     {# 給油量 #}
      <div class="mb-3">
@@ -192,8 +221,6 @@
             if (!isNaN(volume) && volume > 0 && !isNaN(price) && price >= 0) {
                 const totalCost = Math.round(volume * price);
                 costInput.value = totalCost;
-            } else {
-                 costInput.value = '';
             }
         }
         if (volumeInput && priceInput && costInput) {
@@ -202,6 +229,30 @@
         } else {
             console.warn("One or more elements for cost calculation not found by ID. Check IDs: fuel_volume, price_per_liter, total_cost");
         }
+
+        // --- ▼▼▼ トグルスイッチ対応 スクリプト変更 ▼▼▼
+        const inputModeToggle = document.getElementById('input_mode'); // IDはWTFormsが生成するフィールド名
+        const odoGroup = document.getElementById('odo-input-group');
+        const tripGroup = document.getElementById('trip-input-group');
+
+        function toggleInputFields() {
+            // トグルスイッチがチェックされているか (ONか) で判定
+            if (inputModeToggle.checked) {
+                odoGroup.style.display = 'none';
+                tripGroup.style.display = 'block';
+            } else {
+                odoGroup.style.display = 'block';
+                tripGroup.style.display = 'none';
+            }
+        }
+
+        if (inputModeToggle && odoGroup && tripGroup) {
+            // イベントリスナーを 'change' イベントに設定
+            inputModeToggle.addEventListener('change', toggleInputFields);
+            // 初期表示時にも実行
+            toggleInputFields();
+        }
+        // --- ▲▲▲ トグルスイッチ対応 スクリプト変更 ▲▲▲
     });
 </script>
 {% endblock %}
