@@ -1,3 +1,4 @@
+{# motopuppu/templates/fuel_log.html #}
 {% extends "base.html" %}
 
 {% block title %}給油記録 - もとぷっぷー{% endblock %}
@@ -119,7 +120,7 @@
         </thead>
         <tbody>
             {% for entry in entries %}
-            <tr>
+            <tr {% if entry.exclude_from_average %}class="table-secondary"{% endif %}>
                 <td>{{ entry.entry_date.strftime('%Y-%m-%d') }}</td>
                 <td>
                     {# --- ▼ここを変更▼ --- #}
@@ -151,7 +152,9 @@
                 </td>
                 <td>{{ entry.station_name if entry.station_name else '-' }}</td>
                 <td class="text-end">
-                    {% if entry.km_per_liter is not none %}
+                    {% if entry.exclude_from_average %}
+                        <span class="text-muted" data-bs-toggle="tooltip" title="平均燃費の計算から除外されています">-</span>
+                    {% elif entry.km_per_liter is not none %}
                         {{ "%.2f"|format(entry.km_per_liter) }}
                     {% else %}
                         -
@@ -209,5 +212,12 @@
 {# --- JavaScript --- #}
 {% block scripts %}
 {{ super() }} {# base.html のスクリプトを継承 #}
+<script>
+    // Bootstrap 5 のツールチップを有効化
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+      return new bootstrap.Tooltip(tooltipTriggerEl)
+    })
+</script>
 {# odo_toggle.js は base.html で読み込まれる想定 #}
 {% endblock %}

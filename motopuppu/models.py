@@ -73,21 +73,49 @@ class Motorcycle(db.Model):
         # --- ▼▼▼ フェーズ1変更点 (レーサー車両は燃費計算対象外) ▼▼▼ ---
         if self.is_racer:
             return None
-        # --- ▲▲▲ フェーズ1変更点 ▲▲▲ ---
-        full_tank_entries = FuelEntry.query.filter(FuelEntry.motorcycle_id == self.id, FuelEntry.is_full_tank == True).order_by(FuelEntry.total_distance.asc()).all()
-        if len(full_tank_entries) < 2: return None
-        total_distance_traveled = full_tank_entries[-1].total_distance - full_tank_entries[0].total_distance
-        first_entry_dist = full_tank_entries[0].total_distance
-        last_entry_dist = full_tank_entries[-1].total_distance
-        entries_in_period = FuelEntry.query.filter(
+        # --- ▲▲▲ フェーズ1変更点 ▲▲▲
+
+        # --- ▼▼▼ 計算ロジック修正 ▼▼▼
+        # is_full_tank=Trueの記録をすべて取得し、走行距離でソート
+        all_full_tank_entries = FuelEntry.query.filter(
             FuelEntry.motorcycle_id == self.id,
-            FuelEntry.total_distance > first_entry_dist,
-            FuelEntry.total_distance <= last_entry_dist
-        ).all()
-        total_fuel_consumed = sum(entry.fuel_volume for entry in entries_in_period if entry.fuel_volume is not None)
-        if total_fuel_consumed > 0 and total_distance_traveled > 0:
-            try: return round(float(total_distance_traveled) / float(total_fuel_consumed), 2)
-            except ZeroDivisionError: return None
+            FuelEntry.is_full_tank == True
+        ).order_by(FuelEntry.total_distance.asc()).all()
+
+        if len(all_full_tank_entries) < 2:
+            return None
+
+        total_distance = 0.0
+        total_fuel = 0.0
+
+        for i in range(len(all_full_tank_entries) - 1):
+            start_entry = all_full_tank_entries[i]
+            end_entry = all_full_tank_entries[i+1]
+
+            # 区間の始点か終点が「除外」設定の場合、この区間は計算に含めない
+            if start_entry.exclude_from_average or end_entry.exclude_from_average:
+                continue
+
+            distance_diff = end_entry.total_distance - start_entry.total_distance
+
+            # この区間内にある「除外されていない」給油記録の給油量を合計する
+            fuel_in_interval = db.session.query(func.sum(FuelEntry.fuel_volume)).filter(
+                FuelEntry.motorcycle_id == self.id,
+                FuelEntry.total_distance > start_entry.total_distance,
+                FuelEntry.total_distance <= end_entry.total_distance,
+                FuelEntry.exclude_from_average == False # 区間内の給油も除外フラグを考慮
+            ).scalar() or 0.0
+
+            if distance_diff > 0 and fuel_in_interval > 0:
+                total_distance += distance_diff
+                total_fuel += fuel_in_interval
+
+        if total_fuel > 0 and total_distance > 0:
+            try:
+                return round(total_distance / total_fuel, 2)
+            except ZeroDivisionError:
+                return None
+        # --- ▲▲▲ 計算ロジック修正 ▲▲▲
         return None
 
     def __repr__(self):
@@ -108,6 +136,7 @@ class FuelEntry(db.Model):
     fuel_type = db.Column(db.String(20), nullable=True)
     notes = db.Column(db.Text, nullable=True)
     is_full_tank = db.Column(db.Boolean, nullable=False, server_default='true')
+    exclude_from_average = db.Column(db.Boolean, nullable=False, default=False, server_default='false')
     __table_args__ = (Index('ix_fuel_entries_entry_date', 'entry_date'),)
 
     @property

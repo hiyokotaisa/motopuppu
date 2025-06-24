@@ -177,7 +177,8 @@ def add_fuel():
             price_per_liter=float(form.price_per_liter.data) if form.price_per_liter.data is not None else None,
             total_cost=total_cost_val, station_name=form.station_name.data.strip() if form.station_name.data else None,
             fuel_type=form.fuel_type.data.strip() if form.fuel_type.data else None,
-            notes=form.notes.data.strip() if form.notes.data else None, is_full_tank=form.is_full_tank.data
+            notes=form.notes.data.strip() if form.notes.data else None, is_full_tank=form.is_full_tank.data,
+            exclude_from_average=form.exclude_from_average.data
         )
 
         try:
@@ -253,6 +254,7 @@ def edit_fuel(entry_id):
         entry.fuel_type = form.fuel_type.data.strip() if form.fuel_type.data else None
         entry.notes = form.notes.data.strip() if form.notes.data else None
         entry.is_full_tank = form.is_full_tank.data
+        entry.exclude_from_average = form.exclude_from_average.data
 
         try:
             db.session.commit()
@@ -313,11 +315,11 @@ def export_fuel_records_csv(motorcycle_id):
         return redirect(url_for('fuel.fuel_log', vehicle_id=motorcycle.id)) # 元のvehicle_idを渡す
     output = io.StringIO()
     writer = csv.writer(output)
-    header = ['id', 'motorcycle_id', 'motorcycle_name', 'entry_date', 'odometer_reading', 'total_distance', 'fuel_volume', 'price_per_liter', 'total_cost', 'station_name', 'is_full_tank', 'km_per_liter', 'notes', 'fuel_type']
+    header = ['id', 'motorcycle_id', 'motorcycle_name', 'entry_date', 'odometer_reading', 'total_distance', 'fuel_volume', 'price_per_liter', 'total_cost', 'station_name', 'is_full_tank', 'km_per_liter', 'exclude_from_average', 'notes', 'fuel_type']
     writer.writerow(header)
     for record in fuel_records:
         km_per_liter_val = record.km_per_liter
-        row = [record.id, record.motorcycle_id, motorcycle.name, record.entry_date.strftime('%Y-%m-%d') if record.entry_date else '', record.odometer_reading, record.total_distance, f"{record.fuel_volume:.2f}" if record.fuel_volume is not None else '', f"{record.price_per_liter:.1f}" if record.price_per_liter is not None else '', f"{record.total_cost:.0f}" if record.total_cost is not None else '', record.station_name if record.station_name else '', str(record.is_full_tank), f"{km_per_liter_val:.2f}" if km_per_liter_val is not None else '', record.notes if record.notes else '', record.fuel_type if record.fuel_type else '']
+        row = [record.id, record.motorcycle_id, motorcycle.name, record.entry_date.strftime('%Y-%m-%d') if record.entry_date else '', record.odometer_reading, record.total_distance, f"{record.fuel_volume:.2f}" if record.fuel_volume is not None else '', f"{record.price_per_liter:.1f}" if record.price_per_liter is not None else '', f"{record.total_cost:.0f}" if record.total_cost is not None else '', record.station_name if record.station_name else '', str(record.is_full_tank), f"{km_per_liter_val:.2f}" if km_per_liter_val is not None else '', str(record.exclude_from_average), record.notes if record.notes else '', record.fuel_type if record.fuel_type else '']
         writer.writerow(row)
     output.seek(0)
     safe_vehicle_name = "".join(c for c in motorcycle.name if c.isalnum() or c in ['_', '-']).strip()
@@ -351,7 +353,7 @@ def export_all_fuel_records_csv():
     header = [
         'id', 'motorcycle_id', 'motorcycle_name', 'entry_date', 'odometer_reading',
         'total_distance', 'fuel_volume', 'price_per_liter', 'total_cost',
-        'station_name', 'is_full_tank', 'km_per_liter', 'notes', 'fuel_type'
+        'station_name', 'is_full_tank', 'km_per_liter', 'exclude_from_average', 'notes', 'fuel_type'
     ]
     writer.writerow(header)
     for record in all_fuel_records:
@@ -365,6 +367,7 @@ def export_all_fuel_records_csv():
             f"{record.total_cost:.0f}" if record.total_cost is not None else '',
             record.station_name if record.station_name else '', str(record.is_full_tank),
             f"{km_per_liter_val:.2f}" if km_per_liter_val is not None else '',
+            str(record.exclude_from_average),
             record.notes if record.notes else '', record.fuel_type if record.fuel_type else ''
         ]
         writer.writerow(row)

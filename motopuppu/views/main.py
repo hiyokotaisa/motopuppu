@@ -24,19 +24,48 @@ def get_latest_total_distance(motorcycle_id, offset_val):
 def calculate_average_kpl(motorcycle: Motorcycle):
     if motorcycle.is_racer:
         return None
-    full_tank_entries = FuelEntry.query.filter(FuelEntry.motorcycle_id == motorcycle.id, FuelEntry.is_full_tank == True).order_by(FuelEntry.total_distance.asc()).all()
-    if len(full_tank_entries) < 2: return None
-    total_distance_traveled = full_tank_entries[-1].total_distance - full_tank_entries[0].total_distance
-    first_entry_dist = full_tank_entries[0].total_distance
-    last_entry_dist = full_tank_entries[-1].total_distance
-    entries_in_period = FuelEntry.query.filter(
-           FuelEntry.motorcycle_id == motorcycle.id,
-           FuelEntry.total_distance > first_entry_dist,
-           FuelEntry.total_distance <= last_entry_dist
-    ).all()
-    total_fuel_consumed = sum(entry.fuel_volume for entry in entries_in_period if entry.fuel_volume is not None)
-    if total_fuel_consumed > 0 and total_distance_traveled > 0:
-        return round(total_distance_traveled / total_fuel_consumed, 2)
+
+    # --- ▼▼▼ 計算ロジック修正 ▼▼▼
+    # is_full_tank=Trueの記録をすべて取得し、走行距離でソート
+    all_full_tank_entries = FuelEntry.query.filter(
+        FuelEntry.motorcycle_id == motorcycle.id,
+        FuelEntry.is_full_tank == True
+    ).order_by(FuelEntry.total_distance.asc()).all()
+
+    if len(all_full_tank_entries) < 2:
+        return None
+
+    total_distance = 0.0
+    total_fuel = 0.0
+
+    for i in range(len(all_full_tank_entries) - 1):
+        start_entry = all_full_tank_entries[i]
+        end_entry = all_full_tank_entries[i+1]
+
+        # 区間の始点か終点が「除外」設定の場合、この区間は計算に含めない
+        if start_entry.exclude_from_average or end_entry.exclude_from_average:
+            continue
+
+        distance_diff = end_entry.total_distance - start_entry.total_distance
+
+        # この区間内にある「除外されていない」給油記録の給油量を合計する
+        fuel_in_interval = db.session.query(func.sum(FuelEntry.fuel_volume)).filter(
+            FuelEntry.motorcycle_id == motorcycle.id,
+            FuelEntry.total_distance > start_entry.total_distance,
+            FuelEntry.total_distance <= end_entry.total_distance,
+            FuelEntry.exclude_from_average == False # 区間内の給油も除外フラグを考慮
+        ).scalar() or 0.0
+
+        if distance_diff > 0 and fuel_in_interval > 0:
+            total_distance += distance_diff
+            total_fuel += fuel_in_interval
+
+    if total_fuel > 0 and total_distance > 0:
+        try:
+            return round(total_distance / total_fuel, 2)
+        except ZeroDivisionError:
+            return None
+    # --- ▲▲▲ 計算ロジック修正 ▲▲▲
     return None
 
 def get_upcoming_reminders(user_motorcycles_all, user_id):
@@ -46,14 +75,14 @@ def get_upcoming_reminders(user_motorcycles_all, user_id):
     KM_THRESHOLD_DANGER = current_app.config.get('REMINDER_KM_DANGER', 0); DAYS_THRESHOLD_DANGER = current_app.config.get('REMINDER_DAYS_DANGER', 0)
     current_public_distances = {}
     for m in user_motorcycles_all:
-        if not m.is_racer: 
+        if not m.is_racer:
             current_public_distances[m.id] = get_latest_total_distance(m.id, m.odometer_offset)
     all_reminders = MaintenanceReminder.query.options(db.joinedload(MaintenanceReminder.motorcycle)).join(Motorcycle).filter(Motorcycle.user_id == user_id).all()
     for reminder in all_reminders:
         motorcycle = reminder.motorcycle
         status = 'ok'; messages = []; due_info_parts = []; is_due = False
         if not motorcycle.is_racer and reminder.interval_km and reminder.last_done_km is not None:
-            current_km = current_public_distances.get(motorcycle.id, 0) 
+            current_km = current_public_distances.get(motorcycle.id, 0)
             next_km_due = reminder.last_done_km + reminder.interval_km
             remaining_km = next_km_due - current_km
             due_info_parts.append(f"{next_km_due:,} km")
@@ -92,7 +121,7 @@ def index():
         return redirect(url_for('main.dashboard'))
 
     announcements_for_modal = []
-    important_notice_content = None 
+    important_notice_content = None
     try:
         announcement_file = os.path.join(current_app.root_path, '..', 'announcements.json')
         if os.path.exists(announcement_file):
@@ -101,11 +130,11 @@ def index():
                 temp_modal_announcements = [] # 一時リスト
                 for item in all_announcements_data:
                     if item.get('active', False):
-                        if item.get('id') == 1: 
-                            important_notice_content = item 
+                        if item.get('id') == 1:
+                            important_notice_content = item
                         else:
                             temp_modal_announcements.append(item)
-                
+
                 # ▼▼▼ IDの降順でソート ▼▼▼
                 temp_modal_announcements.sort(key=lambda x: x.get('id', 0), reverse=True)
                 announcements_for_modal = temp_modal_announcements
@@ -115,7 +144,7 @@ def index():
     except Exception as e:
         current_app.logger.error(f"An unexpected error occurred loading announcements: {e}", exc_info=True)
 
-    return render_template('index.html', 
+    return render_template('index.html',
                            announcements=announcements_for_modal,
                            important_notice=important_notice_content)
 
@@ -138,7 +167,7 @@ def dashboard():
     if selected_fuel_vehicle_id_str:
         try:
             temp_id = int(selected_fuel_vehicle_id_str)
-            if temp_id in user_motorcycle_ids_public: selected_fuel_vehicle_id = temp_id 
+            if temp_id in user_motorcycle_ids_public: selected_fuel_vehicle_id = temp_id
         except ValueError: pass
 
     selected_maint_vehicle_id = None
@@ -153,28 +182,28 @@ def dashboard():
     if selected_stats_vehicle_id_str:
         try:
             temp_id = int(selected_stats_vehicle_id_str)
-            if temp_id in user_motorcycle_ids_all: 
+            if temp_id in user_motorcycle_ids_all:
                 selected_stats_vehicle_id = temp_id
                 target_vehicle_for_stats = next((m for m in user_motorcycles_all if m.id == selected_stats_vehicle_id), None)
         except ValueError: pass
 
     fuel_query = FuelEntry.query.options(db.joinedload(FuelEntry.motorcycle)).filter(FuelEntry.motorcycle_id.in_(user_motorcycle_ids_public))
-    if selected_fuel_vehicle_id: 
+    if selected_fuel_vehicle_id:
         fuel_query = fuel_query.filter(FuelEntry.motorcycle_id == selected_fuel_vehicle_id)
     recent_fuel_entries = fuel_query.order_by(FuelEntry.entry_date.desc(), FuelEntry.total_distance.desc()).limit(5).all()
 
     maint_query = MaintenanceEntry.query.options(db.joinedload(MaintenanceEntry.motorcycle)).filter(MaintenanceEntry.motorcycle_id.in_(user_motorcycle_ids_public))
-    if selected_maint_vehicle_id: 
+    if selected_maint_vehicle_id:
         maint_query = maint_query.filter(MaintenanceEntry.motorcycle_id == selected_maint_vehicle_id)
     recent_maintenance_entries = maint_query.order_by(MaintenanceEntry.maintenance_date.desc(), MaintenanceEntry.total_distance_at_maintenance.desc()).limit(5).all()
 
-    upcoming_reminders = get_upcoming_reminders(user_motorcycles_all, g.user.id) 
+    upcoming_reminders = get_upcoming_reminders(user_motorcycles_all, g.user.id)
 
-    for m in user_motorcycles_all: 
+    for m in user_motorcycles_all:
         m._average_kpl = calculate_average_kpl(m)
 
     dashboard_stats = {
-        'vehicle_name': None, 'total_primary_metric': 0, 'total_primary_metric_unit': '', 
+        'vehicle_name': None, 'total_primary_metric': 0, 'total_primary_metric_unit': '',
         'average_kpl': None, 'total_fuel_cost': 0, 'total_maint_cost': 0,
         'is_specific_vehicle': False, 'vehicle_name_for_cost': None, 'is_racer_for_stats': False
     }
@@ -182,9 +211,9 @@ def dashboard():
         dashboard_stats['vehicle_name'] = target_vehicle_for_stats.name
         dashboard_stats['is_racer_for_stats'] = target_vehicle_for_stats.is_racer
         if target_vehicle_for_stats.is_racer:
-            dashboard_stats['total_primary_metric'] = target_vehicle_for_stats.total_operating_hours if target_vehicle_for_stats.total_operating_hours is not None else 0
+            dashboard_stats['total_primary_metric'] = target_vehicle_for_stats.total_operating_hours if target_vehicle_for_stats.total_operating_hours is not none else 0
             dashboard_stats['total_primary_metric_unit'] = '時間'
-            dashboard_stats['average_kpl'] = None 
+            dashboard_stats['average_kpl'] = None
         else:
             dashboard_stats['total_primary_metric'] = get_latest_total_distance(target_vehicle_for_stats.id, target_vehicle_for_stats.odometer_offset)
             dashboard_stats['total_primary_metric_unit'] = 'km'
@@ -196,13 +225,13 @@ def dashboard():
         dashboard_stats['total_maint_cost'] = maint_cost_q or 0
         dashboard_stats['is_specific_vehicle'] = True
         dashboard_stats['vehicle_name_for_cost'] = target_vehicle_for_stats.name
-    else: 
+    else:
         default_vehicle = next((m for m in user_motorcycles_all if m.is_default), user_motorcycles_all[0] if user_motorcycles_all else None)
         if default_vehicle:
             dashboard_stats['vehicle_name'] = f"デフォルト ({default_vehicle.name})"
             dashboard_stats['is_racer_for_stats'] = default_vehicle.is_racer
             if default_vehicle.is_racer:
-                dashboard_stats['total_primary_metric'] = default_vehicle.total_operating_hours if default_vehicle.total_operating_hours is not None else 0
+                dashboard_stats['total_primary_metric'] = default_vehicle.total_operating_hours if default_vehicle.total_operating_hours is not none else 0
                 dashboard_stats['total_primary_metric_unit'] = '時間'
                 dashboard_stats['average_kpl'] = None
             else:
@@ -221,13 +250,13 @@ def dashboard():
 
     holidays_json = '{}'
     try:
-        today_for_holiday = date.today() 
+        today_for_holiday = date.today()
         years_to_fetch = [today_for_holiday.year - 1, today_for_holiday.year, today_for_holiday.year + 1]
         holidays_dict = {}
         for year in years_to_fetch:
             try:
                 holidays_raw = jpholiday.year_holidays(year)
-                for holiday_date_obj, holiday_name in holidays_raw: 
+                for holiday_date_obj, holiday_name in holidays_raw:
                     holidays_dict[holiday_date_obj.strftime('%Y-%m-%d')] = holiday_name
             except Exception as e:
                  current_app.logger.error(f"Error fetching holidays for year {year}: {e}")
@@ -238,8 +267,8 @@ def dashboard():
 
     return render_template(
         'dashboard.html',
-        motorcycles=user_motorcycles_all, 
-        motorcycles_public=user_motorcycles_public, 
+        motorcycles=user_motorcycles_all,
+        motorcycles_public=user_motorcycles_public,
         recent_fuel_entries=recent_fuel_entries,
         recent_maintenance_entries=recent_maintenance_entries,
         upcoming_reminders=upcoming_reminders,
@@ -266,7 +295,7 @@ def dashboard_events_api():
             edit_url = url_for('fuel.edit_fuel', entry_id=entry.id)
             events.append({
                 'id': f'fuel-{entry.id}', 'title': f"⛽ 給油: {entry.motorcycle.name}",
-                'start': entry.entry_date.isoformat(), 'allDay': True, 'url': edit_url, 
+                'start': entry.entry_date.isoformat(), 'allDay': True, 'url': edit_url,
                 'backgroundColor': '#198754', 'borderColor': '#198754', 'textColor': 'white',
                 'extendedProps': {
                     'type': 'fuel', 'motorcycleName': entry.motorcycle.name, 'odometer': entry.odometer_reading,
@@ -284,7 +313,7 @@ def dashboard_events_api():
             edit_url = url_for('maintenance.edit_maintenance', entry_id=entry.id)
             events.append({
                 'id': f'maint-{entry.id}', 'title': event_title,
-                'start': entry.maintenance_date.isoformat(), 'allDay': True, 'url': edit_url, 
+                'start': entry.maintenance_date.isoformat(), 'allDay': True, 'url': edit_url,
                 'backgroundColor': '#ffc107', 'borderColor': '#ffc107', 'textColor': 'black',
                 'extendedProps': {
                     'type': 'maintenance', 'motorcycleName': entry.motorcycle.name, 'odometer': entry.total_distance_at_maintenance,
@@ -312,7 +341,7 @@ def dashboard_events_api():
         else: extended_props['content'] = note.content
         events.append({
             'id': f'note-{note.id}', 'title': event_title, 'start': note.note_date.isoformat(),
-            'allDay': True, 'url': edit_url, 
+            'allDay': True, 'url': edit_url,
             'backgroundColor': '#6c757d', 'borderColor': '#6c757d', 'textColor': 'white',
             'extendedProps': extended_props
         })

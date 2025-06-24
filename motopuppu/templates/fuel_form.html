@@ -143,6 +143,19 @@
         {% endif %}
     </div>
 
+    {# 計算除外チェック #}
+    <div class="mb-3 form-check">
+        {{ form.exclude_from_average(class="form-check-input" + (" is-invalid" if form.exclude_from_average.errors else "")) }}
+        {{ form.exclude_from_average.label(class="form-check-label") }}
+        {% if form.exclude_from_average.errors %}
+            <div class="invalid-feedback d-block">
+                {% for error in form.exclude_from_average.errors %}<span>{{ error }}</span><br>{% endfor %}
+            </div>
+        {% else %}
+            <div class="form-text">記録忘れなどで異常な燃費が算出される場合にチェックしてください。</div>
+        {% endif %}
+    </div>
+
     {# メモ #}
     <div class="mb-3">
         {{ form.notes.label(class="form-label") }}

@@ -81,6 +81,10 @@ class FuelForm(FlaskForm):
         '満タン給油 (燃費計算に利用)',
         default=True
     )
+    exclude_from_average = BooleanField(
+        'この記録を平均燃費計算から除外する',
+        default=False
+    )
     notes = TextAreaField(
         'メモ',
         validators=[Optional(), Length(max=500, message='メモは500文字以内で入力してください。')],
