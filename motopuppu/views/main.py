@@ -15,7 +15,6 @@ import os       # os をインポート (お知らせファイルパス用)
 main_bp = Blueprint('main', __name__)
 
 # --- ヘルパー関数 ---
-# ... (get_latest_total_distance, calculate_average_kpl, get_upcoming_reminders は変更なし) ...
 def get_latest_total_distance(motorcycle_id, offset_val):
     latest_fuel_dist = db.session.query(db.func.max(FuelEntry.total_distance)).filter(FuelEntry.motorcycle_id == motorcycle_id).scalar() or 0
     latest_maint_dist = db.session.query(db.func.max(MaintenanceEntry.total_distance_at_maintenance)).filter(MaintenanceEntry.motorcycle_id == motorcycle_id).scalar() or 0
@@ -25,8 +24,6 @@ def calculate_average_kpl(motorcycle: Motorcycle):
     if motorcycle.is_racer:
         return None
 
-    # --- ▼▼▼ 計算ロジック修正 ▼▼▼
-    # is_full_tank=Trueの記録をすべて取得し、走行距離でソート
     all_full_tank_entries = FuelEntry.query.filter(
         FuelEntry.motorcycle_id == motorcycle.id,
         FuelEntry.is_full_tank == True
@@ -42,18 +39,16 @@ def calculate_average_kpl(motorcycle: Motorcycle):
         start_entry = all_full_tank_entries[i]
         end_entry = all_full_tank_entries[i+1]
 
-        # 区間の始点か終点が「除外」設定の場合、この区間は計算に含めない
         if start_entry.exclude_from_average or end_entry.exclude_from_average:
             continue
 
         distance_diff = end_entry.total_distance - start_entry.total_distance
 
-        # この区間内にある「除外されていない」給油記録の給油量を合計する
         fuel_in_interval = db.session.query(func.sum(FuelEntry.fuel_volume)).filter(
             FuelEntry.motorcycle_id == motorcycle.id,
             FuelEntry.total_distance > start_entry.total_distance,
             FuelEntry.total_distance <= end_entry.total_distance,
-            FuelEntry.exclude_from_average == False # 区間内の給油も除外フラグを考慮
+            FuelEntry.exclude_from_average == False
         ).scalar() or 0.0
 
         if distance_diff > 0 and fuel_in_interval > 0:
@@ -65,7 +60,6 @@ def calculate_average_kpl(motorcycle: Motorcycle):
             return round(total_distance / total_fuel, 2)
         except ZeroDivisionError:
             return None
-    # --- ▲▲▲ 計算ロジック修正 ▲▲▲
     return None
 
 def get_upcoming_reminders(user_motorcycles_all, user_id):
@@ -127,18 +121,15 @@ def index():
         if os.path.exists(announcement_file):
             with open(announcement_file, 'r', encoding='utf-8') as f:
                 all_announcements_data = json.load(f)
-                temp_modal_announcements = [] # 一時リスト
+                temp_modal_announcements = []
                 for item in all_announcements_data:
                     if item.get('active', False):
                         if item.get('id') == 1:
                             important_notice_content = item
                         else:
                             temp_modal_announcements.append(item)
-
-                # ▼▼▼ IDの降順でソート ▼▼▼
                 temp_modal_announcements.sort(key=lambda x: x.get('id', 0), reverse=True)
                 announcements_for_modal = temp_modal_announcements
-                # ▲▲▲ ソートここまで ▲▲▲
         else:
              current_app.logger.warning(f"announcements.json not found at {announcement_file}")
     except Exception as e:
@@ -154,7 +145,7 @@ def dashboard():
     user_motorcycles_all = Motorcycle.query.filter_by(user_id=g.user.id).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
     if not user_motorcycles_all:
         flash('ようこそ！最初に利用する車両を登録してください。', 'info'); return redirect(url_for('vehicle.add_vehicle'))
-    # ... (以降のダッシュボードロジックは変更なし) ...
+    
     user_motorcycle_ids_all = [m.id for m in user_motorcycles_all]
     user_motorcycles_public = [m for m in user_motorcycles_all if not m.is_racer]
     user_motorcycle_ids_public = [m.id for m in user_motorcycles_public]
@@ -203,54 +194,56 @@ def dashboard():
         m._average_kpl = calculate_average_kpl(m)
 
     dashboard_stats = {
-        'vehicle_name': None, 'total_primary_metric': 0, 'total_primary_metric_unit': '',
-        'average_kpl': None, 'total_fuel_cost': 0, 'total_maint_cost': 0,
-        'is_specific_vehicle': False, 'vehicle_name_for_cost': None, 'is_racer_for_stats': False
+        'primary_metric_val': 0, 'primary_metric_unit': '', 'primary_metric_label': '-', 'is_racer_stats': False,
+        'average_kpl_val': None, 'average_kpl_label': '-',
+        'total_fuel_cost': 0, 'total_maint_cost': 0, 'cost_label': '-',
     }
+
     if target_vehicle_for_stats:
-        dashboard_stats['vehicle_name'] = target_vehicle_for_stats.name
-        dashboard_stats['is_racer_for_stats'] = target_vehicle_for_stats.is_racer
+        dashboard_stats['is_racer_stats'] = target_vehicle_for_stats.is_racer
         if target_vehicle_for_stats.is_racer:
-            dashboard_stats['total_primary_metric'] = target_vehicle_for_stats.total_operating_hours if target_vehicle_for_stats.total_operating_hours is not None else 0
-            dashboard_stats['total_primary_metric_unit'] = '時間'
-            dashboard_stats['average_kpl'] = None
+            dashboard_stats['primary_metric_val'] = target_vehicle_for_stats.total_operating_hours if target_vehicle_for_stats.total_operating_hours is not None else 0
+            dashboard_stats['primary_metric_unit'] = '時間'
+            dashboard_stats['primary_metric_label'] = target_vehicle_for_stats.name
+            dashboard_stats['average_kpl_val'] = None
+            dashboard_stats['average_kpl_label'] = f"{target_vehicle_for_stats.name} (レーサー)"
         else:
-            dashboard_stats['total_primary_metric'] = get_latest_total_distance(target_vehicle_for_stats.id, target_vehicle_for_stats.odometer_offset)
-            dashboard_stats['total_primary_metric_unit'] = 'km'
-            dashboard_stats['average_kpl'] = target_vehicle_for_stats._average_kpl
+            dashboard_stats['primary_metric_val'] = get_latest_total_distance(target_vehicle_for_stats.id, target_vehicle_for_stats.odometer_offset)
+            dashboard_stats['primary_metric_unit'] = 'km'
+            dashboard_stats['primary_metric_label'] = target_vehicle_for_stats.name
+            dashboard_stats['average_kpl_val'] = target_vehicle_for_stats._average_kpl
+            dashboard_stats['average_kpl_label'] = target_vehicle_for_stats.name
 
         fuel_cost_q = db.session.query(func.sum(FuelEntry.total_cost)).filter(FuelEntry.motorcycle_id == target_vehicle_for_stats.id).scalar()
         dashboard_stats['total_fuel_cost'] = fuel_cost_q or 0
         maint_cost_q = db.session.query(func.sum(func.coalesce(MaintenanceEntry.parts_cost, 0) + func.coalesce(MaintenanceEntry.labor_cost, 0))).filter(MaintenanceEntry.motorcycle_id == target_vehicle_for_stats.id).scalar()
         dashboard_stats['total_maint_cost'] = maint_cost_q or 0
-        dashboard_stats['is_specific_vehicle'] = True
-        dashboard_stats['vehicle_name_for_cost'] = target_vehicle_for_stats.name
-    else:
-        # --- ▼▼▼ 変更点 ▼▼▼ ---
-        # デフォルト表示の場合、単一車両ではなく、全公道車の合算値を表示する
+        dashboard_stats['cost_label'] = target_vehicle_for_stats.name
 
-        # 1. 全公道車の総走行距離を合算する
+    else:
         total_public_mileage = 0
         if user_motorcycles_public:
             for mc in user_motorcycles_public:
                 total_public_mileage += get_latest_total_distance(mc.id, mc.odometer_offset)
         
-        # 2. 統計情報ディクショナリに設定する
-        dashboard_stats['vehicle_name'] = "すべての公道車"
-        dashboard_stats['is_racer_for_stats'] = False # 合算表示は公道車のみなのでFalse
-        dashboard_stats['total_primary_metric'] = total_public_mileage
-        dashboard_stats['total_primary_metric_unit'] = 'km'
-        # 複数車両の平均燃費を単純に平均することはできないため、Noneとして表示しない
-        dashboard_stats['average_kpl'] = None
+        dashboard_stats['primary_metric_val'] = total_public_mileage
+        dashboard_stats['primary_metric_unit'] = 'km'
+        dashboard_stats['primary_metric_label'] = "すべての公道車"
+        dashboard_stats['is_racer_stats'] = False
 
-        # 費用は元から全公道車の合算値だったので、ロジックは変更なし
+        default_vehicle = next((m for m in user_motorcycles_all if m.is_default), user_motorcycles_all[0] if user_motorcycles_all else None)
+        if default_vehicle and not default_vehicle.is_racer:
+            dashboard_stats['average_kpl_val'] = default_vehicle._average_kpl
+            dashboard_stats['average_kpl_label'] = f"デフォルト ({default_vehicle.name})"
+        else:
+            dashboard_stats['average_kpl_val'] = None
+            dashboard_stats['average_kpl_label'] = "計算対象外"
+
         total_fuel_cost_query = db.session.query(func.sum(FuelEntry.total_cost)).filter(FuelEntry.motorcycle_id.in_(user_motorcycle_ids_public)).scalar()
         dashboard_stats['total_fuel_cost'] = total_fuel_cost_query or 0
         total_maint_cost_query = db.session.query(func.sum(func.coalesce(MaintenanceEntry.parts_cost, 0) + func.coalesce(MaintenanceEntry.labor_cost, 0))).filter(MaintenanceEntry.motorcycle_id.in_(user_motorcycle_ids_public)).scalar()
         dashboard_stats['total_maint_cost'] = total_maint_cost_query or 0
-        dashboard_stats['is_specific_vehicle'] = False
-        dashboard_stats['vehicle_name_for_cost'] = "すべての公道車"
-        # --- ▲▲▲ 変更点 ▲▲▲ ---
+        dashboard_stats['cost_label'] = "すべての公道車"
 
     holidays_json = '{}'
     try:
@@ -286,7 +279,6 @@ def dashboard():
 @main_bp.route('/api/dashboard/events')
 @login_required_custom
 def dashboard_events_api():
-    # ... (変更なし) ...
     events = []
     if not g.user: return jsonify({'error': 'User not logged in'}), 401
     user_id = g.user.id
