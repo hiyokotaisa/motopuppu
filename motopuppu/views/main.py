@@ -211,7 +211,7 @@ def dashboard():
         dashboard_stats['vehicle_name'] = target_vehicle_for_stats.name
         dashboard_stats['is_racer_for_stats'] = target_vehicle_for_stats.is_racer
         if target_vehicle_for_stats.is_racer:
-            dashboard_stats['total_primary_metric'] = target_vehicle_for_stats.total_operating_hours if target_vehicle_for_stats.total_operating_hours is not none else 0
+            dashboard_stats['total_primary_metric'] = target_vehicle_for_stats.total_operating_hours if target_vehicle_for_stats.total_operating_hours is not None else 0
             dashboard_stats['total_primary_metric_unit'] = '時間'
             dashboard_stats['average_kpl'] = None
         else:
@@ -226,27 +226,31 @@ def dashboard():
         dashboard_stats['is_specific_vehicle'] = True
         dashboard_stats['vehicle_name_for_cost'] = target_vehicle_for_stats.name
     else:
-        default_vehicle = next((m for m in user_motorcycles_all if m.is_default), user_motorcycles_all[0] if user_motorcycles_all else None)
-        if default_vehicle:
-            dashboard_stats['vehicle_name'] = f"デフォルト ({default_vehicle.name})"
-            dashboard_stats['is_racer_for_stats'] = default_vehicle.is_racer
-            if default_vehicle.is_racer:
-                dashboard_stats['total_primary_metric'] = default_vehicle.total_operating_hours if default_vehicle.total_operating_hours is not none else 0
-                dashboard_stats['total_primary_metric_unit'] = '時間'
-                dashboard_stats['average_kpl'] = None
-            else:
-                dashboard_stats['total_primary_metric'] = get_latest_total_distance(default_vehicle.id, default_vehicle.odometer_offset)
-                dashboard_stats['total_primary_metric_unit'] = 'km'
-                dashboard_stats['average_kpl'] = default_vehicle._average_kpl
-        else:
-             dashboard_stats['vehicle_name'] = "車両未登録"
+        # --- ▼▼▼ 変更点 ▼▼▼ ---
+        # デフォルト表示の場合、単一車両ではなく、全公道車の合算値を表示する
 
+        # 1. 全公道車の総走行距離を合算する
+        total_public_mileage = 0
+        if user_motorcycles_public:
+            for mc in user_motorcycles_public:
+                total_public_mileage += get_latest_total_distance(mc.id, mc.odometer_offset)
+        
+        # 2. 統計情報ディクショナリに設定する
+        dashboard_stats['vehicle_name'] = "すべての公道車"
+        dashboard_stats['is_racer_for_stats'] = False # 合算表示は公道車のみなのでFalse
+        dashboard_stats['total_primary_metric'] = total_public_mileage
+        dashboard_stats['total_primary_metric_unit'] = 'km'
+        # 複数車両の平均燃費を単純に平均することはできないため、Noneとして表示しない
+        dashboard_stats['average_kpl'] = None
+
+        # 費用は元から全公道車の合算値だったので、ロジックは変更なし
         total_fuel_cost_query = db.session.query(func.sum(FuelEntry.total_cost)).filter(FuelEntry.motorcycle_id.in_(user_motorcycle_ids_public)).scalar()
         dashboard_stats['total_fuel_cost'] = total_fuel_cost_query or 0
         total_maint_cost_query = db.session.query(func.sum(func.coalesce(MaintenanceEntry.parts_cost, 0) + func.coalesce(MaintenanceEntry.labor_cost, 0))).filter(MaintenanceEntry.motorcycle_id.in_(user_motorcycle_ids_public)).scalar()
         dashboard_stats['total_maint_cost'] = total_maint_cost_query or 0
         dashboard_stats['is_specific_vehicle'] = False
         dashboard_stats['vehicle_name_for_cost'] = "すべての公道車"
+        # --- ▲▲▲ 変更点 ▲▲▲ ---
 
     holidays_json = '{}'
     try:
