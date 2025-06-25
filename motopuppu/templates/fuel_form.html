@@ -25,13 +25,12 @@
     {# 車両選択 #}
     <div class="mb-3">
         {{ form.motorcycle_id.label(class="form-label") }} {% if form.motorcycle_id.flags.required %}<span class="text-danger">*</span>{% endif %}
-        {{ form.motorcycle_id(class="form-select" + (" is-invalid" if form.motorcycle_id.errors else ""), disabled=(form_action == 'edit')) }}
+        {{ form.motorcycle_id(class="form-select" + (" is-invalid" if form.motorcycle_id.errors else "")) }}
         {% if form.motorcycle_id.errors %}
             <div class="invalid-feedback">
                 {% for error in form.motorcycle_id.errors %}<span>{{ error }}</span><br>{% endfor %}
             </div>
         {% endif %}
-        {% if form_action == 'edit' %}<div class="form-text">記録された車両は変更できません。</div>{% endif %}
     </div>
 
     {# 給油日 #}

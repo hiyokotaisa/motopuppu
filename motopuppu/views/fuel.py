@@ -242,16 +242,37 @@ def edit_fuel(entry_id):
         Motorcycle.is_racer == False
     ).first_or_404()
     
+    # --- ▼▼▼ 変更点 ▼▼▼ ---
+    # フォームをインスタンス化する
     form = FuelForm(obj=entry)
-    form.motorcycle_id.choices = [(entry.motorcycle.id, f"{entry.motorcycle.name} ({entry.motorcycle.maker or 'メーカー不明'})")]
-    form.motorcycle_id.data = entry.motorcycle_id
+
+    # ユーザーが所有する全ての公道車両を取得し、フォームの選択肢に設定する
+    user_motorcycles_for_fuel = Motorcycle.query.filter_by(user_id=g.user.id, is_racer=False).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
+    form.motorcycle_id.choices = [(m.id, f"{m.name} ({m.maker or 'メーカー不明'})") for m in user_motorcycles_for_fuel]
     
+    # GETリクエスト時、現在の車両IDをデフォルトで選択状態にし、トグルをOFFにする
     if request.method == 'GET':
-        form.input_mode.data = False # 編集時はデフォルトでトグルOFF
+        form.motorcycle_id.data = entry.motorcycle_id
+        form.input_mode.data = False 
+    # --- ▲▲▲ 変更点 ▲▲▲ ---
 
     if form.validate_on_submit():
-        motorcycle = entry.motorcycle
-        previous_fuel = get_previous_fuel_entry(motorcycle.id, form.entry_date.data, entry.id)
+        # --- ▼▼▼ 変更点 ▼▼▼ ---
+        # フォームから送信された車両IDで、車両オブジェクトを再取得
+        new_motorcycle = Motorcycle.query.filter_by(id=form.motorcycle_id.data, user_id=g.user.id, is_racer=False).first()
+        if not new_motorcycle:
+            flash('選択された車両が見つからないか、給油記録の対象外です。再度お試しください。', 'danger')
+            # フォームを再表示するために、エラーのままrender_templateへ
+            return render_template('fuel_form.html', form_action='edit', form=form, entry_id=entry.id, gas_station_brands=GAS_STATION_BRANDS, previous_entry_info=None)
+
+        # 車両が変更されたかチェック
+        vehicle_changed = entry.motorcycle_id != new_motorcycle.id
+        if vehicle_changed:
+            flash('注意: 記録の対象車両が変更されました。ODOメーター値や実走行距離が、新しい車両の履歴に対して妥当かご確認ください。', 'warning')
+        
+        # **新しい車両**の履歴に基づいて、前の給油記録を取得
+        previous_fuel = get_previous_fuel_entry(new_motorcycle.id, form.entry_date.data, entry.id)
+        # --- ▲▲▲ 変更点 ▲▲▲ ---
 
         # --- ▼▼▼ トグルスイッチ対応のバリデーションロジック (編集時) ▼▼▼
         if form.input_mode.data: # トグルがON (True) の場合、トリップ入力モード
@@ -270,7 +291,10 @@ def edit_fuel(entry_id):
             flash('入力内容にエラーがあります。ご確認ください。', 'danger')
             return render_template('fuel_form.html', form_action='edit', form=form, entry_id=entry.id, gas_station_brands=GAS_STATION_BRANDS, previous_entry_info={'date': previous_fuel.entry_date.strftime('%Y-%m-%d'), 'odo': f"{previous_fuel.odometer_reading:,}km"} if previous_fuel else None)
 
-        offset_at_entry_date = motorcycle.calculate_cumulative_offset_from_logs(target_date=form.entry_date.data)
+        # --- ▼▼▼ 変更点 ▼▼▼ ---
+        # **新しい車両**のオフセットを使用して、総走行距離を計算
+        offset_at_entry_date = new_motorcycle.calculate_cumulative_offset_from_logs(target_date=form.entry_date.data)
+        # --- ▲▲▲ 変更点 ▲▲▲ ---
         total_distance = form.odometer_reading.data + offset_at_entry_date
 
         if previous_fuel and total_distance < previous_fuel.total_distance:
@@ -282,6 +306,10 @@ def edit_fuel(entry_id):
             except TypeError: total_cost_val = None
         elif total_cost_val is not None: total_cost_val = int(round(float(total_cost_val)))
 
+        # --- ▼▼▼ 変更点 ▼▼▼ ---
+        # 更新するレコードに、新しい車両IDもセットする
+        entry.motorcycle_id = new_motorcycle.id
+        # --- ▲▲▲ 変更点 ▲▲▲ ---
         entry.entry_date = form.entry_date.data
         entry.odometer_reading = form.odometer_reading.data
         entry.total_distance = total_distance
@@ -307,14 +335,17 @@ def edit_fuel(entry_id):
         flash('入力内容にエラーがあります。ご確認ください。', 'danger')
 
     previous_entry_info = None
+    # --- ▼▼▼ 変更点 (フォームで選択された車両IDを優先して使う) ▼▼▼ ---
+    selected_motorcycle_id_for_prev = form.motorcycle_id.data if not form.motorcycle_id.errors else entry.motorcycle_id
     entry_date_for_prev = form.entry_date.data if not form.entry_date.errors else entry.entry_date
-    if entry_date_for_prev:
-        previous_fuel = get_previous_fuel_entry(entry.motorcycle_id, entry_date_for_prev, entry.id)
+    if selected_motorcycle_id_for_prev and entry_date_for_prev:
+        previous_fuel = get_previous_fuel_entry(selected_motorcycle_id_for_prev, entry_date_for_prev, entry.id)
         if previous_fuel:
             previous_entry_info = {
                 'date': previous_fuel.entry_date.strftime('%Y-%m-%d'),
                 'odo': f"{previous_fuel.odometer_reading:,}km"
             }
+    # --- ▲▲▲ 変更点 ▲▲▲ ---
 
     return render_template('fuel_form.html', form_action='edit', form=form, entry_id=entry.id, gas_station_brands=GAS_STATION_BRANDS, previous_entry_info=previous_entry_info)
 
