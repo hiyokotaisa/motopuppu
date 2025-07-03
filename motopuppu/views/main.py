@@ -72,9 +72,6 @@ def get_upcoming_reminders(user_motorcycles_all, user_id):
     for m in user_motorcycles_all:
         if not m.is_racer:
             current_public_distances[m.id] = get_latest_total_distance(m.id, m.odometer_offset)
-    # ⭐️ リマインダー取得時に joinedload を使用している箇所も selectinload に変更するのが望ましいですが、
-    # MaintenanceReminder.motorcycle は単一オブジェクト(Many-to-One)なので、joinedload のままでもエラーにはなりません。
-    # ただし、一貫性のために selectinload にしても良いでしょう。ここでは元のままとします。
     all_reminders = MaintenanceReminder.query.options(db.joinedload(MaintenanceReminder.motorcycle)).join(Motorcycle).filter(Motorcycle.user_id == user_id).all()
     for reminder in all_reminders:
         motorcycle = reminder.motorcycle
@@ -229,8 +226,8 @@ def dashboard():
         user_street_vehicles_with_entries = Motorcycle.query.filter(
             Motorcycle.id.in_(user_motorcycle_ids_public)
         ).options(
-            selectinload(Motorcycle.fuel_entries),       # ⭐️ 修正
-            selectinload(Motorcycle.maintenance_entries) # ⭐️ 修正
+            selectinload(Motorcycle.fuel_entries),
+            selectinload(Motorcycle.maintenance_entries)
         ).all()
         
         total_running_distance = 0
