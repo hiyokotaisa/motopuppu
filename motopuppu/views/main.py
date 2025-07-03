@@ -6,8 +6,8 @@ from datetime import date, timedelta, datetime # datetime をインポートリ�
 from dateutil.relativedelta import relativedelta
 from .auth import login_required_custom, get_current_user # get_current_user はここでインポート
 from ..models import db, User, Motorcycle, FuelEntry, MaintenanceEntry, MaintenanceReminder, GeneralNote
-from sqlalchemy import func, select
-from sqlalchemy.orm import selectinload # ⭐️ joinedload から selectinload に変更
+from sqlalchemy import func, select, union_all 
+from sqlalchemy.orm import joinedload 
 import math
 import jpholiday # 祝日ライブラリ
 import json      # JSONライブラリ
@@ -209,7 +209,31 @@ def dashboard():
             dashboard_stats['average_kpl_val'] = None
             dashboard_stats['average_kpl_label'] = f"{target_vehicle_for_stats.name} (レーサー)"
         else:
-            dashboard_stats['primary_metric_val'] = get_latest_total_distance(target_vehicle_for_stats.id, target_vehicle_for_stats.odometer_offset)
+            vehicle_id = target_vehicle_for_stats.id
+            
+            fuel_q = db.session.query(
+                FuelEntry.total_distance.label('distance')
+            ).filter(FuelEntry.motorcycle_id == vehicle_id)
+            
+            maint_q = db.session.query(
+                MaintenanceEntry.total_distance_at_maintenance.label('distance')
+            ).filter(MaintenanceEntry.motorcycle_id == vehicle_id)
+            
+            all_distances_q = fuel_q.union_all(maint_q).subquery()
+            
+            result = db.session.query(
+                func.max(all_distances_q.c.distance),
+                func.min(all_distances_q.c.distance)
+            ).one_or_none()
+            
+            vehicle_running_distance = 0
+            if result and result[0] is not None and result[1] is not None:
+                max_dist = float(result[0])
+                min_dist = float(result[1])
+                if max_dist != min_dist:
+                    vehicle_running_distance = max_dist - min_dist
+            
+            dashboard_stats['primary_metric_val'] = vehicle_running_distance
             dashboard_stats['primary_metric_unit'] = 'km'
             dashboard_stats['primary_metric_label'] = target_vehicle_for_stats.name
             dashboard_stats['average_kpl_val'] = target_vehicle_for_stats._average_kpl
@@ -222,41 +246,31 @@ def dashboard():
         dashboard_stats['cost_label'] = target_vehicle_for_stats.name
 
     else:
-        # 1. ユーザーの公道車両に関連記録をEager Loadingして取得
-        user_street_vehicles_with_entries = Motorcycle.query.filter(
-            Motorcycle.id.in_(user_motorcycle_ids_public)
-        ).options(
-            selectinload(Motorcycle.fuel_entries),
-            selectinload(Motorcycle.maintenance_entries)
-        ).all()
-        
         total_running_distance = 0
-        # 2. 車両ごとに走行距離を計算して合算
-        for vehicle in user_street_vehicles_with_entries:
-            all_distances = []
-            
-            # 給油記録から実走行距離リストを作成
-            fuel_distances = [
-                entry.total_distance for entry in vehicle.fuel_entries
-                if entry.total_distance is not None
-            ]
-            # 整備記録から実走行距離リストを作成
-            maintenance_distances = [
-                entry.total_distance_at_maintenance for entry in vehicle.maintenance_entries
-                if entry.total_distance_at_maintenance is not None
-            ]
-            
-            all_distances.extend(fuel_distances)
-            all_distances.extend(maintenance_distances)
-            
-            # 3. 記録が2つ以上ある場合のみ、(最大 - 最小)を計算
-            if len(all_distances) > 1:
-                vehicle_distance = max(all_distances) - min(all_distances)
-                total_running_distance += vehicle_distance
+        
+        if user_motorcycle_ids_public:
+            fuel_dist_query = db.session.query(
+                FuelEntry.motorcycle_id.label('mc_id'),
+                FuelEntry.total_distance.label('distance')
+            ).filter(FuelEntry.motorcycle_id.in_(user_motorcycle_ids_public))
 
-        # 4. 計算結果を dashboard_stats に設定
+            maint_dist_query = db.session.query(
+                MaintenanceEntry.motorcycle_id.label('mc_id'),
+                MaintenanceEntry.total_distance_at_maintenance.label('distance')
+            ).filter(MaintenanceEntry.motorcycle_id.in_(user_motorcycle_ids_public))
+            
+            combined_distances = union_all(fuel_dist_query, maint_dist_query).subquery()
+            
+            vehicle_distances = db.session.query(
+                (func.max(combined_distances.c.distance) - func.min(combined_distances.c.distance)).label('travelled')
+            ).group_by(combined_distances.c.mc_id).having(func.count(combined_distances.c.distance) > 1).subquery()
+            
+            total_query_result = db.session.query(func.sum(vehicle_distances.c.travelled)).scalar()
+
+            total_running_distance = total_query_result or 0
+
         dashboard_stats['primary_metric_val'] = total_running_distance
-
+        
         dashboard_stats['primary_metric_unit'] = 'km'
         dashboard_stats['primary_metric_label'] = "すべての公道車"
         dashboard_stats['is_racer_stats'] = False
