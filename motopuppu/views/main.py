@@ -7,7 +7,7 @@ from dateutil.relativedelta import relativedelta
 from .auth import login_required_custom, get_current_user # get_current_user はここでインポート
 from ..models import db, User, Motorcycle, FuelEntry, MaintenanceEntry, MaintenanceReminder, GeneralNote
 from sqlalchemy import func, select
-from sqlalchemy.orm import joinedload # ⭐️ 修正で必要になるためインポート
+from sqlalchemy.orm import selectinload # ⭐️ joinedload から selectinload に変更
 import math
 import jpholiday # 祝日ライブラリ
 import json      # JSONライブラリ
@@ -72,6 +72,9 @@ def get_upcoming_reminders(user_motorcycles_all, user_id):
     for m in user_motorcycles_all:
         if not m.is_racer:
             current_public_distances[m.id] = get_latest_total_distance(m.id, m.odometer_offset)
+    # ⭐️ リマインダー取得時に joinedload を使用している箇所も selectinload に変更するのが望ましいですが、
+    # MaintenanceReminder.motorcycle は単一オブジェクト(Many-to-One)なので、joinedload のままでもエラーにはなりません。
+    # ただし、一貫性のために selectinload にしても良いでしょう。ここでは元のままとします。
     all_reminders = MaintenanceReminder.query.options(db.joinedload(MaintenanceReminder.motorcycle)).join(Motorcycle).filter(Motorcycle.user_id == user_id).all()
     for reminder in all_reminders:
         motorcycle = reminder.motorcycle
@@ -222,16 +225,12 @@ def dashboard():
         dashboard_stats['cost_label'] = target_vehicle_for_stats.name
 
     else:
-        # ==========================================================
-        # ▼▼▼ ここからが修正後のロジックです ▼▼▼
-        # ==========================================================
-        
         # 1. ユーザーの公道車両に関連記録をEager Loadingして取得
         user_street_vehicles_with_entries = Motorcycle.query.filter(
             Motorcycle.id.in_(user_motorcycle_ids_public)
         ).options(
-            joinedload(Motorcycle.fuel_entries),
-            joinedload(Motorcycle.maintenance_entries)
+            selectinload(Motorcycle.fuel_entries),       # ⭐️ 修正
+            selectinload(Motorcycle.maintenance_entries) # ⭐️ 修正
         ).all()
         
         total_running_distance = 0
@@ -261,10 +260,6 @@ def dashboard():
         # 4. 計算結果を dashboard_stats に設定
         dashboard_stats['primary_metric_val'] = total_running_distance
 
-        # ==========================================================
-        # ▲▲▲ ここまでが修正後のロジックです ▲▲▲
-        # ==========================================================
-        
         dashboard_stats['primary_metric_unit'] = 'km'
         dashboard_stats['primary_metric_label'] = "すべての公道車"
         dashboard_stats['is_racer_stats'] = False
