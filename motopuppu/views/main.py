@@ -7,10 +7,11 @@ from dateutil.relativedelta import relativedelta
 from .auth import login_required_custom, get_current_user # get_current_user はここでインポート
 from ..models import db, User, Motorcycle, FuelEntry, MaintenanceEntry, MaintenanceReminder, GeneralNote
 from sqlalchemy import func, select
+from sqlalchemy.orm import joinedload # ⭐️ 修正で必要になるためインポート
 import math
 import jpholiday # 祝日ライブラリ
-import json     # JSONライブラリ
-import os       # os をインポート (お知らせファイルパス用)
+import json      # JSONライブラリ
+import os        # os をインポート (お知らせファイルパス用)
 
 main_bp = Blueprint('main', __name__)
 
@@ -97,7 +98,7 @@ def get_upcoming_reminders(user_motorcycles_all, user_id):
             last_done_str = "未実施"
             if reminder.last_done_date: last_done_str = reminder.last_done_date.strftime('%Y-%m-%d');
             if not motorcycle.is_racer and reminder.last_done_km is not None:
-                 last_done_str += f" ({reminder.last_done_km:,} km)" if reminder.last_done_date else f"{reminder.last_done_km:,} km"
+                last_done_str += f" ({reminder.last_done_km:,} km)" if reminder.last_done_date else f"{reminder.last_done_km:,} km"
             upcoming_reminders.append({
                 'reminder_id': reminder.id, 'motorcycle_id': motorcycle.id, 'motorcycle_name': motorcycle.name,
                 'task': reminder.task_description, 'status': status, 'message': ", ".join(messages) if messages else "要確認",
@@ -131,7 +132,7 @@ def index():
                 temp_modal_announcements.sort(key=lambda x: x.get('id', 0), reverse=True)
                 announcements_for_modal = temp_modal_announcements
         else:
-             current_app.logger.warning(f"announcements.json not found at {announcement_file}")
+            current_app.logger.warning(f"announcements.json not found at {announcement_file}")
     except Exception as e:
         current_app.logger.error(f"An unexpected error occurred loading announcements: {e}", exc_info=True)
 
@@ -221,12 +222,49 @@ def dashboard():
         dashboard_stats['cost_label'] = target_vehicle_for_stats.name
 
     else:
-        total_public_mileage = 0
-        if user_motorcycles_public:
-            for mc in user_motorcycles_public:
-                total_public_mileage += get_latest_total_distance(mc.id, mc.odometer_offset)
+        # ==========================================================
+        # ▼▼▼ ここからが修正後のロジックです ▼▼▼
+        # ==========================================================
         
-        dashboard_stats['primary_metric_val'] = total_public_mileage
+        # 1. ユーザーの公道車両に関連記録をEager Loadingして取得
+        user_street_vehicles_with_entries = Motorcycle.query.filter(
+            Motorcycle.id.in_(user_motorcycle_ids_public)
+        ).options(
+            joinedload(Motorcycle.fuel_entries),
+            joinedload(Motorcycle.maintenance_entries)
+        ).all()
+        
+        total_running_distance = 0
+        # 2. 車両ごとに走行距離を計算して合算
+        for vehicle in user_street_vehicles_with_entries:
+            all_distances = []
+            
+            # 給油記録から実走行距離リストを作成
+            fuel_distances = [
+                entry.total_distance for entry in vehicle.fuel_entries
+                if entry.total_distance is not None
+            ]
+            # 整備記録から実走行距離リストを作成
+            maintenance_distances = [
+                entry.total_distance_at_maintenance for entry in vehicle.maintenance_entries
+                if entry.total_distance_at_maintenance is not None
+            ]
+            
+            all_distances.extend(fuel_distances)
+            all_distances.extend(maintenance_distances)
+            
+            # 3. 記録が2つ以上ある場合のみ、(最大 - 最小)を計算
+            if len(all_distances) > 1:
+                vehicle_distance = max(all_distances) - min(all_distances)
+                total_running_distance += vehicle_distance
+
+        # 4. 計算結果を dashboard_stats に設定
+        dashboard_stats['primary_metric_val'] = total_running_distance
+
+        # ==========================================================
+        # ▲▲▲ ここまでが修正後のロジックです ▲▲▲
+        # ==========================================================
+        
         dashboard_stats['primary_metric_unit'] = 'km'
         dashboard_stats['primary_metric_label'] = "すべての公道車"
         dashboard_stats['is_racer_stats'] = False
@@ -256,7 +294,7 @@ def dashboard():
                 for holiday_date_obj, holiday_name in holidays_raw:
                     holidays_dict[holiday_date_obj.strftime('%Y-%m-%d')] = holiday_name
             except Exception as e:
-                 current_app.logger.error(f"Error fetching holidays for year {year}: {e}")
+                current_app.logger.error(f"Error fetching holidays for year {year}: {e}")
         holidays_json = json.dumps(holidays_dict)
     except Exception as e:
         current_app.logger.error(f"Error processing holidays data: {e}")
