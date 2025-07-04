@@ -3,9 +3,7 @@ from flask import (
 )
 from datetime import date, datetime, timezone
 from zoneinfo import ZoneInfo # Python 3.9+
-# --- ▼▼▼ 変更点 ▼▼▼ ---
-from ..models import db, Motorcycle, User, MaintenanceReminder, OdoResetLog, MaintenanceEntry
-# --- ▲▲▲ 変更点 ▲▲▲ ---
+from ..models import db, User, Motorcycle, MaintenanceReminder, OdoResetLog, MaintenanceEntry
 from .auth import login_required_custom, get_current_user
 from ..forms import VehicleForm, OdoResetLogForm, ReminderForm
 # 実績評価モジュールとイベントタイプをインポート
@@ -66,7 +64,6 @@ def add_vehicle():
             db.session.commit() # 先に車両をコミットしてIDを確定させる
 
             # --- ▼▼▼ 変更点 ▼▼▼ ---
-            # 初期ODOメーター値が入力されていて、かつ公道車の場合、最初の整備記録を作成
             initial_odo = form.initial_odometer.data
             if not new_motorcycle.is_racer and initial_odo is not None and initial_odo >= 0:
                 initial_maint_entry = MaintenanceEntry(
@@ -74,8 +71,8 @@ def add_vehicle():
                     maintenance_date=date.today(), # 登録日を整備日とする
                     odometer_reading_at_maintenance=initial_odo,
                     total_distance_at_maintenance=initial_odo, # 新規登録なのでオフセットは0
-                    description="車両登録時の初期ODOメーター値",
-                    category="初期設定", # 専用カテゴリ
+                    description="システム: 車両登録時の初期ODOメーター値", # 説明を変更
+                    category="システム登録", # カテゴリを変更
                     parts_cost=0,
                     labor_cost=0
                 )

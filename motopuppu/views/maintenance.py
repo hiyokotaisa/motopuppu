@@ -79,10 +79,9 @@ def maintenance_log():
 
     user_motorcycle_ids_for_maintenance = [m.id for m in user_motorcycles_for_maintenance]
 
-    # --- ▼▼▼ 変更点 ▼▼▼ ---
+    # --- ▼▼▼ 変更点: カテゴリでの除外フィルタを削除 ▼▼▼ ---
     query = db.session.query(MaintenanceEntry).join(Motorcycle).filter(
-        MaintenanceEntry.motorcycle_id.in_(user_motorcycle_ids_for_maintenance),
-        MaintenanceEntry.category != '初期設定' # 「初期設定」カテゴリを除外
+        MaintenanceEntry.motorcycle_id.in_(user_motorcycle_ids_for_maintenance)
     )
     # --- ▲▲▲ 変更点 ▲▲▲ ---
     active_filters = {k: v for k, v in request.args.items() if k not in ['page', 'sort_by', 'order']}

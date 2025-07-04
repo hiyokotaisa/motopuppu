@@ -94,11 +94,10 @@ def evaluate_achievement_condition(user: User, achievement_def: AchievementDefin
             return db.session.query(FuelEntry.id).join(Motorcycle, Motorcycle.id == FuelEntry.motorcycle_id).filter(Motorcycle.user_id == user_id).count() == 1
         elif code == "FIRST_MAINT_LOG" and event_type == EVENT_ADD_MAINTENANCE_LOG:
             # --- ▼▼▼ 変更点 ▼▼▼ ---
-            # MaintLog はフェーズ1では公道車のみなので、カウントが1ならOK
-            # 「初期設定」カテゴリは除外する
+            # 「システム登録」カテゴリは除外する
             return db.session.query(MaintenanceEntry.id).join(Motorcycle, Motorcycle.id == MaintenanceEntry.motorcycle_id).filter(
                 Motorcycle.user_id == user_id,
-                MaintenanceEntry.category != '初期設定'
+                MaintenanceEntry.category != 'システム登録'
             ).count() == 1
             # --- ▲▲▲ 変更点 ▲▲▲ ---
         elif code == "FIRST_NOTE" and event_type == EVENT_ADD_NOTE:
@@ -116,7 +115,7 @@ def evaluate_achievement_condition(user: User, achievement_def: AchievementDefin
                 # --- ▼▼▼ 変更点 ▼▼▼ ---
                 actual_count = db.session.query(MaintenanceEntry.id).join(Motorcycle, Motorcycle.id == MaintenanceEntry.motorcycle_id).filter(
                     Motorcycle.user_id == user_id,
-                    MaintenanceEntry.category != '初期設定'
+                    MaintenanceEntry.category != 'システム登録'
                 ).count()
                 # --- ▲▲▲ 変更点 ▲▲▲ ---
             elif crit_target_model_name == "GeneralNote" and event_type == EVENT_ADD_NOTE:
@@ -183,11 +182,11 @@ def evaluate_achievement_condition_for_backfill(user: User, achievement_def: Ach
             return db.session.query(FuelEntry.id).join(Motorcycle, Motorcycle.id == FuelEntry.motorcycle_id).filter(Motorcycle.user_id == user_id, Motorcycle.is_racer==False).count() > 0
         elif code == "FIRST_MAINT_LOG":
             # --- ▼▼▼ 変更点 ▼▼▼ ---
-            # 公道車のみ (フェーズ1時点) & 「初期設定」を除外
+            # 「システム登録」を除外
             return db.session.query(MaintenanceEntry.id).join(Motorcycle, Motorcycle.id == MaintenanceEntry.motorcycle_id).filter(
                 Motorcycle.user_id == user_id,
                 Motorcycle.is_racer==False,
-                MaintenanceEntry.category != '初期設定'
+                MaintenanceEntry.category != 'システム登録'
             ).count() > 0
             # --- ▲▲▲ 変更点 ▲▲▲ ---
         elif code == "FIRST_NOTE": # 車種問わず
@@ -205,7 +204,7 @@ def evaluate_achievement_condition_for_backfill(user: User, achievement_def: Ach
                 actual_count = db.session.query(MaintenanceEntry.id).join(Motorcycle, Motorcycle.id == MaintenanceEntry.motorcycle_id).filter(
                     Motorcycle.user_id == user_id,
                     Motorcycle.is_racer==False,
-                    MaintenanceEntry.category != '初期設定'
+                    MaintenanceEntry.category != 'システム登録'
                 ).count()
                 # --- ▲▲▲ 変更点 ▲▲▲ ---
             elif crit_target_model_name == "GeneralNote": # 車種問わず
