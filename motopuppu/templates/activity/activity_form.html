@@ -1,0 +1,114 @@
+{# motopuppu/templates/activity/activity_form.html #}
+{% extends "base.html" %}
+
+{% set page_title = "活動ログの追加" if form_action == 'add' else "活動ログの編集" %}
+{% block title %}{{ page_title }} ({{ motorcycle.name }}) - もとぷっぷー{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center mb-3">
+    {# --- ▼▼▼ 編集時は詳細ページに、追加時は一覧ページに戻るように修正 ▼▼▼ --- #}
+    <a href="{{ url_for('activity.detail_activity', activity_id=activity.id) if form_action == 'edit' else url_for('activity.list_activities', vehicle_id=motorcycle.id) }}" class="btn btn-sm btn-outline-secondary me-3" title="戻る">
+        <i class="fas fa-arrow-left"></i>
+    </a>
+    <h2>{{ page_title }} <small class="text-muted fs-5">- {{ motorcycle.name }}</small></h2>
+</div>
+
+
+{# Flash Messages #}
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+            <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
+
+{# --- ▼▼▼ フォームのactionを編集時にも対応させる ▼▼▼ --- #}
+<form method="POST" action="{{ url_for('activity.add_activity', vehicle_id=motorcycle.id) if form_action == 'add' else url_for('activity.edit_activity', activity_id=activity.id) }}">
+    {{ form.hidden_tag() }} {# CSRFトークン #}
+
+    <div class="card">
+        <div class="card-body">
+            <h5 class="card-title mb-3">活動の基本情報</h5>
+            
+            {# 活動日 #}
+            <div class="mb-3">
+                {{ form.activity_date.label(class="form-label") }} {% if form.activity_date.flags.required %}<span class="text-danger">*</span>{% endif %}
+                {{ form.activity_date(class="form-control" + (" is-invalid" if form.activity_date.errors else "")) }}
+                {% if form.activity_date.errors %}
+                    <div class="invalid-feedback">
+                        {% for error in form.activity_date.errors %}<span>{{ error }}</span><br>{% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+
+            {# 場所名 #}
+            <div class="mb-3">
+                {{ form.location_name.label(class="form-label") }} {% if form.location_name.flags.required %}<span class="text-danger">*</span>{% endif %}
+                {{ form.location_name(class="form-control" + (" is-invalid" if form.location_name.errors else ""), list="circuit-list") }}
+                <datalist id="circuit-list">
+                    {% for circuit in circuits %}
+                    <option value="{{ circuit }}">
+                    {% endfor %}
+                </datalist>
+                {% if form.location_name.errors %}
+                    <div class="invalid-feedback">
+                        {% for error in form.location_name.errors %}<span>{{ error }}</span><br>{% endfor %}
+                    </div>
+                {% else %}
+                    <div class="form-text">サーキット名、林道名、地域名などを入力してください。</div>
+                {% endif %}
+            </div>
+
+            {# 天候と気温 #}
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    {{ form.weather.label(class="form-label") }}
+                    {{ form.weather(class="form-control" + (" is-invalid" if form.weather.errors else ""), placeholder="例: 晴れ") }}
+                    {% if form.weather.errors %}
+                        <div class="invalid-feedback">
+                            {% for error in form.weather.errors %}<span>{{ error }}</span><br>{% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+                <div class="col-md-6 mb-3">
+                    {{ form.temperature.label(class="form-label") }}
+                    <div class="input-group">
+                        {{ form.temperature(class="form-control" + (" is-invalid" if form.temperature.errors else ""), placeholder="例: 25.5") }}
+                        <span class="input-group-text">℃</span>
+                        {% if form.temperature.errors %}
+                            <div class="invalid-feedback">
+                                {% for error in form.temperature.errors %}<span>{{ error }}</span><br>{% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            {# 1日の活動メモ #}
+            <div class="mb-3">
+                {{ form.notes.label(class="form-label") }}
+                {{ form.notes(class="form-control" + (" is-invalid" if form.notes.errors else ""), rows=4) }}
+                {% if form.notes.errors %}
+                    <div class="invalid-feedback">
+                        {% for error in form.notes.errors %}<span>{{ error }}</span><br>{% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+
+            {# 送信ボタンとキャンセルボタン #}
+            <div class="mt-4">
+                {# --- ▼▼▼ ボタンのテキストを編集時にも対応させる ▼▼▼ --- #}
+                <button type="submit" class="btn btn-primary">{{ "記録を開始" if form_action == 'add' else "更新する" }}</button>
+                <a href="{{ url_for('activity.detail_activity', activity_id=activity.id) if form_action == 'edit' else url_for('activity.list_activities', vehicle_id=motorcycle.id) }}" class="btn btn-secondary">
+                    <i class="fas fa-times me-1"></i> キャンセル
+                </a>
+            </div>
+
+        </div>
+    </div>
+</form>
+{% endblock %}

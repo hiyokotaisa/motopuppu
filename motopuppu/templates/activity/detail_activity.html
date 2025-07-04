@@ -1,0 +1,177 @@
+{# motopuppu/templates/activity/detail_activity.html #}
+{% extends "base.html" %}
+
+{% block title %}活動ログ: {{ activity.location_name }} ({{ activity.activity_date.strftime('%Y-%m-%d') }}) - もとぷっぷー{% endblock %}
+
+{% block content %}
+{# --- ページヘッダー --- #}
+<div class="d-flex align-items-center mb-3">
+    <a href="{{ url_for('activity.list_activities', vehicle_id=motorcycle.id) }}" class="btn btn-sm btn-outline-secondary me-3" title="活動ログ一覧へ戻る">
+        <i class="fas fa-arrow-left"></i>
+    </a>
+    <div>
+        <h2 class="mb-0">活動ログ詳細</h2>
+        <span class="text-muted">{{ motorcycle.name }}</span>
+    </div>
+</div>
+
+
+{# Flash Messages #}
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+            <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
+
+{# --- 活動の基本情報 --- #}
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <strong>{{ activity.activity_date.strftime('%Y年%m月%d日') }} - {{ activity.location_name }}</strong>
+        <a href="{{ url_for('activity.edit_activity', activity_id=activity.id) }}" class="btn btn-sm btn-outline-secondary"><i class="fas fa-edit me-1"></i> 活動情報を編集</a>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <strong>天候:</strong> {{ activity.weather if activity.weather else 'N/A' }}
+            </div>
+            <div class="col-md-6">
+                <strong>気温:</strong> {% if activity.temperature is not none %}{{ activity.temperature }} ℃{% else %}N/A{% endif %}
+            </div>
+        </div>
+        {% if activity.notes %}
+        <p class="card-text mt-2"><strong>メモ:</strong><br>{{ activity.notes|nl2br }}</p>
+        {% endif %}
+    </div>
+</div>
+
+{# --- セッション記録 --- #}
+<h3 class="mb-3">セッション記録</h3>
+
+{# --- 新しいセッションを追加するフォーム (アコーディオン) --- #}
+<div class="accordion mb-4" id="addSessionAccordion">
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="headingOne">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="false" aria-controls="collapseOne">
+                <i class="fas fa-plus me-2"></i> 新しいセッションを記録する
+            </button>
+        </h2>
+        <div id="collapseOne" class="accordion-collapse collapse {% if session_form.errors %}show{% endif %}" aria-labelledby="headingOne" data-bs-parent="#addSessionAccordion">
+            <div class="accordion-body">
+                <form method="POST" action="{{ url_for('activity.detail_activity', activity_id=activity.id) }}">
+                    {{ session_form.hidden_tag() }}
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            {{ session_form.session_name.label(class="form-label") }}
+                            {{ session_form.session_name(class="form-control" + (" is-invalid" if session_form.session_name.errors else "")) }}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            {{ session_form.setting_sheet_id.label(class="form-label") }}
+                            <div class="input-group">
+                                {{ session_form.setting_sheet_id(class="form-select" + (" is-invalid" if session_form.setting_sheet_id.errors else "")) }}
+                                <a href="{{ url_for('activity.list_settings', vehicle_id=motorcycle.id) }}" class="btn btn-outline-secondary" title="セッティング管理へ"><i class="fas fa-cog"></i></a>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {# --- 走行距離/時間 (車両タイプで表示切替) --- #}
+                    <div id="racer-fields" class="row {% if not motorcycle.is_racer %}d-none{% endif %}">
+                        <div class="col-md-6 mb-3">
+                            {{ session_form.operating_hours_start.label(class="form-label") }}
+                            {{ session_form.operating_hours_start(class="form-control") }}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            {{ session_form.operating_hours_end.label(class="form-label") }}
+                            {{ session_form.operating_hours_end(class="form-control" + (" is-invalid" if session_form.operating_hours_end.errors else "")) }}
+                            {% if session_form.operating_hours_end.errors %}
+                                <div class="invalid-feedback d-block">{% for e in session_form.operating_hours_end.errors %}{{e}}{% endfor %}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div id="street-fields" class="row {% if motorcycle.is_racer %}d-none{% endif %}">
+                        <div class="col-md-6 mb-3">
+                            {{ session_form.odo_start.label(class="form-label") }}
+                            {{ session_form.odo_start(class="form-control") }}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            {{ session_form.odo_end.label(class="form-label") }}
+                            {{ session_form.odo_end(class="form-control" + (" is-invalid" if session_form.odo_end.errors else "")) }}
+                            {% if session_form.odo_end.errors %}
+                                <div class="invalid-feedback d-block">{% for e in session_form.odo_end.errors %}{{e}}{% endfor %}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        {{ session_form.rider_feel.label(class="form-label") }}
+                        {{ session_form.rider_feel(class="form-control") }}
+                    </div>
+                    
+                    {# ラップタイム入力UIはここに実装 (今回は省略) #}
+                    {{ session_form.lap_times_json() }} {# hidden field for now #}
+
+                    {{ session_form.submit(class="btn btn-primary") }}
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+{# --- 既存セッションの一覧 --- #}
+{% if sessions %}
+<div class="row">
+    {% for session in sessions %}
+    <div class="col-lg-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">{{ session.session_name }}</h5>
+                {# --- ▼▼▼ 編集・削除ボタンを追加 ▼▼▼ --- #}
+                <div>
+                    {# <a href="#" class="btn btn-sm btn-outline-primary py-0 px-1" title="編集"><i class="fas fa-edit fa-fw"></i></a> #}
+                    <form action="{{ url_for('activity.delete_session', session_id=session.id) }}" method="POST" class="d-inline" onsubmit="return confirm('このセッション記録を削除してもよろしいですか？');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                        <button type="submit" class="btn btn-sm btn-outline-danger py-0 px-1" title="削除"><i class="fas fa-trash fa-fw"></i></button>
+                    </form>
+                </div>
+                {# --- ▲▲▲ 追加はここまで ▲▲▲ --- #}
+            </div>
+            <div class="card-body">
+                <p><strong>使用セッティング:</strong> 
+                    {% if session.setting_sheet %}
+                        <a href="{{ url_for('activity.edit_setting', setting_id=session.setting_sheet.id) }}">{{ session.setting_sheet.sheet_name }}</a>
+                    {% else %}
+                        <span class="text-muted">セッティング未指定</span>
+                    {% endif %}
+                </p>
+
+                {% if session.rider_feel %}
+                <p class="card-text small bg-light p-2 rounded">
+                    <strong>走行メモ:</strong><br>
+                    {{ session.rider_feel|nl2br }}
+                </p>
+                {% endif %}
+
+            </div>
+            <div class="card-footer text-muted small">
+                {% if motorcycle.is_racer %}
+                    稼働時間: {{ session.operating_hours_start or 'N/A' }}h → {{ session.operating_hours_end or 'N/A' }}h
+                {% else %}
+                    ODO: {{ "{:,}".format(session.odo_start) if session.odo_start is not none else 'N/A' }}km → {{ "{:,}".format(session.odo_end) if session.odo_end is not none else 'N/A' }}km
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="alert alert-info">
+    まだセッションが記録されていません。「新しいセッションを記録する」から追加してください。
+</div>
+{% endif %}
+
+{% endblock %}

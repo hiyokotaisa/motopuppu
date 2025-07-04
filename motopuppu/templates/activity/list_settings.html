@@ -1,0 +1,104 @@
+{# motopuppu/templates/activity/list_settings.html #}
+{% extends "base.html" %}
+
+{% block title %}セッティングシート管理 ({{ motorcycle.name }}) - もとぷっぷー{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="mb-0">セッティングシート管理 <small class="text-muted fs-5">- {{ motorcycle.name }}</small></h2>
+    <a href="{{ url_for('activity.add_setting', vehicle_id=motorcycle.id) }}" class="btn btn-success">
+        <i class="fas fa-plus me-1"></i> 新しいセッティングシートを追加
+    </a>
+</div>
+
+<p class="text-muted">
+    セッティングシートは、サスペンションやタイヤなどの設定を保存しておくためのテンプレートです。<br>
+    ここで作成したシートを、各活動ログのセッション記録で呼び出して使用できます。
+</p>
+
+{# Flash Messages #}
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+            <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
+
+{% if settings %}
+<div class="table-responsive">
+    <table class="table table-hover">
+        <thead>
+            <tr>
+                <th>シート名</th>
+                <th>メモ</th>
+                <th class="text-center">状態</th>
+                <th>最終更新日</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for setting in settings %}
+            <tr class="{{ 'table-light text-muted' if setting.is_archived else '' }}">
+                <td>
+                    <a href="{{ url_for('activity.edit_setting', setting_id=setting.id) }}">{{ setting.sheet_name }}</a>
+                    {% if setting.is_archived %}<i class="fas fa-archive ms-1 small"></i>{% endif %}
+                </td>
+                <td>
+                    {% if setting.notes %}
+                    <span title="{{ setting.notes }}" data-bs-toggle="tooltip" data-bs-placement="top">
+                        {{ setting.notes|truncate(40) }}
+                    </span>
+                    {% else %}
+                    -
+                    {% endif %}
+                </td>
+                <td class="text-center">
+                    {% if setting.is_archived %}
+                        <span class="badge bg-secondary">アーカイブ済</span>
+                    {% else %}
+                        <span class="badge bg-success">有効</span>
+                    {% endif %}
+                </td>
+                <td class="text-nowrap">{{ setting.updated_at.strftime('%Y-%m-%d') }}</td>
+                <td class="text-nowrap">
+                    {# --- ▼▼▼ 編集・アーカイブボタンを追加 ▼▼▼ --- #}
+                    <a href="{{ url_for('activity.edit_setting', setting_id=setting.id) }}" class="btn btn-sm btn-outline-primary me-1" title="編集"><i class="fas fa-edit fa-fw"></i></a>
+                    {# <a href="#" class="btn btn-sm btn-outline-secondary me-1" title="複製"><i class="fas fa-copy fa-fw"></i></a> #}
+                    <form action="{{ url_for('activity.toggle_archive_setting', setting_id=setting.id) }}" method="POST" class="d-inline">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                        {% if setting.is_archived %}
+                            <button type="submit" class="btn btn-sm btn-outline-success" title="有効化"><i class="fas fa-undo fa-fw"></i></button>
+                        {% else %}
+                            <button type="submit" class="btn btn-sm btn-outline-warning" title="アーカイブ"><i class="fas fa-archive fa-fw"></i></button>
+                        {% endif %}
+                    </form>
+                    {# --- ▲▲▲ 追加はここまで ▲▲▲ --- #}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="alert alert-info mt-4" role="alert">
+  まだセッティングシートがありません。上のボタンから最初のセッティングシートを追加しましょう！
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Bootstrap Tooltipの初期化
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl)
+    })
+});
+</script>
+{% endblock %}

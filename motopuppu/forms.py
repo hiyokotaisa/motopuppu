@@ -1,6 +1,6 @@
 # motopuppu/forms.py
 from flask_wtf import FlaskForm
-from wtforms import StringField, SelectField, DateField, DecimalField, IntegerField, TextAreaField, BooleanField, SubmitField, RadioField, FieldList, FormField
+from wtforms import StringField, SelectField, DateField, DecimalField, IntegerField, TextAreaField, BooleanField, SubmitField, RadioField, FieldList, FormField, HiddenField
 from wtforms.validators import DataRequired, Optional, NumberRange, Length, ValidationError, InputRequired
 from datetime import date, datetime
 
@@ -8,6 +8,15 @@ from datetime import date, datetime
 GAS_STATION_BRANDS = [
     'ENEOS', '出光興産/apollostation', 'コスモ石油', 'キグナス石油', 'JA-SS', 'SOLATO',
 ]
+
+# --- ▼▼▼ 活動ログ機能 サーキットリスト追加 ▼▼▼ ---
+JAPANESE_CIRCUITS = [
+    "富士スピードウェイ", "鈴鹿サーキット", "ツインリンクもてぎ", "スポーツランドSUGO",
+    "岡山国際サーキット", "オートポリス", "筑波サーキット TC2000", "筑波サーキット TC1000",
+    "袖ヶ浦フォレストレースウェイ", "スパ西浦モーターパーク", "セントラルサーキット",
+    "HSR九州", "十勝スピードウェイ", "エビスサーキット"
+]
+# --- ▲▲▲ 活動ログ機能 サーキットリスト追加 ▲▲▲ ---
 
 # 油種の選択肢を定数として定義
 FUEL_TYPE_CHOICES = [
@@ -397,3 +406,80 @@ class DeleteAccountForm(FlaskForm):
     def validate_confirm_text(self, field):
         if field.data != "削除します":
             raise ValidationError("入力された文字列が一致しません。「削除します」と正しく入力してください。")
+
+# --- ▼▼▼ 活動ログ機能 (ここから) ▼▼▼ ---
+
+class SettingSheetForm(FlaskForm):
+    """セッティングシート用のフォーム"""
+    sheet_name = StringField(
+        'セッティングシート名',
+        validators=[DataRequired(message='シート名は必須です。'), Length(max=100)],
+        render_kw={"placeholder": "例: FSWドライ基本セット"}
+    )
+    # details_jsonフィールドを削除
+    notes = TextAreaField(
+        'メモ',
+        validators=[Optional(), Length(max=1000)],
+        render_kw={"rows": 4, "placeholder": "このセッティングの狙いや特徴など"}
+    )
+    submit = SubmitField('保存する')
+
+class ActivityLogForm(FlaskForm):
+    """活動ログ用のフォーム"""
+    activity_date = DateField(
+        '活動日',
+        validators=[DataRequired(message='活動日は必須です。')],
+        format='%Y-%m-%d',
+        default=date.today
+    )
+    location_name = StringField(
+        '場所名',
+        validators=[DataRequired(message='場所名は必須です。'), Length(max=150)],
+        render_kw={"list": "circuit-list", "placeholder": "例: 富士スピードウェイ"}
+    )
+    weather = StringField('天候', validators=[Optional(), Length(max=50)])
+    temperature = DecimalField('気温 (℃)', places=1, validators=[Optional(), NumberRange(min=-50, max=60)])
+    notes = TextAreaField(
+        '1日の活動メモ',
+        validators=[Optional(), Length(max=1000)],
+        render_kw={"rows": 4}
+    )
+    submit = SubmitField('活動記録を開始')
+
+class SessionLogForm(FlaskForm):
+    """セッションログ用のフォーム"""
+    session_name = StringField(
+        'セッション名',
+        validators=[DataRequired(message='セッション名は必須です。'), Length(max=100)],
+        default='Session 1'
+    )
+    setting_sheet_id = SelectField(
+        '使用セッティング',
+        coerce=int,
+        validators=[Optional()]
+    )
+    rider_feel = TextAreaField(
+        '走行メモ・フィーリング',
+        validators=[Optional(), Length(max=2000)],
+        render_kw={"rows": 5, "placeholder": "このセッションでのマシンの挙動や改善点など"}
+    )
+    # 走行距離/時間はビュー側で動的に表示を制御するため、ここでは両方定義
+    operating_hours_start = DecimalField('開始 稼働時間', places=2, validators=[Optional(), NumberRange(min=0)])
+    operating_hours_end = DecimalField('終了 稼働時間', places=2, validators=[Optional(), NumberRange(min=0)])
+    odo_start = IntegerField('開始 ODO (km)', validators=[Optional(), NumberRange(min=0)])
+    odo_end = IntegerField('終了 ODO (km)', validators=[Optional(), NumberRange(min=0)])
+    # ラップタイムは専用のUIで入力させ、JSONとして裏で送信する想定
+    lap_times_json = HiddenField('Lap Times JSON', validators=[Optional()])
+    submit = SubmitField('セッションを記録')
+
+    def validate_operating_hours_end(self, field):
+        if field.data is not None and self.operating_hours_start.data is not None:
+            if field.data < self.operating_hours_start.data:
+                raise ValidationError('終了稼働時間は開始稼働時間以上である必要があります。')
+
+    def validate_odo_end(self, field):
+        if field.data is not None and self.odo_start.data is not None:
+            if field.data < self.odo_start.data:
+                raise ValidationError('終了ODOは開始ODO以上である必要があります。')
+
+# --- ▲▲▲ 活動ログ機能 (ここまで) ▲▲▲ ---

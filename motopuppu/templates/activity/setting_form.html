@@ -1,0 +1,196 @@
+{# motopuppu/templates/activity/setting_form.html #}
+{% extends "base.html" %}
+
+{% set page_title = "セッティングシートの追加" if form_action == 'add' else "セッティングシートの編集" %}
+{% block title %}{{ page_title }} ({{ motorcycle.name }}) - もとぷっぷー{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center mb-3">
+    <a href="{{ url_for('activity.list_settings', vehicle_id=motorcycle.id) }}" class="btn btn-sm btn-outline-secondary me-3" title="セッティングシート管理へ戻る">
+        <i class="fas fa-arrow-left"></i>
+    </a>
+    <h2>{{ page_title }} <small class="text-muted fs-5">- {{ motorcycle.name }}</small></h2>
+</div>
+
+{# Flash Messages #}
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+            <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
+
+{# --- ▼▼▼ 編集機能に対応 ▼▼▼ --- #}
+<form id="setting-sheet-form" method="POST" action="{{ url_for('activity.add_setting', vehicle_id=motorcycle.id) if form_action == 'add' else url_for('activity.edit_setting', setting_id=setting.id) }}">
+    {{ form.hidden_tag() }} {# CSRFトークン #}
+    <input type="hidden" id="details_json_input" name="details_json" value="{{ details_json if details_json else '{}' }}">
+
+    <div class="row">
+        <div class="col-lg-8">
+            {# --- 基本情報 --- #}
+            <div class="card mb-4">
+                <div class="card-header">基本情報</div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        {{ form.sheet_name.label(class="form-label") }}
+                        {{ form.sheet_name(class="form-control" + (" is-invalid" if form.sheet_name.errors else "")) }}
+                        {% if form.sheet_name.errors %}<div class="invalid-feedback d-block">{{ form.sheet_name.errors[0] }}</div>{% endif %}
+                    </div>
+                    <div>
+                        {{ form.notes.label(class="form-label") }}
+                        {{ form.notes(class="form-control" + (" is-invalid" if form.notes.errors else "")) }}
+                        {% if form.notes.errors %}<div class="invalid-feedback d-block">{{ form.notes.errors[0] }}</div>{% endif %}
+                    </div>
+                </div>
+            </div>
+
+            {# --- セッティング項目 --- #}
+            <div id="setting-details-container">
+                {# --- サスペンション項目のテンプレート --- #}
+                <div id="suspension-template" class="card mb-3 setting-category-card" data-category="suspension" style="display: none;">
+                    <div class="card-header">サスペンション設定 <button type="button" class="btn-close btn-sm float-end remove-category-btn" aria-label="Close"></button></div>
+                    <div class="card-body">
+                        <h5>フロント</h5>
+                        <div class="row">
+                            <div class="col-md-6 mb-2"><input type="text" class="form-control" data-key="front_preload" placeholder="プリロード"></div>
+                            <div class="col-md-6 mb-2"><input type="text" class="form-control" data-key="front_rebound" placeholder="伸び側減衰"></div>
+                            <div class="col-md-6 mb-2"><input type="text" class="form-control" data-key="front_compression" placeholder="圧側減衰"></div>
+                        </div>
+                        <hr>
+                        <h5>リア</h5>
+                         <div class="row">
+                            <div class="col-md-6 mb-2"><input type="text" class="form-control" data-key="rear_preload" placeholder="プリロード"></div>
+                            <div class="col-md-6 mb-2"><input type="text" class="form-control" data-key="rear_rebound" placeholder="伸び側減衰"></div>
+                        </div>
+                    </div>
+                </div>
+                {# --- タイヤ項目のテンプレート --- #}
+                <div id="tire-template" class="card mb-3 setting-category-card" data-category="tire" style="display: none;">
+                    <div class="card-header">タイヤ設定 <button type="button" class="btn-close btn-sm float-end remove-category-btn" aria-label="Close"></button></div>
+                    <div class="card-body">
+                         <h5>フロント</h5>
+                        <div class="row">
+                            <div class="col-md-6 mb-2"><input type="text" class="form-control" data-key="front_model" placeholder="モデル名"></div>
+                            <div class="col-md-6 mb-2"><input type="text" class="form-control" data-key="front_pressure" placeholder="空気圧 (冷間)"></div>
+                        </div>
+                        <hr>
+                        <h5>リア</h5>
+                         <div class="row">
+                            <div class="col-md-6 mb-2"><input type="text" class="form-control" data-key="rear_model" placeholder="モデル名"></div>
+                            <div class="col-md-6 mb-2"><input type="text" class="form-control" data-key="rear_pressure" placeholder="空気圧 (冷間)"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            {# --- カテゴリ追加ボタン --- #}
+            <div class="card">
+                <div class="card-header">セッティング項目を追加</div>
+                <div class="list-group list-group-flush">
+                    <button type="button" class="list-group-item list-group-item-action add-category-btn" data-template-id="suspension-template">
+                        <i class="fas fa-sliders-h me-2"></i> サスペンション
+                    </button>
+                    <button type="button" class="list-group-item list-group-item-action add-category-btn" data-template-id="tire-template">
+                        <i class="fas fa-dot-circle me-2"></i> タイヤ
+                    </button>
+                     {# 将来的に他のカテゴリもここに追加 #}
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="mt-4">
+        <button type="submit" class="btn btn-primary">{{ "作成する" if form_action == 'add' else "更新する" }}</button>
+        <a href="{{ url_for('activity.list_settings', vehicle_id=motorcycle.id) }}" class="btn btn-secondary">
+            <i class="fas fa-times me-1"></i> キャンセル
+        </a>
+    </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const container = document.getElementById('setting-details-container');
+    const form = document.getElementById('setting-sheet-form');
+    const detailsJsonInput = document.getElementById('details_json_input');
+    const formAction = "{{ form_action }}"; // 'add' or 'edit'
+
+    // カテゴリ追加ボタンの処理
+    document.querySelectorAll('.add-category-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            addCategoryCard(this.dataset.templateId);
+        });
+    });
+
+    // カテゴリ削除ボタンの処理
+    container.addEventListener('click', function(e) {
+        if (e.target.classList.contains('remove-category-btn')) {
+            const card = e.target.closest('.setting-category-card');
+            const category = card.dataset.category;
+            document.querySelector(`.add-category-btn[data-template-id="${category}-template"]`).disabled = false;
+            card.remove();
+        }
+    });
+
+    // フォーム送信時にJSONを構築
+    form.addEventListener('submit', function(e) {
+        const settingData = {};
+        container.querySelectorAll('.setting-category-card').forEach(card => {
+            const category = card.dataset.category;
+            settingData[category] = {};
+            card.querySelectorAll('input[data-key]').forEach(input => {
+                if (input.value) {
+                    settingData[category][input.dataset.key] = input.value;
+                }
+            });
+        });
+        detailsJsonInput.value = JSON.stringify(settingData);
+    });
+    
+    // --- ▼▼▼ 編集モード用の初期化処理を追加 ▼▼▼ ---
+    function addCategoryCard(templateId, data = null) {
+        const template = document.getElementById(templateId);
+        if (!template) return;
+
+        const clone = template.cloneNode(true);
+        clone.style.display = 'block';
+        clone.removeAttribute('id');
+        container.appendChild(clone);
+        document.querySelector(`.add-category-btn[data-template-id="${templateId}"]`).disabled = true;
+
+        // データがあれば入力欄にセット
+        if (data) {
+            clone.querySelectorAll('input[data-key]').forEach(input => {
+                if (data[input.dataset.key]) {
+                    input.value = data[input.dataset.key];
+                }
+            });
+        }
+    }
+
+    function populateFormForEdit() {
+        if (!detailsJsonInput.value) return;
+        try {
+            const savedData = JSON.parse(detailsJsonInput.value);
+            for (const category in savedData) {
+                const templateId = `${category}-template`;
+                addCategoryCard(templateId, savedData[category]);
+            }
+        } catch (e) {
+            console.error("Error parsing setting details JSON:", e);
+        }
+    }
+
+    if (formAction === 'edit') {
+        populateFormForEdit();
+    }
+    // --- ▲▲▲ 追加はここまで ▲▲▲ ---
+});
+</script>
+{% endblock %}
