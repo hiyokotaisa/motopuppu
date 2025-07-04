@@ -143,22 +143,18 @@
         {% endif %}
     </div>
 
+    {# ▼▼▼ 変更点: <datalist> を削除し、シンプルな描画に変更 ▼▼▼ #}
     {# 油種 #}
     <div class="mb-3">
         {{ form.fuel_type.label(class="form-label") }}
-        {{ form.fuel_type(class="form-control" + (" is-invalid" if form.fuel_type.errors else ""), list="fuel_type_options", placeholder=(form.fuel_type.render_kw.get("placeholder", "") if form.fuel_type.render_kw else "")) }}
-        <datalist id="fuel_type_options">
-            <option value="レギュラー">
-            <option value="ハイオク">
-            <option value="軽油">
-            <option value="混合">
-        </datalist>
+        {{ form.fuel_type(class="form-select" + (" is-invalid" if form.fuel_type.errors else "")) }}
         {% if form.fuel_type.errors %}
             <div class="invalid-feedback">
                 {% for error in form.fuel_type.errors %}<span>{{ error }}</span><br>{% endfor %}
             </div>
         {% endif %}
     </div>
+    {# ▲▲▲ 変更点 ▲▲▲ #}
 
     {# 満タンチェック #}
     <div class="mb-3 form-check">

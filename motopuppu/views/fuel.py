@@ -198,7 +198,9 @@ def add_fuel():
             total_distance=total_distance, fuel_volume=float(form.fuel_volume.data),
             price_per_liter=float(form.price_per_liter.data) if form.price_per_liter.data is not None else None,
             total_cost=total_cost_val, station_name=form.station_name.data.strip() if form.station_name.data else None,
-            fuel_type=form.fuel_type.data.strip() if form.fuel_type.data else None,
+            # ▼▼▼ 変更点: .strip() を削除 ▼▼▼
+            fuel_type=form.fuel_type.data if form.fuel_type.data else None,
+            # ▲▲▲ 変更点 ▲▲▲
             notes=form.notes.data.strip() if form.notes.data else None, is_full_tank=form.is_full_tank.data,
             exclude_from_average=form.exclude_from_average.data
         )
@@ -317,7 +319,9 @@ def edit_fuel(entry_id):
         entry.price_per_liter = float(form.price_per_liter.data) if form.price_per_liter.data is not None else None
         entry.total_cost = total_cost_val
         entry.station_name = form.station_name.data.strip() if form.station_name.data else None
-        entry.fuel_type = form.fuel_type.data.strip() if form.fuel_type.data else None
+        # ▼▼▼ 変更点: .strip() を削除 ▼▼▼
+        entry.fuel_type = form.fuel_type.data if form.fuel_type.data else None
+        # ▲▲▲ 変更点 ▲▲▲
         entry.notes = form.notes.data.strip() if form.notes.data else None
         entry.is_full_tank = form.is_full_tank.data
         entry.exclude_from_average = form.exclude_from_average.data

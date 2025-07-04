@@ -1,3 +1,4 @@
+# motopuppu/forms.py
 from flask_wtf import FlaskForm
 from wtforms import StringField, SelectField, DateField, DecimalField, IntegerField, TextAreaField, BooleanField, SubmitField, RadioField, FieldList, FormField
 from wtforms.validators import DataRequired, Optional, NumberRange, Length, ValidationError, InputRequired
@@ -6,6 +7,15 @@ from datetime import date, datetime
 # スタンド名の候補リスト (FuelForm用)
 GAS_STATION_BRANDS = [
     'ENEOS', '出光興産/apollostation', 'コスモ石油', 'キグナス石油', 'JA-SS', 'SOLATO',
+]
+
+# 油種の選択肢を定数として定義
+FUEL_TYPE_CHOICES = [
+    ('', '--- 選択してください ---'), # 未選択時の表示
+    ('レギュラー', 'レギュラー'),
+    ('ハイオク', 'ハイオク'),
+    ('軽油', '軽油'),
+    ('混合', '混合')
 ]
 
 # カテゴリの候補リスト (MaintenanceForm用)
@@ -33,15 +43,14 @@ class FuelForm(FlaskForm):
         validators=[DataRequired(message='給油日は必須です。')],
         format='%Y-%m-%d'
     )
-    # --- ▼▼▼ トグルスイッチへの変更 ▼▼▼ ---
     input_mode = BooleanField(
-        'トリップメーターで入力する', # ラベルを分かりやすく変更
-        default=False # デフォルトはOFF (ODOメーター入力)
+        'トリップメーターで入力する',
+        default=False
     )
     odometer_reading = IntegerField(
         'ODOメーター値 (km)',
         validators=[
-            Optional(), # バリデーションはビュー側で実施するため変更なし
+            Optional(),
             NumberRange(min=0, message='ODOメーター値は0以上で入力してください。')
         ],
         render_kw={"placeholder": "例: 12345"}
@@ -54,7 +63,6 @@ class FuelForm(FlaskForm):
         ],
         render_kw={"placeholder": "前回給油からの走行距離"}
     )
-    # --- ▲▲▲ トグルスイッチへの変更 ▲▲▲ ---
     fuel_volume = DecimalField(
         '給油量 (L)',
         places=2,
@@ -85,10 +93,10 @@ class FuelForm(FlaskForm):
         validators=[Optional(), Length(max=100, message='給油スタンド名は100文字以内で入力してください。')],
         render_kw={"list": "station-brands-list", "placeholder": "例: ENEOS ○○SS"}
     )
-    fuel_type = StringField(
+    fuel_type = SelectField(
         '油種',
-        validators=[Optional(), Length(max=50, message='油種は50文字以内で入力してください。')],
-        render_kw={"list": "fuel_type_options", "placeholder": "例: レギュラー"}
+        choices=FUEL_TYPE_CHOICES, # choicesは__init__でコピーして使う
+        validators=[Optional()]
     )
     is_full_tank = BooleanField(
         '満タン給油 (燃費計算に利用)',
@@ -104,6 +112,24 @@ class FuelForm(FlaskForm):
         render_kw={"rows": 3, "placeholder": "給油時の状況や特記事項など"}
     )
     submit = SubmitField('保存する')
+
+    def __init__(self, *args, **kwargs):
+        super(FuelForm, self).__init__(*args, **kwargs)
+        
+        # choicesが他のインスタンスに影響を与えないようにコピーを使用する
+        self.fuel_type.choices = list(FUEL_TYPE_CHOICES)
+
+        # フォームにDBオブジェクトが渡された場合 (編集時) の処理
+        entry_obj = kwargs.get('obj')
+        if entry_obj and entry_obj.fuel_type:
+            existing_fuel_type = entry_obj.fuel_type
+            # 現在の選択肢の値のリストを取得
+            choice_values = [choice[0] for choice in self.fuel_type.choices]
+            # DBに保存されている値が現在の選択肢にない場合
+            if existing_fuel_type not in choice_values:
+                # 既存の選択肢の先頭から2番目（'--- 選択してください ---'の後）に、
+                # DBの値を(値, ラベル)のタプル形式で追加する
+                self.fuel_type.choices.insert(1, (existing_fuel_type, existing_fuel_type))
 
 
 class MaintenanceForm(FlaskForm):
@@ -189,7 +215,6 @@ class VehicleForm(FlaskForm):
         ],
         render_kw={"placeholder": "例: 2023"}
     )
-    # --- ▼▼▼ 変更点 ▼▼▼ ---
     initial_odometer = IntegerField(
         '初期ODOメーター値 (km) (任意)',
         validators=[
@@ -198,8 +223,6 @@ class VehicleForm(FlaskForm):
         ],
         render_kw={"placeholder": "中古購入時のODOメーター値など"}
     )
-    # --- ▲▲▲ 変更点 ▲▲▲ ---
-    # --- ▼▼▼ フェーズ1変更点 ▼▼▼ ---
     is_racer = BooleanField(
         'レーサー車両として登録する (給油記録・ODOメーター管理の対象外となります)',
         default=False
@@ -211,31 +234,13 @@ class VehicleForm(FlaskForm):
         render_kw={"placeholder": "例: 123.50"},
         default=0.00 # フォーム表示時のデフォルト値
     )
-    # --- ▲▲▲ フェーズ1変更点 ▲▲▲ ---
     submit = SubmitField('登録する')
 
-    # --- ▼▼▼ フェーズ1変更点 (バリデーション追加) ▼▼▼ ---
     def validate_total_operating_hours(self, field):
-        """is_racer が True の場合のみ total_operating_hours を必須とするカスタムバリデーション（任意）"""
-        # is_racer の値はこのフォームインスタンスからは直接参照しづらいため、
-        # テンプレート側での表示制御と、ビュー側での値の処理で対応するのが一般的。
-        # もしフォームレベルでバリデーションするなら、ビューで is_racer の状態を渡して条件分岐するなどの工夫が必要。
-        # 今回は、Optional() とし、ビュー側で is_racer=True の場合に値がなければ0をセットする方針とします。
-        # もし is_racer=True の場合に必須としたいなら、ビュー側でチェックするか、
-        # フォームに is_racer の値を渡せるようにして、ここでチェックします。
-        # 例:
-        # if self.is_racer_input and self.is_racer_input.data and field.data is None:
-        #     raise ValidationError('レーサー車両の場合、総稼働時間を入力してください。')
-        pass # 今回は具体的なフォームレベルでの条件付き必須バリデーションは追加せず、ビューとテンプレートで制御
-    # --- ▲▲▲ フェーズ1変更点 ▲▲▲ ---
-    # --- ▼▼▼ 変更点 ▼▼▼ ---
-    def validate_initial_odometer(self, field):
-        """is_racer が True の場合は initial_odometer が入力されていても無視されることを考慮"""
-        # このバリデーションはビュー側で行う方がシンプル。
-        # フォーム送信時に is_racer がチェックされていたら、このフィールドの値をNoneにするなど。
-        # ここでは何もしない。
         pass
-    # --- ▲▲▲ 変更点 ▲▲▲ ---
+    
+    def validate_initial_odometer(self, field):
+        pass
 
 
 class OdoResetLogForm(FlaskForm):
@@ -255,11 +260,11 @@ class OdoResetLogForm(FlaskForm):
         'リセット直後のメーター表示値 (km)',
         default=0,
         validators=[
-            InputRequired(message='リセット直後のメーター表示値は必須です。'), # InputRequired に変更 (0も有効な値として許可)
+            InputRequired(message='リセット直後のメーター表示値は必須です。'),
             NumberRange(min=0, message='メーター表示値は0以上である必要があります。')
         ]
     )
-    submit_odo_reset = SubmitField('リセットを記録') # ボタンのテキストを変更
+    submit_odo_reset = SubmitField('リセットを記録')
 
     def validate_display_odo_before_reset(self, field):
         if self.display_odo_after_reset.data is not None and field.data is not None:
