@@ -1,4 +1,3 @@
-# motopuppu/views/maintenance.py
 import csv
 import io
 from datetime import date, datetime
@@ -80,7 +79,12 @@ def maintenance_log():
 
     user_motorcycle_ids_for_maintenance = [m.id for m in user_motorcycles_for_maintenance]
 
-    query = db.session.query(MaintenanceEntry).join(Motorcycle).filter(MaintenanceEntry.motorcycle_id.in_(user_motorcycle_ids_for_maintenance)) # レーサー車両の整備記録は存在しないはず
+    # --- ▼▼▼ 変更点 ▼▼▼ ---
+    query = db.session.query(MaintenanceEntry).join(Motorcycle).filter(
+        MaintenanceEntry.motorcycle_id.in_(user_motorcycle_ids_for_maintenance),
+        MaintenanceEntry.category != '初期設定' # 「初期設定」カテゴリを除外
+    )
+    # --- ▲▲▲ 変更点 ▲▲▲ ---
     active_filters = {k: v for k, v in request.args.items() if k not in ['page', 'sort_by', 'order']}
 
     try:
@@ -116,7 +120,7 @@ def maintenance_log():
     current_sort_by = sort_by if sort_by in sort_column_map else 'date'
     sort_column = sort_column_map.get(current_sort_by, MaintenanceEntry.maintenance_date)
     current_order = 'desc' if order == 'desc' else 'asc'
-    sort_modifier = desc if current_order == 'desc' else asc
+    sort_modifier = desc if current_order == 'desc' else 'asc'
 
     if sort_column == MaintenanceEntry.maintenance_date:
         query = query.order_by(sort_modifier(MaintenanceEntry.maintenance_date), desc(MaintenanceEntry.total_distance_at_maintenance), MaintenanceEntry.id.desc())

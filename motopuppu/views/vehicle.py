@@ -1,10 +1,11 @@
-# motopuppu/views/vehicle.py
 from flask import (
     Blueprint, flash, g, redirect, render_template, request, url_for, abort, current_app
 )
 from datetime import date, datetime, timezone
 from zoneinfo import ZoneInfo # Python 3.9+
-from ..models import db, Motorcycle, User, MaintenanceReminder, OdoResetLog
+# --- ▼▼▼ 変更点 ▼▼▼ ---
+from ..models import db, Motorcycle, User, MaintenanceReminder, OdoResetLog, MaintenanceEntry
+# --- ▲▲▲ 変更点 ▲▲▲ ---
 from .auth import login_required_custom, get_current_user
 from ..forms import VehicleForm, OdoResetLogForm, ReminderForm
 # 実績評価モジュールとイベントタイプをインポート
@@ -62,8 +63,29 @@ def add_vehicle():
 
         try:
             db.session.add(new_motorcycle)
-            db.session.commit()
-            flash(f'車両「{new_motorcycle.name}」({"レーサー" if new_motorcycle.is_racer else "公道車"})を登録しました。', 'success')
+            db.session.commit() # 先に車両をコミットしてIDを確定させる
+
+            # --- ▼▼▼ 変更点 ▼▼▼ ---
+            # 初期ODOメーター値が入力されていて、かつ公道車の場合、最初の整備記録を作成
+            initial_odo = form.initial_odometer.data
+            if not new_motorcycle.is_racer and initial_odo is not None and initial_odo >= 0:
+                initial_maint_entry = MaintenanceEntry(
+                    motorcycle_id=new_motorcycle.id,
+                    maintenance_date=date.today(), # 登録日を整備日とする
+                    odometer_reading_at_maintenance=initial_odo,
+                    total_distance_at_maintenance=initial_odo, # 新規登録なのでオフセットは0
+                    description="車両登録時の初期ODOメーター値",
+                    category="初期設定", # 専用カテゴリ
+                    parts_cost=0,
+                    labor_cost=0
+                )
+                db.session.add(initial_maint_entry)
+                db.session.commit() # 初期記録もコミット
+                flash(f'車両「{new_motorcycle.name}」を登録し、初期ODOメーター値 ({initial_odo:,}km) を記録しました。', 'success')
+            else:
+                flash(f'車両「{new_motorcycle.name}」({"レーサー" if new_motorcycle.is_racer else "公道車"})を登録しました。', 'success')
+            # --- ▲▲▲ 変更点 ▲▲▲ ---
+
 
             # --- ▼▼▼ フェーズ1変更点 (実績評価のevent_dataにis_racerとレーサー車両カウント情報を追加検討) ▼▼▼
             racer_vehicle_count_after_add = 0

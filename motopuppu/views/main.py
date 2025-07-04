@@ -6,7 +6,7 @@ from datetime import date, timedelta, datetime # datetime をインポートリ�
 from dateutil.relativedelta import relativedelta
 from .auth import login_required_custom, get_current_user # get_current_user はここでインポート
 from ..models import db, User, Motorcycle, FuelEntry, MaintenanceEntry, MaintenanceReminder, GeneralNote
-from sqlalchemy import func, select, union_all 
+from sqlalchemy import func, select, union_all
 from sqlalchemy.orm import joinedload 
 import math
 import jpholiday # 祝日ライブラリ
@@ -184,7 +184,12 @@ def dashboard():
         fuel_query = fuel_query.filter(FuelEntry.motorcycle_id == selected_fuel_vehicle_id)
     recent_fuel_entries = fuel_query.order_by(FuelEntry.entry_date.desc(), FuelEntry.total_distance.desc()).limit(5).all()
 
-    maint_query = MaintenanceEntry.query.options(db.joinedload(MaintenanceEntry.motorcycle)).filter(MaintenanceEntry.motorcycle_id.in_(user_motorcycle_ids_public))
+    # --- ▼▼▼ 変更点 ▼▼▼ ---
+    maint_query = MaintenanceEntry.query.options(db.joinedload(MaintenanceEntry.motorcycle)).filter(
+        MaintenanceEntry.motorcycle_id.in_(user_motorcycle_ids_public),
+        MaintenanceEntry.category != '初期設定'
+    )
+    # --- ▲▲▲ 変更点 ▲▲▲ ---
     if selected_maint_vehicle_id:
         maint_query = maint_query.filter(MaintenanceEntry.motorcycle_id == selected_maint_vehicle_id)
     recent_maintenance_entries = maint_query.order_by(MaintenanceEntry.maintenance_date.desc(), MaintenanceEntry.total_distance_at_maintenance.desc()).limit(5).all()
@@ -345,7 +350,12 @@ def dashboard_events_api():
                 }
             })
     if user_motorcycle_ids_public:
-        maintenance_entries = MaintenanceEntry.query.options(db.joinedload(MaintenanceEntry.motorcycle)).filter(MaintenanceEntry.motorcycle_id.in_(user_motorcycle_ids_public)).all()
+        # --- ▼▼▼ 変更点 ▼▼▼ ---
+        maintenance_entries = MaintenanceEntry.query.options(db.joinedload(MaintenanceEntry.motorcycle)).filter(
+            MaintenanceEntry.motorcycle_id.in_(user_motorcycle_ids_public),
+            MaintenanceEntry.category != '初期設定'
+        ).all()
+        # --- ▲▲▲ 変更点 ▲▲▲ ---
         for entry in maintenance_entries:
             event_title_base = entry.category if entry.category else entry.description
             event_title = f"🔧 整備: {event_title_base[:15]}" + ("..." if len(event_title_base) > 15 else "")

@@ -1,4 +1,3 @@
-# motopuppu/forms.py
 from flask_wtf import FlaskForm
 from wtforms import StringField, SelectField, DateField, DecimalField, IntegerField, TextAreaField, BooleanField, SubmitField, RadioField, FieldList, FormField
 from wtforms.validators import DataRequired, Optional, NumberRange, Length, ValidationError, InputRequired
@@ -190,6 +189,16 @@ class VehicleForm(FlaskForm):
         ],
         render_kw={"placeholder": "例: 2023"}
     )
+    # --- ▼▼▼ 変更点 ▼▼▼ ---
+    initial_odometer = IntegerField(
+        '初期ODOメーター値 (km) (任意)',
+        validators=[
+            Optional(),
+            NumberRange(min=0, message='初期ODOメーター値は0以上で入力してください。')
+        ],
+        render_kw={"placeholder": "中古購入時のODOメーター値など"}
+    )
+    # --- ▲▲▲ 変更点 ▲▲▲ ---
     # --- ▼▼▼ フェーズ1変更点 ▼▼▼ ---
     is_racer = BooleanField(
         'レーサー車両として登録する (給油記録・ODOメーター管理の対象外となります)',
@@ -219,6 +228,14 @@ class VehicleForm(FlaskForm):
         #     raise ValidationError('レーサー車両の場合、総稼働時間を入力してください。')
         pass # 今回は具体的なフォームレベルでの条件付き必須バリデーションは追加せず、ビューとテンプレートで制御
     # --- ▲▲▲ フェーズ1変更点 ▲▲▲ ---
+    # --- ▼▼▼ 変更点 ▼▼▼ ---
+    def validate_initial_odometer(self, field):
+        """is_racer が True の場合は initial_odometer が入力されていても無視されることを考慮"""
+        # このバリデーションはビュー側で行う方がシンプル。
+        # フォーム送信時に is_racer がチェックされていたら、このフィールドの値をNoneにするなど。
+        # ここでは何もしない。
+        pass
+    # --- ▲▲▲ 変更点 ▲▲▲ ---
 
 
 class OdoResetLogForm(FlaskForm):

@@ -54,6 +54,20 @@
         {% endif %}
     </div>
 
+    {# --- ▼▼▼ 変更点: initial_odometer フィールドの描画コードを追加 ▼▼▼ --- #}
+    <div class="mb-3" id="initial_odometer_field_container">
+        {{ form.initial_odometer.label(class="form-label") }}
+        {{ form.initial_odometer(class="form-control" + (" is-invalid" if form.initial_odometer.errors else ""), placeholder=(form.initial_odometer.render_kw.get("placeholder", "") if form.initial_odometer.render_kw else "")) }}
+        {% if form.initial_odometer.errors %}
+            <div class="invalid-feedback">
+                {% for error in form.initial_odometer.errors %}<span>{{ error }}</span><br>{% endfor %}
+            </div>
+        {% else %}
+            <div class="form-text">車両登録時点のODOメーター値を入力すると、最初の記録として登録されます。</div>
+        {% endif %}
+    </div>
+    {# --- ▲▲▲ 変更点 ▲▲▲ --- #}
+
     {# --- ▼▼▼ フェーズ1変更点 (is_racer と total_operating_hours フィールド追加) ▼▼▼ --- #}
     <div class="mb-3 form-check">
         {# is_racer フィールド。編集時は disabled にする #}
@@ -243,27 +257,26 @@
 
 {% block scripts %}
 {{ super() }}
-{# --- ▼▼▼ フェーズ1変更点 (JavaScript追加) ▼▼▼ --- #}
+{# --- ▼▼▼ フェーズ1変更点 (JavaScript追加) → さらに変更 ▼▼▼ --- #}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const isRacerCheckbox = document.getElementById('is_racer_checkbox');
     const totalOperatingHoursFieldContainer = document.getElementById('total_operating_hours_field_container');
-    // もし既存のODOメーター関連フィールドがあれば、同様に取得します
-    //例: const initialOdometerFieldContainer = document.getElementById('initial_odometer_field_container');
+    // --- ▼▼▼ 変更点: initial_odometerのコンテナを取得 ▼▼▼ ---
+    const initialOdometerFieldContainer = document.getElementById('initial_odometer_field_container');
 
     function toggleVehicleSpecificFields() {
-        if (!isRacerCheckbox || !totalOperatingHoursFieldContainer) {
+        if (!isRacerCheckbox || !totalOperatingHoursFieldContainer || !initialOdometerFieldContainer) {
             console.warn("Required elements for field toggling not found.");
             return;
         }
 
         if (isRacerCheckbox.checked) {
             totalOperatingHoursFieldContainer.style.display = ''; // 表示
-            // if (initialOdometerFieldContainer) initialOdometerFieldContainer.style.display = 'none'; // 非表示
-            // ODO関連フィールドの input 要素に disabled 属性を設定/解除
+            initialOdometerFieldContainer.style.display = 'none'; // 非表示
         } else {
             totalOperatingHoursFieldContainer.style.display = 'none'; // 非表示
-            // if (initialOdometerFieldContainer) initialOdometerFieldContainer.style.display = ''; // 表示
+            initialOdometerFieldContainer.style.display = ''; // 表示
         }
     }
 
@@ -277,6 +290,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     isRacerCheckbox.checked = true;
                 }
             {% endif %}
+            
+            // --- ▼▼▼ 変更点: 編集時は初期ODO入力欄を常に非表示にする ▼▼▼ ---
+            if (initialOdometerFieldContainer) {
+                initialOdometerFieldContainer.style.display = 'none';
+            }
+
         {% endif %}
 
         isRacerCheckbox.addEventListener('change', toggleVehicleSpecificFields);
@@ -284,5 +303,5 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 </script>
-{# --- ▲▲▲ フェーズ1変更点 ▲▲▲ --- #}
+{# --- ▲▲▲ 変更点 ▲▲▲ --- #}
 {% endblock %}

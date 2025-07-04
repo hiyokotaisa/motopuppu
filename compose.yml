@@ -16,7 +16,7 @@ services:
       - pg_data:/var/lib/postgresql/data # 正しいパスであることを確認
     ports:
       # Macから直接DBに接続したい場合にコメント解除 (例: 5433 -> 5432)
-      # - "5433:5432"
+      - 5433:5432
     restart: unless-stopped
     healthcheck: # DBが起動完了するのを待つ
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-motopuppu_user} -d ${POSTGRES_DB:-motopuppu_dev}"]
@@ -28,10 +28,10 @@ services:
     build: . # カレントディレクトリの Dockerfile を使ってビルド
     container_name: motopuppu_web_dev # コンテナ名 (任意)
     ports:
-      - "5000:5000" # Macのlocalhost:5000をコンテナの5000番にマッピング
+      - 5000:5000 # Macのlocalhost:5000をコンテナの5000番にマッピング
     volumes:
       # ローカルコードをマウント (:Z フラグはmacOSでは不要なので削除)
-      - .:/app:Z
+      - .:/app
     environment:
       FLASK_APP: motopuppu
       FLASK_ENV: development

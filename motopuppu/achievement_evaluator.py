@@ -1,4 +1,3 @@
-# motopuppu/achievement_evaluator.py
 from flask import current_app
 from .models import (
     db, User, AchievementDefinition, UserAchievement,
@@ -94,8 +93,14 @@ def evaluate_achievement_condition(user: User, achievement_def: AchievementDefin
             # FuelLog は公道車のみなので、カウントが1ならOK
             return db.session.query(FuelEntry.id).join(Motorcycle, Motorcycle.id == FuelEntry.motorcycle_id).filter(Motorcycle.user_id == user_id).count() == 1
         elif code == "FIRST_MAINT_LOG" and event_type == EVENT_ADD_MAINTENANCE_LOG:
+            # --- ▼▼▼ 変更点 ▼▼▼ ---
             # MaintLog はフェーズ1では公道車のみなので、カウントが1ならOK
-            return db.session.query(MaintenanceEntry.id).join(Motorcycle, Motorcycle.id == MaintenanceEntry.motorcycle_id).filter(Motorcycle.user_id == user_id).count() == 1
+            # 「初期設定」カテゴリは除外する
+            return db.session.query(MaintenanceEntry.id).join(Motorcycle, Motorcycle.id == MaintenanceEntry.motorcycle_id).filter(
+                Motorcycle.user_id == user_id,
+                MaintenanceEntry.category != '初期設定'
+            ).count() == 1
+            # --- ▲▲▲ 変更点 ▲▲▲ ---
         elif code == "FIRST_NOTE" and event_type == EVENT_ADD_NOTE:
             return GeneralNote.query.filter_by(user_id=user_id).count() == 1
         elif code == "FIRST_ODO_RESET" and event_type == EVENT_ADD_ODO_RESET:
@@ -108,7 +113,12 @@ def evaluate_achievement_condition(user: User, achievement_def: AchievementDefin
             if crit_target_model_name == "FuelEntry" and event_type == EVENT_ADD_FUEL_LOG:
                 actual_count = db.session.query(FuelEntry.id).join(Motorcycle, Motorcycle.id == FuelEntry.motorcycle_id).filter(Motorcycle.user_id == user_id).count()
             elif crit_target_model_name == "MaintenanceEntry" and event_type == EVENT_ADD_MAINTENANCE_LOG:
-                actual_count = db.session.query(MaintenanceEntry.id).join(Motorcycle, Motorcycle.id == MaintenanceEntry.motorcycle_id).filter(Motorcycle.user_id == user_id).count()
+                # --- ▼▼▼ 変更点 ▼▼▼ ---
+                actual_count = db.session.query(MaintenanceEntry.id).join(Motorcycle, Motorcycle.id == MaintenanceEntry.motorcycle_id).filter(
+                    Motorcycle.user_id == user_id,
+                    MaintenanceEntry.category != '初期設定'
+                ).count()
+                # --- ▲▲▲ 変更点 ▲▲▲ ---
             elif crit_target_model_name == "GeneralNote" and event_type == EVENT_ADD_NOTE:
                 actual_count = GeneralNote.query.filter_by(user_id=user_id).count()
             else: return False
@@ -171,8 +181,15 @@ def evaluate_achievement_condition_for_backfill(user: User, achievement_def: Ach
             return Motorcycle.query.filter_by(user_id=user_id).count() > 0
         elif code == "FIRST_FUEL_LOG": # 公道車のみ
             return db.session.query(FuelEntry.id).join(Motorcycle, Motorcycle.id == FuelEntry.motorcycle_id).filter(Motorcycle.user_id == user_id, Motorcycle.is_racer==False).count() > 0
-        elif code == "FIRST_MAINT_LOG": # 公道車のみ (フェーズ1時点)
-            return db.session.query(MaintenanceEntry.id).join(Motorcycle, Motorcycle.id == MaintenanceEntry.motorcycle_id).filter(Motorcycle.user_id == user_id, Motorcycle.is_racer==False).count() > 0
+        elif code == "FIRST_MAINT_LOG":
+            # --- ▼▼▼ 変更点 ▼▼▼ ---
+            # 公道車のみ (フェーズ1時点) & 「初期設定」を除外
+            return db.session.query(MaintenanceEntry.id).join(Motorcycle, Motorcycle.id == MaintenanceEntry.motorcycle_id).filter(
+                Motorcycle.user_id == user_id,
+                Motorcycle.is_racer==False,
+                MaintenanceEntry.category != '初期設定'
+            ).count() > 0
+            # --- ▲▲▲ 変更点 ▲▲▲ ---
         elif code == "FIRST_NOTE": # 車種問わず
             return GeneralNote.query.filter_by(user_id=user_id).count() > 0
         elif code == "FIRST_ODO_RESET": # 公道車のみ
@@ -184,7 +201,13 @@ def evaluate_achievement_condition_for_backfill(user: User, achievement_def: Ach
             if crit_target_model_name == "FuelEntry":
                 actual_count = db.session.query(FuelEntry.id).join(Motorcycle, Motorcycle.id == FuelEntry.motorcycle_id).filter(Motorcycle.user_id == user_id, Motorcycle.is_racer==False).count()
             elif crit_target_model_name == "MaintenanceEntry":
-                actual_count = db.session.query(MaintenanceEntry.id).join(Motorcycle, Motorcycle.id == MaintenanceEntry.motorcycle_id).filter(Motorcycle.user_id == user_id, Motorcycle.is_racer==False).count()
+                # --- ▼▼▼ 変更点 ▼▼▼ ---
+                actual_count = db.session.query(MaintenanceEntry.id).join(Motorcycle, Motorcycle.id == MaintenanceEntry.motorcycle_id).filter(
+                    Motorcycle.user_id == user_id,
+                    Motorcycle.is_racer==False,
+                    MaintenanceEntry.category != '初期設定'
+                ).count()
+                # --- ▲▲▲ 変更点 ▲▲▲ ---
             elif crit_target_model_name == "GeneralNote": # 車種問わず
                 actual_count = GeneralNote.query.filter_by(user_id=user_id).count()
             else: return False
