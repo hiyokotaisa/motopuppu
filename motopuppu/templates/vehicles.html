@@ -1,4 +1,3 @@
-{# motopuppu/templates/vehicles.html #}
 {% extends "base.html" %}
 
 {% block title %}車両管理 - もとぷっぷー{% endblock %}
@@ -18,99 +17,121 @@
         {% endfor %}
     {% endif %}
 {% endwith %}
-{# --- フラッシュメッセージ表示 ここまで --- #}
 
-
-<div class="mb-3">
+<div class="mb-4">
     <a href="{{ url_for('vehicle.add_vehicle') }}" class="btn btn-primary">
         <i class="fas fa-plus me-1"></i> 新しい車両を追加
     </a>
 </div>
 
 {% if motorcycles %}
-<div class="table-responsive">
-    <table class="table table-striped table-hover">
-        <thead>
-            <tr>
-                <th>#</th>
-                <th>メーカー</th>
-                <th>車両名 <small class="text-muted">(タイプ)</small></th> {# タイプ表示のための小見出し変更 #}
-                <th>年式</th>
-                {# ▼▼▼ フェーズ1変更点 (列ヘッダー変更) ▼▼▼ #}
-                <th class="text-end">稼働記録</th>
-                <th class="text-end">平均燃費 (公道車のみ)</th>
-                {# ▲▲▲ フェーズ1変更点 ▲▲▲ #}
-                <th>デフォルト</th>
-                <th>操作</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for motorcycle in motorcycles %}
-            <tr>
-                <td>{{ loop.index }}</td>
-                <td>{{ motorcycle.maker if motorcycle.maker else '-' }}</td>
-                <td>
-                    {# ▼▼▼ フェーズ1変更点 (車両名とタイプバッジ表示) ▼▼▼ #}
-                    {{ motorcycle.name }}
-                    {% if motorcycle.is_racer %}
-                        <span class="badge bg-info ms-1">レーサー</span>
-                    {% else %}
-                        <span class="badge bg-secondary ms-1">公道車</span>
-                    {% endif %}
-                    {# ▲▲▲ フェーズ1変更点 ▲▲▲ #}
-                </td>
-                <td>{{ motorcycle.year if motorcycle.year else '-' }}</td>
-                {# ▼▼▼ フェーズ1変更点 (稼働記録の表示分け) ▼▼▼ #}
-                <td class="text-end">
-                    {% if motorcycle.is_racer %}
-                        {{ "%.2f"|format(motorcycle.total_operating_hours if motorcycle.total_operating_hours is not none else 0) }} 時間
-                    {% else %}
-                        {% set total_mileage = motorcycle.get_display_total_mileage() %}
-                        {% if total_mileage is not none %}
-                            {{ "{:,.0f}".format(total_mileage | int) }} km
-                        {% else %}
-                            -
+<div class="row">
+    {% for motorcycle in motorcycles %}
+    <div class="col-md-6 col-lg-4 mb-4">
+        <div class="card h-100 shadow-sm">
+            <div class="card-header bg-white">
+                <h5 class="card-title mb-0 d-flex justify-content-between align-items-center">
+                    <span>
+                        <i class="fas fa-motorcycle me-2 text-secondary"></i>{{ motorcycle.name }}
+                    </span>
+                    <span class="ms-2">
+                        {% if motorcycle.is_default %}
+                            <span class="badge bg-success">デフォルト</span>
                         {% endif %}
-                    {% endif %}
-                </td>
-                <td class="text-end">
+                        {% if motorcycle.is_racer %}
+                            <span class="badge bg-info ms-1">レーサー</span>
+                        {% else %}
+                            <span class="badge bg-secondary ms-1">公道車</span>
+                        {% endif %}
+                    </span>
+                </h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span class="text-muted">メーカー/年式</span>
+                        <strong>{{ motorcycle.maker if motorcycle.maker else '-' }} / {{ motorcycle.year if motorcycle.year else '-' }}</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        {% if motorcycle.is_racer %}
+                            <span class="text-muted">総稼働時間</span>
+                            <strong>{{ "%.2f"|format(motorcycle.total_operating_hours if motorcycle.total_operating_hours is not none else 0) }} 時間</strong>
+                        {% else %}
+                            <span class="text-muted">総走行距離</span>
+                            {% set total_mileage = motorcycle.get_display_total_mileage() %}
+                            <strong>{{ "{:,.0f}".format(total_mileage | int) }} km</strong>
+                        {% endif %}
+                    </li>
                     {% if not motorcycle.is_racer %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span class="text-muted">平均燃費</span>
                         {% set avg_kpl = motorcycle.get_display_average_kpl() %}
                         {% if avg_kpl is not none and avg_kpl > 0 %}
-                            {{ "%.2f"|format(avg_kpl) }} km/L
+                            <strong>{{ "%.2f"|format(avg_kpl) }} km/L</strong>
                         {% else %}
-                            -
+                            <span class="text-muted">-</span>
                         {% endif %}
-                    {% else %}
-                        <span class="text-muted">-</span> {# レーサー車両は燃費なし #}
+                    </li>
                     {% endif %}
-                </td>
-                {# ▲▲▲ フェーズ1変更点 ▲▲▲ #}
-                <td>
-                    {% if motorcycle.is_default %}
-                        <span class="badge bg-success">はい</span>
-                    {% else %}
-                        <form action="{{ url_for('vehicle.set_default_vehicle', vehicle_id=motorcycle.id) }}" method="POST" class="d-inline">
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span class="text-muted">最終整備日</span>
+                        {% set last_maint = motorcycle.maintenance_entries.first() %}
+                        <strong>{{ last_maint.maintenance_date.strftime('%Y-%m-%d') if last_maint else '-' }}</strong>
+                    </li>
+                    {% if not motorcycle.is_racer %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span class="text-muted">最終給油日</span>
+                        {% set last_fuel = motorcycle.fuel_entries.first() %}
+                        <strong>{{ last_fuel.entry_date.strftime('%Y-%m-%d') if last_fuel else '-' }}</strong>
+                    </li>
+                    {% endif %}
+                     <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span class="text-muted">記録数</span>
+                        <div class="text-end">
+                            {% if not motorcycle.is_racer %}<span class="badge rounded-pill bg-primary me-1" title="給油記録"><i class="fas fa-gas-pump fa-fw me-1"></i>{{ motorcycle.fuel_entries.count() }}</span>{% endif %}
+                            <span class="badge rounded-pill bg-warning text-dark me-1" title="整備記録"><i class="fas fa-tools fa-fw me-1"></i>{{ motorcycle.maintenance_entries.count() }}</span>
+                            <span class="badge rounded-pill bg-info text-dark" title="ノート"><i class="fas fa-book fa-fw me-1"></i>{{ motorcycle.general_notes|length }}</span>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+            <div class="card-footer bg-light p-2">
+                <div class="d-flex justify-content-between align-items-center">
+                     {# クイックアクションボタン #}
+                    <div>
+                        {% if not motorcycle.is_racer %}
+                        {# ▼▼▼ ここを修正しました ▼▼▼ #}
+                        <a href="{{ url_for('fuel.add_fuel', motorcycle_id=motorcycle.id) }}" class="btn btn-sm btn-outline-primary" title="給油記録を追加"><i class="fas fa-gas-pump"></i></a>
+                        {# ▲▲▲ ここを修正しました ▲▲▲ #}
+                        {% endif %}
+                        <a href="{{ url_for('maintenance.add_maintenance', motorcycle_id=motorcycle.id) }}" class="btn btn-sm btn-outline-warning" title="整備記録を追加"><i class="fas fa-tools"></i></a>
+                        <a href="{{ url_for('notes.add_note', motorcycle_id=motorcycle.id) }}" class="btn btn-sm btn-outline-info" title="ノートを追加"><i class="fas fa-book"></i></a>
+                    </div>
+                    {# 車両管理ボタン #}
+                    <div class="btn-group">
+                        {% if not motorcycle.is_default %}
+                            <form action="{{ url_for('vehicle.set_default_vehicle', vehicle_id=motorcycle.id) }}" method="POST" class="d-inline">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                <button type="submit" class="btn btn-sm btn-outline-secondary" title="デフォルトに設定">
+                                    <i class="fas fa-star"></i>
+                                </button>
+                            </form>
+                        {% endif %}
+                        <a href="{{ url_for('vehicle.edit_vehicle', vehicle_id=motorcycle.id) }}" class="btn btn-sm btn-outline-secondary" title="編集">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        <form action="{{ url_for('vehicle.delete_vehicle', vehicle_id=motorcycle.id) }}" method="POST" class="d-inline" onsubmit="return confirm('車両「{{ motorcycle.name }}」を削除してもよろしいですか？\n関連する燃費・整備記録も全て削除されます。');">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                            <button type="submit" class="btn btn-sm btn-outline-secondary">設定</button>
+                            <button type="submit" class="btn btn-sm btn-outline-danger" title="削除">
+                                <i class="fas fa-trash"></i>
+                            </button>
                         </form>
-                    {% endif %}
-                </td>
-                <td>
-                    <a href="{{ url_for('vehicle.edit_vehicle', vehicle_id=motorcycle.id) }}" class="btn btn-sm btn-warning me-1" title="編集">
-                        <i class="fas fa-edit"></i> <span class="d-none d-md-inline">編集</span>
-                    </a>
-                    <form action="{{ url_for('vehicle.delete_vehicle', vehicle_id=motorcycle.id) }}" method="POST" class="d-inline" onsubmit="return confirm('車両「{{ motorcycle.name }}」を削除してもよろしいですか？関連する燃費・整備記録も全て削除されます。');">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                        <button type="submit" class="btn btn-sm btn-danger" title="削除">
-                            <i class="fas fa-trash"></i> <span class="d-none d-md-inline">削除</span>
-                        </button>
-                    </form>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
 </div>
 {% else %}
 <div class="alert alert-info" role="alert">

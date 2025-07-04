@@ -78,8 +78,7 @@
             * **`Motorcycle` テーブルに `is_racer` (Boolean) と `total_operating_hours` (Numeric) カラムを追加済み。**
             * **新しい実績定義（レーサー車両関連）を投入済み。** (これは別途マイグレーションまたはデータ投入スクリプトで対応)
     * **直近の作業 (完了済み):**
-        * (以前の完了項目は維持)
-        * ...
+        * ダッシュボードのビジネスロジックを services.py に分離しリファクタリング
         * **「実績」機能の追加:** (内容は既存のまま)
         * **「競技車両向け管理機能 (フェーズ1: レーサー車両の定義)」の追加:**
             * `Motorcycle` モデルへの `is_racer`, `total_operating_hours` カラム追加とマイグレーションを実行。
@@ -102,77 +101,82 @@
         * m. 実績遡及処理コマンドの本番環境での慎重な実行と確認。
         * **n. (新規) レーサー車両向け機能の拡充 (フェーズ2: 稼働時間ベースの整備記録、セッティング記録)。**
         * **o. (新規) レーサー車両向け機能の拡充 (フェーズ3: 重要コンポーネントのライフサイクル管理)。**
-    * 現在のプロジェクトディレクトリ: (前回提示のツリーから、`migrations/versions/` に **`xxxx_add_is_racer_and_total_operating_hours_to_motorcycles_table.py`** (実際のファイル名に置き換えてください) のようなファイルが追加されていることを想定)
+    * 現在のプロジェクトディレクトリ: 
+
         ```
-        .
-        ├── announcements.json
-        ├── compose.yml
-        ├── Containerfile
-        ├── gemini_prompt.txt (このファイル)
-        ├── instance
-        ├── LICENSE
-        ├── migrations
-        │   ├── alembic.ini
-        │   ├── env.py
-        │   ├── README
-        │   ├── script.py.mako
-        │   └── versions
-        │       ├── 03b74d3f953e_add_criteria_column_to_.py
-        │       ├── 414794921235_add_achievement_and_userachievement_.py
-        │       ├── 4ec29611c9b5_add_trigger_event_type_to_.py
-        │       ├── 5d18f0a4938e_allow_null_for_content_in_general_notes.py
-        │       ├── 760969e7b61d_populate_new_achievement_definitions_.py
-        │       ├── 896791ff77ea_add_odo_reset_log_table_and_data_.py
-        │       ├── cb61b6485ca8_add_missing_general_notes_and_odo_reset_.py
-        │       ├── cbc2495d2f76_initial_migration.py
-        │       ├── cd7db2474a21_check_sync_after_fixing_relationship.py
-        │       └── xxxx_add_is_racer_and_total_operating_hours_to_motorcycles_table.py  # (実際のファイル名に置き換え)
-        ├── motopuppu
-        │   ├── __init__.py
-        │   ├── achievement_evaluator.py
-        │   ├── achievements_utils.py
-        │   ├── forms.py
-        │   ├── manage_commands.py
-        │   ├── models.py
-        │   ├── static
-        │   │   ├── css
-        │   │   │   └── style.css
-        │   │   ├── favicons
-        │   │   │   ├── ... (省略)
-        │   │   └── js
-        │   │       ├── misskey_share.js
-        │   │       └── odo_toggle.js
-        │   ├── templates
-        │   │   ├── achievements
-        │   │   │   └── unlocked_list.html
-        │   │   ├── ... (その他テンプレートファイルは変更なし)
-        │   │   ├── vehicle_form.html
-        │   │   └── vehicles.html
-        │   └── views
-        │       ├── achievements.py
-        │       ├── auth.py
-        │       ├── dev_auth.py
-        │       ├── fuel.py
-        │       ├── main.py
-        │       ├── maintenance.py
-        │       ├── notes.py
-        │       └── vehicle.py
-        ├── README.md
-        └── requirements.txt
+kyagisaw@kyagisaw-mac motopuppu % tree
+.
+├── __init__.py
+├── achievement_evaluator.py
+├── achievements_utils.py
+├── forms.py
+├── manage_commands.py
+├── models.py
+├── services.py
+├── static
+│   ├── css
+│   │   └── style.css
+│   ├── favicons
+│   │   ├── apple-touch-icon.png
+│   │   ├── favicon-96x96.png
+│   │   ├── favicon.ico
+│   │   ├── favicon.svg
+│   │   ├── web-app-manifest-192x192.png
+│   │   └── web-app-manifest-512x512.png
+│   ├── images
+│   │   └── blobcat_8bit.webp
+│   ├── js
+│   │   ├── misskey_share.js
+│   │   └── odo_toggle.js
+│   └── manifest.json
+├── templates
+│   ├── achievements
+│   │   └── unlocked_list.html
+│   ├── auth
+│   │   ├── delete_account_complete.html
+│   │   └── delete_account.html
+│   ├── base.html
+│   ├── dashboard.html
+│   ├── fuel_form.html
+│   ├── fuel_log.html
+│   ├── index.html
+│   ├── legal
+│   │   ├── privacy_policy.html
+│   │   └── terms_of_service.html
+│   ├── maintenance_form.html
+│   ├── maintenance_log.html
+│   ├── navigation.html
+│   ├── note_form.html
+│   ├── notes_log.html
+│   ├── odo_reset_log_form.html
+│   ├── reminder_form.html
+│   ├── vehicle_form.html
+│   └── vehicles.html
+└── views
+    ├── achievements.py
+    ├── auth.py
+    ├── dev_auth.py
+    ├── fuel.py
+    ├── main.py
+    ├── maintenance.py
+    ├── notes.py
+    └── vehicle.py
+
+11 directories, 45 files
         ```
 
-6.  **今回のセッションでの目標 [毎回更新]:** (これはユーザーが次回設定するものなので、元の記述を維持します)
+6.  **今回のセッションでの目標 [毎回更新]:**
     * 「整備予測」機能の実装について検討したい
     * 具体的には、ユーザーが入力した特定のカテゴリの整備（まずはエンジンオイル交換とタイヤ交換）について、初期値（オイル交換 5000km走行もしくは前回交換から半年経過 / タイヤ交換 10000km走行もしくは...
 
-7.  **Geminiに期待する役割:** (変更なし)
+7.  **Geminiに期待する役割:**
     * コードの提案、修正案の提示 (ファイル全体の表示希望)
     * 実装に関する質問への回答
     * コードレビュー
     * エラー分析と解決策の提案
     * [その他、必要に応じて追記]
 
-8.  **その他 [必要に応じて]:** (変更なし)
+8.  **その他 [必要に応じて]:**
     * DBスキーマの変更については、過去に問題が発生した経験があるため、特に慎重に進めたい。
     * 修正は既存のUIや他の機能への影響を最小限に抑えたい。
     * 現在CSRF対策としてFlask-WTFが導入されているため、CSRFトークンのエラーが発生しないよう注意すること。
