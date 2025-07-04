@@ -204,15 +204,14 @@ def add_setting(vehicle_id):
     form = SettingSheetForm()
 
     if form.validate_on_submit():
+        details_json_str = request.form.get('details_json', '{}')
         try:
-            # データが空文字列の場合も考慮
-            details = json.loads(form.details_json.data) if form.details_json.data else {}
+            details = json.loads(details_json_str)
         except (json.JSONDecodeError, TypeError):
             flash('セッティング詳細のデータ形式が無効です。', 'danger')
-            return render_template('activity/setting_form.html', form=form, motorcycle=motorcycle, form_action='add')
+            return render_template('activity/setting_form.html', form=form, motorcycle=motorcycle, form_action='add', details_json=details_json_str)
 
         new_setting = SettingSheet(
-            # motorcycle_id と user_id をここでセットする
             motorcycle_id=motorcycle.id,
             user_id=g.user.id,
             sheet_name=form.sheet_name.data,
@@ -229,7 +228,6 @@ def add_setting(vehicle_id):
             current_app.logger.error(f"Error adding new setting sheet: {e}", exc_info=True)
             flash('セッティングシートの保存中にエラーが発生しました。', 'danger')
     
-    # バリデーション失敗時にエラー内容をフラッシュメッセージで表示
     if request.method == 'POST' and form.errors:
         error_messages = '; '.join([f'{field}: {", ".join(error_list)}' for field, error_list in form.errors.items()])
         flash(f'入力内容にエラーがあります: {error_messages}', 'danger')
@@ -237,7 +235,8 @@ def add_setting(vehicle_id):
     return render_template('activity/setting_form.html',
                            form=form,
                            motorcycle=motorcycle,
-                           form_action='add')
+                           form_action='add',
+                           details_json='{}')
 
 @activity_bp.route('/settings/<int:setting_id>/edit', methods=['GET', 'POST'])
 @login_required_custom
@@ -248,21 +247,16 @@ def edit_setting(setting_id):
     form = SettingSheetForm(obj=setting)
 
     if form.validate_on_submit():
-        # ★★★ ここからが修正箇所 ★★★
-        # フォームオブジェクトからではなく、リクエストから直接details_jsonを取得
         details_json_str = request.form.get('details_json', '{}')
         
         try:
             details = json.loads(details_json_str)
         except (json.JSONDecodeError, TypeError):
             flash('セッティング詳細のデータ形式が無効です。', 'danger')
-            # 編集画面に戻る際に、現在の入力値を渡す
-            return render_template('activity/setting_form.html', form=form, motorcycle=motorcycle, setting=setting, form_action='edit')
+            return render_template('activity/setting_form.html', form=form, motorcycle=motorcycle, setting=setting, form_action='edit', details_json=details_json_str)
 
-        # フォームのデータをDBオブジェクトに反映
         setting.sheet_name = form.sheet_name.data
         setting.notes = form.notes.data
-        # リクエストから取得した詳細データをDBオブジェクトに反映
         setting.details = details
         
         try:
@@ -273,16 +267,14 @@ def edit_setting(setting_id):
             db.session.rollback()
             current_app.logger.error(f"Error editing setting sheet {setting_id}: {e}", exc_info=True)
             flash('セッティングシートの更新中にエラーが発生しました。', 'danger')
-        # ★★★ ここまでが修正箇所 ★★★
 
-    # GETリクエストの場合、DBのJSONデータをテンプレートに直接渡す
     details_json_for_template = json.dumps(setting.details)
     return render_template('activity/setting_form.html',
                            form=form,
                            motorcycle=motorcycle,
                            setting=setting,
                            form_action='edit',
-                           details_json=details_json_for_template) # ★ テンプレートに直接渡す
+                           details_json=details_json_for_template)
 
 @activity_bp.route('/settings/<int:setting_id>/toggle_archive', methods=['POST'])
 @login_required_custom

@@ -3,7 +3,7 @@
 import os
 import datetime # datetime.datetime を使うためにインポート
 import click
-from flask import Flask
+from flask import Flask, g
 from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
 from flask_migrate import Migrate
@@ -41,6 +41,7 @@ def create_app(config_name=None):
         FUEL_ENTRIES_PER_PAGE = int(os.environ.get('FUEL_ENTRIES_PER_PAGE', 20)),
         MAINTENANCE_ENTRIES_PER_PAGE = int(os.environ.get('MAINTENANCE_ENTRIES_PER_PAGE', 20)),
         NOTES_PER_PAGE = int(os.environ.get('NOTES_PER_PAGE', 20)),
+        ACTIVITIES_PER_PAGE = 10, # 活動ログのページネーション用
     )
     if app.config['SECRET_KEY'] == 'dev-secret-key-replace-me' and app.config['ENV'] != 'development':
         app.logger.warning("CRITICAL: SECRET_KEY is set to the default development value in a non-development environment. This is a security risk!")
@@ -63,6 +64,19 @@ def create_app(config_name=None):
     migrate.init_app(app, db)
     csrf.init_app(app)
 
+    # --- before_request ハンドラ ---
+    @app.before_request
+    def load_logged_in_user_and_motorcycles():
+        # --- ▼▼▼ インポートパスを修正 ▼▼▼ ---
+        from .views.auth import get_current_user
+        from .models import Motorcycle
+        # --- ▲▲▲ インポートパスを修正 ▲▲▲ ---
+        
+        g.user = get_current_user()
+        g.user_motorcycles = []
+        if g.user:
+            g.user_motorcycles = Motorcycle.query.filter_by(user_id=g.user.id).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
+
     # --- ルート (Blueprints) の登録 ---
     try:
         from .views import auth, main, vehicle, fuel, maintenance, notes, dev_auth, activity
@@ -84,12 +98,6 @@ def create_app(config_name=None):
     except ImportError as e:
         app.logger.error(f"Error importing or registering blueprints: {e}", exc_info=True)
         print(f"Error importing or registering blueprints: {e}") 
-
-    # --- テスト用ルート ---
-    @app.route('/hello_world_test')
-    def hello_world_test():
-        key_status = "Set" if app.config.get('SECRET_KEY') != 'dev-secret-key-replace-me' else "Not Set or Default!"
-        return f"Hello from Flask! SECRET_KEY Status: {key_status}"
 
     # --- コンテキストプロセッサ ---
     @app.context_processor
