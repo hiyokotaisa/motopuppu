@@ -1,3 +1,4 @@
+// motopuppu/static/js/lap_time_manager.js
 document.addEventListener('DOMContentLoaded', () => {
     const lapTimeContainer = document.getElementById('lapTimeContainer');
     if (!lapTimeContainer) return;
@@ -5,12 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const form = lapTimeContainer.closest('form');
     const addLapBtn = document.getElementById('addLapBtn');
     const lapTemplate = document.getElementById('lapTemplate');
-    
-    // --- ▼▼▼ ここを修正 ▼▼▼ ---
-    // 正しいID 'lap_times_json' を指定する
     const hiddenLapInput = document.getElementById('lap_times_json');
-    // --- ▲▲▲ 修正ここまで ▲▲▲ ---
-
     const bestLapDisplay = document.getElementById('bestLap');
     const avgLapDisplay = document.getElementById('avgLap');
     
@@ -60,7 +56,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const lapInputs = lapTimeContainer.querySelectorAll('.lap-time-input');
         const validLapTimes = [];
         
-        // 各入力欄のバリデーションと値の収集
         lapInputs.forEach(input => {
             const timeValue = input.value.trim();
             if (timeValue === '') {
@@ -73,12 +68,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // 隠しフィールドを更新
         if (hiddenLapInput) {
             hiddenLapInput.value = JSON.stringify(validLapTimes);
         }
 
-        // ベスト/平均を計算
         const lapSeconds = validLapTimes.map(parseTimeToSeconds).filter(s => s !== null);
         
         if (lapSeconds.length > 0) {
@@ -96,13 +89,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     /**
      * 新しいラップ入力欄を追加する
+     * @param {string} [value=''] - 入力欄に設定する初期値
      */
-    function addLapRow() {
+    function addLapRow(value = '') {
         const newRow = lapTemplate.content.cloneNode(true);
         const input = newRow.querySelector('.lap-time-input');
         
-        // 新しい入力欄にイベントリスナーを追加
-        input.addEventListener('input', updateCalculationsAndHiddenField);
+        // 値を設定
+        if(input) {
+            input.value = value;
+        }
         
         lapTimeContainer.appendChild(newRow);
     }
@@ -110,14 +106,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- イベントリスナーの設定 ---
 
     // 「ラップを追加」ボタン
-    addLapBtn.addEventListener('click', addLapRow);
+    addLapBtn.addEventListener('click', () => addLapRow());
     
     // 削除ボタン（イベントデリゲーション）
     lapTimeContainer.addEventListener('click', (event) => {
         const button = event.target.closest('.remove-lap-btn');
         if (button) {
             button.closest('.input-group').remove();
-            updateCalculationsAndHiddenField(); // 削除後も再計算
+            updateCalculationsAndHiddenField();
         }
     });
     
@@ -128,8 +124,28 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // フォーム送信前に最終更新
     if (form) {
         form.addEventListener('submit', updateCalculationsAndHiddenField);
     }
+    
+    // --- ▼▼▼ ここからが追加ブロック ▼▼▼ ---
+    /**
+     * ページ読み込み時に既存のラップタイムデータがあればフォームに反映する
+     */
+    function initializeWithExistingData() {
+        // バックエンドから渡されたグローバル変数 `initialLapTimes` を確認
+        if (typeof initialLapTimes !== 'undefined' && Array.isArray(initialLapTimes)) {
+            // 既存のデータを元に入力欄を作成
+            initialLapTimes.forEach(lapValue => {
+                addLapRow(lapValue);
+            });
+            
+            // 初期化後に一度だけ計算を実行
+            updateCalculationsAndHiddenField();
+        }
+    }
+    
+    // 初期化処理を実行
+    initializeWithExistingData();
+    // --- ▲▲▲ 追加はここまで ▲▲▲ ---
 });

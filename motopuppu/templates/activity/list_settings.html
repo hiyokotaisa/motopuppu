@@ -65,9 +65,8 @@
                 </td>
                 <td class="text-nowrap">{{ setting.updated_at.strftime('%Y-%m-%d') }}</td>
                 <td class="text-nowrap">
-                    {# --- ▼▼▼ 編集・アーカイブボタンを追加 ▼▼▼ --- #}
                     <a href="{{ url_for('activity.edit_setting', setting_id=setting.id) }}" class="btn btn-sm btn-outline-primary me-1" title="編集"><i class="fas fa-edit fa-fw"></i></a>
-                    {# <a href="#" class="btn btn-sm btn-outline-secondary me-1" title="複製"><i class="fas fa-copy fa-fw"></i></a> #}
+                    
                     <form action="{{ url_for('activity.toggle_archive_setting', setting_id=setting.id) }}" method="POST" class="d-inline">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                         {% if setting.is_archived %}
@@ -75,6 +74,12 @@
                         {% else %}
                             <button type="submit" class="btn btn-sm btn-outline-warning" title="アーカイブ"><i class="fas fa-archive fa-fw"></i></button>
                         {% endif %}
+                    </form>
+
+                    {# --- ▼▼▼ ここからが追加ブロック ▼▼▼ --- #}
+                    <form action="{{ url_for('activity.delete_setting', setting_id=setting.id) }}" method="POST" class="d-inline" onsubmit="return confirm('このセッティングシートを完全に削除してもよろしいですか？\nこのシートを使用しているセッションからは関連付けが解除されます。');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                        <button type="submit" class="btn btn-sm btn-outline-danger" title="完全に削除"><i class="fas fa-trash fa-fw"></i></button>
                     </form>
                     {# --- ▲▲▲ 追加はここまで ▲▲▲ --- #}
                 </td>

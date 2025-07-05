@@ -278,6 +278,62 @@ def detail_activity(activity_id):
 
 # --- SessionLog Routes ---
 
+# --- ▼▼▼ ここからが追加ブロック ▼▼▼ ---
+@activity_bp.route('/session/<int:session_id>/edit', methods=['GET', 'POST'])
+@login_required_custom
+def edit_session(session_id):
+    """セッションログを編集する"""
+    session = SessionLog.query.options(joinedload(SessionLog.activity).joinedload(ActivityLog.motorcycle))\
+                              .join(ActivityLog)\
+                              .filter(SessionLog.id == session_id, ActivityLog.user_id == g.user.id)\
+                              .first_or_404()
+
+    motorcycle = session.activity.motorcycle
+    form = SessionLogForm(obj=session)
+    
+    # セッティングシートの選択肢を設定
+    setting_sheets = SettingSheet.query.filter_by(motorcycle_id=motorcycle.id, is_archived=False).order_by(SettingSheet.sheet_name).all()
+    form.setting_sheet_id.choices = [(s.id, s.sheet_name) for s in setting_sheets]
+    form.setting_sheet_id.choices.insert(0, (0, '--- セッティングなし ---'))
+
+    # レーサー車両の場合、編集前の稼働時間を保持
+    old_duration = session.session_duration_hours if motorcycle.is_racer else None
+
+    if form.validate_on_submit():
+        session.session_name = form.session_name.data
+        session.setting_sheet_id = form.setting_sheet_id.data if form.setting_sheet_id.data != 0 else None
+        session.rider_feel = form.rider_feel.data
+        session.lap_times = json.loads(form.lap_times_json.data) if form.lap_times_json.data else None
+
+        if motorcycle.is_racer:
+            new_duration = form.session_duration_hours.data
+            session.session_duration_hours = new_duration
+            
+            # 総稼働時間の差分を計算して更新
+            duration_diff = (new_duration or Decimal('0.0')) - (old_duration or Decimal('0.0'))
+            motorcycle.total_operating_hours = (motorcycle.total_operating_hours or Decimal('0.0')) + duration_diff
+        else:
+            session.session_distance = form.session_distance.data
+
+        try:
+            db.session.commit()
+            flash('セッション記録を更新しました。', 'success')
+            return redirect(url_for('activity.detail_activity', activity_id=session.activity_log_id))
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Error editing session log {session_id}: {e}", exc_info=True)
+            flash('セッション記録の更新中にエラーが発生しました。', 'danger')
+
+    # フォーム表示のためにラップタイムをJSON文字列に変換
+    lap_times_json = json.dumps(session.lap_times) if session.lap_times else '[]'
+
+    return render_template('activity/session_form.html',
+                           form=form,
+                           session=session,
+                           motorcycle=motorcycle,
+                           lap_times_json=lap_times_json)
+# --- ▲▲▲ 追加はここまで ▲▲▲ ---
+
 @activity_bp.route('/session/<int:session_id>/delete', methods=['POST'])
 @login_required_custom
 def delete_session(session_id):
@@ -401,3 +457,20 @@ def toggle_archive_setting(setting_id):
         current_app.logger.error(f"Error toggling archive for setting sheet {setting_id}: {e}", exc_info=True)
         flash('状態の変更中にエラーが発生しました。', 'danger')
     return redirect(url_for('activity.list_settings', vehicle_id=setting.motorcycle_id))
+
+@activity_bp.route('/settings/<int:setting_id>/delete', methods=['POST'])
+@login_required_custom
+def delete_setting(setting_id):
+    """セッティングシートを完全に削除する"""
+    setting = SettingSheet.query.filter_by(id=setting_id, user_id=g.user.id).first_or_404()
+    vehicle_id = setting.motorcycle_id
+    sheet_name = setting.sheet_name
+    try:
+        db.session.delete(setting)
+        db.session.commit()
+        flash(f'セッティングシート「{sheet_name}」を削除しました。', 'success')
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error deleting setting sheet {setting_id}: {e}", exc_info=True)
+        flash('セッティングシートの削除中にエラーが発生しました。', 'danger')
+    return redirect(url_for('activity.list_settings', vehicle_id=vehicle_id))
