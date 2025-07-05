@@ -6,7 +6,6 @@
 
 {% block content %}
 <div class="d-flex align-items-center mb-3">
-    {# --- ▼▼▼ 編集時は詳細ページに、追加時は一覧ページに戻るように修正 ▼▼▼ --- #}
     <a href="{{ url_for('activity.detail_activity', activity_id=activity.id) if form_action == 'edit' else url_for('activity.list_activities', vehicle_id=motorcycle.id) }}" class="btn btn-sm btn-outline-secondary me-3" title="戻る">
         <i class="fas fa-arrow-left"></i>
     </a>
@@ -26,42 +25,64 @@
     {% endif %}
 {% endwith %}
 
-{# --- ▼▼▼ フォームのactionを編集時にも対応させる ▼▼▼ --- #}
 <form method="POST" action="{{ url_for('activity.add_activity', vehicle_id=motorcycle.id) if form_action == 'add' else url_for('activity.edit_activity', activity_id=activity.id) }}">
     {{ form.hidden_tag() }} {# CSRFトークン #}
 
     <div class="card">
         <div class="card-body">
-            <h5 class="card-title mb-3">活動の基本情報</h5>
             
             {# 活動日 #}
             <div class="mb-3">
                 {{ form.activity_date.label(class="form-label") }} {% if form.activity_date.flags.required %}<span class="text-danger">*</span>{% endif %}
-                {{ form.activity_date(class="form-control" + (" is-invalid" if form.activity_date.errors else "")) }}
+                {{ form.activity_date(class="form-control" + (" is-invalid" if form.activity_date.errors else ""), style="max-width: 200px;") }}
                 {% if form.activity_date.errors %}
-                    <div class="invalid-feedback">
-                        {% for error in form.activity_date.errors %}<span>{{ error }}</span><br>{% endfor %}
-                    </div>
+                    <div class="invalid-feedback">{% for error in form.activity_date.errors %}<span>{{ error }}</span><br>{% endfor %}</div>
                 {% endif %}
             </div>
 
-            {# 場所名 #}
+            {# 活動名 #}
             <div class="mb-3">
-                {{ form.location_name.label(class="form-label") }} {% if form.location_name.flags.required %}<span class="text-danger">*</span>{% endif %}
-                {{ form.location_name(class="form-control" + (" is-invalid" if form.location_name.errors else ""), list="circuit-list") }}
-                <datalist id="circuit-list">
-                    {% for circuit in circuits %}
-                    <option value="{{ circuit }}">
-                    {% endfor %}
-                </datalist>
-                {% if form.location_name.errors %}
-                    <div class="invalid-feedback">
-                        {% for error in form.location_name.errors %}<span>{{ error }}</span><br>{% endfor %}
-                    </div>
-                {% else %}
-                    <div class="form-text">サーキット名、林道名、地域名などを入力してください。</div>
+                {{ form.activity_title.label(class="form-label") }} {% if form.activity_title.flags.required %}<span class="text-danger">*</span>{% endif %}
+                {{ form.activity_title(class="form-control" + (" is-invalid" if form.activity_title.errors else "")) }}
+                {% if form.activity_title.errors %}
+                    <div class="invalid-feedback">{% for error in form.activity_title.errors %}<span>{{ error }}</span><br>{% endfor %}</div>
                 {% endif %}
             </div>
+            
+            <hr class="my-4">
+
+            {# 場所の種別 #}
+            <div class="mb-3">
+                <label class="form-label">場所の種別</label>
+                <div>
+                    {% for subfield in form.location_type %}
+                    <div class="form-check form-check-inline">
+                        {{ subfield(class="form-check-input") }}
+                        {{ subfield.label(class="form-check-label") }}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            {# サーキット選択（JSで表示切替） #}
+            <div id="circuit-fields" class="mb-3">
+                {{ form.circuit_name.label(class="form-label") }} {% if form.circuit_name.flags.required %}<span class="text-danger">*</span>{% endif %}
+                {{ form.circuit_name(class="form-select" + (" is-invalid" if form.circuit_name.errors else "")) }}
+                {% if form.circuit_name.errors %}
+                    <div class="invalid-feedback">{% for error in form.circuit_name.errors %}<span>{{ error }}</span><br>{% endfor %}</div>
+                {% endif %}
+            </div>
+
+            {# 自由入力の場所名（JSで表示切替） #}
+            <div id="custom-location-fields" class="mb-3">
+                {{ form.custom_location.label(class="form-label") }} {% if form.custom_location.flags.required %}<span class="text-danger">*</span>{% endif %}
+                {{ form.custom_location(class="form-control" + (" is-invalid" if form.custom_location.errors else "")) }}
+                {% if form.custom_location.errors %}
+                    <div class="invalid-feedback">{% for error in form.custom_location.errors %}<span>{{ error }}</span><br>{% endfor %}</div>
+                {% endif %}
+            </div>
+
+            <hr class="my-4">
 
             {# 天候と気温 #}
             <div class="row">
@@ -69,9 +90,7 @@
                     {{ form.weather.label(class="form-label") }}
                     {{ form.weather(class="form-control" + (" is-invalid" if form.weather.errors else ""), placeholder="例: 晴れ") }}
                     {% if form.weather.errors %}
-                        <div class="invalid-feedback">
-                            {% for error in form.weather.errors %}<span>{{ error }}</span><br>{% endfor %}
-                        </div>
+                        <div class="invalid-feedback">{% for error in form.weather.errors %}<span>{{ error }}</span><br>{% endfor %}</div>
                     {% endif %}
                 </div>
                 <div class="col-md-6 mb-3">
@@ -80,9 +99,7 @@
                         {{ form.temperature(class="form-control" + (" is-invalid" if form.temperature.errors else ""), placeholder="例: 25.5") }}
                         <span class="input-group-text">℃</span>
                         {% if form.temperature.errors %}
-                            <div class="invalid-feedback">
-                                {% for error in form.temperature.errors %}<span>{{ error }}</span><br>{% endfor %}
-                            </div>
+                            <div class="invalid-feedback">{% for error in form.temperature.errors %}<span>{{ error }}</span><br>{% endfor %}</div>
                         {% endif %}
                     </div>
                 </div>
@@ -93,16 +110,13 @@
                 {{ form.notes.label(class="form-label") }}
                 {{ form.notes(class="form-control" + (" is-invalid" if form.notes.errors else ""), rows=4) }}
                 {% if form.notes.errors %}
-                    <div class="invalid-feedback">
-                        {% for error in form.notes.errors %}<span>{{ error }}</span><br>{% endfor %}
-                    </div>
+                    <div class="invalid-feedback">{% for error in form.notes.errors %}<span>{{ error }}</span><br>{% endfor %}</div>
                 {% endif %}
             </div>
 
             {# 送信ボタンとキャンセルボタン #}
             <div class="mt-4">
-                {# --- ▼▼▼ ボタンのテキストを編集時にも対応させる ▼▼▼ --- #}
-                <button type="submit" class="btn btn-primary">{{ "記録を開始" if form_action == 'add' else "更新する" }}</button>
+                <button type="submit" class="btn btn-primary">{{ "保存してセッションを追加" if form_action == 'add' else "更新する" }}</button>
                 <a href="{{ url_for('activity.detail_activity', activity_id=activity.id) if form_action == 'edit' else url_for('activity.list_activities', vehicle_id=motorcycle.id) }}" class="btn btn-secondary">
                     <i class="fas fa-times me-1"></i> キャンセル
                 </a>
@@ -111,4 +125,35 @@
         </div>
     </div>
 </form>
+{% endblock %}
+
+
+{% block scripts %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const locationTypeRadios = document.querySelectorAll('input[name="location_type"]');
+    const circuitFields = document.getElementById('circuit-fields');
+    const customLocationFields = document.getElementById('custom-location-fields');
+
+    function toggleLocationFields() {
+        const selectedType = document.querySelector('input[name="location_type"]:checked').value;
+        if (selectedType === 'circuit') {
+            circuitFields.style.display = 'block';
+            customLocationFields.style.display = 'none';
+        } else {
+            circuitFields.style.display = 'none';
+            customLocationFields.style.display = 'block';
+        }
+    }
+
+    // ラジオボタンの変更を監視
+    locationTypeRadios.forEach(radio => {
+        radio.addEventListener('change', toggleLocationFields);
+    });
+
+    // ページ読み込み時に初期状態を設定
+    toggleLocationFields();
+});
+</script>
 {% endblock %}

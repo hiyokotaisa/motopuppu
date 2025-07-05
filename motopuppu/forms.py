@@ -9,14 +9,53 @@ GAS_STATION_BRANDS = [
     'ENEOS', '出光興産/apollostation', 'コスモ石油', 'キグナス石油', 'JA-SS', 'SOLATO',
 ]
 
-# --- ▼▼▼ 活動ログ機能 サーキットリスト追加 ▼▼▼ ---
+# --- ▼▼▼ 変更: 日本の二輪走行可能サーキットリストを更新 ▼▼▼ ---
 JAPANESE_CIRCUITS = [
-    "富士スピードウェイ", "鈴鹿サーキット", "ツインリンクもてぎ", "スポーツランドSUGO",
-    "岡山国際サーキット", "オートポリス", "筑波サーキット TC2000", "筑波サーキット TC1000",
-    "袖ヶ浦フォレストレースウェイ", "スパ西浦モーターパーク", "セントラルサーキット",
-    "HSR九州", "十勝スピードウェイ", "エビスサーキット"
+    # --- 北海道 / 東北 ---
+    "十勝スピードウェイ",
+    "スポーツランドSUGO",
+    "エビスサーキット東コース",
+    "エビスサーキット西コース",
+    
+    # --- 関東 ---
+    "ツインリンクもてぎ ロードコース",
+    "筑波サーキット TC2000",
+    "筑波サーキット TC1000",
+    "袖ヶ浦フォレストレースウェイ",
+    "桶川スポーツランド",
+    "ヒーローしのいサーキット",
+    "日光サーキット",
+    "茂原ツインサーキット ショートコース(西)",
+    "茂原ツインサーキット ロングコース(東)",
+    
+    # --- 中部 / 東海 ---
+    "富士スピードウェイ 本コース",
+    "富士スピードウェイ ショートコース",
+    "富士スピードウェイ カートコース",
+    "白糸スピードランド",
+    "スパ西浦モーターパーク",
+    "モーターランド三河",
+    "YZサーキット東コース",
+    "鈴鹿ツインサーキット",
+    
+    # --- 近畿 ---
+    "鈴鹿サーキット フルコース",
+    "鈴鹿サーキット 南コース",
+    "近畿スポーツランド",
+    "レインボースポーツ カートコース",
+    "セントラルサーキット",
+    "岡山国際サーキット",
+    
+    # --- 中国 / 四国 ---
+    "TSタカタサーキット",
+    "瀬戸内海サーキット",
+    
+    # --- 九州 / 沖縄 ---
+    "オートポリス",
+    "HSR九州",
 ]
-# --- ▲▲▲ 活動ログ機能 サーキットリスト追加 ▲▲▲ ---
+# --- ▲▲▲ 変更ここまで ▲▲▲ ---
+
 
 # 油種の選択肢を定数として定義
 FUEL_TYPE_CHOICES = [
@@ -432,11 +471,30 @@ class ActivityLogForm(FlaskForm):
         format='%Y-%m-%d',
         default=date.today
     )
-    location_name = StringField(
-        '場所名',
-        validators=[DataRequired(message='場所名は必須です。'), Length(max=150)],
-        render_kw={"list": "circuit-list", "placeholder": "例: 富士スピードウェイ"}
+    # --- ▼▼▼ 変更: フィールドを新しい構造に刷新 ▼▼▼ ---
+    activity_title = StringField(
+        '活動名',
+        validators=[DataRequired(message='活動名は必須です。'), Length(max=200)],
+        render_kw={"placeholder": "例: 7月の練習走行、夏休みツーリング"}
     )
+    location_type = RadioField(
+        '場所の種別',
+        choices=[('circuit', 'サーキット'), ('custom', 'その他（自由入力）')],
+        validators=[DataRequired(message='場所の種別を選択してください。')],
+        default='circuit'
+    )
+    circuit_name = SelectField(
+        'サーキット名',
+        choices=[('', '--- サーキットを選択 ---')] + [(c, c) for c in JAPANESE_CIRCUITS],
+        validators=[Optional()]
+    )
+    custom_location = StringField(
+        '場所名（自由入力）',
+        validators=[Optional(), Length(max=200)],
+        render_kw={"placeholder": "例: 箱根、ビーナスライン"}
+    )
+    # --- ▲▲▲ 変更ここまで ▲▲▲ ---
+    
     weather = StringField('天候', validators=[Optional(), Length(max=50)])
     temperature = DecimalField('気温 (℃)', places=1, validators=[Optional(), NumberRange(min=-50, max=60)])
     notes = TextAreaField(
@@ -444,7 +502,25 @@ class ActivityLogForm(FlaskForm):
         validators=[Optional(), Length(max=1000)],
         render_kw={"rows": 4}
     )
-    submit = SubmitField('活動記録を開始')
+    submit = SubmitField('保存する')
+
+    def validate(self, extra_validators=None):
+        """場所の種別に応じて必須項目をチェックするカスタムバリデーション"""
+        # 親クラスのバリデーションを先に実行
+        if not super(ActivityLogForm, self).validate(extra_validators):
+            return False
+        
+        # location_type の値に基づいてチェック
+        if self.location_type.data == 'circuit':
+            if not self.circuit_name.data:
+                self.circuit_name.errors.append('サーキットを選択してください。')
+                return False
+        elif self.location_type.data == 'custom':
+            if not self.custom_location.data:
+                self.custom_location.errors.append('場所名を入力してください。')
+                return False
+        
+        return True
 
 class SessionLogForm(FlaskForm):
     """セッションログ用のフォーム"""
@@ -463,25 +539,26 @@ class SessionLogForm(FlaskForm):
         validators=[Optional(), Length(max=2000)],
         render_kw={"rows": 5, "placeholder": "このセッションでのマシンの挙動や改善点など"}
     )
-
-    # --- ▼▼▼ 修正後のフィールド ▼▼▼ ---
-    # レーサー車両用
     session_duration_hours = DecimalField(
         '稼働時間 (h)',
         places=2,
         validators=[Optional(), NumberRange(min=0, message='稼働時間は0以上の数値を入力してください。')],
         render_kw={"placeholder": "例: 1.5"}
     )
-    # 公道車両用
     session_distance = IntegerField(
         '走行距離 (km)',
         validators=[Optional(), NumberRange(min=0, message='走行距離は0以上の数値を入力してください。')],
         render_kw={"placeholder": "例: 150"}
     )
-    # --- ▲▲▲ 修正はここまで ▲▲▲ ---
-    
-    # ラップタイムは専用のUIで入力させ、JSONとして裏で送信する想定
     lap_times_json = HiddenField('Lap Times JSON', validators=[Optional()])
+
+    # --- ▼▼▼ 変更: リーダーボード設定を追加 ▼▼▼ ---
+    include_in_leaderboard = BooleanField(
+        'このセッションの記録をリーダーボードに掲載することを許可する',
+        default=True
+    )
+    # --- ▲▲▲ 変更ここまで ▲▲▲ ---
+    
     submit = SubmitField('セッションを記録')
 
 # --- ▲▲▲ 活動ログ機能 (ここまで) ▲▲▲ ---

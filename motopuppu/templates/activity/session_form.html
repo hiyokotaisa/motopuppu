@@ -10,7 +10,8 @@
     </a>
     <div>
         <h2 class="mb-0">セッション記録の編集</h2>
-        <span class="text-muted">{{ motorcycle.name }} - {{ session.activity.activity_date.strftime('%Y-%m-%d') }}</span>
+        {# --- ▼▼▼ 変更: 新しいタイトル構造に対応 ▼▼▼ --- #}
+        <span class="text-muted">{{ motorcycle.name }} - {{ session.activity.activity_title or session.activity.location_name }}</span>
     </div>
 </div>
 
@@ -98,6 +99,15 @@
             </template>
             
             <input type="hidden" id="lap_times_json" name="lap_times_json" value="{{ lap_times_json|e }}">
+
+            {# --- ▼▼▼ 変更: リーダーボード設定のチェックボックスを追加 ▼▼▼ --- #}
+            <div class="mb-3">
+                <div class="form-check">
+                    {{ form.include_in_leaderboard(class="form-check-input") }}
+                    {{ form.include_in_leaderboard.label(class="form-check-label") }}
+                </div>
+            </div>
+            {# --- ▲▲▲ 変更ここまで ▲▲▲ --- #}
 
             <div class="d-flex justify-content-end">
                 <a href="{{ url_for('activity.detail_activity', activity_id=session.activity_log_id) }}" class="btn btn-secondary me-2">キャンセル</a>

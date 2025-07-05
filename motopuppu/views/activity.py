@@ -111,7 +111,24 @@ def calculate_lap_stats(lap_times):
     average_lap = sum(lap_seconds) / len(lap_seconds)
     
     return format_seconds_to_time(best_lap), format_seconds_to_time(average_lap)
-# --- ▲▲▲ ヘルパー関数ここまで ▲▲▲ ---
+
+# --- ▼▼▼ 変更: ベストラップ計算ヘルパーを追加 ▼▼▼ ---
+def _calculate_and_set_best_lap(session, lap_times_list):
+    """
+    ラップタイムのリストからベストラップを秒で計算し、
+    セッションオブジェクトにセットする
+    """
+    if not lap_times_list:
+        session.best_lap_seconds = None
+        return
+    
+    lap_seconds = [s for s in (parse_time_to_seconds(t) for t in lap_times_list) if s is not None]
+    
+    if lap_seconds:
+        session.best_lap_seconds = min(lap_seconds)
+    else:
+        session.best_lap_seconds = None
+# --- ▲▲▲ 変更ここまで ▲▲▲ ---
 
 
 activity_bp = Blueprint('activity', __name__, url_prefix='/activity')
@@ -141,6 +158,7 @@ def list_activities(vehicle_id):
                            activities=activities,
                            pagination=pagination)
 
+# --- ▼▼▼ 変更: 新しいフォームとDB構造に対応 ▼▼▼ ---
 @activity_bp.route('/<int:vehicle_id>/add', methods=['GET', 'POST'])
 @login_required_custom
 def add_activity(vehicle_id):
@@ -153,7 +171,10 @@ def add_activity(vehicle_id):
             motorcycle_id=motorcycle.id,
             user_id=g.user.id,
             activity_date=form.activity_date.data,
-            location_name=form.location_name.data,
+            activity_title=form.activity_title.data,
+            location_type=form.location_type.data,
+            circuit_name=form.circuit_name.data if form.location_type.data == 'circuit' else None,
+            custom_location=form.custom_location.data if form.location_type.data == 'custom' else None,
             weather=form.weather.data,
             temperature=form.temperature.data,
             notes=form.notes.data
@@ -171,7 +192,6 @@ def add_activity(vehicle_id):
     return render_template('activity/activity_form.html',
                            form=form,
                            motorcycle=motorcycle,
-                           circuits=JAPANESE_CIRCUITS,
                            form_action='add')
 
 @activity_bp.route('/<int:activity_id>/edit', methods=['GET', 'POST'])
@@ -183,7 +203,14 @@ def edit_activity(activity_id):
     form = ActivityLogForm(obj=activity)
 
     if form.validate_on_submit():
-        form.populate_obj(activity)
+        activity.activity_date = form.activity_date.data
+        activity.activity_title = form.activity_title.data
+        activity.location_type = form.location_type.data
+        activity.circuit_name = form.circuit_name.data if form.location_type.data == 'circuit' else None
+        activity.custom_location = form.custom_location.data if form.location_type.data == 'custom' else None
+        activity.weather = form.weather.data
+        activity.temperature = form.temperature.data
+        activity.notes = form.notes.data
         try:
             db.session.commit()
             flash('活動ログを更新しました。', 'success')
@@ -192,13 +219,19 @@ def edit_activity(activity_id):
             db.session.rollback()
             current_app.logger.error(f"Error editing activity log {activity_id}: {e}", exc_info=True)
             flash('活動ログの更新中にエラーが発生しました。', 'danger')
+    
+    # GETリクエストの場合、DBの値からフォームにデフォルト値を設定
+    if request.method == 'GET':
+        form.location_type.data = activity.location_type or 'circuit'
+        form.circuit_name.data = activity.circuit_name
+        form.custom_location.data = activity.custom_location
 
     return render_template('activity/activity_form.html',
                            form=form,
                            motorcycle=motorcycle,
                            activity=activity,
-                           circuits=JAPANESE_CIRCUITS,
                            form_action='edit')
+# --- ▲▲▲ 変更ここまで ▲▲▲ ---
 
 @activity_bp.route('/<int:activity_id>/delete', methods=['POST'])
 @login_required_custom
@@ -238,14 +271,20 @@ def detail_activity(activity_id):
     session_form.setting_sheet_id.choices = [(s.id, s.sheet_name) for s in setting_sheets]
     session_form.setting_sheet_id.choices.insert(0, (0, '--- セッティングなし ---'))
 
+    # --- ▼▼▼ 変更: セッション追加ロジックを更新 ▼▼▼ ---
     if session_form.validate_on_submit():
+        lap_times_list = json.loads(session_form.lap_times_json.data) if session_form.lap_times_json.data else []
+        
         new_session = SessionLog(
             activity_log_id=activity.id,
             session_name=session_form.session_name.data,
             setting_sheet_id=session_form.setting_sheet_id.data if session_form.setting_sheet_id.data != 0 else None,
             rider_feel=session_form.rider_feel.data,
-            lap_times=json.loads(session_form.lap_times_json.data) if session_form.lap_times_json.data else None
+            lap_times=lap_times_list,
+            include_in_leaderboard=session_form.include_in_leaderboard.data
         )
+
+        _calculate_and_set_best_lap(new_session, lap_times_list)
 
         if motorcycle.is_racer:
             duration = session_form.session_duration_hours.data
@@ -267,18 +306,18 @@ def detail_activity(activity_id):
             db.session.rollback()
             current_app.logger.error(f"Error adding new session log: {e}", exc_info=True)
             flash('セッションの保存中にエラーが発生しました。', 'danger')
+    # --- ▲▲▲ 変更ここまで ▲▲▲ ---
 
     return render_template('activity/detail_activity.html',
                            activity=activity,
                            sessions=sessions,
                            motorcycle=motorcycle,
                            session_form=session_form,
-                           # --- ▼▼▼ 対応表をテンプレートに渡す ▼▼▼ ---
                            setting_key_map=SETTING_KEY_MAP)
 
 # --- SessionLog Routes ---
 
-# --- ▼▼▼ ここからが追加ブロック ▼▼▼ ---
+# --- ▼▼▼ 変更: セッション編集ロジックを更新 ▼▼▼ ---
 @activity_bp.route('/session/<int:session_id>/edit', methods=['GET', 'POST'])
 @login_required_custom
 def edit_session(session_id):
@@ -291,25 +330,27 @@ def edit_session(session_id):
     motorcycle = session.activity.motorcycle
     form = SessionLogForm(obj=session)
     
-    # セッティングシートの選択肢を設定
     setting_sheets = SettingSheet.query.filter_by(motorcycle_id=motorcycle.id, is_archived=False).order_by(SettingSheet.sheet_name).all()
     form.setting_sheet_id.choices = [(s.id, s.sheet_name) for s in setting_sheets]
     form.setting_sheet_id.choices.insert(0, (0, '--- セッティングなし ---'))
 
-    # レーサー車両の場合、編集前の稼働時間を保持
     old_duration = session.session_duration_hours if motorcycle.is_racer else None
 
     if form.validate_on_submit():
         session.session_name = form.session_name.data
         session.setting_sheet_id = form.setting_sheet_id.data if form.setting_sheet_id.data != 0 else None
         session.rider_feel = form.rider_feel.data
-        session.lap_times = json.loads(form.lap_times_json.data) if form.lap_times_json.data else None
+        
+        lap_times_list = json.loads(form.lap_times_json.data) if form.lap_times_json.data else []
+        session.lap_times = lap_times_list
+        _calculate_and_set_best_lap(session, lap_times_list)
+        
+        session.include_in_leaderboard = form.include_in_leaderboard.data
 
         if motorcycle.is_racer:
             new_duration = form.session_duration_hours.data
             session.session_duration_hours = new_duration
             
-            # 総稼働時間の差分を計算して更新
             duration_diff = (new_duration or Decimal('0.0')) - (old_duration or Decimal('0.0'))
             motorcycle.total_operating_hours = (motorcycle.total_operating_hours or Decimal('0.0')) + duration_diff
         else:
@@ -324,7 +365,6 @@ def edit_session(session_id):
             current_app.logger.error(f"Error editing session log {session_id}: {e}", exc_info=True)
             flash('セッション記録の更新中にエラーが発生しました。', 'danger')
 
-    # フォーム表示のためにラップタイムをJSON文字列に変換
     lap_times_json = json.dumps(session.lap_times) if session.lap_times else '[]'
 
     return render_template('activity/session_form.html',
@@ -332,7 +372,8 @@ def edit_session(session_id):
                            session=session,
                            motorcycle=motorcycle,
                            lap_times_json=lap_times_json)
-# --- ▲▲▲ 追加はここまで ▲▲▲ ---
+# --- ▲▲▲ 変更ここまで ▲▲▲ ---
+
 
 @activity_bp.route('/session/<int:session_id>/delete', methods=['POST'])
 @login_required_custom
@@ -351,7 +392,7 @@ def delete_session(session_id):
     return redirect(url_for('activity.detail_activity', activity_id=activity_id))
 
 # --- SettingSheet Routes ---
-
+# ... (以降のSettingSheet関連のコードは変更なし) ...
 @activity_bp.route('/<int:vehicle_id>/settings')
 @login_required_custom
 def list_settings(vehicle_id):

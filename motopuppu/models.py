@@ -276,7 +276,18 @@ class ActivityLog(db.Model):
     motorcycle_id = db.Column(db.Integer, db.ForeignKey('motorcycles.id', ondelete='CASCADE'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     activity_date = db.Column(db.Date, nullable=False, index=True)
-    location_name = db.Column(db.String(150), nullable=False)
+    
+    # --- ▼▼▼ 変更 ▼▼▼ ---
+    # 既存の location_name は nullable に変更して後方互換性を維持
+    location_name = db.Column(db.String(150), nullable=True)
+    
+    # 新しい構造化されたフィールドを追加
+    activity_title = db.Column(db.String(200), nullable=True, comment="活動名 (例: 7月の走行会)")
+    location_type = db.Column(db.String(20), nullable=True, comment="場所の種別 (例: circuit, custom)")
+    circuit_name = db.Column(db.String(150), nullable=True, index=True, comment="location_typeが'circuit'の場合のサーキット名")
+    custom_location = db.Column(db.String(200), nullable=True, comment="location_typeが'custom'の場合の自由入力場所名")
+    # --- ▲▲▲ 変更ここまで ▲▲▲ ---
+    
     weather = db.Column(db.String(50), nullable=True)
     temperature = db.Column(db.Numeric(4, 1), nullable=True)
     notes = db.Column(db.Text, nullable=True)
@@ -307,7 +318,12 @@ class SessionLog(db.Model):
     # --- ▼▼▼ 新しいデータ形式 ▼▼▼ ---
     session_duration_hours = db.Column(db.Numeric(8, 2), nullable=True) # レーサー用のセッション稼働時間
     session_distance = db.Column(db.Integer, nullable=True)           # 公道車用のセッション走行距離
-    # --- ▲▲▲ 新しいデータ形式 ▲▲▲ ---
+    
+    # --- ▼▼▼ 変更 ▼▼▼ ---
+    # 将来のリーダーボード機能のためのフィールド
+    best_lap_seconds = db.Column(db.Numeric(8, 3), nullable=True, index=True, comment="このセッションでのベストラップ（秒）")
+    include_in_leaderboard = db.Column(db.Boolean, nullable=False, default=True, server_default='true', comment="この記録をリーダーボードに掲載するか")
+    # --- ▲▲▲ 変更ここまで ▲▲▲ ---
 
     setting_sheet = db.relationship('SettingSheet', backref='sessions')
 

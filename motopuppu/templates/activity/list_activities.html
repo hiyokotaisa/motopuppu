@@ -26,26 +26,40 @@
 {% if activities %}
 <div class="table-responsive">
     <table class="table table-striped table-hover">
+        {# --- ▼▼▼ 変更: テーブルヘッダーを修正 ▼▼▼ --- #}
         <thead>
             <tr>
                 <th>活動日</th>
+                <th>活動名</th>
                 <th>場所</th>
-                <th>天候</th>
                 <th class="text-center">セッション数</th>
                 <th>メモ</th>
                 <th>操作</th>
             </tr>
         </thead>
+        {# --- ▲▲▲ 変更ここまで ▲▲▲ --- #}
         <tbody>
             {% for activity in activities %}
             <tr>
                 <td class="text-nowrap">{{ activity.activity_date.strftime('%Y-%m-%d') }}</td>
+                {# --- ▼▼▼ 変更: 表示ロジックを修正 ▼▼▼ --- #}
                 <td>
                     <a href="{{ url_for('activity.detail_activity', activity_id=activity.id) }}">
-                        {{ activity.location_name }}
+                        {# 新しいタイトルがあれば表示、なければ古い場所名でフォールバック #}
+                        {{ activity.activity_title or activity.location_name }}
                     </a>
                 </td>
-                <td>{{ activity.weather if activity.weather else '-' }}</td>
+                <td class="text-nowrap">
+                    {# location_typeに応じて場所を表示 #}
+                    {% if activity.location_type == 'circuit' %}
+                        <span class="badge bg-primary"><i class="fas fa-flag-checkered me-1"></i> {{ activity.circuit_name }}</span>
+                    {% elif activity.location_type == 'custom' and activity.custom_location %}
+                        <span class="badge bg-secondary"><i class="fas fa-map-marker-alt me-1"></i> {{ activity.custom_location }}</span>
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+                {# --- ▲▲▲ 変更ここまで ▲▲▲ --- #}
                 <td class="text-center">{{ activity.sessions.count() }}</td>
                 <td>
                     {% if activity.notes %}
@@ -57,14 +71,12 @@
                     {% endif %}
                 </td>
                 <td class="text-nowrap">
-                    {# --- ▼▼▼ 編集・削除ボタンを追加 ▼▼▼ --- #}
                     <a href="{{ url_for('activity.detail_activity', activity_id=activity.id) }}" class="btn btn-sm btn-outline-info me-1" title="詳細を表示"><i class="fas fa-eye fa-fw"></i></a>
                     <a href="{{ url_for('activity.edit_activity', activity_id=activity.id) }}" class="btn btn-sm btn-outline-primary me-1" title="編集"><i class="fas fa-edit fa-fw"></i></a>
                     <form action="{{ url_for('activity.delete_activity', activity_id=activity.id) }}" method="POST" class="d-inline" onsubmit="return confirm('この活動ログを削除してもよろしいですか？\n関連するセッション記録も全て削除されます。');">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                         <button type="submit" class="btn btn-sm btn-outline-danger" title="削除"><i class="fas fa-trash fa-fw"></i></button>
                     </form>
-                    {# --- ▲▲▲ 追加はここまで ▲▲▲ --- #}
                 </td>
             </tr>
             {% endfor %}

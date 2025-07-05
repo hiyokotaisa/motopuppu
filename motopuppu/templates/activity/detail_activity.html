@@ -1,10 +1,11 @@
 {# motopuppu/templates/activity/detail_activity.html #}
 {% extends "base.html" %}
 
-{% block title %}活動ログ: {{ activity.location_name }} ({{ activity.activity_date.strftime('%Y-%m-%d') }}) - もとぷっぷー{% endblock %}
+{# --- ▼▼▼ 変更: 新しいタイトル構造に対応 ▼▼▼ --- #}
+{% block title %}活動ログ: {{ activity.activity_title or activity.location_name }} - もとぷっぷー{% endblock %}
+{# --- ▲▲▲ 変更ここまで ▲▲▲ --- #}
 
 {% block content %}
-{# --- ページヘッダー --- #}
 <div class="d-flex align-items-center mb-3">
     <a href="{{ url_for('activity.list_activities', vehicle_id=motorcycle.id) }}" class="btn btn-sm btn-outline-secondary me-3" title="活動ログ一覧へ戻る">
         <i class="fas fa-arrow-left"></i>
@@ -14,7 +15,6 @@
         <span class="text-muted">{{ motorcycle.name }}</span>
     </div>
 </div>
-
 
 {# Flash Messages #}
 {% with messages = get_flashed_messages(with_categories=true) %}
@@ -30,21 +30,42 @@
 
 {# --- 活動の基本情報 --- #}
 <div class="card mb-4">
+    {# --- ▼▼▼ 変更: ヘッダーの表示を活動名に ▼▼▼ --- #}
     <div class="card-header d-flex justify-content-between align-items-center">
-        <strong>{{ activity.activity_date.strftime('%Y年%m月%d日') }} - {{ activity.location_name }}</strong>
+        <strong>{{ activity.activity_title or activity.location_name }}</strong>
         <a href="{{ url_for('activity.edit_activity', activity_id=activity.id) }}" class="btn btn-sm btn-outline-secondary"><i class="fas fa-edit me-1"></i> 活動情報を編集</a>
     </div>
+    {# --- ▲▲▲ 変更ここまで ▲▲▲ --- #}
     <div class="card-body">
+        {# --- ▼▼▼ 変更: 日付と場所の表示エリアを新設 ▼▼▼ --- #}
+        <div class="row border-bottom pb-3 mb-3">
+            <div class="col-md-5">
+                <strong><i class="fas fa-calendar-alt fa-fw me-1"></i>活動日:</strong> {{ activity.activity_date.strftime('%Y年%m月%d日') }}
+            </div>
+            <div class="col-md-7">
+                <strong><i class="fas fa-map-marked-alt fa-fw me-1"></i>場所:</strong>
+                {% if activity.location_type == 'circuit' %}
+                    <span class="badge bg-primary fs-6"><i class="fas fa-flag-checkered me-1"></i> {{ activity.circuit_name }}</span>
+                {% elif activity.location_type == 'custom' and activity.custom_location %}
+                    <span class="badge bg-secondary fs-6"><i class="fas fa-map-marker-alt me-1"></i> {{ activity.custom_location }}</span>
+                {% elif activity.location_name %}
+                    {{ activity.location_name }}  <span class="badge bg-info text-dark">旧データ</span>
+                {% else %}
+                    未設定
+                {% endif %}
+            </div>
+        </div>
+        {# --- ▲▲▲ 変更ここまで ▲▲▲ --- #}
         <div class="row">
             <div class="col-md-6">
-                <strong>天候:</strong> {{ activity.weather if activity.weather else 'N/A' }}
+                <strong><i class="fas fa-cloud-sun fa-fw me-1"></i>天候:</strong> {{ activity.weather if activity.weather else 'N/A' }}
             </div>
             <div class="col-md-6">
-                <strong>気温:</strong> {% if activity.temperature is not none %}{{ activity.temperature }} ℃{% else %}N/A{% endif %}
+                <strong><i class="fas fa-thermometer-half fa-fw me-1"></i>気温:</strong> {% if activity.temperature is not none %}{{ activity.temperature }} ℃{% else %}N/A{% endif %}
             </div>
         </div>
         {% if activity.notes %}
-        <p class="card-text mt-2" style="white-space: pre-wrap;"><strong>メモ:</strong><br>{{ activity.notes }}</p>
+        <p class="card-text mt-3" style="white-space: pre-wrap;"><strong><i class="fas fa-sticky-note fa-fw me-1"></i>メモ:</strong><br>{{ activity.notes }}</p>
         {% endif %}
     </div>
 </div>
@@ -124,6 +145,15 @@
                     
                     <input type="hidden" id="lap_times_json" name="lap_times_json">
 
+                    {# --- ▼▼▼ 変更: リーダーボード設定のチェックボックスを追加 ▼▼▼ --- #}
+                    <div class="mb-3">
+                        <div class="form-check">
+                            {{ session_form.include_in_leaderboard(class="form-check-input") }}
+                            {{ session_form.include_in_leaderboard.label(class="form-check-label") }}
+                        </div>
+                    </div>
+                    {# --- ▲▲▲ 変更ここまで ▲▲▲ --- #}
+
                     {{ session_form.submit(class="btn btn-primary") }}
                 </form>
             </div>
@@ -141,7 +171,6 @@
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="mb-0">{{ session.session_name }}</h5>
                 <div>
-                    {# --- ▼▼▼ ここからが変更ブロック ▼▼▼ --- #}
                     <a href="{{ url_for('activity.edit_session', session_id=session.id) }}" class="btn btn-sm btn-outline-primary py-0 px-1 me-1" title="編集">
                         <i class="fas fa-edit fa-fw"></i>
                     </a>
@@ -149,11 +178,9 @@
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                         <button type="submit" class="btn btn-sm btn-outline-danger py-0 px-1" title="削除"><i class="fas fa-trash fa-fw"></i></button>
                     </form>
-                    {# --- ▲▲▲ 変更はここまで ▲▲▲ --- #}
                 </div>
             </div>
             <div class="card-body">
-                {# --- ▼▼▼ ここからが詳細表示エリア ▼▼▼ --- #}
                 <div class="mb-3">
                     <strong><i class="fas fa-cog fa-fw me-1"></i>使用セッティング:</strong>
                     {% if session.setting_sheet %}
@@ -161,7 +188,6 @@
                         <details class="mt-2 small bg-light p-2 rounded">
                             <summary style="cursor: pointer;">詳細を展開</summary>
                             <div class="mt-2">
-                            {# --- ▼▼▼ 表示ロジックを修正 ▼▼▼ --- #}
                             {% for category_key, items in session.setting_sheet.details.items() %}
                                 {% set category_info = setting_key_map.get(category_key, {}) %}
                                 <strong>{{ category_info.get('title', category_key) }}</strong>
@@ -174,7 +200,6 @@
                             {% else %}
                                 <p class="mb-0">詳細なセッティング項目はありません。</p>
                             {% endfor %}
-                            {# --- ▲▲▲ 修正ここまで ▲▲▲ --- #}
                             </div>
                         </details>
                     {% else %}
@@ -203,9 +228,10 @@
                     </div>
                 </div>
                 {% endif %}
-                {# --- ▲▲▲ 詳細表示エリアここまで ▲▲▲ --- #}
             </div>
-            <div class="card-footer text-muted small">
+            <div class="card-footer text-muted small d-flex justify-content-between">
+                {# --- ▼▼▼ 変更: フッターの表示項目 ▼▼▼ --- #}
+                <span>
                 {% if motorcycle.is_racer %}
                     {% if session.session_duration_hours is not none %}
                         <strong>稼働時間:</strong> {{ session.session_duration_hours }} 時間
@@ -223,6 +249,16 @@
                         <strong>走行距離:</strong> N/A
                     {% endif %}
                 {% endif %}
+                </span>
+                {# --- ▼▼▼ 変更: リーダーボード参加状況を表示 ▼▼▼ --- #}
+                <span>
+                    {% if session.include_in_leaderboard %}
+                        <i class="fas fa-trophy text-warning" title="リーダーボード対象"></i>
+                    {% else %}
+                        <i class="fas fa-trophy text-muted" title="リーダーボード対象外"></i>
+                    {% endif %}
+                </span>
+                {# --- ▲▲▲ 変更ここまで ▲▲▲ --- #}
             </div>
         </div>
     </div>
