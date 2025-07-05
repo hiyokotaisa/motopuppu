@@ -1,6 +1,7 @@
 # motopuppu/views/activity.py
 import json
 from datetime import date
+from decimal import Decimal
 
 from flask import (
     Blueprint, flash, g, redirect, render_template, request, url_for, abort, current_app
@@ -10,6 +11,108 @@ from sqlalchemy.orm import joinedload
 from .auth import login_required_custom
 from ..models import db, Motorcycle, ActivityLog, SessionLog, SettingSheet
 from ..forms import ActivityLogForm, SessionLogForm, SettingSheetForm, JAPANESE_CIRCUITS
+
+
+# --- ▼▼▼ セッティング項目定義を追加 ▼▼▼ ---
+SETTING_KEY_MAP = {
+    "sprocket": {
+        "title": "スプロケット",
+        "keys": {
+            "front_teeth": "フロント (T)",
+            "rear_teeth": "リア (T)"
+        }
+    },
+    "ignition": {
+        "title": "点火",
+        "keys": {
+            "spark_plug": "プラグ"
+        }
+    },
+    "suspension": {
+        "title": "サスペンション",
+        "keys": {
+            # フロント
+            "front_protrusion_mm": "突き出し(mm)",
+            "front_preload": "プリロード",
+            "front_spring_rate_nm": "スプリングレート(Nm)",
+            "front_fork_oil": "フォークオイル",
+            "front_oil_level_mm": "油面(mm)",
+            "front_damping_compression": "減衰(圧側)",
+            "front_damping_rebound": "減衰(伸側)",
+            # リア
+            "rear_spring_rate_nm": "スプリングレート(Nm)",
+            "rear_preload": "プリロード",
+            "rear_damping_compression": "減衰(圧側)",
+            "rear_damping_rebound": "減衰(伸側)"
+        }
+    },
+    "tire": {
+        "title": "タイヤ",
+        "keys": {
+            "tire_brand": "タイヤ銘柄",
+            "tire_compound": "コンパウンド",
+            "tire_pressure_kpa": "空気圧(kPa)"
+        }
+    },
+    "carburetor": {
+        "title": "キャブレター",
+        "keys": {
+            "main_jet": "メインジェット",
+            "slow_jet": "スロージェット",
+            "needle": "ニードル",
+            "clip_position": "クリップ位置",
+            "idle_screw": "アイドルスクリュー"
+        }
+    },
+    "ecu": {
+        "title": "ECU",
+        "keys": {
+            "map_name": "セット名"
+        }
+    }
+}
+# --- ▲▲▲ 追加はここまで ▲▲▲ ---
+
+
+# --- ▼▼▼ ラップタイム計算用ヘルパー関数 ▼▼▼ ---
+def parse_time_to_seconds(time_str):
+    """ "M:S.f" 形式の文字列を秒(Decimal)に変換 """
+    if not isinstance(time_str, str): return None
+    try:
+        parts = time_str.split(':')
+        if len(parts) == 2:
+            minutes = Decimal(parts[0])
+            seconds = Decimal(parts[1])
+            return minutes * 60 + seconds
+        else:
+            return Decimal(parts[0])
+    except:
+        return None
+
+def format_seconds_to_time(total_seconds):
+    """ 秒(Decimal)を "M:SS.fff" 形式の文字列に変換 """
+    if total_seconds is None: return "N/A"
+    total_seconds = Decimal(total_seconds)
+    minutes = int(total_seconds // 60)
+    seconds = total_seconds % 60
+    return f"{minutes}:{seconds:06.3f}" # 0埋めして S.fff 形式にする
+
+def calculate_lap_stats(lap_times):
+    """ ラップタイムのリストからベストと平均を計算 """
+    if not lap_times or not isinstance(lap_times, list):
+        return "N/A", "N/A"
+    
+    lap_seconds = [s for s in (parse_time_to_seconds(t) for t in lap_times) if s is not None]
+    
+    if not lap_seconds:
+        return "N/A", "N/A"
+
+    best_lap = min(lap_seconds)
+    average_lap = sum(lap_seconds) / len(lap_seconds)
+    
+    return format_seconds_to_time(best_lap), format_seconds_to_time(average_lap)
+# --- ▲▲▲ ヘルパー関数ここまで ▲▲▲ ---
+
 
 activity_bp = Blueprint('activity', __name__, url_prefix='/activity')
 
@@ -126,6 +229,9 @@ def detail_activity(activity_id):
         
     motorcycle = activity.motorcycle
     sessions = activity.sessions.all()
+
+    for session in sessions:
+        session.best_lap, session.average_lap = calculate_lap_stats(session.lap_times)
     
     session_form = SessionLogForm()
     setting_sheets = SettingSheet.query.filter_by(motorcycle_id=motorcycle.id, is_archived=False).order_by(SettingSheet.sheet_name).all()
@@ -142,13 +248,15 @@ def detail_activity(activity_id):
         )
 
         if motorcycle.is_racer:
-            new_session.operating_hours_start = session_form.operating_hours_start.data
-            new_session.operating_hours_end = session_form.operating_hours_end.data
-            if new_session.operating_hours_end and (motorcycle.total_operating_hours is None or new_session.operating_hours_end > motorcycle.total_operating_hours):
-                motorcycle.total_operating_hours = new_session.operating_hours_end
+            duration = session_form.session_duration_hours.data
+            if duration is not None:
+                new_session.session_duration_hours = duration
+                current_hours = motorcycle.total_operating_hours or Decimal('0.0')
+                motorcycle.total_operating_hours = current_hours + duration
         else:
-            new_session.odo_start = session_form.odo_start.data
-            new_session.odo_end = session_form.odo_end.data
+            distance = session_form.session_distance.data
+            if distance is not None:
+                new_session.session_distance = distance
 
         try:
             db.session.add(new_session)
@@ -164,7 +272,9 @@ def detail_activity(activity_id):
                            activity=activity,
                            sessions=sessions,
                            motorcycle=motorcycle,
-                           session_form=session_form)
+                           session_form=session_form,
+                           # --- ▼▼▼ 対応表をテンプレートに渡す ▼▼▼ ---
+                           setting_key_map=SETTING_KEY_MAP)
 
 # --- SessionLog Routes ---
 

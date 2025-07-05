@@ -24,7 +24,6 @@
     {% endif %}
 {% endwith %}
 
-{# --- ▼▼▼ 編集機能に対応 ▼▼▼ --- #}
 <form id="setting-sheet-form" method="POST" action="{{ url_for('activity.add_setting', vehicle_id=motorcycle.id) if form_action == 'add' else url_for('activity.edit_setting', setting_id=setting.id) }}">
     {{ form.hidden_tag() }} {# CSRFトークン #}
     <input type="hidden" id="details_json_input" name="details_json" value="{{ details_json if details_json else '{}' }}">
@@ -48,57 +47,126 @@
                 </div>
             </div>
 
-            {# --- セッティング項目 --- #}
-            <div id="setting-details-container">
-                {# --- サスペンション項目のテンプレート --- #}
-                <div id="suspension-template" class="card mb-3 setting-category-card" data-category="suspension" style="display: none;">
-                    <div class="card-header">サスペンション設定 <button type="button" class="btn-close btn-sm float-end remove-category-btn" aria-label="Close"></button></div>
+            {# --- セッティング項目がここに追加される --- #}
+            <div id="setting-details-container"></div>
+            
+            {# --- ▼▼▼ ここからテンプレート定義 ▼▼▼ --- #}
+            <div class="d-none">
+                <div id="sprocket-template" class="card mb-3 setting-category-card" data-category="sprocket">
+                    <div class="card-header d-flex justify-content-between"><span>スプロケット</span><button type="button" class="btn-close btn-sm remove-category-btn" aria-label="Close"></button></div>
                     <div class="card-body">
-                        <h5>フロント</h5>
                         <div class="row">
-                            <div class="col-md-6 mb-2"><input type="text" class="form-control" data-key="front_preload" placeholder="プリロード"></div>
-                            <div class="col-md-6 mb-2"><input type="text" class="form-control" data-key="front_rebound" placeholder="伸び側減衰"></div>
-                            <div class="col-md-6 mb-2"><input type="text" class="form-control" data-key="front_compression" placeholder="圧側減衰"></div>
-                        </div>
-                        <hr>
-                        <h5>リア</h5>
-                         <div class="row">
-                            <div class="col-md-6 mb-2"><input type="text" class="form-control" data-key="rear_preload" placeholder="プリロード"></div>
-                            <div class="col-md-6 mb-2"><input type="text" class="form-control" data-key="rear_rebound" placeholder="伸び側減衰"></div>
+                            <div class="col-md-6 mb-3">
+                                <label for="sprocket_front_teeth" class="form-label small">フロント (T)</label>
+                                <input type="text" id="sprocket_front_teeth" class="form-control" data-key="front_teeth">
+                                <div class="form-text">フロントスプロケットの歯数を入力します。</div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="sprocket_rear_teeth" class="form-label small">リア (T)</label>
+                                <input type="text" id="sprocket_rear_teeth" class="form-control" data-key="rear_teeth">
+                                <div class="form-text">リアスプロケットの歯数を入力します。</div>
+                            </div>
                         </div>
                     </div>
                 </div>
-                {# --- タイヤ項目のテンプレート --- #}
-                <div id="tire-template" class="card mb-3 setting-category-card" data-category="tire" style="display: none;">
-                    <div class="card-header">タイヤ設定 <button type="button" class="btn-close btn-sm float-end remove-category-btn" aria-label="Close"></button></div>
+
+                <div id="ignition-template" class="card mb-3 setting-category-card" data-category="ignition">
+                    <div class="card-header d-flex justify-content-between"><span>点火</span><button type="button" class="btn-close btn-sm remove-category-btn" aria-label="Close"></button></div>
                     <div class="card-body">
-                         <h5>フロント</h5>
                         <div class="row">
-                            <div class="col-md-6 mb-2"><input type="text" class="form-control" data-key="front_model" placeholder="モデル名"></div>
-                            <div class="col-md-6 mb-2"><input type="text" class="form-control" data-key="front_pressure" placeholder="空気圧 (冷間)"></div>
+                             <div class="col-md-6 mb-3">
+                                <label for="ignition_spark_plug" class="form-label small">プラグ</label>
+                                <input type="text" id="ignition_spark_plug" class="form-control" data-key="spark_plug">
+                                <div class="form-text">使用しているスパークプラグの型番などを入力します。</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="suspension-template" class="card mb-3 setting-category-card" data-category="suspension">
+                    <div class="card-header d-flex justify-content-between"><span>サスペンション</span><button type="button" class="btn-close btn-sm remove-category-btn" aria-label="Close"></button></div>
+                    <div class="card-body">
+                        <h5>フロントフォーク</h5>
+                        <div class="row">
+                            <div class="col-md-4 mb-3"><label for="suspension_front_protrusion_mm" class="form-label small">突き出し(mm)</label><input type="text" id="suspension_front_protrusion_mm" class="form-control" data-key="front_protrusion_mm"></div>
+                            <div class="col-md-4 mb-3"><label for="suspension_front_preload" class="form-label small">プリロード</label><input type="text" id="suspension_front_preload" class="form-control" data-key="front_preload"></div>
+                            <div class="col-md-4 mb-3"><label for="suspension_front_spring_rate_nm" class="form-label small">スプリングレート(Nm)</label><input type="text" id="suspension_front_spring_rate_nm" class="form-control" data-key="front_spring_rate_nm"></div>
+                            <div class="col-md-4 mb-3"><label for="suspension_front_fork_oil" class="form-label small">フォークオイル</label><input type="text" id="suspension_front_fork_oil" class="form-control" data-key="front_fork_oil"></div>
+                            <div class="col-md-4 mb-3"><label for="suspension_front_oil_level_mm" class="form-label small">油面(mm)</label><input type="text" id="suspension_front_oil_level_mm" class="form-control" data-key="front_oil_level_mm"></div>
+                            <div class="col-md-4 mb-3"><label for="suspension_front_damping_compression" class="form-label small">減衰(圧側)</label><input type="text" id="suspension_front_damping_compression" class="form-control" data-key="front_damping_compression"></div>
+                            <div class="col-md-4 mb-3"><label for="suspension_front_damping_rebound" class="form-label small">減衰(伸側)</label><input type="text" id="suspension_front_damping_rebound" class="form-control" data-key="front_damping_rebound"></div>
                         </div>
                         <hr>
-                        <h5>リア</h5>
+                        <h5>リアサスペンション</h5>
                          <div class="row">
-                            <div class="col-md-6 mb-2"><input type="text" class="form-control" data-key="rear_model" placeholder="モデル名"></div>
-                            <div class="col-md-6 mb-2"><input type="text" class="form-control" data-key="rear_pressure" placeholder="空気圧 (冷間)"></div>
+                            <div class="col-md-4 mb-3"><label for="suspension_rear_spring_rate_nm" class="form-label small">スプリングレート(Nm)</label><input type="text" id="suspension_rear_spring_rate_nm" class="form-control" data-key="rear_spring_rate_nm"></div>
+                            <div class="col-md-4 mb-3"><label for="suspension_rear_preload" class="form-label small">プリロード</label><input type="text" id="suspension_rear_preload" class="form-control" data-key="rear_preload"></div>
+                            <div class="col-md-4 mb-3"><label for="suspension_rear_damping_compression" class="form-label small">減衰(圧側)</label><input type="text" id="suspension_rear_damping_compression" class="form-control" data-key="rear_damping_compression"></div>
+                            <div class="col-md-4 mb-3"><label for="suspension_rear_damping_rebound" class="form-label small">減衰(伸側)</label><input type="text" id="suspension_rear_damping_rebound" class="form-control" data-key="rear_damping_rebound"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="tire-template" class="card mb-3 setting-category-card" data-category="tire">
+                    <div class="card-header d-flex justify-content-between"><span>タイヤ</span><button type="button" class="btn-close btn-sm remove-category-btn" aria-label="Close"></button></div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4 mb-3"><label for="tire_tire_brand" class="form-label small">タイヤ銘柄</label><input type="text" id="tire_tire_brand" class="form-control" data-key="tire_brand"></div>
+                            <div class="col-md-4 mb-3"><label for="tire_tire_compound" class="form-label small">コンパウンド</label><input type="text" id="tire_tire_compound" class="form-control" data-key="tire_compound"></div>
+                            <div class="col-md-4 mb-3"><label for="tire_tire_pressure_kpa" class="form-label small">空気圧(kPa)</label><input type="text" id="tire_tire_pressure_kpa" class="form-control" data-key="tire_pressure_kpa"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="carburetor-template" class="card mb-3 setting-category-card" data-category="carburetor">
+                    <div class="card-header d-flex justify-content-between"><span>キャブレター</span><button type="button" class="btn-close btn-sm remove-category-btn" aria-label="Close"></button></div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4 mb-3"><label for="carb_main_jet" class="form-label small">メインジェット</label><input type="text" id="carb_main_jet" class="form-control" data-key="main_jet"></div>
+                            <div class="col-md-4 mb-3"><label for="carb_slow_jet" class="form-label small">スロージェット</label><input type="text" id="carb_slow_jet" class="form-control" data-key="slow_jet"></div>
+                            <div class="col-md-4 mb-3"><label for="carb_needle" class="form-label small">ニードル</label><input type="text" id="carb_needle" class="form-control" data-key="needle"></div>
+                            <div class="col-md-4 mb-3"><label for="carb_clip_position" class="form-label small">クリップ位置</label><input type="text" id="carb_clip_position" class="form-control" data-key="clip_position"></div>
+                            <div class="col-md-4 mb-3"><label for="carb_idle_screw" class="form-label small">アイドルスクリュー</label><input type="text" id="carb_idle_screw" class="form-control" data-key="idle_screw"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="ecu-template" class="card mb-3 setting-category-card" data-category="ecu">
+                    <div class="card-header d-flex justify-content-between"><span>ECU</span><button type="button" class="btn-close btn-sm remove-category-btn" aria-label="Close"></button></div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3"><label for="ecu_map_name" class="form-label small">セット名</label><input type="text" id="ecu_map_name" class="form-control" data-key="map_name"></div>
                         </div>
                     </div>
                 </div>
             </div>
+            {# --- ▲▲▲ テンプレート定義ここまで ▲▲▲ --- #}
         </div>
         <div class="col-lg-4">
             {# --- カテゴリ追加ボタン --- #}
             <div class="card">
                 <div class="card-header">セッティング項目を追加</div>
                 <div class="list-group list-group-flush">
+                    {# --- ▼▼▼ ボタンリストを更新 ▼▼▼ --- #}
                     <button type="button" class="list-group-item list-group-item-action add-category-btn" data-template-id="suspension-template">
-                        <i class="fas fa-sliders-h me-2"></i> サスペンション
+                        <i class="fas fa-sliders-h fa-fw me-2"></i> サスペンション
                     </button>
                     <button type="button" class="list-group-item list-group-item-action add-category-btn" data-template-id="tire-template">
-                        <i class="fas fa-dot-circle me-2"></i> タイヤ
+                        <i class="fas fa-dot-circle fa-fw me-2"></i> タイヤ
                     </button>
-                     {# 将来的に他のカテゴリもここに追加 #}
+                    <button type="button" class="list-group-item list-group-item-action add-category-btn" data-template-id="sprocket-template">
+                        <i class="fas fa-cogs fa-fw me-2"></i> スプロケット
+                    </button>
+                     <button type="button" class="list-group-item list-group-item-action add-category-btn" data-template-id="carburetor-template">
+                        <i class="fas fa-gas-pump fa-fw me-2"></i> キャブレター
+                    </button>
+                    <button type="button" class="list-group-item list-group-item-action add-category-btn" data-template-id="ignition-template">
+                        <i class="fas fa-bolt fa-fw me-2"></i> 点火
+                    </button>
+                    <button type="button" class="list-group-item list-group-item-action add-category-btn" data-template-id="ecu-template">
+                        <i class="fas fa-microchip fa-fw me-2"></i> ECU
+                    </button>
+                    {# --- ▲▲▲ ボタンリストここまで ▲▲▲ --- #}
                 </div>
             </div>
         </div>
@@ -128,12 +196,14 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // カテゴリ削除ボタンの処理
+    // カテゴリ削除ボタンの処理 (イベントデリゲーション)
     container.addEventListener('click', function(e) {
-        if (e.target.classList.contains('remove-category-btn')) {
-            const card = e.target.closest('.setting-category-card');
-            const category = card.dataset.category;
-            document.querySelector(`.add-category-btn[data-template-id="${category}-template"]`).disabled = false;
+        const removeBtn = e.target.closest('.remove-category-btn');
+        if (removeBtn) {
+            const card = removeBtn.closest('.setting-category-card');
+            const categoryKey = card.dataset.category;
+            // 対応する追加ボタンを再度有効化
+            document.querySelector(`.add-category-btn[data-template-id="${categoryKey}-template"]`).disabled = false;
             card.remove();
         }
     });
@@ -142,45 +212,57 @@ document.addEventListener('DOMContentLoaded', function() {
     form.addEventListener('submit', function(e) {
         const settingData = {};
         container.querySelectorAll('.setting-category-card').forEach(card => {
-            const category = card.dataset.category;
-            settingData[category] = {};
+            const categoryKey = card.dataset.category;
+            settingData[categoryKey] = {};
             card.querySelectorAll('input[data-key]').forEach(input => {
-                if (input.value) {
-                    settingData[category][input.dataset.key] = input.value;
+                if (input.value.trim()) {
+                    // --- ▼▼▼ JSONのキーとして `data-key` を使用するよう修正 ▼▼▼ ---
+                    const itemKey = input.dataset.key;
+                    settingData[categoryKey][itemKey] = input.value.trim();
                 }
             });
         });
         detailsJsonInput.value = JSON.stringify(settingData);
     });
     
-    // --- ▼▼▼ 編集モード用の初期化処理を追加 ▼▼▼ ---
+    // --- 編集モード用の初期化処理 ---
     function addCategoryCard(templateId, data = null) {
         const template = document.getElementById(templateId);
         if (!template) return;
 
         const clone = template.cloneNode(true);
-        clone.style.display = 'block';
-        clone.removeAttribute('id');
         container.appendChild(clone);
+        // カテゴリ追加ボタンを無効化
         document.querySelector(`.add-category-btn[data-template-id="${templateId}"]`).disabled = true;
 
         // データがあれば入力欄にセット
         if (data) {
+            // --- ▼▼▼ `data-key` を元に値をセットするよう修正 ▼▼▼ ---
             clone.querySelectorAll('input[data-key]').forEach(input => {
-                if (data[input.dataset.key]) {
-                    input.value = data[input.dataset.key];
+                const itemKey = input.dataset.key;
+                if (data[itemKey]) {
+                    input.value = data[itemKey];
                 }
             });
         }
     }
 
     function populateFormForEdit() {
-        if (!detailsJsonInput.value) return;
+        if (!detailsJsonInput.value || detailsJsonInput.value === '{}') return;
         try {
             const savedData = JSON.parse(detailsJsonInput.value);
-            for (const category in savedData) {
-                const templateId = `${category}-template`;
-                addCategoryCard(templateId, savedData[category]);
+            const templates = {
+                'sprocket': 'sprocket-template',
+                'ignition': 'ignition-template',
+                'suspension': 'suspension-template',
+                'tire': 'tire-template',
+                'carburetor': 'carburetor-template',
+                'ecu': 'ecu-template'
+            };
+            for (const categoryKey in savedData) {
+                if(templates[categoryKey]) {
+                    addCategoryCard(templates[categoryKey], savedData[categoryKey]);
+                }
             }
         } catch (e) {
             console.error("Error parsing setting details JSON:", e);
@@ -190,7 +272,21 @@ document.addEventListener('DOMContentLoaded', function() {
     if (formAction === 'edit') {
         populateFormForEdit();
     }
-    // --- ▲▲▲ 追加はここまで ▲▲▲ ---
 });
 </script>
+<style>
+    /* テンプレートを非表示にするためのスタイル */
+    .d-none { display: none !important; }
+
+    /* カードヘッダーのレイアウト調整 */
+    .card-header > span {
+        flex-grow: 1;
+    }
+    
+    /* ヘルプテキストのスタイル */
+    .form-text {
+        font-size: 0.8em;
+        margin-top: 2px;
+    }
+</style>
 {% endblock %}

@@ -297,10 +297,17 @@ class SessionLog(db.Model):
     session_name = db.Column(db.String(100), nullable=True, default='Session 1')
     lap_times = db.Column(JSONB, nullable=True)
     rider_feel = db.Column(db.Text, nullable=True)
+    
+    # 従来のデータ形式 (後方互換性のために残す)
     operating_hours_start = db.Column(db.Numeric(8, 2), nullable=True)
     operating_hours_end = db.Column(db.Numeric(8, 2), nullable=True)
     odo_start = db.Column(db.Integer, nullable=True)
     odo_end = db.Column(db.Integer, nullable=True)
+
+    # --- ▼▼▼ 新しいデータ形式 ▼▼▼ ---
+    session_duration_hours = db.Column(db.Numeric(8, 2), nullable=True) # レーサー用のセッション稼働時間
+    session_distance = db.Column(db.Integer, nullable=True)           # 公道車用のセッション走行距離
+    # --- ▲▲▲ 新しいデータ形式 ▲▲▲ ---
 
     setting_sheet = db.relationship('SettingSheet', backref='sessions')
 

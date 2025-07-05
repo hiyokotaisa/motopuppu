@@ -463,23 +463,25 @@ class SessionLogForm(FlaskForm):
         validators=[Optional(), Length(max=2000)],
         render_kw={"rows": 5, "placeholder": "このセッションでのマシンの挙動や改善点など"}
     )
-    # 走行距離/時間はビュー側で動的に表示を制御するため、ここでは両方定義
-    operating_hours_start = DecimalField('開始 稼働時間', places=2, validators=[Optional(), NumberRange(min=0)])
-    operating_hours_end = DecimalField('終了 稼働時間', places=2, validators=[Optional(), NumberRange(min=0)])
-    odo_start = IntegerField('開始 ODO (km)', validators=[Optional(), NumberRange(min=0)])
-    odo_end = IntegerField('終了 ODO (km)', validators=[Optional(), NumberRange(min=0)])
+
+    # --- ▼▼▼ 修正後のフィールド ▼▼▼ ---
+    # レーサー車両用
+    session_duration_hours = DecimalField(
+        '稼働時間 (h)',
+        places=2,
+        validators=[Optional(), NumberRange(min=0, message='稼働時間は0以上の数値を入力してください。')],
+        render_kw={"placeholder": "例: 1.5"}
+    )
+    # 公道車両用
+    session_distance = IntegerField(
+        '走行距離 (km)',
+        validators=[Optional(), NumberRange(min=0, message='走行距離は0以上の数値を入力してください。')],
+        render_kw={"placeholder": "例: 150"}
+    )
+    # --- ▲▲▲ 修正はここまで ▲▲▲ ---
+    
     # ラップタイムは専用のUIで入力させ、JSONとして裏で送信する想定
     lap_times_json = HiddenField('Lap Times JSON', validators=[Optional()])
     submit = SubmitField('セッションを記録')
-
-    def validate_operating_hours_end(self, field):
-        if field.data is not None and self.operating_hours_start.data is not None:
-            if field.data < self.operating_hours_start.data:
-                raise ValidationError('終了稼働時間は開始稼働時間以上である必要があります。')
-
-    def validate_odo_end(self, field):
-        if field.data is not None and self.odo_start.data is not None:
-            if field.data < self.odo_start.data:
-                raise ValidationError('終了ODOは開始ODO以上である必要があります。')
 
 # --- ▲▲▲ 活動ログ機能 (ここまで) ▲▲▲ ---
