@@ -195,6 +195,15 @@
     margin-left: 0.25rem;
 }
 
+/* --- 整備記録カードの走行距離に単位を追加 --- */
+.maintenance-log-card dd.distance-value-cell::after {
+    content: " km";
+    font-size: 1rem;
+    font-weight: 500;
+    color: #212529;
+    margin-left: 0.25rem;
+}
+
 /* --- 表示設定トグル用 --- */
 .view-toggles-container .form-switch {
     padding-left: 3.5em; /* ラベルとの余白を調整 */
