@@ -106,16 +106,17 @@
                     </th>
                 {% endmacro %}
 
-                {{ sortable_th('date', '日付', current_sort_by, current_order, request_args) }}
-                {{ sortable_th('vehicle', '車両', current_sort_by, current_order, request_args) }}
-                {# --- 走行距離ヘッダー (JavaScriptで制御) --- #}
-                {{ sortable_th('odo_reading', 'ODO (km)', current_sort_by, current_order, request_args, "text-end", "distance_header") }}
-                {{ sortable_th('volume', '給油量 (L)', current_sort_by, current_order, request_args, "text-end") }}
-                {{ sortable_th('price', '単価 (円)', current_sort_by, current_order, request_args, "text-end") }}
-                {{ sortable_th('cost', '金額 (円)', current_sort_by, current_order, request_args, "text-end") }}
-                {{ sortable_th('station', 'スタンド', current_sort_by, current_order, request_args) }}
-                <th class="text-end">燃費 (km/L)</th>
-                <th>操作</th>
+                {# ▼▼▼ここから変更▼▼▼ #}
+                {{ sortable_th('date', '<i class="bi bi-calendar-event me-2"></i>日付', current_sort_by, current_order, request_args) }}
+                {{ sortable_th('vehicle', '<i class="bi bi-bicycle me-2"></i>車両', current_sort_by, current_order, request_args) }}
+                {{ sortable_th('odo_reading', '<i class="bi bi-speedometer2 me-2"></i>ODO (km)', current_sort_by, current_order, request_args, "text-end", "distance_header") }}
+                {{ sortable_th('volume', '<i class="bi bi-fuel-pump me-2"></i>給油量 (L)', current_sort_by, current_order, request_args, "text-end") }}
+                {{ sortable_th('price', '<i class="bi bi-tag me-2"></i>単価 (円)', current_sort_by, current_order, request_args, "text-end") }}
+                {{ sortable_th('cost', '<i class="bi bi-currency-yen me-2"></i>金額 (円)', current_sort_by, current_order, request_args, "text-end") }}
+                {{ sortable_th('station', '<i class="bi bi-building me-2"></i>スタンド', current_sort_by, current_order, request_args) }}
+                <th class="text-end"><i class="bi bi-graph-up me-2"></i>燃費 (km/L)</th>
+                <th><i class="bi bi-gear-fill me-2"></i>操作</th>
+                {# ▲▲▲ここまで変更▲▲▲ #}
             </tr>
         </thead>
         <tbody>
@@ -123,17 +124,14 @@
             <tr {% if entry.exclude_from_average %}class="table-secondary"{% endif %}>
                 <td>{{ entry.entry_date.strftime('%Y-%m-%d') }}</td>
                 <td>
-                    {# --- ▼ここを変更▼ --- #}
                     <a href="{{ url_for('fuel.edit_fuel', entry_id=entry.id) }}" title="給油記録「{{ entry.motorcycle.name }} - {{ entry.entry_date.strftime('%Y-%m-%d') }}」を編集">
                         {{ entry.motorcycle.name }}
                     </a>
-                    {# --- ▲ここまで変更▲ --- #}
                 </td>
-                {# --- 走行距離データセル (JavaScriptで制御) --- #}
                 <td class="text-end distance-value-cell"
                     data-odo-value="{{ entry.odometer_reading }}"
                     data-actual-value="{{ entry.total_distance if entry.total_distance is not none else entry.odometer_reading }}">
-                    {{ "{:,}".format(entry.odometer_reading) }} {# 初期表示はODOメーター値 #}
+                    {{ "{:,}".format(entry.odometer_reading) }}
                 </td>
                 <td class="text-end">{{ "%.2f"|format(entry.fuel_volume) }}</td>
                 <td class="text-end">
@@ -170,8 +168,8 @@
                             data-type="fuel"
                             data-vehicle-name="{{ entry.motorcycle.name }}"
                             data-date="{{ entry.entry_date.isoformat() }}"
-                            data-odo="{{ entry.odometer_reading }}" {# Misskey共有時は常にODOメーター値を使用するか、JSで切り替えるか検討 #}
-                            data-total-distance="{{ entry.total_distance if entry.total_distance is not none else '' }}" {# 必要なら追加 #}
+                            data-odo="{{ entry.odometer_reading }}"
+                            data-total-distance="{{ entry.total_distance if entry.total_distance is not none else '' }}"
                             data-volume="{{ entry.fuel_volume }}"
                             data-kpl="{{ entry.km_per_liter if entry.km_per_liter is not none else '' }}"
                             data-cost="{{ entry.total_cost|round|int if entry.total_cost is not none else '' }}"
@@ -211,7 +209,7 @@
 
 {# --- JavaScript --- #}
 {% block scripts %}
-{{ super() }} {# base.html のスクリプトを継承 #}
+{{ super() }}
 <script>
     // Bootstrap 5 のツールチップを有効化
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
@@ -219,5 +217,4 @@
       return new bootstrap.Tooltip(tooltipTriggerEl)
     })
 </script>
-{# odo_toggle.js は base.html で読み込まれる想定 #}
 {% endblock %}

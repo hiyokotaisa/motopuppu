@@ -1,4 +1,5 @@
 // motopuppu/static/js/odo_toggle.js
+
 document.addEventListener('DOMContentLoaded', function() {
     const toggleSwitch = document.getElementById('odoDisplayToggle');
     const toggleLabel = document.getElementById('odoDisplayToggleLabel');
@@ -27,7 +28,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 const targetSortKey = isActual ? ACTUAL_SORT_KEY : ODO_SORT_KEY;
                 const targetHeaderText = isActual ? ACTUAL_DISTANCE_TEXT : ODO_READING_TEXT;
 
-                headerTextSpan.textContent = targetHeaderText;
+                // ▼▼▼ ここを修正 ▼▼▼
+                // textContent でテキストのみを上書きするのではなく、innerHTML を使ってアイコンごと書き換える
+                headerTextSpan.innerHTML = `<i class="bi bi-speedometer2 me-2"></i>${targetHeaderText}`;
+                // ▲▲▲ ここまで修正 ▲▲▲
 
                 const currentUrlParams = new URLSearchParams(window.location.search);
                 const pageSortBy = currentUrlParams.get('sort_by');

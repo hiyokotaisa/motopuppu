@@ -1,3 +1,4 @@
+{# motopuppu/templates/maintenance_log.html #}
 {% extends "base.html" %}
 
 {% block title %}整備記録 - もとぷっぷー{% endblock %}
@@ -65,12 +66,12 @@
     </div>
 </form>
 
-{# --- フラッシュメッセージ表示 (修正箇所) --- #}
+{# --- フラッシュメッセージ表示 --- #}
 {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
         {% for category, message in messages %}
             <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show" role="alert">
-                {{ message | safe }} {# <--- ここに |safe フィルタを追加 #}
+                {{ message | safe }}
                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             </div>
         {% endfor %}
@@ -110,14 +111,15 @@
                     </th>
                 {% endmacro %}
 
-                {{ sortable_th('date', '日付', current_sort_by, current_order, request_args) }}
-                {{ sortable_th('vehicle', '車両', current_sort_by, current_order, request_args) }}
-                {# --- 走行距離ヘッダー (JavaScriptで制御) --- #}
-                {{ sortable_th('odo_reading', 'ODO (km)', current_sort_by, current_order, request_args, "text-end", "distance_header") }}
-                {{ sortable_th('category', 'カテゴリ', current_sort_by, current_order, request_args) }}
-                <th>内容</th>
-                <th class="text-end">費用 (円)</th>
-                <th>操作</th>
+                {# ▼▼▼ここから変更▼▼▼ #}
+                {{ sortable_th('date', '<i class="bi bi-calendar-event me-2"></i>日付', current_sort_by, current_order, request_args) }}
+                {{ sortable_th('vehicle', '<i class="bi bi-bicycle me-2"></i>車両', current_sort_by, current_order, request_args) }}
+                {{ sortable_th('odo_reading', '<i class="bi bi-speedometer2 me-2"></i>ODO (km)', current_sort_by, current_order, request_args, "text-end", "distance_header") }}
+                {{ sortable_th('category', '<i class="bi bi-tag-fill me-2"></i>カテゴリ', current_sort_by, current_order, request_args) }}
+                <th><i class="bi bi-card-text me-2"></i>内容</th>
+                <th class="text-end"><i class="bi bi-currency-yen me-2"></i>費用 (円)</th>
+                <th><i class="bi bi-gear-fill me-2"></i>操作</th>
+                {# ▲▲▲ここまで変更▲▲▲ #}
             </tr>
         </thead>
         <tbody>
@@ -125,17 +127,14 @@
             <tr>
                 <td>{{ entry.maintenance_date.strftime('%Y-%m-%d') }}</td>
                 <td>
-                    {# --- ▼ここを変更▼ --- #}
                     <a href="{{ url_for('maintenance.edit_maintenance', entry_id=entry.id) }}" title="整備記録「{{ entry.motorcycle.name }} - {{ entry.description|truncate(15) }}」を編集">
                         {{ entry.motorcycle.name }}
                     </a>
-                    {# --- ▲ここまで変更▲ --- #}
                 </td>
-                {# --- 走行距離データセル (JavaScriptで制御) --- #}
                 <td class="text-end distance-value-cell"
                     data-odo-value="{{ entry.odometer_reading_at_maintenance }}"
                     data-actual-value="{{ entry.total_distance_at_maintenance if entry.total_distance_at_maintenance is not none else entry.odometer_reading_at_maintenance }}">
-                    {{ "{:,}".format(entry.odometer_reading_at_maintenance) }} {# 初期表示はODOメーター値 #}
+                    {{ "{:,}".format(entry.odometer_reading_at_maintenance) }}
                 </td>
                 <td>{{ entry.category if entry.category else '-' }}</td>
                 <td>
@@ -209,11 +208,9 @@
 
 {# --- JavaScript --- #}
 {% block scripts %}
-{{ super() }} {# base.html のスクリプトを継承 #}
-{# odo_toggle.js は base.html で読み込まれる想定 #}
+{{ super() }}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Bootstrap Tooltipの初期化 (これは変更なし)
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
     var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
         return new bootstrap.Tooltip(tooltipTriggerEl)
