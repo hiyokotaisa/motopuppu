@@ -151,6 +151,9 @@ kyagisaw@kyagisaw-mac motopuppu % tree
 │   │   ├── fuel_form.html
 │   │   ├── fuel_log.html
 │   │   ├── index.html
+│   │   ├── leaderboard
+│   │   │   ├── index.html
+│   │   │   └── ranking.html
 │   │   ├── legal
 │   │   │   ├── privacy_policy.html
 │   │   │   └── terms_of_service.html
@@ -171,21 +174,22 @@ kyagisaw@kyagisaw-mac motopuppu % tree
 │       ├── auth.py
 │       ├── dev_auth.py
 │       ├── fuel.py
+│       ├── leaderboard.py
 │       ├── main.py
 │       ├── maintenance.py
 │       ├── notes.py
 │       └── vehicle.py
 ├── README.md
-└── requirements.txt
+├── requirements.txt
+└── tests
 
-18 directories, 80 files
+20 directories, 83 files
     ```
 
 7.  **今回のセッションでの目標 [毎回更新]:**
 
-      * 「整備予測」機能の実装について検討したい。
-      * 具体的には、ユーザーが入力した特定のカテゴリの整備（まずはエンジンオイル交換とタイヤ交換）について、走行距離や期間から「次の交換時期」を予測し、ダッシュボード等で通知する機能。
-
+      * 
+      
 8.  **Geminiに期待する役割:**
 
       * コードの提案、修正案の提示 (ファイル全体の表示希望)

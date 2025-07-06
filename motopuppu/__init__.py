@@ -82,7 +82,8 @@ def create_app(config_name=None):
 
     # --- ルート (Blueprints) の登録 ---
     try:
-        from .views import auth, main, vehicle, fuel, maintenance, notes, dev_auth, activity, leaderboard
+        # --- ▼▼▼ profile をインポートリストに追加 ▼▼▼ ---
+        from .views import auth, main, vehicle, fuel, maintenance, notes, dev_auth, activity, leaderboard, profile
         from .views import achievements as achievements_view 
 
         app.register_blueprint(auth.auth_bp)
@@ -94,6 +95,9 @@ def create_app(config_name=None):
         app.register_blueprint(achievements_view.achievements_bp)
         app.register_blueprint(activity.activity_bp)
         app.register_blueprint(leaderboard.leaderboard_bp) # リーダーボードのBlueprintを追加
+        # --- ▼▼▼ ここから追加 ▼▼▼ ---
+        app.register_blueprint(profile.profile_bp)
+        # --- ▲▲▲ ここまで追加 ▲▲▲ ---
 
         if app.config['ENV'] == 'development' or app.debug: 
             app.register_blueprint(dev_auth.dev_auth_bp)

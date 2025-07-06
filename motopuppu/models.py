@@ -11,6 +11,9 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     misskey_user_id = db.Column(db.String(100), unique=True, nullable=False)
     misskey_username = db.Column(db.String(100), nullable=True)
+    # --- ▼▼▼ ここから追加 ▼▼▼ ---
+    display_name = db.Column(db.String(100), nullable=True, comment="ユーザーが設定する表示名")
+    # --- ▲▲▲ ここまで追加 ▲▲▲ ---
     is_admin = db.Column(db.Boolean, default=False, nullable=False)
 
     motorcycles = db.relationship('Motorcycle', backref='owner', lazy=True, cascade="all, delete-orphan")

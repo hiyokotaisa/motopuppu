@@ -436,17 +436,30 @@ class NoteForm(FlaskForm):
             if not field.entries:
                 raise ValidationError('タスクカテゴリの場合、TODOアイテムを1つ以上入力してください。')
 
+# --- ▼▼▼ ここから追加 ▼▼▼ ---
+class ProfileForm(FlaskForm):
+    """プロフィール編集用フォーム"""
+    display_name = StringField('表示名',
+                               validators=[DataRequired(message="表示名を入力してください。"),
+                                           Length(min=1, max=50, message="表示名は50文字以内で入力してください。")],
+                               render_kw={"placeholder": "例: もとぷー太郎"})
+    submit_profile = SubmitField('表示名を更新')
+# --- ▲▲▲ ここまで追加 ▲▲▲ ---
+
 class DeleteAccountForm(FlaskForm):
     """アカウント削除確認フォーム"""
+    # --- ▼▼▼ 変更: プレースホルダーと検証ルールをテンプレートに合わせる ▼▼▼ ---
     confirm_text = StringField(
         '確認のため「削除します」と入力してください。',
         validators=[DataRequired(message="このフィールドは必須です。")]
     )
-    submit = SubmitField('退会して全てのデータを削除する')
+    submit_delete = SubmitField('退会して全てのデータを削除する')
 
     def validate_confirm_text(self, field):
         if field.data != "削除します":
             raise ValidationError("入力された文字列が一致しません。「削除します」と正しく入力してください。")
+    # --- ▲▲▲ ここまで変更 ▲▲▲ ---
+
 
 # --- ▼▼▼ 活動ログ機能 (ここから) ▼▼▼ ---
 

@@ -220,43 +220,46 @@ def login_required_custom(f):
         return f(*args, **kwargs)
     return decorated_function
 
-@auth_bp.route('/delete_account', methods=['GET', 'POST'])
-@login_required_custom # ログイン必須
-def delete_account():
-    form = DeleteAccountForm()
-    user_to_delete = g.user # @login_required_custom により g.user には現在のユーザーがセットされているはず
+# --- ▼▼▼ このセクションは profile.py に移動したためコメントアウト（または削除）▼▼▼ ---
+# @auth_bp.route('/delete_account', methods=['GET', 'POST'])
+# @login_required_custom # ログイン必須
+# def delete_account():
+#     form = DeleteAccountForm()
+#     user_to_delete = g.user # @login_required_custom により g.user には現在のユーザーがセットされているはず
+# 
+#     if form.validate_on_submit():
+#         try:
+#             if user_to_delete:
+#                 user_id_deleted = user_to_delete.id # ログ用にIDを保持
+#                 user_name_deleted = user_to_delete.misskey_username # ログ用に名前を保持
+#                 
+#                 db.session.delete(user_to_delete)
+#                 db.session.commit()
+#                 
+#                 if 'user' in g:
+#                     del g.user
+#                 session.pop('user_id', None)
+#                 session.clear()
+#                 
+#                 current_app.logger.info(f"User account deleted successfully: App User ID={user_id_deleted}, Username={user_name_deleted}")
+#                 # ▼▼▼ 退会完了ページへリダイレクト ▼▼▼
+#                 return redirect(url_for('auth.delete_account_complete'))
+#             else:
+#                 flash('ユーザーが見つかりませんでした。操作をやり直してください。', 'error')
+#                 current_app.logger.error(f"Attempt to delete account, but g.user was not available or invalid.")
+#                 return redirect(url_for('main.dashboard'))
+# 
+#         except Exception as e:
+#             db.session.rollback()
+#             current_app.logger.error(f"Error deleting user account (ID: {user_to_delete.id if user_to_delete else 'Unknown'}): {e}", exc_info=True)
+#             flash('アカウントの削除中にエラーが発生しました。しばらくしてからもう一度お試しいただくか、管理者にご連絡ください。', 'danger')
+#     
+#     elif request.method == 'POST' and not form.validate():
+#         flash('入力内容を確認してください。', 'warning')
+# 
+#     return render_template('auth/delete_account.html', title='アカウント削除', form=form, user_to_delete_name=user_to_delete.misskey_username if user_to_delete else "ユーザー")
+# --- ▲▲▲ ここまで ▲▲▲ ---
 
-    if form.validate_on_submit():
-        try:
-            if user_to_delete:
-                user_id_deleted = user_to_delete.id # ログ用にIDを保持
-                user_name_deleted = user_to_delete.misskey_username # ログ用に名前を保持
-                
-                db.session.delete(user_to_delete)
-                db.session.commit()
-                
-                if 'user' in g:
-                    del g.user
-                session.pop('user_id', None)
-                session.clear()
-                
-                current_app.logger.info(f"User account deleted successfully: App User ID={user_id_deleted}, Username={user_name_deleted}")
-                # ▼▼▼ 退会完了ページへリダイレクト ▼▼▼
-                return redirect(url_for('auth.delete_account_complete'))
-            else:
-                flash('ユーザーが見つかりませんでした。操作をやり直してください。', 'error')
-                current_app.logger.error(f"Attempt to delete account, but g.user was not available or invalid.")
-                return redirect(url_for('main.dashboard'))
-
-        except Exception as e:
-            db.session.rollback()
-            current_app.logger.error(f"Error deleting user account (ID: {user_to_delete.id if user_to_delete else 'Unknown'}): {e}", exc_info=True)
-            flash('アカウントの削除中にエラーが発生しました。しばらくしてからもう一度お試しいただくか、管理者にご連絡ください。', 'danger')
-    
-    elif request.method == 'POST' and not form.validate():
-        flash('入力内容を確認してください。', 'warning')
-
-    return render_template('auth/delete_account.html', title='アカウント削除', form=form, user_to_delete_name=user_to_delete.misskey_username if user_to_delete else "ユーザー")
 
 # ▼▼▼ 退会完了ページ表示用のルートを追加 ▼▼▼
 @auth_bp.route('/delete_account_complete')

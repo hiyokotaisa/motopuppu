@@ -63,9 +63,11 @@ def ranking(circuit_name):
         SessionLog.best_lap_seconds.isnot(None)
     ).subquery()
 
+    # --- ▼▼▼ ここから変更 ▼▼▼ ---
     # ランク1位（各ユーザーの自己ベスト）の記録のみを抽出
     best_laps = db.session.query(
         User.misskey_username,
+        User.display_name, # 表示名を取得するよう追加
         Motorcycle.name.label('motorcycle_name'),
         subquery.c.best_lap_seconds,
         subquery.c.activity_date
@@ -80,11 +82,11 @@ def ranking(circuit_name):
     for i, row in enumerate(best_laps):
         rankings.append({
             'rank': i + 1,
-            'username': row.misskey_username,
+            'username': row.display_name or row.misskey_username, # 表示名を優先
             'motorcycle_name': row.motorcycle_name,
-            # ▼▼▼ バグ修正: .best_lap_for_user を .best_lap_seconds に変更 ▼▼▼
             'lap_time': format_seconds_to_time(row.best_lap_seconds),
             'date': row.activity_date.strftime('%Y-%m-%d')
         })
+    # --- ▲▲▲ ここまで変更 ▲▲▲ ---
 
     return render_template('leaderboard/ranking.html', circuit_name=circuit_name, rankings=rankings)
