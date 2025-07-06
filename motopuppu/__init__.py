@@ -1,5 +1,4 @@
 # motopuppu/__init__.py
-
 import os
 import datetime # datetime.datetime を使うためにインポート
 import click
@@ -64,13 +63,17 @@ def create_app(config_name=None):
     migrate.init_app(app, db)
     csrf.init_app(app)
 
+    # --- ▼▼▼ ここから変更 ▼▼▼ ---
+    # --- カスタムJinja2フィルタの登録 ---
+    from .utils.datetime_helpers import format_utc_to_jst_string
+    app.jinja_env.filters['to_jst'] = format_utc_to_jst_string
+    # --- ▲▲▲ ここまで変更 ▲▲▲ ---
+
     # --- before_request ハンドラ ---
     @app.before_request
     def load_logged_in_user_and_motorcycles():
-        # --- ▼▼▼ インポートパスを修正 ▼▼▼ ---
         from .views.auth import get_current_user
         from .models import Motorcycle
-        # --- ▲▲▲ インポートパスを修正 ▲▲▲ ---
         
         g.user = get_current_user()
         g.user_motorcycles = []

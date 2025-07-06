@@ -96,7 +96,9 @@ kyagisaw@kyagisaw-mac motopuppu % tree
 │   └── versions
 │       ├── 03b74d3f953e_add_criteria_column_to_.py
 │       ├── 3c3d01d7c4c9_add_exclude_from_average_to_fuel_entries.py
+│       ├── 3f7f9b1139eb_add_activity_log_models.py
 │       ├── 414794921235_add_achievement_and_userachievement_.py
+│       ├── 48c543b24155_add_activity_log_models.py
 │       ├── 4bc80d3366bf_add_activity_log_models.py
 │       ├── 4ec29611c9b5_add_trigger_event_type_to_.py
 │       ├── 5d18f0a4938e_allow_null_for_content_in_general_notes.py
@@ -127,6 +129,7 @@ kyagisaw@kyagisaw-mac motopuppu % tree
 │   │   ├── images
 │   │   │   └── blobcat_8bit.webp
 │   │   ├── js
+│   │   │   ├── lap_time_manager.js
 │   │   │   ├── misskey_share.js
 │   │   │   └── odo_toggle.js
 │   │   └── manifest.json
@@ -138,6 +141,7 @@ kyagisaw@kyagisaw-mac motopuppu % tree
 │   │   │   ├── detail_activity.html
 │   │   │   ├── list_activities.html
 │   │   │   ├── list_settings.html
+│   │   │   ├── session_form.html
 │   │   │   └── setting_form.html
 │   │   ├── auth
 │   │   │   ├── delete_account_complete.html
@@ -159,6 +163,8 @@ kyagisaw@kyagisaw-mac motopuppu % tree
 │   │   ├── reminder_form.html
 │   │   ├── vehicle_form.html
 │   │   └── vehicles.html
+│   ├── utils
+│   │   └── datetime_helpers.py
 │   └── views
 │       ├── achievements.py
 │       ├── activity.py
@@ -172,7 +178,7 @@ kyagisaw@kyagisaw-mac motopuppu % tree
 ├── README.md
 └── requirements.txt
 
-17 directories, 75 files
+18 directories, 80 files
     ```
 
 7.  **今回のセッションでの目標 [毎回更新]:**

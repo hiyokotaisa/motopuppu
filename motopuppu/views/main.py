@@ -8,8 +8,8 @@ from datetime import date, timedelta, datetime
 from dateutil.relativedelta import relativedelta
 # zoneinfoを追加
 from zoneinfo import ZoneInfo
-from .auth import login_required_custom, get_current_user  # get_current_user はここでインポート
-from ..models import db, User, Motorcycle, FuelEntry, MaintenanceEntry, GeneralNote
+# ActivityLogモデルをインポートリストに追加
+from ..models import db, User, Motorcycle, FuelEntry, MaintenanceEntry, GeneralNote, ActivityLog
 from sqlalchemy.orm import joinedload
 import math
 import jpholiday  # 祝日ライブラリ
@@ -18,6 +18,8 @@ import os  # os をインポート (お知らせファイルパス用)
 
 # servicesモジュールをインポート
 from .. import services
+from .auth import login_required_custom, get_current_user  # get_current_user はここでインポート
+
 
 main_bp = Blueprint('main', __name__)
 
@@ -139,8 +141,6 @@ def dashboard():
         order_by_cols=[FuelEntry.entry_date.desc(), FuelEntry.total_distance.desc()]
     )
     
-    # --- ▼▼▼ 変更点 ▼▼▼ ---
-    # `services.get_recent_logs` に extra_filters を渡すように変更
     recent_maintenance_entries = services.get_recent_logs(
         model=MaintenanceEntry,
         vehicle_ids=user_motorcycle_ids_public,
@@ -149,7 +149,6 @@ def dashboard():
         order_by_cols=[MaintenanceEntry.maintenance_date.desc(), MaintenanceEntry.total_distance_at_maintenance.desc()],
         extra_filters=[MaintenanceEntry.category != '初期設定']
     )
-    # --- ▲▲▲ 変更点 ▲▲▲ ---
 
     # 3. テンプレート表示用のその他のデータ準備
     holidays_json = '{}'
@@ -200,9 +199,13 @@ def dashboard_events_api():
     if not g.user:
         return jsonify({'error': 'User not logged in'}), 401
     user_id = g.user.id
-    user_motorcycle_ids_public = [m.id for m in Motorcycle.query.filter_by(
-        user_id=user_id, is_racer=False).all()]
+    
+    # 全車両IDを取得
+    user_motorcycle_ids_all = [m.id for m in Motorcycle.query.filter_by(user_id=user_id).all()]
+    # 公道車のみのIDリスト
+    user_motorcycle_ids_public = [m.id for m in Motorcycle.query.filter_by(user_id=user_id, is_racer=False).all()]
 
+    # 給油記録 (公道車のみ)
     if user_motorcycle_ids_public:
         fuel_entries = FuelEntry.query.options(db.joinedload(FuelEntry.motorcycle)).filter(
             FuelEntry.motorcycle_id.in_(user_motorcycle_ids_public)).all()
@@ -222,6 +225,7 @@ def dashboard_events_api():
                 }
             })
 
+    # 整備記録 (公道車のみ)
     if user_motorcycle_ids_public:
         maintenance_entries = MaintenanceEntry.query.options(db.joinedload(MaintenanceEntry.motorcycle)).filter(
             MaintenanceEntry.motorcycle_id.in_(user_motorcycle_ids_public),
@@ -244,6 +248,45 @@ def dashboard_events_api():
                 }
             })
 
+    # --- ▼▼▼ ここから変更 ▼▼▼ ---
+    # 活動ログ (全車両対象)
+    if user_motorcycle_ids_all:
+        activity_logs = ActivityLog.query.options(db.joinedload(ActivityLog.motorcycle)).filter(
+            ActivityLog.motorcycle_id.in_(user_motorcycle_ids_all)).all()
+        for entry in activity_logs:
+            # 表示用の場所名を決定
+            location_display = entry.activity_title or entry.location_name or '活動'
+            event_title = f"🏁 {location_display[:15]}" + ("..." if len(location_display) > 15 else "")
+            # 編集画面へのURLを生成
+            edit_url = url_for('activity.detail_activity', activity_id=entry.id)
+            
+            # 場所の詳細情報を結合して表示
+            location_details = []
+            if entry.circuit_name:
+                location_details.append(entry.circuit_name)
+            if entry.custom_location:
+                location_details.append(entry.custom_location)
+            location_full_display = ", ".join(location_details) or entry.location_name or '未設定'
+
+            events.append({
+                'id': f'activity-{entry.id}', 'title': event_title,
+                'start': entry.activity_date.isoformat(), 'allDay': True, 'url': edit_url,
+                'backgroundColor': '#0dcaf0', 'borderColor': '#0dcaf0', 'textColor': 'black',
+                'extendedProps': {
+                    'type': 'activity',
+                    'motorcycleName': entry.motorcycle.name,
+                    'isRacer': entry.motorcycle.is_racer,
+                    'activityTitle': entry.activity_title or '活動ログ',
+                    'location': location_full_display,
+                    'weather': entry.weather,
+                    'temperature': f"{entry.temperature}°C" if entry.temperature is not None else None,
+                    'notes': entry.notes,
+                    'editUrl': edit_url
+                }
+            })
+    # --- ▲▲▲ ここまで変更 ▲▲▲ ---
+
+    # 一般ノート・タスク (全車両対象)
     general_notes = GeneralNote.query.options(
         db.joinedload(GeneralNote.motorcycle)).filter_by(user_id=user_id).all()
     for note in general_notes:
@@ -258,7 +301,8 @@ def dashboard_events_api():
             'type': event_type, 'category': note.category, 'title': note.title, 'motorcycleName': motorcycle_name,
             'noteDate': note.note_date.strftime('%Y-%m-%d'),
             'createdAt': note.created_at.strftime('%Y-%m-%d %H:%M'),
-            'updatedAt': note.updated_at.strftime('%Y-%m-%d %H:%M'), 'editUrl': edit_url
+            'updatedAt': note.updated_at.strftime('%Y-%m-%d %H:%M'), 'editUrl': edit_url,
+            'isRacer': note.motorcycle.is_racer if note.motorcycle else False
         }
         if event_type == 'task':
             extended_props['todos'] = note.todos if note.todos is not None else []

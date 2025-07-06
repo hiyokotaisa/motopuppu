@@ -501,9 +501,22 @@ document.addEventListener('DOMContentLoaded', function() {
                             (props.location ? `<dt>場所:</dt><dd>${escapeHtml(props.location)}</dd>` : '') +
                             (props.notes ? `<dt>メモ:</dt><dd style="white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(props.notes)}</dd>` : '') +
                             `</dl>`;
+                    // --- ▼▼▼ ここから変更 ▼▼▼ ---
+                    } else if (props.type === 'activity') {
+                        let racerBadge = props.isRacer ? ' <span class="badge bg-info text-dark small">レーサー</span>' : '';
+                        popoverTitle = `🏁 ${escapeHtml(props.activityTitle)} (${escapeHtml(props.motorcycleName || '車両不明')}${racerBadge})`;
+                        popoverContent = `<dl class="mb-0 small">` +
+                            `<dt>日付:</dt><dd>${escapeHtml(eventDateStr)}</dd>` +
+                            `<dt>場所:</dt><dd>${escapeHtml(props.location || '未設定')}</dd>` +
+                            (props.weather ? `<dt>天候:</dt><dd>${escapeHtml(props.weather)}</dd>` : '') +
+                            (props.temperature ? `<dt>気温:</dt><dd>${escapeHtml(props.temperature)}</dd>` : '') +
+                            (props.notes ? `<dt>メモ:</dt><dd style="white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(props.notes)}</dd>` : '') +
+                            `</dl>`;
+                    // --- ▲▲▲ ここまで変更 ▲▲▲ ---
                     } else if (props.type === 'note') {
                         let noteTitle = props.title || '(無題のノート)';
-                        popoverTitle = `📝 ノート ${props.motorcycleName ? '(' + escapeHtml(props.motorcycleName) + (props.isRacer ? ' <span class="badge bg-info text-dark small">レーサー</span>' : '') + ')' : ''}`;
+                        let racerBadge = props.isRacer ? ' <span class="badge bg-info text-dark small">レーサー</span>' : '';
+                        popoverTitle = `📝 ノート ${props.motorcycleName ? '(' + escapeHtml(props.motorcycleName) + racerBadge + ')' : ''}`;
                         popoverContent = `<dl class="mb-0 small">` +
                             `<dt>日付:</dt><dd>${escapeHtml(props.noteDate || eventDateStr)}</dd>` +
                             `<dt>タイトル:</dt><dd>${escapeHtml(noteTitle)}</dd>` +
@@ -514,7 +527,8 @@ document.addEventListener('DOMContentLoaded', function() {
                             `</dl>`;
                     } else if (props.type === 'task') {
                         let taskTitle = props.title || '(無題のタスク)';
-                        popoverTitle = `✅ タスク ${props.motorcycleName ? '(' + escapeHtml(props.motorcycleName) + (props.isRacer ? ' <span class="badge bg-info text-dark small">レーサー</span>' : '') + ')' : ''}`;
+                        let racerBadge = props.isRacer ? ' <span class="badge bg-info text-dark small">レーサー</span>' : '';
+                        popoverTitle = `✅ タスク ${props.motorcycleName ? '(' + escapeHtml(props.motorcycleName) + racerBadge + ')' : ''}`;
                         popoverContent = `<dl class="mb-0 small">` +
                             `<dt>日付:</dt><dd>${escapeHtml(props.noteDate || eventDateStr)}</dd>` +
                             `<dt>タイトル:</dt><dd>${escapeHtml(taskTitle)}</dd>` +
