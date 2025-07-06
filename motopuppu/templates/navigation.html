@@ -25,18 +25,21 @@
                         <i class="fas fa-tools me-1"></i> 整備
                     </a>
                 </li>
-                
-                {# --- ▼▼▼ 活動ログの項目をドロップダウンに変更 ▼▼▼ --- #}
+                <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint.startswith('notes.') %}active{% endif %}" href="{{ url_for('notes.notes_log') }}">
+                        <i class="fas fa-sticky-note me-1"></i> ノート
+                    </a>
+                </li>
                 <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle {% if request.endpoint.startswith('activity.') %}active{% endif %}" href="#" id="activityLogDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <a class="nav-link dropdown-toggle {% if request.endpoint.startswith('activity.') or request.endpoint.startswith('leaderboard.') %}active{% endif %}" href="#" id="activityLogDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="fas fa-flag-checkered me-1"></i> 活動ログ
                     </a>
                     <ul class="dropdown-menu" aria-labelledby="activityLogDropdown">
                         {% if g.user_motorcycles %}
-                            <li><h6 class="dropdown-header">車両を選択</h6></li>
+                            <li><h6 class="dropdown-header">車両別ログ</h6></li>
                             {% for motorcycle in g.user_motorcycles %}
                             <li>
-                                <a class="dropdown-item" href="{{ url_for('activity.list_activities', vehicle_id=motorcycle.id) }}">
+                                <a class="dropdown-item {% if request.view_args.get('vehicle_id') == motorcycle.id %}active{% endif %}" href="{{ url_for('activity.list_activities', vehicle_id=motorcycle.id) }}">
                                     {{ motorcycle.name }}
                                 </a>
                             </li>
@@ -50,24 +53,16 @@
                         {% endif %}
                         <li><hr class="dropdown-divider"></li>
                         <li>
+                            <a class="dropdown-item {% if request.endpoint.startswith('leaderboard.') %}active{% endif %}" href="{{ url_for('leaderboard.index') }}">
+                                <i class="fas fa-trophy fa-fw me-1"></i> リーダーボード
+                            </a>
+                        </li>
+                        <li>
                             <a class="dropdown-item" href="{{ url_for('vehicle.vehicle_list') }}">
                                 <i class="fas fa-motorcycle fa-fw me-1"></i> 全車両を管理
                             </a>
                         </li>
                     </ul>
-                </li>
-                {# --- ▲▲▲ 変更はここまで ▲▲▲ --- #}
-                
-                <li class="nav-item">
-                    <a class="nav-link {% if request.endpoint.startswith('leaderboard.') %}active{% endif %}" href="{{ url_for('leaderboard.index') }}">
-                        <i class="fas fa-trophy me-1"></i> リーダーボード
-                    </a>
-                </li>
-
-                <li class="nav-item">
-                    <a class="nav-link {% if request.endpoint.startswith('notes.') %}active{% endif %}" href="{{ url_for('notes.notes_log') }}">
-                        <i class="fas fa-sticky-note me-1"></i> ノート
-                    </a>
                 </li>
                  <li class="nav-item">
                     <a class="nav-link {% if request.endpoint.startswith('vehicle.') %}active{% endif %}" href="{{ url_for('vehicle.vehicle_list') }}">
@@ -76,9 +71,8 @@
                 </li>
             </ul>
 
-            {# ... 右側の要素 ... #}
+            {# ... 右側の要素（ユーザーメニュー）は変更なし ... #}
             <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
-                {# --- ▼▼▼ ここからユーザーメニューの変更 ▼▼▼ --- #}
                  <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle {% if request.endpoint.startswith('achievements.') or request.endpoint.startswith('profile.') %}active{% endif %}" href="#" id="navbarUserDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="fas fa-user-circle me-1"></i> {{ g.user.display_name or g.user.misskey_username or 'ユーザー' }}
@@ -102,7 +96,6 @@
                         </li>
                     </ul>
                 </li>
-                {# --- ▲▲▲ ここまでユーザーメニューの変更 ▲▲▲ --- #}
             </ul>
 
         </div>

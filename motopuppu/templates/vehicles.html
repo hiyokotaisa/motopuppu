@@ -89,12 +89,10 @@
                      <li class="list-group-item d-flex justify-content-between align-items-center">
                         <span class="text-muted">記録数</span>
                         <div class="text-end">
-                            {# --- ▼▼▼ 変更 ▼▼▼ --- #}
-                            <span class="badge rounded-pill bg-success me-1" title="活動ログ"><i class="fas fa-flag-checkered fa-fw me-1"></i>{{ motorcycle.activity_log_count }}</span>
                             {% if not motorcycle.is_racer %}<span class="badge rounded-pill bg-primary me-1" title="給油記録"><i class="fas fa-gas-pump fa-fw me-1"></i>{{ motorcycle.fuel_entries.count() }}</span>{% endif %}
                             <span class="badge rounded-pill bg-warning text-dark me-1" title="整備記録"><i class="fas fa-tools fa-fw me-1"></i>{{ motorcycle.maintenance_entries.count() }}</span>
                             <span class="badge rounded-pill bg-info text-dark" title="ノート"><i class="fas fa-book fa-fw me-1"></i>{{ motorcycle.general_notes|length }}</span>
-                            {# --- ▲▲▲ 変更 ▲▲▲ --- #}
+                            <span class="badge rounded-pill bg-success me-1" title="活動ログ"><i class="fas fa-flag-checkered fa-fw me-1"></i>{{ motorcycle.activity_log_count }}</span>
                         </div>
                     </li>
                 </ul>
@@ -103,14 +101,12 @@
                 <div class="d-flex justify-content-between align-items-center">
                     {# クイックアクションボタン #}
                     <div>
-                        {# --- ▼▼▼ ここに活動ログへのリンクを追加 ▼▼▼ --- #}
-                        <a href="{{ url_for('activity.list_activities', vehicle_id=motorcycle.id) }}" class="btn btn-sm btn-outline-success" title="活動ログを閲覧・追加"><i class="fas fa-flag-checkered"></i></a>
-                        {# --- ▲▲▲ 追加はここまで ▲▲▲ --- #}
                         {% if not motorcycle.is_racer %}
                         <a href="{{ url_for('fuel.add_fuel', motorcycle_id=motorcycle.id) }}" class="btn btn-sm btn-outline-primary" title="給油記録を追加"><i class="fas fa-gas-pump"></i></a>
                         {% endif %}
                         <a href="{{ url_for('maintenance.add_maintenance', motorcycle_id=motorcycle.id) }}" class="btn btn-sm btn-outline-warning" title="整備記録を追加"><i class="fas fa-tools"></i></a>
                         <a href="{{ url_for('notes.add_note', motorcycle_id=motorcycle.id) }}" class="btn btn-sm btn-outline-info" title="ノートを追加"><i class="fas fa-book"></i></a>
+                        <a href="{{ url_for('activity.list_activities', vehicle_id=motorcycle.id) }}" class="btn btn-sm btn-outline-success" title="活動ログを閲覧・追加"><i class="fas fa-flag-checkered"></i></a>
                     </div>
                     {# 車両管理ボタン #}
                     <div class="btn-group">
