@@ -73,116 +73,224 @@
     {% endif %}
 {% endwith %}
 
-{# --- ODO/実走行距離 表示切替スイッチ --- #}
-<div class="form-check form-switch mb-2">
-    <input class="form-check-input" type="checkbox" id="odoDisplayToggle" role="switch">
-    <label class="form-check-label" for="odoDisplayToggle" id="odoDisplayToggleLabel">ODOメーター値を表示</label>
+{# --- 表示設定トグル --- #}
+<div class="d-flex align-items-center flex-wrap gap-3 mb-2 view-toggles-container">
+    {# --- ODO/実走行距離 表示切替スイッチ --- #}
+    <div class="form-check form-switch">
+        <input class="form-check-input" type="checkbox" id="odoDisplayToggle" role="switch">
+        <label class="form-check-label" for="odoDisplayToggle" id="odoDisplayToggleLabel">ODOメーター値を表示</label>
+    </div>
+    {# --- UI表示形式 切替スイッチ (SPのみ) --- #}
+    <div class="form-check form-switch d-lg-none">
+        <input class="form-check-input" type="checkbox" id="uiViewToggle" role="switch">
+        <label class="form-check-label" for="uiViewToggle">リスト表示に切り替え</label>
+    </div>
 </div>
+
 
 {# --- 記録テーブル --- #}
 {% if entries %}
-<div class="table-responsive">
-    <table class="table table-striped table-hover table-sm">
-        <thead>
-            <tr>
-                {% macro sortable_th(sort_key, display_text, current_sort, current_order, request_args, th_class="", th_id="") %}
-                    {% set current_request_args = request_args.copy() %}
-                    {% set sort_order = 'asc' %}
-                    {% set sort_icon_html = '<i class="fas fa-sort fa-fw text-muted ms-1"></i>' %}
-                    {% if current_sort == sort_key %}
-                        {% if current_order == 'asc' %}
-                            {% set sort_order = 'desc' %}
-                            {% set sort_icon_html = '<i class="fas fa-sort-up fa-fw ms-1"></i>' %}
-                        {% else %}
-                            {% set sort_icon_html = '<i class="fas fa-sort-down fa-fw ms-1"></i>' %}
-                        {% endif %}
-                    {% endif %}
-                    {% set _ = current_request_args.update({'sort_by': sort_key, 'order': sort_order, 'page': 1}) %}
-                    <th class="{{ th_class }}" {% if th_id %}id="{{ th_id }}"{% endif %}>
-                        <a href="{{ url_for('fuel.fuel_log', **current_request_args) }}" class="text-decoration-none text-dark">
-                            <span class="header-text">{{ display_text|safe }}</span>
-                            <span class="sort-icon">{{ sort_icon_html|safe }}</span>
-                        </a>
-                    </th>
-                {% endmacro %}
 
-                {# ▼▼▼ここから変更▼▼▼ #}
-                {{ sortable_th('date', '<i class="bi bi-calendar-event me-2"></i>日付', current_sort_by, current_order, request_args) }}
-                {{ sortable_th('vehicle', '<i class="bi bi-bicycle me-2"></i>車両', current_sort_by, current_order, request_args) }}
-                {{ sortable_th('odo_reading', '<i class="bi bi-speedometer2 me-2"></i>ODO (km)', current_sort_by, current_order, request_args, "text-end", "distance_header") }}
-                {{ sortable_th('volume', '<i class="bi bi-fuel-pump me-2"></i>給油量 (L)', current_sort_by, current_order, request_args, "text-end") }}
-                {{ sortable_th('price', '<i class="bi bi-tag me-2"></i>単価 (円)', current_sort_by, current_order, request_args, "text-end") }}
-                {{ sortable_th('cost', '<i class="bi bi-currency-yen me-2"></i>金額 (円)', current_sort_by, current_order, request_args, "text-end") }}
-                {{ sortable_th('station', '<i class="bi bi-building me-2"></i>スタンド', current_sort_by, current_order, request_args) }}
-                <th class="text-end"><i class="bi bi-graph-up me-2"></i>燃費 (km/L)</th>
-                <th><i class="bi bi-gear-fill me-2"></i>操作</th>
-                {# ▲▲▲ここまで変更▲▲▲ #}
-            </tr>
-        </thead>
-        <tbody>
-            {% for entry in entries %}
-            <tr {% if entry.exclude_from_average %}class="table-secondary"{% endif %}>
-                <td>{{ entry.entry_date.strftime('%Y-%m-%d') }}</td>
-                <td>
-                    <a href="{{ url_for('fuel.edit_fuel', entry_id=entry.id) }}" title="給油記録「{{ entry.motorcycle.name }} - {{ entry.entry_date.strftime('%Y-%m-%d') }}」を編集">
-                        {{ entry.motorcycle.name }}
-                    </a>
-                </td>
-                <td class="text-end distance-value-cell"
-                    data-odo-value="{{ entry.odometer_reading }}"
-                    data-actual-value="{{ entry.total_distance if entry.total_distance is not none else entry.odometer_reading }}">
-                    {{ "{:,}".format(entry.odometer_reading) }}
-                </td>
-                <td class="text-end">{{ "%.2f"|format(entry.fuel_volume) }}</td>
-                <td class="text-end">
-                    {% if entry.price_per_liter is not none %}
-                        {{ entry.price_per_liter|round|int }}
-                    {% else %}
-                        -
-                    {% endif %}
-                </td>
-                <td class="text-end">
-                    {% if entry.total_cost is not none %}
-                        {{ entry.total_cost|round|int }}
-                    {% else %}
-                        -
-                    {% endif %}
-                </td>
-                <td>{{ entry.station_name if entry.station_name else '-' }}</td>
-                <td class="text-end">
-                    {% if entry.exclude_from_average %}
-                        <span class="text-muted" data-bs-toggle="tooltip" title="平均燃費の計算から除外されています">-</span>
-                    {% elif entry.km_per_liter is not none %}
-                        {{ "%.2f"|format(entry.km_per_liter) }}
-                    {% else %}
-                        -
-                    {% endif %}
-                 </td>
-                <td class="text-nowrap">
-                    <a href="{{ url_for('fuel.edit_fuel', entry_id=entry.id) }}" class="btn btn-sm btn-outline-primary me-1" title="編集"><i class="fas fa-edit fa-fw"></i></a>
-                    <form action="{{ url_for('fuel.delete_fuel', entry_id=entry.id) }}" method="POST" class="d-inline" onsubmit="return confirm('この給油記録を削除してもよろしいですか？');">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                        <button type="submit" class="btn btn-sm btn-outline-danger" title="削除"><i class="fas fa-trash fa-fw"></i></button>
-                    </form>
-                    <button class="btn btn-sm btn-info btn-share-misskey ms-1"
-                            data-type="fuel"
-                            data-vehicle-name="{{ entry.motorcycle.name }}"
-                            data-date="{{ entry.entry_date.isoformat() }}"
-                            data-odo="{{ entry.odometer_reading }}"
-                            data-total-distance="{{ entry.total_distance if entry.total_distance is not none else '' }}"
-                            data-volume="{{ entry.fuel_volume }}"
-                            data-kpl="{{ entry.km_per_liter if entry.km_per_liter is not none else '' }}"
-                            data-cost="{{ entry.total_cost|round|int if entry.total_cost is not none else '' }}"
-                            data-station="{{ entry.station_name or '' }}"
-                            title="Misskeyで共有">
-                        <i class="fa-solid fa-share-nodes fa-fw"></i>
-                    </button>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+{# =================================================================== #}
+{# ▼▼▼ PC/タブレット向けテーブル表示 (d-none d-lg-block) ▼▼▼ #}
+{# =================================================================== #}
+<div id="table-view-container" class="d-none d-lg-block">
+    <div class="table-responsive">
+        <table class="table table-striped table-hover table-sm">
+            <thead>
+                <tr>
+                    {% macro sortable_th(sort_key, display_text, current_sort, current_order, request_args, th_class="", th_id="") %}
+                        {% set current_request_args = request_args.copy() %}
+                        {% set sort_order = 'asc' %}
+                        {% set sort_icon_html = '<i class="fas fa-sort fa-fw text-muted ms-1"></i>' %}
+                        {% if current_sort == sort_key %}
+                            {% if current_order == 'asc' %}
+                                {% set sort_order = 'desc' %}
+                                {% set sort_icon_html = '<i class="fas fa-sort-up fa-fw ms-1"></i>' %}
+                            {% else %}
+                                {% set sort_icon_html = '<i class="fas fa-sort-down fa-fw ms-1"></i>' %}
+                            {% endif %}
+                        {% endif %}
+                        {% set _ = current_request_args.update({'sort_by': sort_key, 'order': sort_order, 'page': 1}) %}
+                        <th class="{{ th_class }}" {% if th_id %}id="{{ th_id }}"{% endif %}>
+                            <a href="{{ url_for('fuel.fuel_log', **current_request_args) }}" class="text-decoration-none text-dark">
+                                <span class="header-text">{{ display_text|safe }}</span>
+                                <span class="sort-icon">{{ sort_icon_html|safe }}</span>
+                            </a>
+                        </th>
+                    {% endmacro %}
+
+                    {# ▼▼▼ここから変更▼▼▼ #}
+                    {{ sortable_th('date', '<i class="bi bi-calendar-event me-2"></i>日付', current_sort_by, current_order, request_args) }}
+                    {{ sortable_th('vehicle', '<i class="bi bi-bicycle me-2"></i>車両', current_sort_by, current_order, request_args) }}
+                    {{ sortable_th('odo_reading', '<i class="bi bi-speedometer2 me-2"></i>ODO (km)', current_sort_by, current_order, request_args, "text-end", "distance_header") }}
+                    {{ sortable_th('volume', '<i class="bi bi-fuel-pump me-2"></i>給油量 (L)', current_sort_by, current_order, request_args, "text-end") }}
+                    {{ sortable_th('price', '<i class="bi bi-tag me-2"></i>単価 (円)', current_sort_by, current_order, request_args, "text-end") }}
+                    {{ sortable_th('cost', '<i class="bi bi-currency-yen me-2"></i>金額 (円)', current_sort_by, current_order, request_args, "text-end") }}
+                    {{ sortable_th('station', '<i class="bi bi-building me-2"></i>スタンド', current_sort_by, current_order, request_args) }}
+                    <th class="text-end"><i class="bi bi-graph-up me-2"></i>燃費 (km/L)</th>
+                    <th><i class="bi bi-gear-fill me-2"></i>操作</th>
+                    {# ▲▲▲ここまで変更▲▲▲ #}
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in entries %}
+                <tr {% if entry.exclude_from_average %}class="table-secondary"{% endif %}>
+                    <td>{{ entry.entry_date.strftime('%Y-%m-%d') }}</td>
+                    <td>
+                        <a href="{{ url_for('fuel.edit_fuel', entry_id=entry.id) }}" title="給油記録「{{ entry.motorcycle.name }} - {{ entry.entry_date.strftime('%Y-%m-%d') }}」を編集">
+                            {{ entry.motorcycle.name }}
+                        </a>
+                    </td>
+                    <td class="text-end distance-value-cell"
+                        data-odo-value="{{ entry.odometer_reading }}"
+                        data-actual-value="{{ entry.total_distance if entry.total_distance is not none else entry.odometer_reading }}">
+                        {{ "{:,}".format(entry.odometer_reading) }}
+                    </td>
+                    <td class="text-end">{{ "%.2f"|format(entry.fuel_volume) }}</td>
+                    <td class="text-end">
+                        {% if entry.price_per_liter is not none %}
+                            {{ entry.price_per_liter|round|int }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td class="text-end">
+                        {% if entry.total_cost is not none %}
+                            {{ entry.total_cost|round|int }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td>{{ entry.station_name if entry.station_name else '-' }}</td>
+                    <td class="text-end">
+                        {% if entry.exclude_from_average %}
+                            <span class="text-muted" data-bs-toggle="tooltip" title="平均燃費の計算から除外されています">-</span>
+                        {% elif entry.km_per_liter is not none %}
+                            {{ "%.2f"|format(entry.km_per_liter) }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td class="text-nowrap">
+                        <a href="{{ url_for('fuel.edit_fuel', entry_id=entry.id) }}" class="btn btn-sm btn-outline-primary me-1" title="編集"><i class="fas fa-edit fa-fw"></i></a>
+                        <form action="{{ url_for('fuel.delete_fuel', entry_id=entry.id) }}" method="POST" class="d-inline" onsubmit="return confirm('この給油記録を削除してもよろしいですか？');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                            <button type="submit" class="btn btn-sm btn-outline-danger" title="削除"><i class="fas fa-trash fa-fw"></i></button>
+                        </form>
+                        <button class="btn btn-sm btn-info btn-share-misskey ms-1"
+                                data-type="fuel"
+                                data-vehicle-name="{{ entry.motorcycle.name }}"
+                                data-date="{{ entry.entry_date.isoformat() }}"
+                                data-odo="{{ entry.odometer_reading }}"
+                                data-total-distance="{{ entry.total_distance if entry.total_distance is not none else '' }}"
+                                data-volume="{{ entry.fuel_volume }}"
+                                data-kpl="{{ entry.km_per_liter if entry.km_per_liter is not none else '' }}"
+                                data-cost="{{ entry.total_cost|round|int if entry.total_cost is not none else '' }}"
+                                data-station="{{ entry.station_name or '' }}"
+                                title="Misskeyで共有">
+                            <i class="fa-solid fa-share-nodes fa-fw"></i>
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </div>
+
+
+{# =================================================================== #}
+{# ▼▼▼ スマートフォン向けカード表示 (d-block d-lg-none) ▼▼▼ #}
+{# =================================================================== #}
+<div id="card-view-container" class="d-block d-lg-none">
+    {% for entry in entries %}
+    <div class="card mb-3 fuel-log-card {% if entry.exclude_from_average %}bg-light border-secondary{% endif %}">
+        <div class="card-header fw-bold">
+            {{ entry.entry_date.strftime('%Y年%m月%d日') }}
+            <small class="text-muted fw-normal ms-2">{{ entry.motorcycle.name }}</small>
+        </div>
+        <ul class="list-group list-group-flush">
+            <li class="list-group-item">
+                <dl>
+                    <dt><i class="bi bi-speedometer2 me-2 text-primary"></i>走行距離</dt>
+                    <dd class="distance-value-cell fs-5"
+                        data-odo-value="{{ entry.odometer_reading }}"
+                        data-actual-value="{{ entry.total_distance if entry.total_distance is not none else entry.odometer_reading }}">
+                        {# ▼▼▼ 単位(km)を削除。CSSで表示します ▼▼▼ #}
+                        {{ "{:,}".format(entry.odometer_reading) }}
+                    </dd>
+                </dl>
+            </li>
+            <li class="list-group-item">
+                <div class="row">
+                    <div class="col-6">
+                        <dl>
+                            <dt><i class="bi bi-fuel-pump me-2 text-primary"></i>給油量</dt>
+                            <dd>{{ "%.2f"|format(entry.fuel_volume) }} L</dd>
+                        </dl>
+                    </div>
+                    <div class="col-6">
+                        <dl>
+                            <dt><i class="bi bi-graph-up me-2 text-primary"></i>燃費</dt>
+                            <dd>
+                                {% if entry.exclude_from_average %}
+                                    <span class="text-muted" data-bs-toggle="tooltip" title="平均燃費の計算から除外されています">-</span>
+                                {% elif entry.km_per_liter is not none %}
+                                    <span class="fs-5">{{ "%.2f"|format(entry.km_per_liter) }}</span> km/L
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+            </li>
+            <li class="list-group-item">
+                <div class="row">
+                    <div class="col-6">
+                        <dl>
+                            <dt><i class="bi bi-tag me-2 text-primary"></i>単価</dt>
+                            <dd>{% if entry.price_per_liter is not none %}{{ entry.price_per_liter|round|int }} 円/L{% else %}-{% endif %}</dd>
+                        </dl>
+                    </div>
+                    <div class="col-6">
+                        <dl>
+                            <dt><i class="bi bi-currency-yen me-2 text-primary"></i>金額</dt>
+                            <dd>{% if entry.total_cost is not none %}{{ "{:,}".format(entry.total_cost|round|int) }} 円{% else %}-{% endif %}</dd>
+                        </dl>
+                    </div>
+                </div>
+            </li>
+             {% if entry.station_name %}
+            <li class="list-group-item">
+                <dl>
+                    <dt><i class="bi bi-building me-2 text-primary"></i>スタンド</dt>
+                    <dd>{{ entry.station_name }}</dd>
+                </dl>
+            </li>
+            {% endif %}
+        </ul>
+        <div class="card-footer bg-white text-end">
+            <a href="{{ url_for('fuel.edit_fuel', entry_id=entry.id) }}" class="btn btn-sm btn-outline-primary me-1" title="編集"><i class="fas fa-edit fa-fw"></i> 編集</a>
+            <form action="{{ url_for('fuel.delete_fuel', entry_id=entry.id) }}" method="POST" class="d-inline" onsubmit="return confirm('この給油記録を削除してもよろしいですか？');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <button type="submit" class="btn btn-sm btn-outline-danger" title="削除"><i class="fas fa-trash fa-fw"></i></button>
+            </form>
+             <button class="btn btn-sm btn-info btn-share-misskey ms-1"
+                    data-type="fuel" data-vehicle-name="{{ entry.motorcycle.name }}"
+                    data-date="{{ entry.entry_date.isoformat() }}" data-odo="{{ entry.odometer_reading }}"
+                    data-total-distance="{{ entry.total_distance if entry.total_distance is not none else '' }}"
+                    data-volume="{{ entry.fuel_volume }}" data-kpl="{{ entry.km_per_liter if entry.km_per_liter is not none else '' }}"
+                    data-cost="{{ entry.total_cost|round|int if entry.total_cost is not none else '' }}"
+                    data-station="{{ entry.station_name or '' }}" title="Misskeyで共有">
+                <i class="fa-solid fa-share-nodes fa-fw"></i>
+            </button>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
 
 {# --- ページネーション --- #}
 {% if pagination and pagination.pages > 1 %}
@@ -211,10 +319,61 @@
 {% block scripts %}
 {{ super() }}
 <script>
+document.addEventListener('DOMContentLoaded', function () {
     // Bootstrap 5 のツールチップを有効化
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
     var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
       return new bootstrap.Tooltip(tooltipTriggerEl)
-    })
+    });
+
+    // --- ▼▼▼ UI表示切り替え機能 (修正版) ▼▼▼ ---
+    const uiViewToggle = document.getElementById('uiViewToggle');
+    const cardViewContainer = document.getElementById('card-view-container');
+    const tableViewContainer = document.getElementById('table-view-container');
+    const viewModeKey = 'motopuppu-fuel-view-mode'; // localStorage用のキー
+
+    // スマホ表示のときだけ実行 (画面幅がBootstrapのlgブレークポイント未満)
+    if (window.innerWidth < 992) {
+        
+        // 表示を更新する関数
+        const setView = (isListView) => {
+            if (isListView) {
+                // リスト表示 (テーブル) にする
+                cardViewContainer.classList.remove('d-block');
+                cardViewContainer.classList.add('d-none');
+                tableViewContainer.classList.remove('d-none');
+                tableViewContainer.classList.add('d-block');
+                
+                if (uiViewToggle) uiViewToggle.checked = true;
+                localStorage.setItem(viewModeKey, 'list');
+            } else {
+                // カード表示 (デフォルト) にする
+                tableViewContainer.classList.remove('d-block');
+                tableViewContainer.classList.add('d-none');
+                cardViewContainer.classList.remove('d-none');
+                cardViewContainer.classList.add('d-block');
+
+                if (uiViewToggle) uiViewToggle.checked = false;
+                localStorage.setItem(viewModeKey, 'card');
+            }
+        };
+
+        // ページ読み込み時にlocalStorageの設定を復元
+        const savedViewMode = localStorage.getItem(viewModeKey);
+        if (savedViewMode === 'list') {
+            setView(true);
+        } else {
+            // デフォルトはカード表示なので、明示的に設定
+            setView(false); 
+        }
+
+        // トグルスイッチのイベントリスナー
+        if (uiViewToggle) {
+            uiViewToggle.addEventListener('change', function() {
+                setView(this.checked);
+            });
+        }
+    }
+});
 </script>
 {% endblock %}

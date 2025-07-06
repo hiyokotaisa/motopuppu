@@ -1,5 +1,4 @@
 /* motopuppu/static/css/style.css */
-
 /* --- FullCalendar カスタマイズ --- */
 .fc .fc-daygrid-day-top { display: flex; justify-content: space-between; align-items: flex-start; padding: 1px 2px; margin-bottom: 2px; min-height: 1.4em; position: relative; }
 .fc .fc-daygrid-day-number { order: 1; text-decoration: none !important; color: inherit; padding: 0; text-align: left; flex-shrink: 0; line-height: 1.2; font-weight: normal; }
@@ -156,4 +155,50 @@
 }
 .page-landing .footer a:not(.text-muted):hover {
     color: #16a085; /* ホバー色 */
+}
+
+/* --- 給油記録カード (スマートフォン表示用) --- */
+.fuel-log-card .list-group-item {
+    padding: 0.75rem 1rem;
+}
+
+.fuel-log-card dl {
+    margin: 0;
+}
+
+.fuel-log-card dt {
+    font-size: 0.8rem; /* 項目ラベルのフォントサイズ */
+    font-weight: normal;
+    color: #6c757d;   /* Bootstrapの .text-muted の色 */
+    margin-bottom: 0.1rem;
+}
+
+.fuel-log-card dd {
+    font-size: 1rem;   /* 値のフォントサイズ */
+    font-weight: 500;
+    margin-bottom: 0;
+    line-height: 1.2;
+}
+
+/* 一部のdd要素は少し大きくして目立たせる */
+.fuel-log-card dd.fs-5 {
+    font-size: 1.25rem !important; /* fs-5クラスを上書き */
+    font-weight: 600;
+}
+
+/* ▼▼▼ 単位(km)表示用のスタイルを追加 ▼▼▼ */
+.fuel-log-card dd.distance-value-cell::after {
+    content: " km";
+    font-size: 1rem;
+    font-weight: 500;
+    color: #212529;
+    margin-left: 0.25rem;
+}
+
+/* --- 表示設定トグル用 --- */
+.view-toggles-container .form-switch {
+    padding-left: 3.5em; /* ラベルとの余白を調整 */
+}
+.view-toggles-container .form-check-label {
+    padding-top: 0.1em; /* スイッチとの垂直位置を微調整 */
 }
