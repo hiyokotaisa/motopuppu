@@ -24,7 +24,9 @@
 
     {# 車両選択 #}
     <div class="mb-3">
-        {{ form.motorcycle_id.label(class="form-label") }} {% if form.motorcycle_id.flags.required %}<span class="text-danger">*</span>{% endif %}
+        <label for="{{ form.motorcycle_id.id }}" class="form-label">
+            <i class="bi bi-bicycle me-2"></i>{{ form.motorcycle_id.label.text }} {% if form.motorcycle_id.flags.required %}<span class="text-danger">*</span>{% endif %}
+        </label>
         {{ form.motorcycle_id(class="form-select" + (" is-invalid" if form.motorcycle_id.errors else ""), disabled=(form_action == 'edit')) }}
         {% if form.motorcycle_id.errors %}
             <div class="invalid-feedback">
@@ -36,7 +38,9 @@
 
     {# 整備日 #}
     <div class="mb-3">
-        {{ form.maintenance_date.label(class="form-label") }} {% if form.maintenance_date.flags.required %}<span class="text-danger">*</span>{% endif %}
+        <label for="{{ form.maintenance_date.id }}" class="form-label">
+            <i class="bi bi-calendar-date me-2"></i>{{ form.maintenance_date.label.text }} {% if form.maintenance_date.flags.required %}<span class="text-danger">*</span>{% endif %}
+        </label>
         {{ form.maintenance_date(class="form-control" + (" is-invalid" if form.maintenance_date.errors else "")) }}
         {% if form.maintenance_date.errors %}
             <div class="invalid-feedback">
@@ -47,7 +51,9 @@
 
     {# ODOメーター #}
     <div class="mb-3">
-        {{ form.odometer_reading_at_maintenance.label(class="form-label") }} {% if form.odometer_reading_at_maintenance.flags.required %}<span class="text-danger">*</span>{% endif %}
+        <label for="{{ form.odometer_reading_at_maintenance.id }}" class="form-label">
+            <i class="bi bi-speedometer2 me-2"></i>{{ form.odometer_reading_at_maintenance.label.text }} {% if form.odometer_reading_at_maintenance.flags.required %}<span class="text-danger">*</span>{% endif %}
+        </label>
         {{ form.odometer_reading_at_maintenance(class="form-control" + (" is-invalid" if form.odometer_reading_at_maintenance.errors else ""), min="0", step="1", placeholder=(form.odometer_reading_at_maintenance.render_kw.get("placeholder", "") if form.odometer_reading_at_maintenance.render_kw else "")) }}
         {% if form.odometer_reading_at_maintenance.errors %}
             <div class="invalid-feedback">
@@ -60,13 +66,15 @@
 
     {# カテゴリ #}
     <div class="mb-3">
-         {{ form.category.label(class="form-label") }}
+        <label for="{{ form.category.id }}" class="form-label">
+            <i class="bi bi-tags me-2"></i>{{ form.category.label.text }}
+        </label>
         {{ form.category(class="form-control" + (" is-invalid" if form.category.errors else ""), list=(form.category.render_kw.get("list", "category_options") if form.category.render_kw else "category_options"), placeholder=(form.category.render_kw.get("placeholder", "") if form.category.render_kw else "")) }}
          <datalist id="category_options">
-              {# MAINTENANCE_CATEGORIES は forms.py からインポートしてビュー経由で渡すか、ここで直接定義 #}
-              {% for cat_opt in ['エンジンオイル交換', 'タイヤ交換', 'ブレーキパッド交換', 'チェーンメンテナンス', '定期点検', '洗車', 'その他'] %}
-              <option value="{{ cat_opt }}">
-              {% endfor %}
+             {# MAINTENANCE_CATEGORIES は forms.py からインポートしてビュー経由で渡すか、ここで直接定義 #}
+             {% for cat_opt in ['エンジンオイル交換', 'タイヤ交換', 'ブレーキパッド交換', 'チェーンメンテナンス', '定期点検', '洗車', 'その他'] %}
+             <option value="{{ cat_opt }}">
+             {% endfor %}
          </datalist>
         {% if form.category.errors %}
             <div class="invalid-feedback">
@@ -77,7 +85,9 @@
 
     {# 整備内容 #}
     <div class="mb-3">
-         {{ form.description.label(class="form-label") }} {% if form.description.flags.required %}<span class="text-danger">*</span>{% endif %}
+        <label for="{{ form.description.id }}" class="form-label">
+            <i class="bi bi-tools me-2"></i>{{ form.description.label.text }} {% if form.description.flags.required %}<span class="text-danger">*</span>{% endif %}
+        </label>
         {{ form.description(class="form-control" + (" is-invalid" if form.description.errors else ""), rows=(form.description.render_kw.get("rows", 3) if form.description.render_kw else 3), placeholder=(form.description.render_kw.get("placeholder", "") if form.description.render_kw else "")) }}
         {% if form.description.errors %}
             <div class="invalid-feedback">
@@ -88,7 +98,9 @@
 
     {# 整備場所 #}
     <div class="mb-3">
-         {{ form.location.label(class="form-label") }}
+        <label for="{{ form.location.id }}" class="form-label">
+            <i class="bi bi-geo-alt me-2"></i>{{ form.location.label.text }}
+        </label>
         {{ form.location(class="form-control" + (" is-invalid" if form.location.errors else ""), placeholder=(form.location.render_kw.get("placeholder", "") if form.location.render_kw else "")) }}
         {% if form.location.errors %}
             <div class="invalid-feedback">
@@ -102,7 +114,9 @@
     {# 費用 #}
     <div class="row g-3">
         <div class="col-md-6 mb-3">
-            {{ form.parts_cost.label(class="form-label") }}
+            <label for="{{ form.parts_cost.id }}" class="form-label">
+                <i class="bi bi-box-seam me-2"></i>{{ form.parts_cost.label.text }}
+            </label>
             {{ form.parts_cost(class="form-control" + (" is-invalid" if form.parts_cost.errors else ""), min="0", placeholder=(form.parts_cost.render_kw.get("placeholder", "") if form.parts_cost.render_kw else "")) }}
             {% if form.parts_cost.errors %}
                 <div class="invalid-feedback">
@@ -111,7 +125,9 @@
             {% endif %}
         </div>
         <div class="col-md-6 mb-3">
-            {{ form.labor_cost.label(class="form-label") }}
+            <label for="{{ form.labor_cost.id }}" class="form-label">
+                <i class="bi bi-person-gear me-2"></i>{{ form.labor_cost.label.text }}
+            </label>
             {{ form.labor_cost(class="form-control" + (" is-invalid" if form.labor_cost.errors else ""), min="0", placeholder=(form.labor_cost.render_kw.get("placeholder", "") if form.labor_cost.render_kw else "")) }}
             {% if form.labor_cost.errors %}
                 <div class="invalid-feedback">
@@ -123,7 +139,9 @@
 
      {# メモ #}
     <div class="mb-3">
-        {{ form.notes.label(class="form-label") }}
+        <label for="{{ form.notes.id }}" class="form-label">
+            <i class="bi bi-card-text me-2"></i>{{ form.notes.label.text }}
+        </label>
         {{ form.notes(class="form-control" + (" is-invalid" if form.notes.errors else ""), rows=(form.notes.render_kw.get("rows", 4) if form.notes.render_kw else 4), placeholder=(form.notes.render_kw.get("placeholder", "") if form.notes.render_kw else "")) }}
         {% if form.notes.errors %}
             <div class="invalid-feedback">

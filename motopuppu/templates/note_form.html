@@ -34,7 +34,9 @@
 
     {# 関連車両選択 #}
     <div class="mb-3">
-        {{ form.motorcycle_id.label(class="form-label") }}
+        <label for="{{ form.motorcycle_id.id }}" class="form-label">
+            <i class="bi bi-bicycle me-2"></i>{{ form.motorcycle_id.label.text }}
+        </label>
         {{ form.motorcycle_id(class="form-select" + (" is-invalid" if form.motorcycle_id.errors else "")) }}
         {% if form.motorcycle_id.errors %}
             <div class="invalid-feedback">
@@ -47,7 +49,9 @@
 
     {# 日付 #}
     <div class="mb-3">
-        {{ form.note_date.label(class="form-label") }} {% if form.note_date.flags.required %}<span class="text-danger">*</span>{% endif %}
+        <label for="{{ form.note_date.id }}" class="form-label">
+            <i class="bi bi-calendar-date me-2"></i>{{ form.note_date.label.text }} {% if form.note_date.flags.required %}<span class="text-danger">*</span>{% endif %}
+        </label>
         {{ form.note_date(class="form-control" + (" is-invalid" if form.note_date.errors else "")) }}
         {% if form.note_date.errors %}
             <div class="invalid-feedback">
@@ -58,13 +62,13 @@
 
     {# カテゴリー選択 #}
     <div class="mb-3">
-        <label class="form-label">カテゴリー {% if form.category.flags.required %}<span class="text-danger">*</span>{% endif %}</label>
+        <label class="form-label"><i class="bi bi-tags me-2"></i>{{ form.category.label.text }} {% if form.category.flags.required %}<span class="text-danger">*</span>{% endif %}</label>
         <div>
             {% for subfield in form.category %} {# RadioFieldの各選択肢をループ #}
             <div class="form-check form-check-inline">
                 {{ subfield(class="form-check-input" + (" is-invalid" if form.category.errors else ""), id="category-" + subfield.data) }} {# idをユニークに #}
                 <label class="form-check-label" for="{{ subfield.id }}"> {# idを参照 #}
-                    {% if subfield.data == 'note' %}<i class="fas fa-sticky-note me-1"></i>{% elif subfield.data == 'task' %}<i class="fas fa-tasks me-1"></i>{% endif %}
+                    {% if subfield.data == 'note' %}<i class="bi bi-sticky me-1"></i>{% elif subfield.data == 'task' %}<i class="bi bi-check2-square me-1"></i>{% endif %}
                     {{ subfield.label.text }}
                 </label>
             </div>
@@ -79,7 +83,9 @@
 
     {# タイトル #}
     <div class="mb-3">
-        {{ form.title.label(class="form-label") }}
+        <label for="{{ form.title.id }}" class="form-label">
+            <i class="bi bi-card-heading me-2"></i>{{ form.title.label.text }}
+        </label>
         {{ form.title(class="form-control" + (" is-invalid" if form.title.errors else ""), maxlength="150", placeholder=(form.title.render_kw.get("placeholder", "") if form.title.render_kw else "")) }}
         {% if form.title.errors %}
             <div class="invalid-feedback">
@@ -90,7 +96,9 @@
 
     {# 内容欄 (カテゴリが'note'の時のみ表示) #}
     <div class="mb-3" id="content-section" {% if form.category.data != 'note' %}style="display: none;"{% endif %}>
-        {{ form.content.label(class="form-label") }} <span class="text-danger" id="content-required-indicator" {% if form.category.data != 'note' %}style="display: none;"{% endif %}>*</span>
+        <label for="{{ form.content.id }}" class="form-label">
+            <i class="bi bi-textarea-t me-2"></i>{{ form.content.label.text }} <span class="text-danger" id="content-required-indicator" {% if form.category.data != 'note' %}style="display: none;"{% endif %}>*</span>
+        </label>
         {{ form.content(class="form-control" + (" is-invalid" if form.content.errors else ""), rows=(form.content.render_kw.get("rows", 8) if form.content.render_kw else 8), maxlength="2000", placeholder=(form.content.render_kw.get("placeholder", "") if form.content.render_kw else "")) }}
         {% if form.content.errors %}
             <div class="invalid-feedback">

@@ -24,7 +24,9 @@
 
     {# 車両選択 #}
     <div class="mb-3">
-        {{ form.motorcycle_id.label(class="form-label") }} {% if form.motorcycle_id.flags.required %}<span class="text-danger">*</span>{% endif %}
+        <label for="{{ form.motorcycle_id.id }}" class="form-label">
+            <i class="bi bi-bicycle me-2"></i>{{ form.motorcycle_id.label.text }} {% if form.motorcycle_id.flags.required %}<span class="text-danger">*</span>{% endif %}
+        </label>
         {{ form.motorcycle_id(class="form-select" + (" is-invalid" if form.motorcycle_id.errors else "")) }}
         {% if form.motorcycle_id.errors %}
             <div class="invalid-feedback">
@@ -35,7 +37,9 @@
 
     {# 給油日 #}
     <div class="mb-3">
-        {{ form.entry_date.label(class="form-label") }} {% if form.entry_date.flags.required %}<span class="text-danger">*</span>{% endif %}
+        <label for="{{ form.entry_date.id }}" class="form-label">
+            <i class="bi bi-calendar-date me-2"></i>{{ form.entry_date.label.text }} {% if form.entry_date.flags.required %}<span class="text-danger">*</span>{% endif %}
+        </label>
         {{ form.entry_date(class="form-control" + (" is-invalid" if form.entry_date.errors else "")) }}
         {% if form.entry_date.errors %}
             <div class="invalid-feedback">
@@ -48,7 +52,9 @@
     {# 入力モード選択 (トグルスイッチ) #}
     <div class="form-check form-switch mb-3">
         {{ form.input_mode(class="form-check-input", role="switch") }}
-        {{ form.input_mode.label(class="form-check-label") }}
+        <label for="{{ form.input_mode.id }}" class="form-check-label">
+            <i class="bi bi-toggle-on me-2"></i>{{ form.input_mode.label.text }}
+        </label>
         {% if form.input_mode.errors %}
             <div class="invalid-feedback d-block">
                 {% for error in form.input_mode.errors %}<span>{{ error }}</span><br>{% endfor %}
@@ -58,7 +64,9 @@
 
     {# ODOメーター入力グループ #}
     <div id="odo-input-group" class="mb-3">
-        {{ form.odometer_reading.label(class="form-label") }} <span class="text-danger">*</span>
+        <label for="{{ form.odometer_reading.id }}" class="form-label">
+            <i class="bi bi-speedometer2 me-2"></i>{{ form.odometer_reading.label.text }} <span class="text-danger">*</span>
+        </label>
         {{ form.odometer_reading(class="form-control" + (" is-invalid" if form.odometer_reading.errors else ""), min="0", step="1", placeholder=(form.odometer_reading.render_kw.get("placeholder", "") if form.odometer_reading.render_kw else "")) }}
         {% if form.odometer_reading.errors %}
             <div class="invalid-feedback">
@@ -71,7 +79,9 @@
 
     {# トリップメーター入力グループ #}
     <div id="trip-input-group" class="mb-3" style="display: none;">
-        {{ form.trip_distance.label(class="form-label") }} <span class="text-danger">*</span>
+        <label for="{{ form.trip_distance.id }}" class="form-label">
+            <i class="bi bi-signpost-split me-2"></i>{{ form.trip_distance.label.text }} <span class="text-danger">*</span>
+        </label>
         {{ form.trip_distance(class="form-control" + (" is-invalid" if form.trip_distance.errors else ""), min="0", step="1", placeholder=(form.trip_distance.render_kw.get("placeholder", "") if form.trip_distance.render_kw else "")) }}
         {% if form.trip_distance.errors %}
             <div class="invalid-feedback">
@@ -93,7 +103,9 @@
 
     {# 給油量 #}
      <div class="mb-3">
-        {{ form.fuel_volume.label(class="form-label") }} {% if form.fuel_volume.flags.required %}<span class="text-danger">*</span>{% endif %}
+        <label for="{{ form.fuel_volume.id }}" class="form-label">
+            <i class="bi bi-fuel-pump me-2"></i>{{ form.fuel_volume.label.text }} {% if form.fuel_volume.flags.required %}<span class="text-danger">*</span>{% endif %}
+        </label>
         {{ form.fuel_volume(class="form-control" + (" is-invalid" if form.fuel_volume.errors else ""), min="0.01", step=(form.fuel_volume.render_kw.get("step", "0.01") if form.fuel_volume.render_kw else "0.01"), placeholder=(form.fuel_volume.render_kw.get("placeholder", "") if form.fuel_volume.render_kw else "")) }}
         {% if form.fuel_volume.errors %}
             <div class="invalid-feedback">
@@ -105,7 +117,9 @@
     {# 費用関連 #}
     <div class="row g-3">
         <div class="col-md-6 mb-3">
-            {{ form.price_per_liter.label(class="form-label") }}
+            <label for="{{ form.price_per_liter.id }}" class="form-label">
+                <i class="bi bi-tag me-2"></i>{{ form.price_per_liter.label.text }}
+            </label>
             {# IntegerFieldなのでstepは基本的に1。placeholderはforms.pyのrender_kwから取得 #}
             {{ form.price_per_liter(class="form-control" + (" is-invalid" if form.price_per_liter.errors else ""), min="0", placeholder=(form.price_per_liter.render_kw.get("placeholder", "") if form.price_per_liter.render_kw else "")) }}
             {% if form.price_per_liter.errors %}
@@ -115,7 +129,9 @@
             {% endif %}
         </div>
         <div class="col-md-6 mb-3">
-            {{ form.total_cost.label(class="form-label") }}
+            <label for="{{ form.total_cost.id }}" class="form-label">
+                <i class="bi bi-currency-yen me-2"></i>{{ form.total_cost.label.text }}
+            </label>
             {{ form.total_cost(class="form-control" + (" is-invalid" if form.total_cost.errors else ""), min="0", placeholder=(form.total_cost.render_kw.get("placeholder", "") if form.total_cost.render_kw else "")) }}
             {% if form.total_cost.errors %}
                 <div class="invalid-feedback">
@@ -129,7 +145,9 @@
 
     {# 給油スタンド名 #}
     <div class="mb-3">
-        {{ form.station_name.label(class="form-label") }}
+        <label for="{{ form.station_name.id }}" class="form-label">
+            <i class="bi bi-building me-2"></i>{{ form.station_name.label.text }}
+        </label>
         {{ form.station_name(class="form-control" + (" is-invalid" if form.station_name.errors else ""), list="station-brands-list", placeholder=(form.station_name.render_kw.get("placeholder", "") if form.station_name.render_kw else "")) }}
         <datalist id="station-brands-list">
             {% for brand in gas_station_brands %}
@@ -146,7 +164,9 @@
     {# ▼▼▼ 変更点: <datalist> を削除し、シンプルな描画に変更 ▼▼▼ #}
     {# 油種 #}
     <div class="mb-3">
-        {{ form.fuel_type.label(class="form-label") }}
+        <label for="{{ form.fuel_type.id }}" class="form-label">
+            <i class="bi bi-droplet me-2"></i>{{ form.fuel_type.label.text }}
+        </label>
         {{ form.fuel_type(class="form-select" + (" is-invalid" if form.fuel_type.errors else "")) }}
         {% if form.fuel_type.errors %}
             <div class="invalid-feedback">
@@ -159,7 +179,9 @@
     {# 満タンチェック #}
     <div class="mb-3 form-check">
         {{ form.is_full_tank(class="form-check-input" + (" is-invalid" if form.is_full_tank.errors else "")) }}
-        {{ form.is_full_tank.label(class="form-check-label") }}
+        <label for="{{ form.is_full_tank.id }}" class="form-check-label">
+            <i class="bi bi-check2-square me-2"></i>{{ form.is_full_tank.label.text }}
+        </label>
         {% if form.is_full_tank.errors %}
             <div class="invalid-feedback d-block">
                 {% for error in form.is_full_tank.errors %}<span>{{ error }}</span><br>{% endfor %}
@@ -170,7 +192,9 @@
     {# 計算除外チェック #}
     <div class="mb-3 form-check">
         {{ form.exclude_from_average(class="form-check-input" + (" is-invalid" if form.exclude_from_average.errors else "")) }}
-        {{ form.exclude_from_average.label(class="form-check-label") }}
+        <label for="{{ form.exclude_from_average.id }}" class="form-check-label">
+            <i class="bi bi-calculator me-2"></i>{{ form.exclude_from_average.label.text }}
+        </label>
         {% if form.exclude_from_average.errors %}
             <div class="invalid-feedback d-block">
                 {% for error in form.exclude_from_average.errors %}<span>{{ error }}</span><br>{% endfor %}
@@ -182,7 +206,9 @@
 
     {# メモ #}
     <div class="mb-3">
-        {{ form.notes.label(class="form-label") }}
+        <label for="{{ form.notes.id }}" class="form-label">
+            <i class="bi bi-card-text me-2"></i>{{ form.notes.label.text }}
+        </label>
         {{ form.notes(class="form-control" + (" is-invalid" if form.notes.errors else ""), rows=(form.notes.render_kw.get("rows", 3) if form.notes.render_kw else 3), placeholder=(form.notes.render_kw.get("placeholder", "") if form.notes.render_kw else "")) }}
         {% if form.notes.errors %}
             <div class="invalid-feedback">
