@@ -1,0 +1,62 @@
+{# motopuppu/templates/leaderboard/ranking.html #}
+{% extends "base.html" %}
+
+{% block title %}{{ circuit_name }} ランキング - もとぷっぷー{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center mb-3">
+    <a href="{{ url_for('leaderboard.index') }}" class="btn btn-sm btn-outline-secondary me-3" title="サーキット選択へ戻る">
+        <i class="fas fa-arrow-left"></i>
+    </a>
+    <div>
+        <h2 class="mb-0"><i class="fas fa-flag-checkered me-2"></i>{{ circuit_name }}</h2>
+        <span class="text-muted">リーダーボード</span>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        {% if rankings %}
+        <div class="table-responsive">
+            <table class="table table-striped table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th scope="col" style="width: 5%;" class="text-center">#</th>
+                        <th scope="col" style="width: 20%;">Time</th>
+                        <th scope="col">User</th>
+                        <th scope="col">Motorcycle</th>
+                        <th scope="col" class="text-end">Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in rankings %}
+                    <tr>
+                        <th scope="row" class="text-center">
+                            {% if item.rank == 1 %}
+                                <i class="fas fa-trophy fs-5" style="color: #FFD700;" title="1位"></i>
+                            {% elif item.rank == 2 %}
+                                <i class="fas fa-trophy fs-5" style="color: #C0C0C0;" title="2位"></i>
+                            {% elif item.rank == 3 %}
+                                <i class="fas fa-trophy fs-5" style="color: #CD7F32;" title="3位"></i>
+                            {% else %}
+                                {{ item.rank }}
+                            {% endif %}
+                        </th>
+                        <td><strong class="fs-5">{{ item.lap_time }}</strong></td>
+                        <td>{{ item.username }}</td>
+                        <td>{{ item.motorcycle_name }}</td>
+                        <td class="text-end text-muted small">{{ item.date }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="alert alert-info mb-0">
+            <i class="fas fa-info-circle me-1"></i>
+            このサーキットにはまだ誰もラップタイムを記録していません。
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

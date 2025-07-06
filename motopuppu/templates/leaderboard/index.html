@@ -1,0 +1,31 @@
+{# motopuppu/templates/leaderboard/index.html #}
+{% extends "base.html" %}
+
+{% block title %}リーダーボード - もとぷっぷー{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center mb-4">
+    <i class="fas fa-trophy fa-2x me-3 text-warning"></i>
+    <h2 class="mb-0">リーダーボード</h2>
+</div>
+
+<div class="alert alert-info">
+    <i class="fas fa-info-circle me-1"></i>
+    ランキングを見たいサーキットを選択してください。<br>
+    ランキングは、ユーザーがリーダーボードへの掲載を許可したセッション記録のうち、各ユーザーのベストラップタイムを元に作成されます。
+</div>
+
+<div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+    {% for circuit in circuits %}
+    <div class="col">
+        <div class="card h-100">
+            <div class="card-body text-center d-flex flex-column justify-content-center">
+                <h5 class="card-title"><i class="fas fa-flag-checkered me-2"></i>{{ circuit }}</h5>
+                <p class="card-text text-muted small">このサーキットのランキングを表示します。</p>
+                <a href="{{ url_for('leaderboard.ranking', circuit_name=circuit) }}" class="btn btn-primary mt-auto">ランキングを見る <i class="fas fa-arrow-right ms-1"></i></a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}
