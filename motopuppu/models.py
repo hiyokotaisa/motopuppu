@@ -105,7 +105,6 @@ class Motorcycle(db.Model):
 
 
 class FuelEntry(db.Model):
-    # ... (変更なし) ...
     __tablename__ = 'fuel_entries'
     id = db.Column(db.Integer, primary_key=True)
     motorcycle_id = db.Column(db.Integer, db.ForeignKey('motorcycles.id', ondelete='CASCADE'), nullable=False)
@@ -147,7 +146,6 @@ class FuelEntry(db.Model):
 
 
 class MaintenanceEntry(db.Model):
-    # ... (変更なし) ...
     __tablename__ = 'maintenance_entries'
     id = db.Column(db.Integer, primary_key=True)
     motorcycle_id = db.Column(db.Integer, db.ForeignKey('motorcycles.id', ondelete='CASCADE'), nullable=False)
@@ -170,7 +168,6 @@ class MaintenanceEntry(db.Model):
     def __repr__(self):
         return f'<MaintenanceEntry id={self.id} date={self.maintenance_date}>'
 
-# --- ConsumableLog, MaintenanceReminder, Attachment, GeneralNote, etc... (変更なし) ... ---
 class ConsumableLog(db.Model):
     __tablename__ = 'consumable_logs'
     id = db.Column(db.Integer, primary_key=True)
@@ -294,7 +291,21 @@ class ActivityLog(db.Model):
     created_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
     updated_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now(), onupdate=db.func.now())
     
+    # ▼▼▼ lazy='dynamic' は元のまま維持 ▼▼▼
     sessions = db.relationship('SessionLog', backref='activity', lazy='dynamic', order_by="asc(SessionLog.id)", cascade="all, delete-orphan")
+
+    # ▼▼▼ 影響のない location_name_display プロパティのみ追加 ▼▼▼
+    @property
+    def location_name_display(self):
+        """共有や表示に使うための場所名を返すプロパティ"""
+        if self.location_type == 'circuit' and self.circuit_name:
+            return self.circuit_name
+        elif self.location_type == 'custom' and self.custom_location:
+            return self.custom_location
+        # 後方互換性のため、古い location_name フィールドもチェック
+        elif self.location_name:
+             return self.location_name
+        return ''
 
     def __repr__(self):
         return f'<ActivityLog id={self.id} date="{self.activity_date}" location="{self.location_name}">'
@@ -317,7 +328,7 @@ class SessionLog(db.Model):
 
     # --- ▼▼▼ 新しいデータ形式 ▼▼▼ ---
     session_duration_hours = db.Column(db.Numeric(8, 2), nullable=True) # レーサー用のセッション稼働時間
-    session_distance = db.Column(db.Integer, nullable=True)           # 公道車用のセッション走行距離
+    session_distance = db.Column(db.Integer, nullable=True)          # 公道車用のセッション走行距離
     
     # --- ▼▼▼ 変更 ▼▼▼ ---
     # 将来のリーダーボード機能のためのフィールド

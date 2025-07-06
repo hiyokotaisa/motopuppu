@@ -1,9 +1,13 @@
+# motopuppu/views/vehicle.py
 from flask import (
     Blueprint, flash, g, redirect, render_template, request, url_for, abort, current_app
 )
 from datetime import date, datetime, timezone
 from zoneinfo import ZoneInfo # Python 3.9+
-from ..models import db, User, Motorcycle, MaintenanceReminder, OdoResetLog, MaintenanceEntry
+# --- ▼▼▼ 変更 ▼▼▼ ---
+from sqlalchemy import func
+from ..models import db, User, Motorcycle, MaintenanceReminder, OdoResetLog, MaintenanceEntry, ActivityLog
+# --- ▲▲▲ 変更 ▲▲▲ ---
 from .auth import login_required_custom, get_current_user
 from ..forms import VehicleForm, OdoResetLogForm, ReminderForm
 # 実績評価モジュールとイベントタイプをインポート
@@ -15,9 +19,32 @@ vehicle_bp = Blueprint('vehicle', __name__, url_prefix='/vehicles')
 @vehicle_bp.route('/')
 @login_required_custom
 def vehicle_list():
-    # --- ▼▼▼ フェーズ1変更点 (is_racer でソート順を考慮することも可能ですが、今回は既存のまま) ▼▼▼
-    user_motorcycles = Motorcycle.query.filter_by(user_id=g.user.id).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
-    # --- ▲▲▲ フェーズ1変更点 ▲▲▲
+    # --- ▼▼▼ 変更点 ▼▼▼ ---
+    # N+1問題を避けるため、活動ログの件数をサブクエリで効率的に取得する
+    activity_counts_subquery = db.session.query(
+        ActivityLog.motorcycle_id,
+        func.count(ActivityLog.id).label('activity_log_count')
+    ).group_by(ActivityLog.motorcycle_id).subquery()
+
+    # 車両情報と活動ログ件数を外部結合で取得
+    motorcycles_with_counts = db.session.query(
+        Motorcycle,
+        activity_counts_subquery.c.activity_log_count
+    ).outerjoin(
+        activity_counts_subquery, Motorcycle.id == activity_counts_subquery.c.motorcycle_id
+    ).filter(
+        Motorcycle.user_id == g.user.id
+    ).order_by(
+        Motorcycle.is_default.desc(), Motorcycle.name
+    ).all()
+
+    # テンプレートで扱いやすいように、Motorcycleオブジェクトに件数をプロパティとして追加
+    user_motorcycles = []
+    for motorcycle, count in motorcycles_with_counts:
+        motorcycle.activity_log_count = count or 0 # レコードがない場合は0
+        user_motorcycles.append(motorcycle)
+    # --- ▲▲▲ 変更点 ▲▲▲ ---
+
     return render_template('vehicles.html', motorcycles=user_motorcycles)
 
 @vehicle_bp.route('/add', methods=['GET', 'POST'])
@@ -87,7 +114,7 @@ def add_vehicle():
             # --- ▼▼▼ フェーズ1変更点 (実績評価のevent_dataにis_racerとレーサー車両カウント情報を追加検討) ▼▼▼
             racer_vehicle_count_after_add = 0
             if new_motorcycle.is_racer:
-                 racer_vehicle_count_after_add = Motorcycle.query.filter_by(user_id=g.user.id, is_racer=True).count()
+                    racer_vehicle_count_after_add = Motorcycle.query.filter_by(user_id=g.user.id, is_racer=True).count()
 
             event_data_for_ach = {
                 'new_vehicle_id': new_motorcycle.id,
@@ -205,9 +232,9 @@ def delete_vehicle(vehicle_id):
         db.session.delete(motorcycle)
 
         if was_default:
-             other_vehicle = Motorcycle.query.filter(Motorcycle.user_id == g.user.id).order_by(Motorcycle.id).first()
-             if other_vehicle:
-                 other_vehicle.is_default = True
+                other_vehicle = Motorcycle.query.filter(Motorcycle.user_id == g.user.id).order_by(Motorcycle.id).first()
+                if other_vehicle:
+                    other_vehicle.is_default = True
         db.session.commit()
         flash(f'車両「{vehicle_name}」と関連データを削除しました。', 'success')
     except Exception as e:
@@ -275,9 +302,9 @@ def add_odo_reset_log(vehicle_id):
 
             return redirect(url_for('vehicle.edit_vehicle', vehicle_id=motorcycle.id))
         except Exception as e:
-             db.session.rollback()
-             flash(f'履歴の追加中にエラーが発生しました: {e}', 'danger')
-             current_app.logger.error(f"Error adding OdoResetLog for vehicle {vehicle_id}: {e}", exc_info=True)
+                 db.session.rollback()
+                 flash(f'履歴の追加中にエラーが発生しました: {e}', 'danger')
+                 current_app.logger.error(f"Error adding OdoResetLog for vehicle {vehicle_id}: {e}", exc_info=True)
 
     elif request.method == 'POST': # バリデーション失敗時
         flash('入力内容にエラーがあります。ご確認ください。', 'danger')

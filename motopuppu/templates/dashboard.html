@@ -255,6 +255,9 @@
                                 {% endif %}
                             </span>
                             <div class="btn-group btn-group-sm">
+                                {# --- ▼▼▼ ここにボタンを追加 ▼▼▼ --- #}
+                                <a href="{{ url_for('activity.list_activities', vehicle_id=motorcycle_item.id) }}" class="btn btn-outline-info" title="この車両の活動ログを閲覧"><i class="fas fa-flag-checkered"></i></a>
+                                {# --- ▲▲▲ 追加はここまで ▲▲▲ --- #}
                                 {% if not motorcycle_item.is_racer %}
                                     <a href="{{ url_for('fuel.add_fuel', motorcycle_id=motorcycle_item.id) }}" class="btn btn-outline-success" title="この車両の給油記録を追加"><i class="fas fa-gas-pump"></i></a>
                                     <a href="{{ url_for('maintenance.add_maintenance', motorcycle_id=motorcycle_item.id) }}" class="btn btn-outline-warning" title="この車両の整備記録を追加"><i class="fas fa-tools"></i></a>
@@ -551,7 +554,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         }
                         popoverContent += '</dd>';
                         popoverContent += (props.createdAt ? `<dt>作成:</dt><dd>${escapeHtml(props.createdAt)}</dd>` : '') +
-                                          (props.updatedAt ? `<dt>更新:</dt><dd>${escapeHtml(props.updatedAt)}</dd>` : '');
+                                        (props.updatedAt ? `<dt>更新:</dt><dd>${escapeHtml(props.updatedAt)}</dd>` : '');
                         popoverContent += `</dl>`;
                     }
 

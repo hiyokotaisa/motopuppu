@@ -33,50 +33,50 @@
                 <th>活動名</th>
                 <th>場所</th>
                 <th class="text-center">セッション数</th>
-                <th>メモ</th>
                 <th>操作</th>
             </tr>
         </thead>
         {# --- ▲▲▲ 変更ここまで ▲▲▲ --- #}
         <tbody>
-            {% for activity in activities %}
+            {# ▼▼▼ forループの受け取り方を変更 ▼▼▼ #}
+            {% for item in activities %}
             <tr>
-                <td class="text-nowrap">{{ activity.activity_date.strftime('%Y-%m-%d') }}</td>
-                {# --- ▼▼▼ 変更: 表示ロジックを修正 ▼▼▼ --- #}
+                <td class="text-nowrap">{{ item.activity.activity_date.strftime('%Y-%m-%d') }}</td>
                 <td>
-                    <a href="{{ url_for('activity.detail_activity', activity_id=activity.id) }}">
-                        {# 新しいタイトルがあれば表示、なければ古い場所名でフォールバック #}
-                        {{ activity.activity_title or activity.location_name }}
+                    <a href="{{ url_for('activity.detail_activity', activity_id=item.activity.id) }}">
+                        {# activity_titleがあれば表示、なければ表示用の場所名でフォールバック #}
+                        {{ item.activity.activity_title or item.activity.location_name_display }}
                     </a>
                 </td>
                 <td class="text-nowrap">
                     {# location_typeに応じて場所を表示 #}
-                    {% if activity.location_type == 'circuit' %}
-                        <span class="badge bg-primary"><i class="fas fa-flag-checkered me-1"></i> {{ activity.circuit_name }}</span>
-                    {% elif activity.location_type == 'custom' and activity.custom_location %}
-                        <span class="badge bg-secondary"><i class="fas fa-map-marker-alt me-1"></i> {{ activity.custom_location }}</span>
+                    {% if item.activity.location_type == 'circuit' %}
+                        <span class="badge bg-primary"><i class="fas fa-flag-checkered me-1"></i> {{ item.activity.circuit_name }}</span>
+                    {% elif item.activity.location_type == 'custom' and item.activity.custom_location %}
+                        <span class="badge bg-secondary"><i class="fas fa-map-marker-alt me-1"></i> {{ item.activity.custom_location }}</span>
                     {% else %}
                         -
                     {% endif %}
                 </td>
-                {# --- ▲▲▲ 変更ここまで ▲▲▲ --- #}
-                <td class="text-center">{{ activity.sessions.count() }}</td>
-                <td>
-                    {% if activity.notes %}
-                    <span title="{{ activity.notes }}" data-bs-toggle="tooltip" data-bs-placement="top">
-                        {{ activity.notes|truncate(30) }}
-                    </span>
-                    {% else %}
-                    -
-                    {% endif %}
-                </td>
+                {# ▼▼▼ .count() に戻す ▼▼▼ #}
+                <td class="text-center">{{ item.activity.sessions.count() }}</td>
                 <td class="text-nowrap">
-                    <a href="{{ url_for('activity.detail_activity', activity_id=activity.id) }}" class="btn btn-sm btn-outline-info me-1" title="詳細を表示"><i class="fas fa-eye fa-fw"></i></a>
-                    <a href="{{ url_for('activity.edit_activity', activity_id=activity.id) }}" class="btn btn-sm btn-outline-primary me-1" title="編集"><i class="fas fa-edit fa-fw"></i></a>
-                    <form action="{{ url_for('activity.delete_activity', activity_id=activity.id) }}" method="POST" class="d-inline" onsubmit="return confirm('この活動ログを削除してもよろしいですか？\n関連するセッション記録も全て削除されます。');">
+                    <a href="{{ url_for('activity.edit_activity', activity_id=item.activity.id) }}" class="btn btn-sm btn-outline-primary me-1" title="編集"><i class="fas fa-edit fa-fw"></i></a>
+                    <form action="{{ url_for('activity.delete_activity', activity_id=item.activity.id) }}" method="POST" class="d-inline" onsubmit="return confirm('この活動ログを削除してもよろしいですか？\n関連するセッション記録も全て削除されます。');">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                         <button type="submit" class="btn btn-sm btn-outline-danger" title="削除"><i class="fas fa-trash fa-fw"></i></button>
                     </form>
+                    <button class="btn btn-sm btn-info btn-share-misskey"
+                            data-type="activity"
+                            data-vehicle-name="{{ motorcycle.name }}"
+                            data-date="{{ item.activity.activity_date.isoformat() }}"
+                            data-title="{{ item.activity.activity_title or '活動ログ' }}"
+                            data-location="{{ item.activity.location_name_display }}"
+                            data-weather="{{ item.activity.weather or '' }}"
+                            data-best-lap="{{ item.best_lap_formatted }}"
+                            title="Misskeyで共有">
+                        <i class="fa-solid fa-share-nodes fa-fw"></i>
+                    </button>
                 </td>
             </tr>
             {% endfor %}
@@ -109,7 +109,7 @@
 
 {% else %}
 <div class="alert alert-info mt-4" role="alert">
-  この車両の活動ログはまだありません。上のボタンから最初の活動ログを追加しましょう！
+    この車両の活動ログはまだありません。上のボタンから最初の活動ログを追加しましょう！
 </div>
 {% endif %}
 {% endblock %}

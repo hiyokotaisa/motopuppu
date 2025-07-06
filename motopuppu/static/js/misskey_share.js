@@ -24,9 +24,9 @@ document.addEventListener('DOMContentLoaded', function() {
             try {
                 const dateObj = new Date(recordDate);
                 if (!isNaN(dateObj)) {
-                     displayDate = dateObj.toLocaleDateString('ja-JP', { year: 'numeric', month: 'short', day: 'numeric' });
+                        displayDate = dateObj.toLocaleDateString('ja-JP', { year: 'numeric', month: 'short', day: 'numeric' });
                 } else {
-                    console.warn("Could not parse recordDate to Date object:", recordDate);
+                        console.warn("Could not parse recordDate to Date object:", recordDate);
                 }
             } catch(e) {
                 console.error("Error formatting date for Misskey share:", e);
@@ -92,17 +92,59 @@ document.addEventListener('DOMContentLoaded', function() {
                     } catch (e) {
                         console.error("Error parsing TODO JSON for Misskey share:", e, "JSON string was:", todosJson);
                         if (content) {
-                             shareText += `内容: ${content}\n`;
+                            shareText += `内容: ${content}\n`;
                         }
                     }
                 } else if (category === 'note' && content) {
                     shareText += `内容: ${content}\n`;
                 } else if (category === 'note' && !content) {
-                     shareText += `(内容なし)\n`;
+                    shareText += `(内容なし)\n`;
                 }
 
                 shareText += baseHashtags + " " + categoryHashtag + (vehicleName ? vehicleHashtag : '');
+
+            // ▼▼▼ activityタイプを処理するブロックを追加/修正 ▼▼▼
+            } else if (recordType === 'activity') {
+                const title = dataset.title;
+                const location = dataset.location;
+                const weather = dataset.weather;
+                const sessionsJson = dataset.sessionsJson; // 詳細ページ用
+                const bestLap = dataset.bestLap;         // 一覧ページ用
+
+                shareText = `[${vehicleName}] 活動ログ🏍️\n` +
+                            `【${title}】\n` +
+                            `日付: ${displayDate}\n` +
+                            (location ? `場所: ${location}\n` : '');
+
+                if (bestLap) {
+                    shareText += `ベストラップ: ${bestLap} 🏁\n`;
+                }
+                if (weather) {
+                    shareText += `天候: ${weather}\n`;
+                }
+                
+                // 詳細ページから共有された場合のみセッションリストを追加
+                if (sessionsJson && sessionsJson.length > 2) {
+                    try {
+                        const sessions = JSON.parse(sessionsJson);
+                        if (Array.isArray(sessions) && sessions.length > 0) {
+                            shareText += "\n--- セッション ---\n";
+                            sessions.forEach((s, index) => {
+                                shareText += `[${index + 1}] ${s.name}`;
+                                // 既に全体のベストラップが表示されている場合は、個別のラップは表示しない
+                                if (s.best_lap && !bestLap) {
+                                    shareText += ` (ベスト: ${s.best_lap})`;
+                                }
+                                shareText += "\n";
+                            });
+                        }
+                    } catch(e) {
+                        console.error("Error parsing sessions JSON for Misskey share:", e, "JSON string was:", sessionsJson);
+                    }
+                }
+                shareText += baseHashtags + " #活動ログ" + vehicleHashtag;
             }
+            // ▲▲▲ 修正ここまで ▲▲▲
 
             if (shareText) {
                 const encodedText = encodeURIComponent(shareText);

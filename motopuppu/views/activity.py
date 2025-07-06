@@ -6,6 +6,8 @@ from decimal import Decimal
 from flask import (
     Blueprint, flash, g, redirect, render_template, request, url_for, abort, current_app
 )
+# ▼ func をインポート
+from sqlalchemy import func
 from sqlalchemy.orm import joinedload
 
 from .auth import login_required_custom
@@ -148,14 +150,40 @@ def list_activities(vehicle_id):
     page = request.args.get('page', 1, type=int)
     per_page = current_app.config.get('ACTIVITIES_PER_PAGE', 10)
     
-    pagination = ActivityLog.query.filter_by(motorcycle_id=motorcycle.id)\
-                                  .order_by(ActivityLog.activity_date.desc())\
-                                  .paginate(page=page, per_page=per_page, error_out=False)
-    activities = pagination.items
+    # ▼▼▼ ここから修正 ▼▼▼
+    # 1. ベストラップを計算するサブクエリを作成
+    best_lap_subquery = db.session.query(
+        SessionLog.activity_log_id,
+        func.min(SessionLog.best_lap_seconds).label('overall_best_lap_seconds')
+    ).filter(SessionLog.best_lap_seconds.isnot(None)).group_by(SessionLog.activity_log_id).subquery()
+
+    # 2. メインクエリでサブクエリを外部結合
+    query = db.session.query(
+            ActivityLog, 
+            best_lap_subquery.c.overall_best_lap_seconds
+        ).outerjoin(
+            best_lap_subquery, ActivityLog.id == best_lap_subquery.c.activity_log_id
+        ).filter(
+            ActivityLog.motorcycle_id == motorcycle.id
+        ).order_by(
+            ActivityLog.activity_date.desc()
+        )
+    
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+    
+    # 3. テンプレートで使いやすいように、結果を整形
+    activities_for_template = []
+    for activity, best_lap_seconds in pagination.items:
+        formatted_lap = format_seconds_to_time(best_lap_seconds) if best_lap_seconds else ''
+        activities_for_template.append({
+            'activity': activity, 
+            'best_lap_formatted': formatted_lap
+        })
+    # ▲▲▲ 修正ここまで ▲▲▲
     
     return render_template('activity/list_activities.html',
                            motorcycle=motorcycle,
-                           activities=activities,
+                           activities=activities_for_template,  # 整形したリストを渡す
                            pagination=pagination)
 
 # --- ▼▼▼ 変更: 新しいフォームとDB構造に対応 ▼▼▼ ---
@@ -323,9 +351,9 @@ def detail_activity(activity_id):
 def edit_session(session_id):
     """セッションログを編集する"""
     session = SessionLog.query.options(joinedload(SessionLog.activity).joinedload(ActivityLog.motorcycle))\
-                              .join(ActivityLog)\
-                              .filter(SessionLog.id == session_id, ActivityLog.user_id == g.user.id)\
-                              .first_or_404()
+                               .join(ActivityLog)\
+                               .filter(SessionLog.id == session_id, ActivityLog.user_id == g.user.id)\
+                               .first_or_404()
 
     motorcycle = session.activity.motorcycle
     form = SessionLogForm(obj=session)
@@ -392,7 +420,6 @@ def delete_session(session_id):
     return redirect(url_for('activity.detail_activity', activity_id=activity_id))
 
 # --- SettingSheet Routes ---
-# ... (以降のSettingSheet関連のコードは変更なし) ...
 @activity_bp.route('/<int:vehicle_id>/settings')
 @login_required_custom
 def list_settings(vehicle_id):
