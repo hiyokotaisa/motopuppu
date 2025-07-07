@@ -4,15 +4,30 @@
 {% block title %}{{ circuit_name }} ランキング - もとぷっぷー{% endblock %}
 
 {% block content %}
-<div class="d-flex align-items-center mb-3">
-    <a href="{{ url_for('leaderboard.index') }}" class="btn btn-sm btn-outline-secondary me-3" title="サーキット選択へ戻る">
-        <i class="fas fa-arrow-left"></i>
-    </a>
-    <div>
-        <h2 class="mb-0"><i class="fas fa-flag-checkered me-2"></i>{{ circuit_name }}</h2>
-        <span class="text-muted">リーダーボード</span>
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap">
+    <div class="d-flex align-items-center mb-2 mb-sm-0">
+        <a href="{{ url_for('leaderboard.index') }}" class="btn btn-sm btn-outline-secondary me-3" title="サーキット選択へ戻る">
+            <i class="fas fa-arrow-left"></i>
+        </a>
+        <div>
+            <h2 class="mb-0"><i class="fas fa-flag-checkered me-2"></i>{{ circuit_name }}</h2>
+            <span class="text-muted">リーダーボード</span>
+        </div>
     </div>
+    {# --- Misskey共有ボタン --- #}
+    {% if rankings %}
+    <div class="ms-auto">
+        <button class="btn btn-info btn-share-misskey"
+            data-type="leaderboard"
+            data-circuit-name="{{ circuit_name }}"
+            data-rankings='{{ rankings[:5] | tojson | safe }}'
+            title="このランキングをMisskeyで共有">
+            <i class="fa-solid fa-share-nodes me-2"></i>共有
+        </button>
+    </div>
+    {% endif %}
 </div>
+
 
 <div class="card">
     <div class="card-body">

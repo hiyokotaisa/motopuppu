@@ -21,16 +21,19 @@ document.addEventListener('DOMContentLoaded', function() {
             const baseHashtags = "\n#もとぷっぷー";
 
             let displayDate = recordDate;
-            try {
-                const dateObj = new Date(recordDate);
-                if (!isNaN(dateObj)) {
-                        displayDate = dateObj.toLocaleDateString('ja-JP', { year: 'numeric', month: 'short', day: 'numeric' });
-                } else {
-                        console.warn("Could not parse recordDate to Date object:", recordDate);
+            if (recordDate) {
+                try {
+                    const dateObj = new Date(recordDate);
+                    if (!isNaN(dateObj)) {
+                            displayDate = dateObj.toLocaleDateString('ja-JP', { year: 'numeric', month: 'short', day: 'numeric' });
+                    } else {
+                            console.warn("Could not parse recordDate to Date object:", recordDate);
+                    }
+                } catch(e) {
+                    console.error("Error formatting date for Misskey share:", e);
                 }
-            } catch(e) {
-                console.error("Error formatting date for Misskey share:", e);
             }
+
 
             if (recordType === 'fuel') {
                 const odo = dataset.odo;
@@ -103,7 +106,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 shareText += baseHashtags + " " + categoryHashtag + (vehicleName ? vehicleHashtag : '');
 
-            // ▼▼▼ activityタイプを処理するブロックを追加/修正 ▼▼▼
             } else if (recordType === 'activity') {
                 const title = dataset.title;
                 const location = dataset.location;
@@ -123,7 +125,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     shareText += `天候: ${weather}\n`;
                 }
                 
-                // 詳細ページから共有された場合のみセッションリストを追加
                 if (sessionsJson && sessionsJson.length > 2) {
                     try {
                         const sessions = JSON.parse(sessionsJson);
@@ -131,7 +132,6 @@ document.addEventListener('DOMContentLoaded', function() {
                             shareText += "\n--- セッション ---\n";
                             sessions.forEach((s, index) => {
                                 shareText += `[${index + 1}] ${s.name}`;
-                                // 既に全体のベストラップが表示されている場合は、個別のラップは表示しない
                                 if (s.best_lap && !bestLap) {
                                     shareText += ` (ベスト: ${s.best_lap})`;
                                 }
@@ -143,8 +143,32 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 }
                 shareText += baseHashtags + " #活動ログ" + vehicleHashtag;
+
+            } else if (recordType === 'leaderboard') {
+                const circuitName = dataset.circuitName;
+                const rankingsJson = dataset.rankings;
+                
+                let rankings = [];
+                try {
+                    rankings = JSON.parse(rankingsJson);
+                } catch(e) {
+                    console.error("Error parsing rankings JSON for Misskey share:", e);
+                    alert("ランキング情報の取得に失敗しました。");
+                    return;
+                }
+
+                const rankIcons = ['🏆', '🥈', '🥉'];
+                
+                shareText = `【${circuitName} リーダーボード】\n\n`;
+
+                rankings.forEach(item => {
+                    const icon = item.rank <= 3 ? rankIcons[item.rank - 1] : `${item.rank}位:`;
+                    shareText += `${icon} ${item.lap_time} (${item.username} / ${item.motorcycle_name})\n`;
+                });
+
+                const circuitHashtag = "\n#" + circuitName.replace(/[\s#$&\+,:;=\?@\[\]\^`\{|\}~.]/g, '_') + "リーダーボード";
+                shareText += baseHashtags + circuitHashtag;
             }
-            // ▲▲▲ 修正ここまで ▲▲▲
 
             if (shareText) {
                 const encodedText = encodeURIComponent(shareText);
