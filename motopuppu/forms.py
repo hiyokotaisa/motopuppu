@@ -246,14 +246,14 @@ class MaintenanceForm(FlaskForm):
 class VehicleForm(FlaskForm):
     maker = StringField(
         'メーカー名',
-        validators=[Optional(), Length(max=100, message='メーカー名は100文字以内で入力してください。')],
+        validators=[Optional(), Length(max=20, message='メーカー名は20文字以内で入力してください。')],
         render_kw={"placeholder": "例: ホンダ"}
     )
     name = StringField(
         '車両名',
         validators=[
             DataRequired(message='車両名は必須です。'),
-            Length(max=100, message='車両名は100文字以内で入力してください。')
+            Length(max=20, message='車両名は20文字以内で入力してください。')
         ],
         render_kw={"placeholder": "例: CBR250RR"}
     )
@@ -441,7 +441,7 @@ class ProfileForm(FlaskForm):
     """プロフィール編集用フォーム"""
     display_name = StringField('表示名',
                                validators=[DataRequired(message="表示名を入力してください。"),
-                                           Length(min=1, max=50, message="表示名は50文字以内で入力してください。")],
+                                           Length(min=1, max=20, message="表示名は20文字以内で入力してください。")],
                                render_kw={"placeholder": "例: もとぷー太郎"})
     submit_profile = SubmitField('表示名を更新')
 # --- ▲▲▲ ここまで追加 ▲▲▲ ---
