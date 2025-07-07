@@ -45,8 +45,8 @@ def _update_reminder_last_done(maintenance_entry: MaintenanceEntry):
                         update_needed = True
                         current_app.logger.info(f"{log_prefix} Updating last_done_date to {matched_reminder.last_done_date} and last_done_km to {matched_reminder.last_done_km}")
                 elif matched_reminder.last_done_date != maintenance_entry.maintenance_date:
-                       matched_reminder.last_done_date = maintenance_entry.maintenance_date; update_needed = True
-                       current_app.logger.info(f"{log_prefix} Updating last_done_date to {matched_reminder.last_done_date} (KM unchanged).")
+                        matched_reminder.last_done_date = maintenance_entry.maintenance_date; update_needed = True
+                        current_app.logger.info(f"{log_prefix} Updating last_done_date to {matched_reminder.last_done_date} (KM unchanged).")
             if not update_needed and matched_reminder.last_done_date is not None and maintenance_entry.maintenance_date == matched_reminder.last_done_date and matched_reminder.last_done_km is None and maintenance_entry.total_distance_at_maintenance is not None:
                 matched_reminder.last_done_km = maintenance_entry.total_distance_at_maintenance; update_needed = True
                 current_app.logger.info(f"{log_prefix} Updating last_done_km to {matched_reminder.last_done_km} (Date was same, KM was missing).")
@@ -127,11 +127,16 @@ def maintenance_log():
 
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
     entries = pagination.items
+    
+    # フィルタがアクティブかどうかを判定するフラグを作成
+    is_filter_active = bool(active_filters)
+
     return render_template('maintenance_log.html',
                            entries=entries, pagination=pagination,
                            motorcycles=user_motorcycles_for_maintenance,
                            request_args=active_filters,
-                           current_sort_by=current_sort_by, current_order=current_order)
+                           current_sort_by=current_sort_by, current_order=current_order,
+                           is_filter_active=is_filter_active)
 
 @maintenance_bp.route('/add', methods=['GET', 'POST'])
 @login_required_custom

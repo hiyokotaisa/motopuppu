@@ -7,58 +7,67 @@
 <h2>ノート</h2>
 <p>車両に関するノートや、一般的な記録を残すことができます。</p>
 {# --- ノート追加ボタン --- #}
-<div class="mb-3">
+<div class="mb-3 d-flex justify-content-between align-items-center">
     <a href="{{ url_for('notes.add_note') }}" class="btn btn-success">
         <i class="fas fa-plus me-1"></i> 新しいノートを追加
     </a>
 </div>
 
-{# --- フィルターフォーム --- #}
-<form method="GET" action="{{ url_for('notes.notes_log') }}" class="mb-4 p-3 border rounded bg-light">
-    <div class="row g-3 align-items-end">
-        <div class="col-md-3">
-            <label for="start_date" class="form-label">開始日</label>
-            <input type="date" class="form-control form-control-sm" id="start_date" name="start_date" value="{{ request_args.get('start_date', '') }}">
+{# --- フィルター展開ボタン --- #}
+<div class="mb-3">
+    <button class="btn btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#filterCollapse" aria-expanded="{{ 'true' if is_filter_active else 'false' }}" aria-controls="filterCollapse">
+        <i class="fas fa-filter me-1"></i> フィルター {% if is_filter_active %}(適用中){% endif %}
+    </button>
+</div>
+
+{# --- フィルターフォーム (Collapse) --- #}
+<div class="collapse {% if is_filter_active %}show{% endif %}" id="filterCollapse">
+    <form method="GET" action="{{ url_for('notes.notes_log') }}" class="mb-4 p-3 border rounded bg-light">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label for="start_date" class="form-label">開始日</label>
+                <input type="date" class="form-control form-control-sm" id="start_date" name="start_date" value="{{ request_args.get('start_date', '') }}">
+            </div>
+            <div class="col-md-3">
+                <label for="end_date" class="form-label">終了日</label>
+                <input type="date" class="form-control form-control-sm" id="end_date" name="end_date" value="{{ request_args.get('end_date', '') }}">
+            </div>
+            <div class="col-md-3">
+                <label for="vehicle_id" class="form-label">関連車両</label>
+                <select class="form-select form-select-sm" id="vehicle_id" name="vehicle_id">
+                    <option value="" {% if not request_args.get('vehicle_id') %}selected{% endif %}>すべて</option>
+                    <option value="0" {% if request_args.get('vehicle_id') == '0' %}selected{% endif %}>-- 車両未指定 --</option>
+                    {% for motorcycle in motorcycles %}
+                    <option value="{{ motorcycle.id }}" {% if request_args.get('vehicle_id')|string == motorcycle.id|string %}selected{% endif %}>
+                        {{ motorcycle.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="category" class="form-label">カテゴリー</label>
+                <select class="form-select form-select-sm" id="category" name="category">
+                    <option value="" {% if not selected_category %}selected{% endif %}>すべて</option>
+                    {% for cat_opt in allowed_categories_for_template %}
+                    <option value="{{ cat_opt.value }}" {% if selected_category == cat_opt.value %}selected{% endif %}>
+                        {{ cat_opt.display }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+             <div class="col-md-3">
+                 <label for="q" class="form-label">キーワード</label>
+                <input type="text" class="form-control form-control-sm" id="q" name="q" value="{{ request_args.get('q', '') }}" placeholder="タイトル, 内容">
+             </div>
+            <div class="col-md-9 mt-2 d-flex justify-content-end">
+                 <a href="{{ url_for('notes.notes_log') }}" class="btn btn-outline-secondary btn-sm me-2">リセット</a>
+                 <button type="submit" class="btn btn-primary btn-sm">
+                    <i class="fas fa-filter me-1"></i> 絞り込む
+                </button>
+            </div>
         </div>
-        <div class="col-md-3">
-            <label for="end_date" class="form-label">終了日</label>
-            <input type="date" class="form-control form-control-sm" id="end_date" name="end_date" value="{{ request_args.get('end_date', '') }}">
-        </div>
-        <div class="col-md-3">
-            <label for="vehicle_id" class="form-label">関連車両</label>
-            <select class="form-select form-select-sm" id="vehicle_id" name="vehicle_id">
-                <option value="" {% if not request_args.get('vehicle_id') %}selected{% endif %}>すべて</option>
-                <option value="0" {% if request_args.get('vehicle_id') == '0' %}selected{% endif %}>-- 車両未指定 --</option>
-                {% for motorcycle in motorcycles %}
-                <option value="{{ motorcycle.id }}" {% if request_args.get('vehicle_id')|string == motorcycle.id|string %}selected{% endif %}>
-                    {{ motorcycle.name }}
-                </option>
-                {% endfor %}
-            </select>
-        </div>
-        <div class="col-md-3">
-            <label for="category" class="form-label">カテゴリー</label>
-            <select class="form-select form-select-sm" id="category" name="category">
-                <option value="" {% if not selected_category %}selected{% endif %}>すべて</option>
-                {% for cat_opt in allowed_categories_for_template %}
-                <option value="{{ cat_opt.value }}" {% if selected_category == cat_opt.value %}selected{% endif %}>
-                    {{ cat_opt.display }}
-                </option>
-                {% endfor %}
-            </select>
-        </div>
-         <div class="col-md-3">
-             <label for="q" class="form-label">キーワード</label>
-            <input type="text" class="form-control form-control-sm" id="q" name="q" value="{{ request_args.get('q', '') }}" placeholder="タイトル, 内容">
-         </div>
-        <div class="col-md-9 mt-2 d-flex justify-content-end">
-             <a href="{{ url_for('notes.notes_log') }}" class="btn btn-outline-secondary btn-sm me-2">リセット</a>
-             <button type="submit" class="btn btn-primary btn-sm">
-                <i class="fas fa-filter me-1"></i> 絞り込む
-            </button>
-        </div>
-    </div>
-</form>
+    </form>
+</div>
 
 {# --- フラッシュメッセージ表示 --- #}
 {% with messages = get_flashed_messages(with_categories=true) %}
@@ -125,7 +134,7 @@
                         <a href="{{ url_for('notes.edit_note', note_id=note.id) }}">
                             {{ note.title if note.title else '(タイトルなし)' }}
                         </a>
-                     </td>
+                      </td>
                     <td>
                         {% if note.category == 'task' and note.todos %}
                             <ul class="list-unstyled mb-0 small" style="max-height: 100px; overflow-y: auto;">

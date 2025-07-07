@@ -59,12 +59,16 @@ def notes_log():
 
     pagination = query.order_by(GeneralNote.note_date.desc(), GeneralNote.created_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
     entries = pagination.items
+    
+    # フィルタがアクティブかどうかを判定するフラグを作成
+    is_filter_active = bool(request_args_dict)
 
     return render_template('notes_log.html',
                            entries=entries, pagination=pagination,
                            motorcycles=user_motorcycles, request_args=request_args_dict,
                            allowed_categories_for_template=[{'value': val, 'display': disp} for val, disp in NOTE_CATEGORIES],
-                           selected_category=category_filter)
+                           selected_category=category_filter,
+                           is_filter_active=is_filter_active)
 
 @notes_bp.route('/add', methods=['GET', 'POST'])
 @login_required_custom
@@ -147,7 +151,7 @@ def edit_note(note_id):
             num_entries_to_pop = len(form.todos.entries)
             for _ in range(num_entries_to_pop):
                  if form.todos.entries: 
-                    form.todos.pop_entry()
+                     form.todos.pop_entry()
 
             for item_data in note.todos:
                 if isinstance(item_data, dict) and item_data.get('text'): 

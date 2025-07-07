@@ -117,11 +117,15 @@ def fuel_log():
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
     fuel_entries = pagination.items
 
+    # フィルタがアクティブかどうかを判定するフラグを作成
+    is_filter_active = bool(active_filters)
+
     return render_template('fuel_log.html',
                            entries=fuel_entries, pagination=pagination,
-                           motorcycles=user_motorcycles_for_fuel, # フィルター用選択肢もレーサー以外
+                           motorcycles=user_motorcycles_for_fuel,
                            request_args=active_filters,
-                           current_sort_by=current_sort_by, current_order=current_order)
+                           current_sort_by=current_sort_by, current_order=current_order,
+                           is_filter_active=is_filter_active) # テンプレートに変数を渡す
 
 
 @fuel_bp.route('/add', methods=['GET', 'POST'])
@@ -300,7 +304,7 @@ def edit_fuel(entry_id):
         total_distance = form.odometer_reading.data + offset_at_entry_date
 
         if previous_fuel and total_distance < previous_fuel.total_distance:
-             flash(f'注意: 今回の総走行距離 ({total_distance:,}km) が、前回記録 ({previous_fuel.entry_date.strftime("%Y-%m-%d")} の {previous_fuel.total_distance:,}km) より小さくなっています。入力内容を確認してください。', 'warning')
+                 flash(f'注意: 今回の総走行距離 ({total_distance:,}km) が、前回記録 ({previous_fuel.entry_date.strftime("%Y-%m-%d")} の {previous_fuel.total_distance:,}km) より小さくなっています。入力内容を確認してください。', 'warning')
 
         total_cost_val = form.total_cost.data
         if total_cost_val is None and form.price_per_liter.data is not None and form.fuel_volume.data is not None:
@@ -405,8 +409,8 @@ def export_all_fuel_records_csv():
     user_motorcycle_ids_for_fuel = [m.id for m in user_motorcycles_for_fuel]
 
     all_fuel_records = FuelEntry.query.filter(FuelEntry.motorcycle_id.in_(user_motorcycle_ids_for_fuel))\
-                                      .options(db.joinedload(FuelEntry.motorcycle))\
-                                      .order_by(FuelEntry.motorcycle_id, FuelEntry.entry_date.asc(), FuelEntry.total_distance.asc()).all()
+                                         .options(db.joinedload(FuelEntry.motorcycle))\
+                                         .order_by(FuelEntry.motorcycle_id, FuelEntry.entry_date.asc(), FuelEntry.total_distance.asc()).all()
 
     if not all_fuel_records:
         flash('エクスポート対象の燃費記録がありません。', 'info')

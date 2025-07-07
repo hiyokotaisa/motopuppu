@@ -26,45 +26,53 @@
     {% endif %}
 </div>
 
+{# --- フィルター展開ボタン --- #}
+<div class="mb-3">
+    <button class="btn btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#filterCollapse" aria-expanded="{{ 'true' if is_filter_active else 'false' }}" aria-controls="filterCollapse">
+        <i class="fas fa-filter me-1"></i> フィルター {% if is_filter_active %}(適用中){% endif %}
+    </button>
+</div>
 
-{# --- フィルターフォーム --- #}
-<form method="GET" action="{{ url_for('maintenance.maintenance_log') }}" class="mb-4 p-3 border rounded bg-light">
-    <div class="row g-3 align-items-end">
-        <div class="col-md-2">
-            <label for="start_date" class="form-label">開始日</label>
-            <input type="date" class="form-control form-control-sm" id="start_date" name="start_date" value="{{ request_args.get('start_date', '') }}">
+{# --- フィルターフォーム (Collapse) --- #}
+<div class="collapse {% if is_filter_active %}show{% endif %}" id="filterCollapse">
+    <form method="GET" action="{{ url_for('maintenance.maintenance_log') }}" class="mb-4 p-3 border rounded bg-light">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-2">
+                <label for="start_date" class="form-label">開始日</label>
+                <input type="date" class="form-control form-control-sm" id="start_date" name="start_date" value="{{ request_args.get('start_date', '') }}">
+            </div>
+            <div class="col-md-2">
+                <label for="end_date" class="form-label">終了日</label>
+                <input type="date" class="form-control form-control-sm" id="end_date" name="end_date" value="{{ request_args.get('end_date', '') }}">
+            </div>
+            <div class="col-md-2">
+                <label for="vehicle_id" class="form-label">車両</label>
+                <select class="form-select form-select-sm" id="vehicle_id" name="vehicle_id">
+                    <option value="">全車両</option>
+                    {% for motorcycle in motorcycles %}
+                    <option value="{{ motorcycle.id }}" {% if request_args.get('vehicle_id')|string == motorcycle.id|string %}selected{% endif %}>
+                        {{ motorcycle.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label for="category" class="form-label">カテゴリ</label>
+                <input type="text" class="form-control form-control-sm" id="category" name="category" value="{{ request_args.get('category', '') }}" placeholder="カテゴリ名(部分一致)">
+            </div>
+            <div class="col-md-2">
+                <label for="q" class="form-label">キーワード</label>
+                <input type="text" class="form-control form-control-sm" id="q" name="q" value="{{ request_args.get('q', '') }}" placeholder="内容, 場所, メモ">
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary btn-sm w-100">
+                    <i class="fas fa-filter me-1"></i> 絞り込む
+                </button>
+                <a href="{{ url_for('maintenance.maintenance_log') }}" class="btn btn-outline-secondary btn-sm w-100 mt-1">リセット</a>
+            </div>
         </div>
-        <div class="col-md-2">
-            <label for="end_date" class="form-label">終了日</label>
-            <input type="date" class="form-control form-control-sm" id="end_date" name="end_date" value="{{ request_args.get('end_date', '') }}">
-        </div>
-        <div class="col-md-2">
-            <label for="vehicle_id" class="form-label">車両</label>
-            <select class="form-select form-select-sm" id="vehicle_id" name="vehicle_id">
-                <option value="">全車両</option>
-                {% for motorcycle in motorcycles %}
-                <option value="{{ motorcycle.id }}" {% if request_args.get('vehicle_id')|string == motorcycle.id|string %}selected{% endif %}>
-                    {{ motorcycle.name }}
-                </option>
-                {% endfor %}
-            </select>
-        </div>
-        <div class="col-md-2">
-            <label for="category" class="form-label">カテゴリ</label>
-            <input type="text" class="form-control form-control-sm" id="category" name="category" value="{{ request_args.get('category', '') }}" placeholder="カテゴリ名(部分一致)">
-        </div>
-        <div class="col-md-2">
-            <label for="q" class="form-label">キーワード</label>
-            <input type="text" class="form-control form-control-sm" id="q" name="q" value="{{ request_args.get('q', '') }}" placeholder="内容, 場所, メモ">
-        </div>
-        <div class="col-md-2">
-            <button type="submit" class="btn btn-primary btn-sm w-100">
-                <i class="fas fa-filter me-1"></i> 絞り込む
-            </button>
-            <a href="{{ url_for('maintenance.maintenance_log') }}" class="btn btn-outline-secondary btn-sm w-100 mt-1">リセット</a>
-        </div>
-    </div>
-</form>
+    </form>
+</div>
 
 {# --- フラッシュメッセージ表示 --- #}
 {% with messages = get_flashed_messages(with_categories=true) %}
