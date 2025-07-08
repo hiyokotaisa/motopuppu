@@ -48,11 +48,9 @@
         {% endif %}
     </div>
 
-    {# ▼▼▼ UIのクラスを元のスタイルに戻す ▼▼▼ #}
     <div id="previous-entry-container" class="mb-3 text-info small" style="display: none;">
         {# JavaScriptがこの中身を書き換える #}
     </div>
-    {# ▲▲▲ 修正ここまで ▲▲▲ #}
 
 
     {# --- ▼▼▼ トグルスイッチ UI変更 ▼▼▼ --- #}
@@ -163,7 +161,6 @@
         {% endif %}
     </div>
 
-    {# ▼▼▼ 変更点: <datalist> を削除し、シンプルな描画に変更 ▼▼▼ #}
     {# 油種 #}
     <div class="mb-3">
         <label for="{{ form.fuel_type.id }}" class="form-label">
@@ -176,7 +173,6 @@
             </div>
         {% endif %}
     </div>
-    {# ▲▲▲ 変更点 ▲▲▲ #}
 
     {# 満タンチェック #}
     <div class="mb-3 form-check">
@@ -279,13 +275,19 @@
         async function updatePreviousEntryInfo() {
             const motorcycleId = motorcycleSelect.value;
             const entryDate = entryDateInput.value;
+            // --- ▼▼▼ ここから修正 ▼▼▼ ---
+            const entryId = "{{ entry_id or '' }}"; // 編集中のIDを取得
+            // --- ▲▲▲ ここまで修正 ▲▲▲ ---
 
             if (!motorcycleId || !entryDate) {
                 return;
             }
 
             try {
-                const response = await fetch(`/fuel/get-previous-entry?motorcycle_id=${motorcycleId}&entry_date=${entryDate}`);
+                // --- ▼▼▼ ここから修正 ▼▼▼ ---
+                // APIにentry_idも渡す
+                const response = await fetch(`/fuel/get-previous-entry?motorcycle_id=${motorcycleId}&entry_date=${entryDate}&entry_id=${entryId}`);
+                // --- ▲▲▲ ここまで修正 ▲▲▲ ---
                 if (!response.ok) {
                     console.error("Failed to fetch previous entry info. Status:", response.status);
                     previousInfoContainer.style.display = 'none';

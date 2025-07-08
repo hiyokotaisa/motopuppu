@@ -193,14 +193,28 @@ class MaintenanceForm(FlaskForm):
         validators=[DataRequired(message='整備日は必須です。')],
         format='%Y-%m-%d'
     )
+    # --- ▼▼▼ ここから変更 ▼▼▼ ---
+    input_mode = BooleanField(
+        'トリップメーターで入力する',
+        default=False
+    )
     odometer_reading_at_maintenance = IntegerField(
         '整備時のODOメーター値 (km)',
         validators=[
-            DataRequired(message='整備時のODOメーター値は必須です。'),
+            Optional(), # DataRequiredから変更
             NumberRange(min=0, message='ODOメーター値は0以上で入力してください。')
         ],
         render_kw={"placeholder": "例: 20000"}
     )
+    trip_distance = IntegerField(
+        '前回整備からの走行距離 (km)',
+        validators=[
+            Optional(),
+            NumberRange(min=0, message='走行距離は0以上で入力してください。')
+        ],
+        render_kw={"placeholder": "前回整備からの走行距離"}
+    )
+    # --- ▲▲▲ ここまで変更 ▲▲▲ ---
     description = TextAreaField(
         '整備内容',
         validators=[

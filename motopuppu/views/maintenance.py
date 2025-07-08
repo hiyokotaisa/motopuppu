@@ -11,7 +11,7 @@ from sqlalchemy import or_, asc, desc, func
 
 from .auth import login_required_custom, get_current_user
 from ..models import db, Motorcycle, MaintenanceEntry, MaintenanceReminder
-from ..forms import MaintenanceForm, MAINTENANCE_CATEGORIES # MAINTENANCE_CATEGORIESをインポート
+from ..forms import MaintenanceForm, MAINTENANCE_CATEGORIES
 # 実績評価モジュールとイベントタイプをインポート
 from ..achievement_evaluator import check_achievements_for_event, EVENT_ADD_MAINTENANCE_LOG
 
@@ -132,10 +132,7 @@ def maintenance_log():
     sort_column = sort_column_map.get(current_sort_by, MaintenanceEntry.maintenance_date)
     current_order = 'desc' if order == 'desc' else 'asc'
 
-    # ▼▼▼ ここを修正 ▼▼▼
-    # 文字列の 'asc' ではなく、SQLAlchemyの asc 関数を使用する
     sort_modifier = desc if current_order == 'desc' else asc
-    # ▲▲▲ ここまで修正 ▲▲▲
 
     if sort_column == MaintenanceEntry.maintenance_date:
         query = query.order_by(sort_modifier(MaintenanceEntry.maintenance_date), desc(MaintenanceEntry.total_distance_at_maintenance), MaintenanceEntry.id.desc())
@@ -149,7 +146,6 @@ def maintenance_log():
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
     entries = pagination.items
     
-    # フィルタがアクティブかどうかを判定するフラグを作成
     is_filter_active = bool(active_filters)
 
     return render_template('maintenance_log.html',
@@ -189,8 +185,24 @@ def add_maintenance():
         motorcycle = Motorcycle.query.filter_by(id=form.motorcycle_id.data, user_id=g.user.id, is_racer=False).first()
         if not motorcycle:
             flash('選択された車両が見つからないか、整備記録の対象外です。再度お試しください。', 'danger')
-            form.motorcycle_id.choices = [(m.id, f"{m.name} ({m.maker or 'メーカー不明'})") for m in user_motorcycles_for_maintenance]
-            return render_template('maintenance_form.html', form_action='add', form=form, today_iso=date.today().isoformat(), category_options=MAINTENANCE_CATEGORIES)
+            return render_template('maintenance_form.html', form_action='add', form=form, category_options=MAINTENANCE_CATEGORIES)
+
+        previous_mainte = get_previous_maintenance_entry(motorcycle.id, form.maintenance_date.data)
+
+        if form.input_mode.data:
+            if form.trip_distance.data is None:
+                form.trip_distance.errors.append('トリップメーターで入力する場合、この項目は必須です。')
+            elif previous_mainte:
+                form.odometer_reading_at_maintenance.data = previous_mainte.odometer_reading_at_maintenance + form.trip_distance.data
+            else:
+                form.trip_distance.errors.append('この車両で初めての整備記録です。トリップ入力は使用できません。ODOメーター値を直接入力してください。')
+        else:
+            if form.odometer_reading_at_maintenance.data is None:
+                form.odometer_reading_at_maintenance.errors.append('ODOメーターで入力する場合、この項目は必須です。')
+        
+        if form.errors:
+            flash('入力内容にエラーがあります。ご確認ください。', 'danger')
+            return render_template('maintenance_form.html', form_action='add', form=form, category_options=MAINTENANCE_CATEGORIES)
 
         offset_at_maintenance_date = motorcycle.calculate_cumulative_offset_from_logs(target_date=form.maintenance_date.data)
         total_distance = form.odometer_reading_at_maintenance.data + offset_at_maintenance_date
@@ -222,10 +234,9 @@ def add_maintenance():
             current_app.logger.error(f"Error saving new maintenance entry: {e}", exc_info=True)
 
     elif request.method == 'POST':
-        form.motorcycle_id.choices = [(m.id, f"{m.name} ({m.maker or 'メーカー不明'})") for m in user_motorcycles_for_maintenance]
         flash('入力内容にエラーがあります。ご確認ください。', 'danger')
 
-    return render_template('maintenance_form.html', form_action='add', form=form, today_iso=date.today().isoformat(), category_options=MAINTENANCE_CATEGORIES)
+    return render_template('maintenance_form.html', form_action='add', form=form, category_options=MAINTENANCE_CATEGORIES)
 
 @maintenance_bp.route('/<int:entry_id>/edit', methods=['GET', 'POST'])
 @login_required_custom
@@ -235,15 +246,43 @@ def edit_maintenance(entry_id):
         Motorcycle.user_id == g.user.id,
         Motorcycle.is_racer == False
     ).first_or_404()
+    
+    user_motorcycles_for_maintenance = Motorcycle.query.filter_by(user_id=g.user.id, is_racer=False).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
+    
     form = MaintenanceForm(obj=entry)
-    form.motorcycle_id.choices = [(entry.motorcycle.id, f"{entry.motorcycle.name} ({entry.motorcycle.maker or 'メーカー不明'})")]
-    form.motorcycle_id.data = entry.motorcycle.id
+    form.motorcycle_id.choices = [(m.id, f"{m.name} ({m.maker or 'メーカー不明'})") for m in user_motorcycles_for_maintenance]
+
+    if request.method == 'GET':
+        form.motorcycle_id.data = entry.motorcycle_id
+        form.input_mode.data = False
 
     if form.validate_on_submit():
-        motorcycle = entry.motorcycle
+        motorcycle = Motorcycle.query.filter_by(id=form.motorcycle_id.data, user_id=g.user.id, is_racer=False).first()
+        if not motorcycle:
+            flash('選択された車両が見つからないか、整備記録の対象外です。再度お試しください。', 'danger')
+            return render_template('maintenance_form.html', form_action='edit', form=form, entry_id=entry.id, category_options=MAINTENANCE_CATEGORIES)
+
+        previous_mainte = get_previous_maintenance_entry(motorcycle.id, form.maintenance_date.data, entry.id)
+
+        if form.input_mode.data:
+            if form.trip_distance.data is None:
+                form.trip_distance.errors.append('トリップメーターで入力する場合、この項目は必須です。')
+            elif previous_mainte:
+                form.odometer_reading_at_maintenance.data = previous_mainte.odometer_reading_at_maintenance + form.trip_distance.data
+            else:
+                form.trip_distance.errors.append('この記録より前の整備記録がありません。トリップ入力は使用できません。')
+        else:
+            if form.odometer_reading_at_maintenance.data is None:
+                form.odometer_reading_at_maintenance.errors.append('ODOメーターで入力する場合、この項目は必須です。')
+        
+        if form.errors:
+            flash('入力内容にエラーがあります。ご確認ください。', 'danger')
+            return render_template('maintenance_form.html', form_action='edit', form=form, entry_id=entry.id, category_options=MAINTENANCE_CATEGORIES)
+
         offset_at_maintenance_date = motorcycle.calculate_cumulative_offset_from_logs(target_date=form.maintenance_date.data)
         total_distance = form.odometer_reading_at_maintenance.data + offset_at_maintenance_date
 
+        entry.motorcycle_id = motorcycle.id
         entry.maintenance_date = form.maintenance_date.data
         entry.odometer_reading_at_maintenance = form.odometer_reading_at_maintenance.data
         entry.total_distance_at_maintenance = total_distance
@@ -266,11 +305,10 @@ def edit_maintenance(entry_id):
             current_app.logger.error(f"Error updating maintenance entry ID {entry_id}: {e}", exc_info=True)
 
     elif request.method == 'POST':
-        form.motorcycle_id.choices = [(entry.motorcycle.id, f"{entry.motorcycle.name} ({entry.motorcycle.maker or 'メーカー不明'})")]
-        form.motorcycle_id.data = entry.motorcycle.id
         flash('入力内容にエラーがあります。ご確認ください。', 'danger')
 
-    return render_template('maintenance_form.html', form_action='edit', form=form, entry_id=entry.id, today_iso=date.today().isoformat(), category_options=MAINTENANCE_CATEGORIES)
+    return render_template('maintenance_form.html', form_action='edit', form=form, entry_id=entry.id, category_options=MAINTENANCE_CATEGORIES)
+
 
 @maintenance_bp.route('/<int:entry_id>/delete', methods=['POST'])
 @login_required_custom
@@ -363,6 +401,7 @@ def export_all_maintenance_logs_csv():
 def get_previous_maintenance_api():
     motorcycle_id = request.args.get('motorcycle_id', type=int)
     maintenance_date_str = request.args.get('maintenance_date')
+    entry_id = request.args.get('entry_id', type=int) # 編集中のIDを受け取る
 
     if not motorcycle_id or not maintenance_date_str:
         return jsonify({'error': 'Missing required parameters'}), 400
@@ -372,7 +411,8 @@ def get_previous_maintenance_api():
     except ValueError:
         return jsonify({'error': 'Invalid date format'}), 400
 
-    previous_mainte = get_previous_maintenance_entry(motorcycle_id, maintenance_date)
+    # 編集中のIDを渡して、自分自身を検索対象から除外する
+    previous_mainte = get_previous_maintenance_entry(motorcycle_id, maintenance_date, current_entry_id=entry_id)
 
     if previous_mainte:
         return jsonify({

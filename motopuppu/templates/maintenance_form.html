@@ -49,32 +49,52 @@
         {% endif %}
     </div>
 
-    {# ODOメーター #}
-    <div class="mb-3">
-        <label for="{{ form.odometer_reading_at_maintenance.id }}" class="form-label">
-            <i class="bi bi-speedometer2 me-2"></i>{{ form.odometer_reading_at_maintenance.label.text }} {% if form.odometer_reading_at_maintenance.flags.required %}<span class="text-danger">*</span>{% endif %}
+    <div id="previous-mainte-container" class="mb-3 text-info small" style="display: none;">
+        {# JavaScriptがこの中身を書き換える #}
+    </div>
+
+    <div class="form-check form-switch mb-3">
+        {{ form.input_mode(class="form-check-input", role="switch") }}
+        <label for="{{ form.input_mode.id }}" class="form-check-label">
+            <i class="bi bi-toggle-on me-2"></i>{{ form.input_mode.label.text }}
         </label>
-        {{ form.odometer_reading_at_maintenance(class="form-control" + (" is-invalid" if form.odometer_reading_at_maintenance.errors else ""), min="0", step="1", placeholder=(form.odometer_reading_at_maintenance.render_kw.get("placeholder", "") if form.odometer_reading_at_maintenance.render_kw else "")) }}
+    </div>
+
+    <div id="odo-input-group" class="mb-3">
+        <label for="{{ form.odometer_reading_at_maintenance.id }}" class="form-label">
+            <i class="bi bi-speedometer2 me-2"></i>{{ form.odometer_reading_at_maintenance.label.text }} <span class="text-danger">*</span>
+        </label>
+        {{ form.odometer_reading_at_maintenance(class="form-control" + (" is-invalid" if form.odometer_reading_at_maintenance.errors else ""), min="0", step="1") }}
         {% if form.odometer_reading_at_maintenance.errors %}
             <div class="invalid-feedback">
                 {% for error in form.odometer_reading_at_maintenance.errors %}<span>{{ error }}</span><br>{% endfor %}
             </div>
         {% else %}
             <div class="form-text">整備を実施した時のメーター表示値 (整数) を入力してください。</div>
-            {# ▼▼▼ 前回整備記録の表示エリアを追加 ▼▼▼ #}
-            <div id="previous-mainte-container" class="mt-2 text-info small" style="display: none;">
-                {# JavaScriptがこの中身を書き換える #}
+        {% endif %}
+    </div>
+    
+    <div id="trip-input-group" class="mb-3" style="display: none;">
+        <label for="{{ form.trip_distance.id }}" class="form-label">
+            <i class="bi bi-signpost-split me-2"></i>{{ form.trip_distance.label.text }} <span class="text-danger">*</span>
+        </label>
+        {{ form.trip_distance(class="form-control" + (" is-invalid" if form.trip_distance.errors else ""), min="0", step="1") }}
+        {% if form.trip_distance.errors %}
+            <div class="invalid-feedback">
+                {% for error in form.trip_distance.errors %}<span>{{ error }}</span><br>{% endfor %}
             </div>
-            {# ▲▲▲ 追加ここまで ▲▲▲ #}
+        {% else %}
+            <div class="form-text">
+                前回整備時からの走行距離 (整数) を入力してください。
+            </div>
         {% endif %}
     </div>
 
-    {# カテゴリ #}
     <div class="mb-3">
         <label for="{{ form.category.id }}" class="form-label">
             <i class="bi bi-tags me-2"></i>{{ form.category.label.text }}
         </label>
-        {{ form.category(class="form-control" + (" is-invalid" if form.category.errors else ""), list=(form.category.render_kw.get("list", "category_options") if form.category.render_kw else "category_options"), placeholder=(form.category.render_kw.get("placeholder", "") if form.category.render_kw else "")) }}
+        {{ form.category(class="form-control" + (" is-invalid" if form.category.errors else ""), list="category_options") }}
          <datalist id="category_options">
              {% for cat_opt in category_options %}
              <option value="{{ cat_opt }}">
@@ -87,12 +107,11 @@
         {% endif %}
     </div>
 
-    {# 整備内容 #}
     <div class="mb-3">
         <label for="{{ form.description.id }}" class="form-label">
             <i class="bi bi-tools me-2"></i>{{ form.description.label.text }} {% if form.description.flags.required %}<span class="text-danger">*</span>{% endif %}
         </label>
-        {{ form.description(class="form-control" + (" is-invalid" if form.description.errors else ""), rows=(form.description.render_kw.get("rows", 3) if form.description.render_kw else 3), placeholder=(form.description.render_kw.get("placeholder", "") if form.description.render_kw else "")) }}
+        {{ form.description(class="form-control" + (" is-invalid" if form.description.errors else ""), rows=3) }}
         {% if form.description.errors %}
             <div class="invalid-feedback">
                 {% for error in form.description.errors %}<span>{{ error }}</span><br>{% endfor %}
@@ -100,12 +119,11 @@
         {% endif %}
     </div>
 
-    {# 整備場所 #}
     <div class="mb-3">
         <label for="{{ form.location.id }}" class="form-label">
             <i class="bi bi-geo-alt me-2"></i>{{ form.location.label.text }}
         </label>
-        {{ form.location(class="form-control" + (" is-invalid" if form.location.errors else ""), placeholder=(form.location.render_kw.get("placeholder", "") if form.location.render_kw else "")) }}
+        {{ form.location(class="form-control" + (" is-invalid" if form.location.errors else "")) }}
         {% if form.location.errors %}
             <div class="invalid-feedback">
                 {% for error in form.location.errors %}<span>{{ error }}</span><br>{% endfor %}
@@ -115,13 +133,12 @@
         {% endif %}
     </div>
 
-    {# 費用 #}
     <div class="row g-3">
         <div class="col-md-6 mb-3">
             <label for="{{ form.parts_cost.id }}" class="form-label">
                 <i class="bi bi-box-seam me-2"></i>{{ form.parts_cost.label.text }}
             </label>
-            {{ form.parts_cost(class="form-control" + (" is-invalid" if form.parts_cost.errors else ""), min="0", placeholder=(form.parts_cost.render_kw.get("placeholder", "") if form.parts_cost.render_kw else "")) }}
+            {{ form.parts_cost(class="form-control" + (" is-invalid" if form.parts_cost.errors else ""), min="0") }}
             {% if form.parts_cost.errors %}
                 <div class="invalid-feedback">
                     {% for error in form.parts_cost.errors %}<span>{{ error }}</span><br>{% endfor %}
@@ -132,7 +149,7 @@
             <label for="{{ form.labor_cost.id }}" class="form-label">
                 <i class="bi bi-person-gear me-2"></i>{{ form.labor_cost.label.text }}
             </label>
-            {{ form.labor_cost(class="form-control" + (" is-invalid" if form.labor_cost.errors else ""), min="0", placeholder=(form.labor_cost.render_kw.get("placeholder", "") if form.labor_cost.render_kw else "")) }}
+            {{ form.labor_cost(class="form-control" + (" is-invalid" if form.labor_cost.errors else ""), min="0") }}
             {% if form.labor_cost.errors %}
                 <div class="invalid-feedback">
                     {% for error in form.labor_cost.errors %}<span>{{ error }}</span><br>{% endfor %}
@@ -141,12 +158,11 @@
         </div>
     </div>
 
-     {# メモ #}
     <div class="mb-3">
         <label for="{{ form.notes.id }}" class="form-label">
             <i class="bi bi-card-text me-2"></i>{{ form.notes.label.text }}
         </label>
-        {{ form.notes(class="form-control" + (" is-invalid" if form.notes.errors else ""), rows=(form.notes.render_kw.get("rows", 4) if form.notes.render_kw else 4), placeholder=(form.notes.render_kw.get("placeholder", "") if form.notes.render_kw else "")) }}
+        {{ form.notes(class="form-control" + (" is-invalid" if form.notes.errors else ""), rows=4) }}
         {% if form.notes.errors %}
             <div class="invalid-feedback">
                 {% for error in form.notes.errors %}<span>{{ error }}</span><br>{% endfor %}
@@ -154,9 +170,6 @@
         {% endif %}
     </div>
 
-    {# ファイル添付は後で追加予定のまま #}
-
-    {# 送信ボタンとキャンセルボタン #}
     <div class="mt-4">
         {{ form.submit(class="btn btn-primary") }}
         <a href="{{ url_for('maintenance.maintenance_log') }}" class="btn btn-secondary">
@@ -177,13 +190,15 @@ document.addEventListener('DOMContentLoaded', function() {
     async function updatePreviousMainteInfo() {
         const motorcycleId = motorcycleSelect.value;
         const maintenanceDate = maintenanceDateInput.value;
+        const entryId = "{{ entry_id or '' }}"; // 編集中のIDを取得
 
         if (!motorcycleId || !maintenanceDate) {
             return;
         }
 
         try {
-            const response = await fetch(`/maintenance/get-previous-entry?motorcycle_id=${motorcycleId}&maintenance_date=${maintenanceDate}`);
+            // APIにentry_idも渡す
+            const response = await fetch(`/maintenance/get-previous-entry?motorcycle_id=${motorcycleId}&maintenance_date=${maintenanceDate}&entry_id=${entryId}`);
             if (!response.ok) {
                 console.error("Failed to fetch previous maintenance info. Status:", response.status);
                 previousInfoContainer.style.display = 'none';
@@ -204,13 +219,29 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     if (motorcycleSelect && maintenanceDateInput && previousInfoContainer) {
-        // 「追加」モードの時だけ車両変更のイベントリスナーを付ける
-        if ("{{ form_action }}" === "add") {
+        if (!motorcycleSelect.disabled) {
             motorcycleSelect.addEventListener('change', updatePreviousMainteInfo);
         }
         maintenanceDateInput.addEventListener('change', updatePreviousMainteInfo);
-        // 初期表示
         updatePreviousMainteInfo();
+    }
+
+    const inputModeToggle = document.getElementById('input_mode');
+    const odoGroup = document.getElementById('odo-input-group');
+    const tripGroup = document.getElementById('trip-input-group');
+
+    if (inputModeToggle && odoGroup && tripGroup) {
+        function toggleInputFields() {
+            if (inputModeToggle.checked) {
+                odoGroup.style.display = 'none';
+                tripGroup.style.display = 'block';
+            } else {
+                odoGroup.style.display = 'block';
+                tripGroup.style.display = 'none';
+            }
+        }
+        inputModeToggle.addEventListener('change', toggleInputFields);
+        toggleInputFields();
     }
 });
 </script>
