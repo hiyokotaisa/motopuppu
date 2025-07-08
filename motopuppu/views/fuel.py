@@ -4,7 +4,7 @@ import io
 from datetime import date, datetime
 
 from flask import (
-    Blueprint, flash, g, redirect, render_template, request, url_for, abort, current_app, Response
+    Blueprint, flash, g, redirect, render_template, request, url_for, abort, current_app, Response, jsonify
 )
 from sqlalchemy import or_, asc, desc, func
 
@@ -304,7 +304,7 @@ def edit_fuel(entry_id):
         total_distance = form.odometer_reading.data + offset_at_entry_date
 
         if previous_fuel and total_distance < previous_fuel.total_distance:
-                 flash(f'注意: 今回の総走行距離 ({total_distance:,}km) が、前回記録 ({previous_fuel.entry_date.strftime("%Y-%m-%d")} の {previous_fuel.total_distance:,}km) より小さくなっています。入力内容を確認してください。', 'warning')
+                     flash(f'注意: 今回の総走行距離 ({total_distance:,}km) が、前回記録 ({previous_fuel.entry_date.strftime("%Y-%m-%d")} の {previous_fuel.total_distance:,}km) より小さくなっています。入力内容を確認してください。', 'warning')
 
         total_cost_val = form.total_cost.data
         if total_cost_val is None and form.price_per_liter.data is not None and form.fuel_volume.data is not None:
@@ -409,8 +409,8 @@ def export_all_fuel_records_csv():
     user_motorcycle_ids_for_fuel = [m.id for m in user_motorcycles_for_fuel]
 
     all_fuel_records = FuelEntry.query.filter(FuelEntry.motorcycle_id.in_(user_motorcycle_ids_for_fuel))\
-                                         .options(db.joinedload(FuelEntry.motorcycle))\
-                                         .order_by(FuelEntry.motorcycle_id, FuelEntry.entry_date.asc(), FuelEntry.total_distance.asc()).all()
+                                          .options(db.joinedload(FuelEntry.motorcycle))\
+                                          .order_by(FuelEntry.motorcycle_id, FuelEntry.entry_date.asc(), FuelEntry.total_distance.asc()).all()
 
     if not all_fuel_records:
         flash('エクスポート対象の燃費記録がありません。', 'info')
@@ -446,3 +446,29 @@ def export_all_fuel_records_csv():
         output.getvalue(), mimetype="text/csv",
         headers={"Content-Disposition": f"attachment;filename=\"{filename}\"", "Content-Type": "text/csv; charset=utf-8-sig"}
     )
+
+@fuel_bp.route('/get-previous-entry', methods=['GET'])
+@login_required_custom
+def get_previous_entry_api():
+    motorcycle_id = request.args.get('motorcycle_id', type=int)
+    entry_date_str = request.args.get('entry_date')
+
+    if not motorcycle_id or not entry_date_str:
+        return jsonify({'error': 'Missing required parameters'}), 400
+
+    try:
+        entry_date = date.fromisoformat(entry_date_str)
+    except ValueError:
+        return jsonify({'error': 'Invalid date format'}), 400
+
+    # 既存のロジックを再利用
+    previous_fuel = get_previous_fuel_entry(motorcycle_id, entry_date)
+
+    if previous_fuel:
+        return jsonify({
+            'found': True,
+            'date': previous_fuel.entry_date.strftime('%Y-%m-%d'),
+            'odo': f"{previous_fuel.odometer_reading:,}km"
+        })
+    else:
+        return jsonify({'found': False})

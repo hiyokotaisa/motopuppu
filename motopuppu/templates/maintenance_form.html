@@ -61,6 +61,11 @@
             </div>
         {% else %}
             <div class="form-text">整備を実施した時のメーター表示値 (整数) を入力してください。</div>
+            {# ▼▼▼ 前回整備記録の表示エリアを追加 ▼▼▼ #}
+            <div id="previous-mainte-container" class="mt-2 text-info small" style="display: none;">
+                {# JavaScriptがこの中身を書き換える #}
+            </div>
+            {# ▲▲▲ 追加ここまで ▲▲▲ #}
         {% endif %}
     </div>
 
@@ -71,8 +76,7 @@
         </label>
         {{ form.category(class="form-control" + (" is-invalid" if form.category.errors else ""), list=(form.category.render_kw.get("list", "category_options") if form.category.render_kw else "category_options"), placeholder=(form.category.render_kw.get("placeholder", "") if form.category.render_kw else "")) }}
          <datalist id="category_options">
-             {# MAINTENANCE_CATEGORIES は forms.py からインポートしてビュー経由で渡すか、ここで直接定義 #}
-             {% for cat_opt in ['エンジンオイル交換', 'タイヤ交換', 'ブレーキパッド交換', 'チェーンメンテナンス', '定期点検', '洗車', 'その他'] %}
+             {% for cat_opt in category_options %}
              <option value="{{ cat_opt }}">
              {% endfor %}
          </datalist>
@@ -160,4 +164,54 @@
         </a>
     </div>
 </form>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const motorcycleSelect = document.getElementById('motorcycle_id');
+    const maintenanceDateInput = document.getElementById('maintenance_date');
+    const previousInfoContainer = document.getElementById('previous-mainte-container');
+
+    async function updatePreviousMainteInfo() {
+        const motorcycleId = motorcycleSelect.value;
+        const maintenanceDate = maintenanceDateInput.value;
+
+        if (!motorcycleId || !maintenanceDate) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/maintenance/get-previous-entry?motorcycle_id=${motorcycleId}&maintenance_date=${maintenanceDate}`);
+            if (!response.ok) {
+                console.error("Failed to fetch previous maintenance info. Status:", response.status);
+                previousInfoContainer.style.display = 'none';
+                return;
+            }
+            const data = await response.json();
+
+            if (data.found) {
+                previousInfoContainer.innerHTML = `<i class="fas fa-info-circle me-1"></i> 前回整備: ${data.date} - ${data.odo}`;
+                previousInfoContainer.style.display = 'block';
+            } else {
+                previousInfoContainer.style.display = 'none';
+            }
+        } catch (error) {
+            console.error("Error fetching previous maintenance info:", error);
+            previousInfoContainer.style.display = 'none';
+        }
+    }
+
+    if (motorcycleSelect && maintenanceDateInput && previousInfoContainer) {
+        // 「追加」モードの時だけ車両変更のイベントリスナーを付ける
+        if ("{{ form_action }}" === "add") {
+            motorcycleSelect.addEventListener('change', updatePreviousMainteInfo);
+        }
+        maintenanceDateInput.addEventListener('change', updatePreviousMainteInfo);
+        // 初期表示
+        updatePreviousMainteInfo();
+    }
+});
+</script>
 {% endblock %}

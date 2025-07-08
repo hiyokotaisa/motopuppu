@@ -48,6 +48,13 @@
         {% endif %}
     </div>
 
+    {# ▼▼▼ UIのクラスを元のスタイルに戻す ▼▼▼ #}
+    <div id="previous-entry-container" class="mb-3 text-info small" style="display: none;">
+        {# JavaScriptがこの中身を書き換える #}
+    </div>
+    {# ▲▲▲ 修正ここまで ▲▲▲ #}
+
+
     {# --- ▼▼▼ トグルスイッチ UI変更 ▼▼▼ --- #}
     {# 入力モード選択 (トグルスイッチ) #}
     <div class="form-check form-switch mb-3">
@@ -90,11 +97,6 @@
         {% else %}
             <div class="form-text">
                 前回給油時からの走行距離 (整数) を入力してください。
-                {% if previous_entry_info %}
-                    <br> <span class="text-info small"> <i class="fas fa-info-circle me-1"></i>前回給油: {{ previous_entry_info.date }} - {{ previous_entry_info.odo }}</span>
-                {% else %}
-                    <br> <span class="text-warning small"> <i class="fas fa-exclamation-triangle me-1"></i>この車両で初めての給油です。トリップ入力は利用できません。</span>
-                {% endif %}
             </div>
         {% endif %}
     </div>
@@ -237,7 +239,7 @@
 
         function calculateTotalCost() {
             const volume = parseFloat(volumeInput.value);
-            const price = parseFloat(priceInput.value); // price is now expected to be an integer
+            const price = parseFloat(priceInput.value); 
 
             if (!isNaN(volume) && volume > 0 && !isNaN(price) && price >= 0) {
                 const totalCost = Math.round(volume * price);
@@ -251,13 +253,11 @@
             console.warn("One or more elements for cost calculation not found by ID. Check IDs: fuel_volume, price_per_liter, total_cost");
         }
 
-        // --- ▼▼▼ トグルスイッチ対応 スクリプト変更 ▼▼▼
-        const inputModeToggle = document.getElementById('input_mode'); // IDはWTFormsが生成するフィールド名
+        const inputModeToggle = document.getElementById('input_mode');
         const odoGroup = document.getElementById('odo-input-group');
         const tripGroup = document.getElementById('trip-input-group');
 
         function toggleInputFields() {
-            // トグルスイッチがチェックされているか (ONか) で判定
             if (inputModeToggle.checked) {
                 odoGroup.style.display = 'none';
                 tripGroup.style.display = 'block';
@@ -268,12 +268,48 @@
         }
 
         if (inputModeToggle && odoGroup && tripGroup) {
-            // イベントリスナーを 'change' イベントに設定
             inputModeToggle.addEventListener('change', toggleInputFields);
-            // 初期表示時にも実行
             toggleInputFields();
         }
-        // --- ▲▲▲ トグルスイッチ対応 スクリプト変更 ▲▲▲
+        
+        const motorcycleSelect = document.getElementById('motorcycle_id');
+        const entryDateInput = document.getElementById('entry_date');
+        const previousInfoContainer = document.getElementById('previous-entry-container');
+
+        async function updatePreviousEntryInfo() {
+            const motorcycleId = motorcycleSelect.value;
+            const entryDate = entryDateInput.value;
+
+            if (!motorcycleId || !entryDate) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/fuel/get-previous-entry?motorcycle_id=${motorcycleId}&entry_date=${entryDate}`);
+                if (!response.ok) {
+                    console.error("Failed to fetch previous entry info. Status:", response.status);
+                    previousInfoContainer.style.display = 'none';
+                    return;
+                }
+                const data = await response.json();
+
+                if (data.found) {
+                    previousInfoContainer.innerHTML = `<i class="fas fa-info-circle me-1"></i> 前回給油: ${data.date} - ${data.odo}`;
+                    previousInfoContainer.style.display = 'block';
+                } else {
+                    previousInfoContainer.style.display = 'none';
+                }
+            } catch (error) {
+                console.error("Error fetching previous entry info:", error);
+                previousInfoContainer.style.display = 'none';
+            }
+        }
+
+        if (motorcycleSelect && entryDateInput && previousInfoContainer) {
+            motorcycleSelect.addEventListener('change', updatePreviousEntryInfo);
+            entryDateInput.addEventListener('change', updatePreviousEntryInfo);
+            updatePreviousEntryInfo();
+        }
     });
 </script>
 {% endblock %}
