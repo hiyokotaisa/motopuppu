@@ -116,6 +116,11 @@ kyagisaw@kyagisaw-mac motopuppu % tree
 │   ├── forms.py
 │   ├── manage_commands.py
 │   ├── models.py
+│   ├── parsers
+│   │   ├── __init__.py
+│   │   ├── base_parser.py
+│   │   ├── mylaps_parser.py
+│   │   └── ziix_parser.py
 │   ├── services.py
 │   ├── static
 │   │   ├── css
@@ -186,7 +191,7 @@ kyagisaw@kyagisaw-mac motopuppu % tree
 ├── requirements.txt
 └── tests
 
-21 directories, 85 files
+22 directories, 89 files
     ```
 
 7.  **今回のセッションでの目標 [毎回更新]:**
