@@ -2,6 +2,8 @@
 import json
 from datetime import date
 from decimal import Decimal
+import io
+import re # ▼▼▼ 正規表現モジュールをインポート ▼▼▼
 
 from flask import (
     Blueprint, flash, g, redirect, render_template, request, url_for, abort, current_app
@@ -12,7 +14,8 @@ from sqlalchemy.orm import joinedload
 
 from .auth import login_required_custom
 from ..models import db, Motorcycle, ActivityLog, SessionLog, SettingSheet
-from ..forms import ActivityLogForm, SessionLogForm, SettingSheetForm, JAPANESE_CIRCUITS
+from ..forms import ActivityLogForm, SessionLogForm, SettingSheetForm, LapTimeImportForm
+from ..parsers import get_parser
 
 
 # --- ▼▼▼ セッティング項目定義を追加 ▼▼▼ ---
@@ -78,15 +81,19 @@ SETTING_KEY_MAP = {
 
 # --- ▼▼▼ ラップタイム計算用ヘルパー関数 ▼▼▼ ---
 def parse_time_to_seconds(time_str):
-    """ "M:S.f" 形式の文字列を秒(Decimal)に変換 """
+    """ "M:S.f" または "S.f" 形式の文字列を秒(Decimal)に変換 """
     if not isinstance(time_str, str): return None
     try:
+        # ZiiXの M'S.f 形式も考慮
+        time_str = time_str.replace("'", ":")
         parts = time_str.split(':')
         if len(parts) == 2:
+            # M:S.f 形式
             minutes = Decimal(parts[0])
             seconds = Decimal(parts[1])
             return minutes * 60 + seconds
         else:
+            # S.f 形式
             return Decimal(parts[0])
     except:
         return None
@@ -114,7 +121,6 @@ def calculate_lap_stats(lap_times):
     
     return format_seconds_to_time(best_lap), format_seconds_to_time(average_lap)
 
-# --- ▼▼▼ 変更: ベストラップ計算ヘルパーを追加 ▼▼▼ ---
 def _calculate_and_set_best_lap(session, lap_times_list):
     """
     ラップタイムのリストからベストラップを秒で計算し、
@@ -130,7 +136,20 @@ def _calculate_and_set_best_lap(session, lap_times_list):
         session.best_lap_seconds = min(lap_seconds)
     else:
         session.best_lap_seconds = None
-# --- ▲▲▲ 変更ここまで ▲▲▲ ---
+
+# ▼▼▼ ここから追加 ▼▼▼
+def is_valid_lap_time_format(s: str) -> bool:
+    """
+    文字列が '分:秒.ミリ秒' または '秒.ミリ秒' の形式かチェックする。
+    例: '1:23.456', '83.456', '1:23', '83'
+    """
+    if not isinstance(s, str):
+        return False
+    # 正規表現パターン: (任意で[数字とコロン]) + [数字] + (任意で[ドットと数字])
+    # これにより "M:S.f" と "S.f" の両方の形式にマッチする
+    pattern = re.compile(r'^(\d+:)?\d+(\.\d+)?$')
+    return bool(pattern.match(s))
+# ▲▲▲ 追加ここまで ▲▲▲
 
 
 activity_bp = Blueprint('activity', __name__, url_prefix='/activity')
@@ -150,14 +169,11 @@ def list_activities(vehicle_id):
     page = request.args.get('page', 1, type=int)
     per_page = current_app.config.get('ACTIVITIES_PER_PAGE', 10)
     
-    # ▼▼▼ ここから修正 ▼▼▼
-    # 1. ベストラップを計算するサブクエリを作成
     best_lap_subquery = db.session.query(
         SessionLog.activity_log_id,
         func.min(SessionLog.best_lap_seconds).label('overall_best_lap_seconds')
     ).filter(SessionLog.best_lap_seconds.isnot(None)).group_by(SessionLog.activity_log_id).subquery()
 
-    # 2. メインクエリでサブクエリを外部結合
     query = db.session.query(
             ActivityLog, 
             best_lap_subquery.c.overall_best_lap_seconds
@@ -171,7 +187,6 @@ def list_activities(vehicle_id):
     
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
     
-    # 3. テンプレートで使いやすいように、結果を整形
     activities_for_template = []
     for activity, best_lap_seconds in pagination.items:
         formatted_lap = format_seconds_to_time(best_lap_seconds) if best_lap_seconds else ''
@@ -179,14 +194,12 @@ def list_activities(vehicle_id):
             'activity': activity, 
             'best_lap_formatted': formatted_lap
         })
-    # ▲▲▲ 修正ここまで ▲▲▲
     
     return render_template('activity/list_activities.html',
                            motorcycle=motorcycle,
-                           activities=activities_for_template,  # 整形したリストを渡す
+                           activities=activities_for_template,
                            pagination=pagination)
 
-# --- ▼▼▼ 変更: 新しいフォームとDB構造に対応 ▼▼▼ ---
 @activity_bp.route('/<int:vehicle_id>/add', methods=['GET', 'POST'])
 @login_required_custom
 def add_activity(vehicle_id):
@@ -248,7 +261,6 @@ def edit_activity(activity_id):
             current_app.logger.error(f"Error editing activity log {activity_id}: {e}", exc_info=True)
             flash('活動ログの更新中にエラーが発生しました。', 'danger')
     
-    # GETリクエストの場合、DBの値からフォームにデフォルト値を設定
     if request.method == 'GET':
         form.location_type.data = activity.location_type or 'circuit'
         form.circuit_name.data = activity.circuit_name
@@ -259,7 +271,6 @@ def edit_activity(activity_id):
                            motorcycle=motorcycle,
                            activity=activity,
                            form_action='edit')
-# --- ▲▲▲ 変更ここまで ▲▲▲ ---
 
 @activity_bp.route('/<int:activity_id>/delete', methods=['POST'])
 @login_required_custom
@@ -295,11 +306,12 @@ def detail_activity(activity_id):
         session.best_lap, session.average_lap = calculate_lap_stats(session.lap_times)
     
     session_form = SessionLogForm()
+    import_form = LapTimeImportForm()
+
     setting_sheets = SettingSheet.query.filter_by(motorcycle_id=motorcycle.id, is_archived=False).order_by(SettingSheet.sheet_name).all()
     session_form.setting_sheet_id.choices = [(s.id, s.sheet_name) for s in setting_sheets]
     session_form.setting_sheet_id.choices.insert(0, (0, '--- セッティングなし ---'))
 
-    # --- ▼▼▼ 変更: セッション追加ロジックを更新 ▼▼▼ ---
     if session_form.validate_on_submit():
         lap_times_list = json.loads(session_form.lap_times_json.data) if session_form.lap_times_json.data else []
         
@@ -334,18 +346,17 @@ def detail_activity(activity_id):
             db.session.rollback()
             current_app.logger.error(f"Error adding new session log: {e}", exc_info=True)
             flash('セッションの保存中にエラーが発生しました。', 'danger')
-    # --- ▲▲▲ 変更ここまで ▲▲▲ ---
 
     return render_template('activity/detail_activity.html',
                            activity=activity,
                            sessions=sessions,
                            motorcycle=motorcycle,
                            session_form=session_form,
+                           import_form=import_form,
                            setting_key_map=SETTING_KEY_MAP)
 
 # --- SessionLog Routes ---
 
-# --- ▼▼▼ 変更: セッション編集ロジックを更新 ▼▼▼ ---
 @activity_bp.route('/session/<int:session_id>/edit', methods=['GET', 'POST'])
 @login_required_custom
 def edit_session(session_id):
@@ -400,7 +411,6 @@ def edit_session(session_id):
                            session=session,
                            motorcycle=motorcycle,
                            lap_times_json=lap_times_json)
-# --- ▲▲▲ 変更ここまで ▲▲▲ ---
 
 
 @activity_bp.route('/session/<int:session_id>/delete', methods=['POST'])
@@ -418,6 +428,55 @@ def delete_session(session_id):
         current_app.logger.error(f"Error deleting session log {session_id}: {e}", exc_info=True)
         flash('セッション記録の削除中にエラーが発生しました。', 'danger')
     return redirect(url_for('activity.detail_activity', activity_id=activity_id))
+
+
+@activity_bp.route('/session/<int:session_id>/import_laps', methods=['POST'])
+@login_required_custom
+def import_laps(session_id):
+    session = SessionLog.query.join(ActivityLog).filter(SessionLog.id == session_id, ActivityLog.user_id == g.user.id).first_or_404()
+    form = LapTimeImportForm()
+
+    if form.validate_on_submit():
+        file_storage = form.csv_file.data
+        device_type = form.device_type.data
+
+        try:
+            parser = get_parser(device_type)
+            encoding = 'shift_jis' if device_type == 'ziix' else 'utf-8'
+            file_stream = io.TextIOWrapper(file_storage.stream, encoding=encoding, errors='replace')
+            lap_times_list = parser.parse(file_stream)
+
+            if not lap_times_list:
+                flash('CSVファイルからラップタイムを読み込めませんでした。ファイルが空か、形式が異なっている可能性があります。', 'warning')
+                return redirect(url_for('activity.detail_activity', activity_id=session.activity_log_id))
+
+            # ▼▼▼ ここからバリデーション処理を追加 ▼▼▼
+            for lap in lap_times_list:
+                if not is_valid_lap_time_format(lap):
+                    flash(f"CSVをパースしましたが、ラップタイムの形式が無効です (検出された値: '{lap}')。正しい機種を選択しているか確認してください。", 'danger')
+                    return redirect(url_for('activity.detail_activity', activity_id=session.activity_log_id))
+            # ▲▲▲ バリデーション処理ここまで ▲▲▲
+
+            session.lap_times = lap_times_list
+            _calculate_and_set_best_lap(session, lap_times_list)
+
+            db.session.commit()
+            flash(f'{len(lap_times_list)}件のラップタイムを正常にインポートしました。', 'success')
+
+        except ValueError as e:
+            db.session.rollback()
+            flash(str(e), 'danger')
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Lap time import failed for session {session_id}: {e}", exc_info=True)
+            flash(f'インポートに失敗しました。ファイルのエンコーディングや形式を確認してください。', 'danger')
+    else:
+        for field, errors in form.errors.items():
+            for error in errors:
+                flash(f'{form[field].label.text}: {error}', 'danger')
+
+    return redirect(url_for('activity.detail_activity', activity_id=session.activity_log_id))
+
 
 # --- SettingSheet Routes ---
 @activity_bp.route('/<int:vehicle_id>/settings')

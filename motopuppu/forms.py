@@ -1,5 +1,6 @@
 # motopuppu/forms.py
 from flask_wtf import FlaskForm
+from flask_wtf.file import FileField, FileRequired, FileAllowed
 from wtforms import StringField, SelectField, DateField, DecimalField, IntegerField, TextAreaField, BooleanField, SubmitField, RadioField, FieldList, FormField, HiddenField
 from wtforms.validators import DataRequired, Optional, NumberRange, Length, ValidationError, InputRequired
 from datetime import date, datetime
@@ -476,6 +477,26 @@ class DeleteAccountForm(FlaskForm):
 
 
 # --- ▼▼▼ 活動ログ機能 (ここから) ▼▼▼ ---
+
+class LapTimeImportForm(FlaskForm):
+    """ラップタイムCSVインポート用のフォーム"""
+    device_type = SelectField(
+        'ラップタイマー機種',
+        choices=[
+            ('ziix', 'ZiiX'),
+            ('mylaps', 'MYLAPS')
+        ],
+        validators=[DataRequired(message="機種を選択してください。")]
+    )
+    csv_file = FileField(
+        'CSVファイル',
+        validators=[
+            FileRequired(message="ファイルを選択してください。"),
+            FileAllowed(['csv', 'txt'], 'CSVまたはTXTファイルのみアップロードできます')
+        ]
+    )
+    submit_import = SubmitField('インポート実行')
+
 
 class SettingSheetForm(FlaskForm):
     """セッティングシート用のフォーム"""

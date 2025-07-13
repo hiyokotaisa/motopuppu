@@ -84,106 +84,109 @@ kyagisaw@kyagisaw-mac motopuppu % tree
 ├── compose.yml
 ├── Dockerfile
 ├── drafts
-│   ├── gemini_prompt.txt
-│   └── racer_draft.md
+│   ├── gemini_prompt.txt
+│   └── racer_draft.md
 ├── instance
 ├── LICENSE
 ├── migrations
-│   ├── alembic.ini
-│   ├── env.py
-│   ├── README
-│   ├── script.py.mako
-│   └── versions
-│       ├── 03b74d3f953e_add_criteria_column_to_.py
-│       ├── 3c3d01d7c4c9_add_exclude_from_average_to_fuel_entries.py
-│       ├── 3f7f9b1139eb_add_activity_log_models.py
-│       ├── 414794921235_add_achievement_and_userachievement_.py
-│       ├── 48c543b24155_add_activity_log_models.py
-│       ├── 4bc80d3366bf_add_activity_log_models.py
-│       ├── 4ec29611c9b5_add_trigger_event_type_to_.py
-│       ├── 5d18f0a4938e_allow_null_for_content_in_general_notes.py
-│       ├── 6dadc8ff0649_add_racer_fields_to_motorcycle.py
-│       ├── 760969e7b61d_populate_new_achievement_definitions_.py
-│       ├── 896791ff77ea_add_odo_reset_log_table_and_data_.py
-│       ├── cb61b6485ca8_add_missing_general_notes_and_odo_reset_.py
-│       ├── cbc2495d2f76_initial_migration.py
-│       └── cd7db2474a21_check_sync_after_fixing_relationship.py
+│   ├── alembic.ini
+│   ├── env.py
+│   ├── README
+│   ├── script.py.mako
+│   └── versions
+│       ├── 03b74d3f953e_add_criteria_column_to_.py
+│       ├── 3c3d01d7c4c9_add_exclude_from_average_to_fuel_entries.py
+│       ├── 3f7f9b1139eb_add_activity_log_models.py
+│       ├── 414794921235_add_achievement_and_userachievement_.py
+│       ├── 48c543b24155_add_activity_log_models.py
+│       ├── 4bc80d3366bf_add_activity_log_models.py
+│       ├── 4ec29611c9b5_add_trigger_event_type_to_.py
+│       ├── 5d18f0a4938e_allow_null_for_content_in_general_notes.py
+│       ├── 6dadc8ff0649_add_racer_fields_to_motorcycle.py
+│       ├── 760969e7b61d_populate_new_achievement_definitions_.py
+│       ├── 896791ff77ea_add_odo_reset_log_table_and_data_.py
+│       ├── cb61b6485ca8_add_missing_general_notes_and_odo_reset_.py
+│       ├── cbc2495d2f76_initial_migration.py
+│       ├── cd7db2474a21_check_sync_after_fixing_relationship.py
+│       └── d5b35174a1cb_add_display_name_to_user_model.py
 ├── motopuppu
-│   ├── __init__.py
-│   ├── achievement_evaluator.py
-│   ├── achievements_utils.py
-│   ├── forms.py
-│   ├── manage_commands.py
-│   ├── models.py
-│   ├── services.py
-│   ├── static
-│   │   ├── css
-│   │   │   └── style.css
-│   │   ├── favicons
-│   │   │   ├── apple-touch-icon.png
-│   │   │   ├── favicon-96x96.png
-│   │   │   ├── favicon.ico
-│   │   │   ├── favicon.svg
-│   │   │   ├── web-app-manifest-192x192.png
-│   │   │   └── web-app-manifest-512x512.png
-│   │   ├── images
-│   │   │   └── blobcat_8bit.webp
-│   │   ├── js
-│   │   │   ├── lap_time_manager.js
-│   │   │   ├── misskey_share.js
-│   │   │   └── odo_toggle.js
-│   │   └── manifest.json
-│   ├── templates
-│   │   ├── achievements
-│   │   │   └── unlocked_list.html
-│   │   ├── activity
-│   │   │   ├── activity_form.html
-│   │   │   ├── detail_activity.html
-│   │   │   ├── list_activities.html
-│   │   │   ├── list_settings.html
-│   │   │   ├── session_form.html
-│   │   │   └── setting_form.html
-│   │   ├── auth
-│   │   │   ├── delete_account_complete.html
-│   │   │   └── delete_account.html
-│   │   ├── base.html
-│   │   ├── dashboard.html
-│   │   ├── fuel_form.html
-│   │   ├── fuel_log.html
-│   │   ├── index.html
-│   │   ├── leaderboard
-│   │   │   ├── index.html
-│   │   │   └── ranking.html
-│   │   ├── legal
-│   │   │   ├── privacy_policy.html
-│   │   │   └── terms_of_service.html
-│   │   ├── maintenance_form.html
-│   │   ├── maintenance_log.html
-│   │   ├── navigation.html
-│   │   ├── note_form.html
-│   │   ├── notes_log.html
-│   │   ├── odo_reset_log_form.html
-│   │   ├── reminder_form.html
-│   │   ├── vehicle_form.html
-│   │   └── vehicles.html
-│   ├── utils
-│   │   └── datetime_helpers.py
-│   └── views
-│       ├── achievements.py
-│       ├── activity.py
-│       ├── auth.py
-│       ├── dev_auth.py
-│       ├── fuel.py
-│       ├── leaderboard.py
-│       ├── main.py
-│       ├── maintenance.py
-│       ├── notes.py
-│       └── vehicle.py
+│   ├── __init__.py
+│   ├── achievement_evaluator.py
+│   ├── achievements_utils.py
+│   ├── forms.py
+│   ├── manage_commands.py
+│   ├── models.py
+│   ├── services.py
+│   ├── static
+│   │   ├── css
+│   │   │   └── style.css
+│   │   ├── favicons
+│   │   │   ├── apple-touch-icon.png
+│   │   │   ├── favicon-96x96.png
+│   │   │   ├── favicon.ico
+│   │   │   ├── favicon.svg
+│   │   │   ├── web-app-manifest-192x192.png
+│   │   │   └── web-app-manifest-512x512.png
+│   │   ├── images
+│   │   │   └── blobcat_8bit.webp
+│   │   ├── js
+│   │   │   ├── lap_time_manager.js
+│   │   │   ├── misskey_share.js
+│   │   │   └── odo_toggle.js
+│   │   └── manifest.json
+│   ├── templates
+│   │   ├── achievements
+│   │   │   └── unlocked_list.html
+│   │   ├── activity
+│   │   │   ├── activity_form.html
+│   │   │   ├── detail_activity.html
+│   │   │   ├── list_activities.html
+│   │   │   ├── list_settings.html
+│   │   │   ├── session_form.html
+│   │   │   └── setting_form.html
+│   │   ├── auth
+│   │   │   └── delete_account_complete.html
+│   │   ├── base.html
+│   │   ├── dashboard.html
+│   │   ├── fuel_form.html
+│   │   ├── fuel_log.html
+│   │   ├── index.html
+│   │   ├── leaderboard
+│   │   │   ├── index.html
+│   │   │   └── ranking.html
+│   │   ├── legal
+│   │   │   ├── privacy_policy.html
+│   │   │   └── terms_of_service.html
+│   │   ├── maintenance_form.html
+│   │   ├── maintenance_log.html
+│   │   ├── navigation.html
+│   │   ├── note_form.html
+│   │   ├── notes_log.html
+│   │   ├── odo_reset_log_form.html
+│   │   ├── profile
+│   │   │   └── settings.html
+│   │   ├── reminder_form.html
+│   │   ├── vehicle_form.html
+│   │   └── vehicles.html
+│   ├── utils
+│   │   └── datetime_helpers.py
+│   └── views
+│       ├── achievements.py
+│       ├── activity.py
+│       ├── auth.py
+│       ├── dev_auth.py
+│       ├── fuel.py
+│       ├── leaderboard.py
+│       ├── main.py
+│       ├── maintenance.py
+│       ├── notes.py
+│       ├── profile.py
+│       └── vehicle.py
 ├── README.md
 ├── requirements.txt
 └── tests
 
-20 directories, 83 files
+21 directories, 85 files
     ```
 
 7.  **今回のセッションでの目標 [毎回更新]:**
