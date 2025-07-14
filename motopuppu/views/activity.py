@@ -381,9 +381,36 @@ def detail_activity(activity_id):
     motorcycle = activity.motorcycle
     sessions = SessionLog.query.filter_by(activity_log_id=activity.id).order_by(SessionLog.id.asc()).all()
 
-    # ラップタイムの表示用データを準備
+    # ラップタイムの表示用データとグラフ用データを準備
     for session in sessions:
+        # 既存の統計計算
         session.best_lap, session.average_lap, session.lap_details = calculate_lap_stats(session.lap_times)
+        
+        # --- ▼▼▼ ここからグラフ用データを変更 ▼▼▼ ---
+        lap_seconds_for_chart = []
+        if session.lap_times and isinstance(session.lap_times, list):
+            for lap_str in session.lap_times:
+                sec = parse_time_to_seconds(lap_str)
+                # 有効なタイム（秒に変換でき、0より大きい）のみを追加
+                if sec is not None and sec > 0:
+                    lap_seconds_for_chart.append(float(sec))
+        
+        # グラフデータが存在する場合のみ、チャート用データを生成
+        if lap_seconds_for_chart:
+            best_lap_seconds = min(lap_seconds_for_chart)
+            
+            # 各ラップをベストラップに対するパーセンテージに変換
+            lap_percentages = [(best_lap_seconds / sec) * 100 for sec in lap_seconds_for_chart]
+
+            # Python辞書を直接属性にセットする
+            session.lap_chart_dict = {
+                'labels': list(range(1, len(lap_seconds_for_chart) + 1)),
+                'percentages': lap_percentages,    # Y軸のデータとしてパーセンテージを使用
+                'raw_times': lap_seconds_for_chart # ツールチップ表示用に元のタイムも渡す
+            }
+        else:
+            session.lap_chart_dict = None
+        # --- ▲▲▲ 変更ここまで ▲▲▲ ---
     
     session_form = SessionLogForm()
     import_form = LapTimeImportForm()
@@ -442,9 +469,9 @@ def detail_activity(activity_id):
 def edit_session(session_id):
     """セッションログを編集する"""
     session = SessionLog.query.options(joinedload(SessionLog.activity).joinedload(ActivityLog.motorcycle))\
-                                .join(ActivityLog)\
-                                .filter(SessionLog.id == session_id, ActivityLog.user_id == g.user.id)\
-                                .first_or_404()
+                                 .join(ActivityLog)\
+                                 .filter(SessionLog.id == session_id, ActivityLog.user_id == g.user.id)\
+                                 .first_or_404()
 
     motorcycle = session.activity.motorcycle
     form = SessionLogForm(obj=session)

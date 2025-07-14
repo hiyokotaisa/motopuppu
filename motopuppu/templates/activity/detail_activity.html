@@ -249,16 +249,22 @@
                         </table>
                     </div>
                     <div class="d-flex justify-content-end gap-3 mt-2 small">
-                        {# --- ▼▼▼ 変更: ここのクラス指定を削除 ▼▼▼ --- #}
                         <span>ベスト: <strong>{{ session.best_lap }}</strong></span>
                         <span>平均: <strong>{{ session.average_lap }}</strong></span>
-                        {# --- ▲▲▲ 変更ここまで ▲▲▲ --- #}
                     </div>
+
+                    {# --- ▼▼▼ ここからグラフ表示ブロックを修正 ▼▼▼ --- #}
+                    {% if session.lap_chart_dict %}
+                    <div class="mt-3">
+                        <canvas id="lapChart-{{ session.id }}" data-chart-data='{{ session.lap_chart_dict | tojson }}'></canvas>
+                    </div>
+                    {% endif %}
+                    {# --- ▲▲▲ 修正ここまで ▲▲▲ --- #}
                 </div>
                 {% elif session.lap_times %}
                  <div class="mb-3">
-                    <strong><i class="fas fa-stopwatch fa-fw me-1"></i>記録ラップ:</strong>
-                     <div class="alert alert-warning small p-2">ラップタイムはありますが、表示データを作成できませんでした。</div>
+                     <strong><i class="fas fa-stopwatch fa-fw me-1"></i>記録ラップ:</strong>
+                      <div class="alert alert-warning small p-2">ラップタイムはありますが、表示データを作成できませんでした。</div>
                 </div>
                 {% endif %}
             </div>
@@ -342,4 +348,113 @@
 {% block scripts %}
 {{ super() }}
 <script src="{{ url_for('static', filename='js/lap_time_manager.js') }}"></script>
+{# --- ▼▼▼ ここからChart.js関連のスクリプトを追加 ▼▼▼ --- #}
+{# Chart.js 本体をCDNから読み込み #}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+
+    /**
+     * 秒数を "M:SS.fff" 形式の文字列に変換するヘルパー関数
+     * @param {number} totalSeconds - 秒数
+     * @returns {string} フォーマットされた時間文字列
+     */
+    function formatChartTime(totalSeconds) {
+        if (totalSeconds === null || typeof totalSeconds === 'undefined' || isNaN(totalSeconds)) {
+            return 'N/A';
+        }
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        // toFixed(3)で小数点以下3桁に、padStartで0埋め
+        return `${minutes}:${seconds.toFixed(3).padStart(6, '0')}`;
+    }
+
+    // ページ内の全ラップタイムチャートを検索して初期化
+    const lapCanvases = document.querySelectorAll('canvas[id^="lapChart-"]');
+
+    lapCanvases.forEach(canvas => {
+        const chartDataJSON = canvas.dataset.chartData;
+        if (!chartDataJSON) return;
+
+        const chartData = JSON.parse(chartDataJSON);
+        if (!chartData || !chartData.percentages || chartData.percentages.length === 0) {
+            return; // データがなければ何もしない
+        }
+        
+        const ctx = canvas.getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: chartData.labels.map(l => `Lap ${l}`), // X軸ラベル: "Lap 1", "Lap 2"...
+                datasets: [{
+                    label: 'ベスト比',
+                    data: chartData.percentages, // Y軸のデータにパーセンテージを使用
+                    borderColor: 'rgb(75, 192, 192)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    tension: 0.1, // 線の滑らかさ
+                    fill: true,
+                    pointRadius: 4,
+                    pointHoverRadius: 7
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true, 
+                plugins: {
+                    legend: {
+                        display: false // データセットが1つなので凡例は非表示
+                    },
+                    tooltip: {
+                        callbacks: {
+                            // ツールチップに表示される値をフォーマット
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.parsed.y !== null) {
+                                    // パーセンテージを表示
+                                    label += context.parsed.y.toFixed(2) + '%';
+                                    
+                                    // ツールチップに元のタイムも表示
+                                    const rawTime = chartData.raw_times[context.dataIndex];
+                                    if(rawTime) {
+                                       label += ` (${formatChartTime(rawTime)})`;
+                                    }
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'ベスト比 (%)' // Y軸のタイトルを変更
+                        },
+                        ticks: {
+                            // Y軸の目盛りをパーセント表示にフォーマット
+                            callback: function(value, index, ticks) {
+                                return value.toFixed(0) + '%';
+                            },
+                            // ▼▼▼ 目盛りの間隔を5に指定 ▼▼▼
+                            stepSize: 5
+                        },
+                        max: 100,
+                    },
+                    x: {
+                         title: {
+                            display: true,
+                            text: 'ラップナンバー'
+                        }
+                    }
+                }
+            }
+        });
+    });
+});
+</script>
+{# --- ▲▲▲ 追加ここまで ▲▲▲ --- #}
 {% endblock %}
