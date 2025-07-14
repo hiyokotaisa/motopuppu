@@ -4,6 +4,7 @@ from datetime import date
 from decimal import Decimal
 import io
 import re # ▼▼▼ 正規表現モジュールをインポート ▼▼▼
+import statistics
 
 from flask import (
     Blueprint, flash, g, redirect, render_template, request, url_for, abort, current_app
@@ -80,6 +81,21 @@ SETTING_KEY_MAP = {
 
 
 # --- ▼▼▼ ラップタイム計算用ヘルパー関数 ▼▼▼ ---
+def get_rank_suffix(rank: int) -> str:
+    """順位に応じた英語の接尾辞 (st, nd, rd, th) を返す"""
+    if not isinstance(rank, int) or rank <= 0:
+        return ""
+    if 11 <= (rank % 100) <= 13:
+        return "th"
+    last_digit = rank % 10
+    if last_digit == 1:
+        return "st"
+    if last_digit == 2:
+        return "nd"
+    if last_digit == 3:
+        return "rd"
+    return "th"
+
 def parse_time_to_seconds(time_str):
     """ "M:S.f" または "S.f" 形式の文字列を秒(Decimal)に変換 """
     if not isinstance(time_str, str): return None
@@ -107,19 +123,57 @@ def format_seconds_to_time(total_seconds):
     return f"{minutes}:{seconds:06.3f}" # 0埋めして S.fff 形式にする
 
 def calculate_lap_stats(lap_times):
-    """ ラップタイムのリストからベストと平均を計算 """
+    """ ラップタイムのリストからベスト、平均、各ラップの詳細（順位含む）を計算する """
     if not lap_times or not isinstance(lap_times, list):
-        return "N/A", "N/A"
-    
-    lap_seconds = [s for s in (parse_time_to_seconds(t) for t in lap_times) if s is not None]
-    
-    if not lap_seconds:
-        return "N/A", "N/A"
+        return "N/A", "N/A", []
 
-    best_lap = min(lap_seconds)
-    average_lap = sum(lap_seconds) / len(lap_seconds)
+    # 1. 元のインデックスを保持したまま、有効なラップタイム（秒）のリストを作成
+    lap_seconds_indexed = []
+    for i, t in enumerate(lap_times):
+        sec = parse_time_to_seconds(t)
+        if sec is not None and sec > 0:
+            lap_seconds_indexed.append({'original_index': i, 'seconds': sec})
+
+    if not lap_seconds_indexed:
+        return "N/A", "N/A", []
+
+    # 2. 統計計算のために秒のみのリストも用意
+    valid_seconds = [item['seconds'] for item in lap_seconds_indexed]
+    best_lap_sec = min(valid_seconds)
+    average_lap_sec = sum(valid_seconds) / len(valid_seconds)
+
+    # 3. タイム順にソートして順位を決定
+    sorted_laps = sorted(lap_seconds_indexed, key=lambda x: x['seconds'])
+
+    # 4. 元のインデックスをキーとして順位をマッピング
+    rank_map = {}
+    for rank, item in enumerate(sorted_laps, 1):
+        rank_map[item['original_index']] = rank
+
+    # 5. 最終的な詳細リストを作成
+    lap_details = []
+    for item in lap_seconds_indexed:
+        original_index = item['original_index']
+        sec = item['seconds']
+        rank = rank_map.get(original_index)
+        
+        gap_str = ""
+        if sec != best_lap_sec:
+            diff = sec - best_lap_sec
+            suffix = get_rank_suffix(rank)
+            gap_str = f"+{diff:.3f} ({rank}{suffix})"
+
+        lap_details.append({
+            'lap_num': original_index + 1,
+            'time_str': format_seconds_to_time(sec),
+            'diff_str': gap_str,
+            'is_best': sec == best_lap_sec
+        })
     
-    return format_seconds_to_time(best_lap), format_seconds_to_time(average_lap)
+    # 元の順序に戻す
+    lap_details.sort(key=lambda x: x['lap_num'])
+
+    return format_seconds_to_time(best_lap_sec), format_seconds_to_time(average_lap_sec), lap_details
 
 def _calculate_and_set_best_lap(session, lap_times_list):
     """
@@ -137,7 +191,33 @@ def _calculate_and_set_best_lap(session, lap_times_list):
     else:
         session.best_lap_seconds = None
 
-# ▼▼▼ ここから追加 ▼▼▼
+def filter_outlier_laps(lap_times_list: list, threshold_multiplier: float = 2.0) -> list:
+    """
+    ラップタイムのリストから外れ値（極端に遅いラップ）を除外する。
+    中央値の threshold_multiplier 倍より遅いラップを外れ値とみなす。
+    """
+    if not lap_times_list or len(lap_times_list) < 3:
+        return lap_times_list # データが少ない場合は何もしない
+
+    # 文字列のラップタイムをDecimalの秒に変換
+    lap_seconds = [s for s in (parse_time_to_seconds(t) for t in lap_times_list) if s is not None and s > 0]
+    if not lap_seconds:
+        return []
+
+    # 中央値を計算
+    median_lap = statistics.median(lap_seconds)
+    
+    # 閾値を設定 (中央値の N 倍)
+    threshold = median_lap * Decimal(str(threshold_multiplier))
+
+    # 閾値を超えないラップタイムのみをフィルタリング
+    # 元の文字列リストのインデックスと秒リストのインデックスは一致すると仮定
+    filtered_laps = [
+        lap_str for lap_str, lap_sec in zip(lap_times_list, lap_seconds) if lap_sec <= threshold
+    ]
+    
+    return filtered_laps
+
 def is_valid_lap_time_format(s: str) -> bool:
     """
     文字列が '分:秒.ミリ秒' または '秒.ミリ秒' の形式かチェックする。
@@ -149,7 +229,6 @@ def is_valid_lap_time_format(s: str) -> bool:
     # これにより "M:S.f" と "S.f" の両方の形式にマッチする
     pattern = re.compile(r'^(\d+:)?\d+(\.\d+)?$')
     return bool(pattern.match(s))
-# ▲▲▲ 追加ここまで ▲▲▲
 
 
 activity_bp = Blueprint('activity', __name__, url_prefix='/activity')
@@ -294,16 +373,17 @@ def delete_activity(activity_id):
 def detail_activity(activity_id):
     """活動ログの詳細とセッションの追加/一覧表示"""
     activity = ActivityLog.query.options(joinedload(ActivityLog.motorcycle))\
-                                .filter_by(id=activity_id)\
-                                .first_or_404()
+                                 .filter_by(id=activity_id)\
+                                 .first_or_404()
     if activity.user_id != g.user.id:
         abort(403)
         
     motorcycle = activity.motorcycle
-    sessions = activity.sessions.all()
+    sessions = SessionLog.query.filter_by(activity_log_id=activity.id).order_by(SessionLog.id.asc()).all()
 
+    # ラップタイムの表示用データを準備
     for session in sessions:
-        session.best_lap, session.average_lap = calculate_lap_stats(session.lap_times)
+        session.best_lap, session.average_lap, session.lap_details = calculate_lap_stats(session.lap_times)
     
     session_form = SessionLogForm()
     import_form = LapTimeImportForm()
@@ -362,9 +442,9 @@ def detail_activity(activity_id):
 def edit_session(session_id):
     """セッションログを編集する"""
     session = SessionLog.query.options(joinedload(SessionLog.activity).joinedload(ActivityLog.motorcycle))\
-                               .join(ActivityLog)\
-                               .filter(SessionLog.id == session_id, ActivityLog.user_id == g.user.id)\
-                               .first_or_404()
+                                .join(ActivityLog)\
+                                .filter(SessionLog.id == session_id, ActivityLog.user_id == g.user.id)\
+                                .first_or_404()
 
     motorcycle = session.activity.motorcycle
     form = SessionLogForm(obj=session)
@@ -439,6 +519,7 @@ def import_laps(session_id):
     if form.validate_on_submit():
         file_storage = form.csv_file.data
         device_type = form.device_type.data
+        remove_outliers = form.remove_outliers.data
 
         try:
             parser = get_parser(device_type)
@@ -450,18 +531,28 @@ def import_laps(session_id):
                 flash('CSVファイルからラップタイムを読み込めませんでした。ファイルが空か、形式が異なっている可能性があります。', 'warning')
                 return redirect(url_for('activity.detail_activity', activity_id=session.activity_log_id))
 
-            # ▼▼▼ ここからバリデーション処理を追加 ▼▼▼
             for lap in lap_times_list:
                 if not is_valid_lap_time_format(lap):
                     flash(f"CSVをパースしましたが、ラップタイムの形式が無効です (検出された値: '{lap}')。正しい機種を選択しているか確認してください。", 'danger')
                     return redirect(url_for('activity.detail_activity', activity_id=session.activity_log_id))
-            # ▲▲▲ バリデーション処理ここまで ▲▲▲
 
+            original_lap_count = len(lap_times_list)
+            laps_removed_count = 0
+            
+            if remove_outliers:
+                filtered_laps = filter_outlier_laps(lap_times_list)
+                laps_removed_count = original_lap_count - len(filtered_laps)
+                lap_times_list = filtered_laps
+            
             session.lap_times = lap_times_list
             _calculate_and_set_best_lap(session, lap_times_list)
 
             db.session.commit()
-            flash(f'{len(lap_times_list)}件のラップタイムを正常にインポートしました。', 'success')
+            
+            success_message = f'{len(lap_times_list)}件のラップタイムを正常にインポートしました。'
+            if laps_removed_count > 0:
+                success_message += f' ({laps_removed_count}件の異常なラップを除外しました)'
+            flash(success_message, 'success')
 
         except ValueError as e:
             db.session.rollback()

@@ -455,9 +455,9 @@ class NoteForm(FlaskForm):
 class ProfileForm(FlaskForm):
     """プロフィール編集用フォーム"""
     display_name = StringField('表示名',
-                               validators=[DataRequired(message="表示名を入力してください。"),
-                                           Length(min=1, max=20, message="表示名は20文字以内で入力してください。")],
-                               render_kw={"placeholder": "例: もとぷー太郎"})
+                                validators=[DataRequired(message="表示名を入力してください。"),
+                                            Length(min=1, max=20, message="表示名は20文字以内で入力してください。")],
+                                render_kw={"placeholder": "例: もとぷー太郎"})
     submit_profile = SubmitField('表示名を更新')
 # --- ▲▲▲ ここまで追加 ▲▲▲ ---
 
@@ -482,10 +482,13 @@ class LapTimeImportForm(FlaskForm):
     """ラップタイムCSVインポート用のフォーム"""
     device_type = SelectField(
         'ラップタイマー機種',
+        # --- ▼▼▼ 変更 ▼▼▼ ---
         choices=[
+            ('simple_csv', '手入力 / シンプルCSV'),
             ('ziix', 'ZiiX'),
             ('mylaps', 'MYLAPS')
         ],
+        # --- ▲▲▲ 変更ここまで ▲▲▲ ---
         validators=[DataRequired(message="機種を選択してください。")]
     )
     csv_file = FileField(
@@ -494,6 +497,10 @@ class LapTimeImportForm(FlaskForm):
             FileRequired(message="ファイルを選択してください。"),
             FileAllowed(['csv', 'txt'], 'CSVまたはTXTファイルのみアップロードできます')
         ]
+    )
+    remove_outliers = BooleanField(
+        '異常に遅いラップを除外する (ピットイン等)',
+        default=True
     )
     submit_import = SubmitField('インポート実行')
 

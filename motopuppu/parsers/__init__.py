@@ -1,10 +1,17 @@
 # motopuppu/parsers/__init__.py
+
 from .base_parser import BaseLapTimeParser
 from .ziix_parser import ZiixParser
 from .mylaps_parser import MylapsParser
+# --- ▼▼▼ 変更 ▼▼▼ ---
+from .simple_csv_parser import SimpleCsvParser
+# --- ▲▲▲ 変更ここまで ▲▲▲ ---
 
 # マッピングを定義
 PARSERS = {
+    # --- ▼▼▼ 変更 ▼▼▼ ---
+    'simple_csv': SimpleCsvParser,
+    # --- ▲▲▲ 変更ここまで ▲▲▲ ---
     'ziix': ZiixParser,
     'mylaps': MylapsParser,
 }
