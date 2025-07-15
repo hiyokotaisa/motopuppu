@@ -115,7 +115,10 @@ def miauth_callback():
         user_info = check_data['user']
         misskey_user_id = user_info.get('id')
         misskey_username = user_info.get('username')
-        current_app.logger.info(f"MiAuth check successful. Token received (masked): {token[:5]}..., User ID: {misskey_user_id}, Username: {misskey_username}")
+        # --- ▼▼▼ ここから追加 ▼▼▼ ---
+        avatar_url = user_info.get('avatarUrl') # アバターURLを取得
+        current_app.logger.info(f"MiAuth check successful. Token received (masked): {token[:5]}..., User ID: {misskey_user_id}, Username: {misskey_username}, Avatar URL: {avatar_url}")
+        # --- ▲▲▲ ここまで追加 ▲▲▲ ---
 
         if not misskey_user_id:
             raise ValueError("Misskey User ID not found in check response user object.")
@@ -131,7 +134,14 @@ def miauth_callback():
 
     user = db.session.scalar(db.select(User).filter_by(misskey_user_id=misskey_user_id)) # SQLAlchemy 2.0+
     if not user:
-        user = User(misskey_user_id=misskey_user_id, misskey_username=misskey_username, is_admin=False)
+        # --- ▼▼▼ ここから変更 ▼▼▼ ---
+        user = User(
+            misskey_user_id=misskey_user_id,
+            misskey_username=misskey_username,
+            avatar_url=avatar_url, # 新規作成時にアバターURLを保存
+            is_admin=False
+        )
+        # --- ▲▲▲ ここまで変更 ▲▲▲ ---
         db.session.add(user)
         try:
             db.session.commit()
@@ -143,14 +153,24 @@ def miauth_callback():
             current_app.logger.error(f"Database error creating user: {e}")
             return redirect(url_for('auth.login_page'))
     else:
+        # --- ▼▼▼ ここから変更 ▼▼▼ ---
+        # ユーザー名とアバターURLに変更があれば更新
+        needs_commit = False
         if user.misskey_username != misskey_username:
             user.misskey_username = misskey_username
+            needs_commit = True
+        if user.avatar_url != avatar_url:
+            user.avatar_url = avatar_url
+            needs_commit = True
+        
+        if needs_commit:
             try:
                 db.session.commit()
-                current_app.logger.info(f"Username updated for user ID {user.id} to {misskey_username}")
+                current_app.logger.info(f"User info updated for user ID {user.id}")
             except Exception as e:
                 db.session.rollback()
-                current_app.logger.error(f"Error updating username for {misskey_username}: {e}")
+                current_app.logger.error(f"Error updating user info for {misskey_username}: {e}")
+        # --- ▲▲▲ ここまで変更 ▲▲▲ ---
         current_app.logger.info(f"Existing user logged in: {user.misskey_username} (App User ID: {user.id})")
 
     session.clear()

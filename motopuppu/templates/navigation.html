@@ -95,9 +95,16 @@
 
             <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
                 <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle {% if request.endpoint.startswith('achievements.') or request.endpoint.startswith('profile.') %}active{% endif %}" href="#" id="navbarUserDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                        <i class="fas fa-user-circle me-1"></i> {{ g.user.display_name or g.user.misskey_username or 'ユーザー' }}
+                    {# --- ▼▼▼ ここから変更 ▼▼▼ --- #}
+                    <a class="nav-link dropdown-toggle d-flex align-items-center {% if request.endpoint.startswith('achievements.') or request.endpoint.startswith('profile.') %}active{% endif %}" href="#" id="navbarUserDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        {% if g.user.avatar_url %}
+                            <img src="{{ g.user.avatar_url }}" alt="{{ g.user.display_name or g.user.misskey_username }}" class="rounded-circle me-2" style="width: 24px; height: 24px; object-fit: cover;">
+                        {% else %}
+                            <i class="fas fa-user-circle fa-lg me-2"></i>
+                        {% endif %}
+                        <span>{{ g.user.display_name or g.user.misskey_username or 'ユーザー' }}</span>
                     </a>
+                    {# --- ▲▲▲ ここまで変更 ▲▲▲ --- #}
                     <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarUserDropdown">
                         <li>
                             <a class="dropdown-item {% if request.endpoint == 'achievements.index' %}active{% endif %}" href="{{ url_for('achievements.index') }}">
