@@ -3,7 +3,7 @@
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4 sticky-top">
     <div class="container">
         <a class="navbar-brand" href="{{ url_for('main.dashboard') }}">
-             <i class="fas fa-motorcycle me-1"></i> もとぷっぷー
+            <i class="fas fa-motorcycle me-1"></i> もとぷっぷー
         </a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
             <span class="navbar-toggler-icon"></span>
@@ -15,7 +15,7 @@
                         <i class="fas fa-tachometer-alt me-1"></i> ダッシュボード
                     </a>
                 </li>
-                 <li class="nav-item">
+                <li class="nav-item">
                     <a class="nav-link {% if request.endpoint.startswith('fuel.') %}active{% endif %}" href="{{ url_for('fuel.fuel_log') }}">
                         <i class="fas fa-gas-pump me-1"></i> 給油
                     </a>
@@ -24,6 +24,26 @@
                     <a class="nav-link {% if request.endpoint.startswith('maintenance.') %}active{% endif %}" href="{{ url_for('maintenance.maintenance_log') }}">
                         <i class="fas fa-tools me-1"></i> 整備
                     </a>
+                </li>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle {% if request.endpoint.startswith('reminder.') %}active{% endif %}" href="#" id="reminderDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fas fa-bell me-1"></i> リマインダー
+                    </a>
+                    <ul class="dropdown-menu" aria-labelledby="reminderDropdown">
+                        {% if g.user_motorcycles %}
+                            {% for motorcycle in g.user_motorcycles %}
+                            <li>
+                                <a class="dropdown-item {% if request.endpoint == 'reminder.list_reminders' and request.view_args.get('vehicle_id') == motorcycle.id %}active{% endif %}" href="{{ url_for('reminder.list_reminders', vehicle_id=motorcycle.id) }}">
+                                    {{ motorcycle.name }}
+                                </a>
+                            </li>
+                            {% endfor %}
+                        {% else %}
+                             <li>
+                                <a class="dropdown-item disabled" href="#">車両を登録してください</a>
+                            </li>
+                        {% endif %}
+                    </ul>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link {% if request.endpoint.startswith('notes.') %}active{% endif %}" href="{{ url_for('notes.notes_log') }}">
@@ -39,13 +59,13 @@
                             <li><h6 class="dropdown-header">車両別ログ</h6></li>
                             {% for motorcycle in g.user_motorcycles %}
                             <li>
-                                <a class="dropdown-item {% if request.view_args.get('vehicle_id') == motorcycle.id %}active{% endif %}" href="{{ url_for('activity.list_activities', vehicle_id=motorcycle.id) }}">
+                                <a class="dropdown-item {% if request.endpoint == 'activity.list_activities' and request.view_args.get('vehicle_id') == motorcycle.id %}active{% endif %}" href="{{ url_for('activity.list_activities', vehicle_id=motorcycle.id) }}">
                                     {{ motorcycle.name }}
                                 </a>
                             </li>
                             {% endfor %}
                         {% else %}
-                             <li>
+                            <li>
                                 <a class="dropdown-item" href="{{ url_for('vehicle.add_vehicle') }}">
                                     <i class="fas fa-plus fa-fw me-1"></i> まず車両を登録
                                 </a>
@@ -59,16 +79,15 @@
                         </li>
                     </ul>
                 </li>
-                 <li class="nav-item">
+                <li class="nav-item">
                     <a class="nav-link {% if request.endpoint.startswith('vehicle.') %}active{% endif %}" href="{{ url_for('vehicle.vehicle_list') }}">
-                        <i class="fas fa-motorcycle me-1"></i> 車両
+                        <i class="fas fa-motorcycle me-1"></i> 車両管理
                     </a>
                 </li>
             </ul>
 
-            {# ... 右側の要素（ユーザーメニュー）は変更なし ... #}
             <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
-                 <li class="nav-item dropdown">
+                <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle {% if request.endpoint.startswith('achievements.') or request.endpoint.startswith('profile.') %}active{% endif %}" href="#" id="navbarUserDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="fas fa-user-circle me-1"></i> {{ g.user.display_name or g.user.misskey_username or 'ユーザー' }}
                     </a>

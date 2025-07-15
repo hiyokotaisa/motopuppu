@@ -208,72 +208,8 @@
         {% endif %}
         {# --- ODOリセット履歴表示テーブルここまで --- #}
     {% endif %} {# End of not vehicle.is_racer check #}
-    {# --- ▲▲▲ フェーズ1変更点 ▲▲▲ --- #}
 
-
-    {# --- リマインダーセクション (フェーズ1では変更なし、公道車・レーサー車共通で表示) --- #}
-    <hr class="my-4">
-    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap">
-        <h4 class="mb-0">メンテナンスリマインダー設定</h4>
-        <a href="{{ url_for('vehicle.add_reminder', vehicle_id=vehicle.id) }}" class="btn btn-success"><i class="fas fa-plus me-1"></i> 新しいリマインダーを追加</a>
-    </div>
-    
-    {# reminders はビューから渡される想定 #}
-    {% if reminders %}
-        <div class="row row-cols-1 row-cols-md-2 g-4">
-        {% for reminder in reminders %}
-            <div class="col">
-                <div class="card h-100">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-start">
-                            <h5 class="card-title mb-1">{{ reminder.task_description }}</h5>
-                            <div class="btn-group">
-                                <a href="{{ url_for('vehicle.edit_reminder', reminder_id=reminder.id) }}" class="btn btn-sm btn-outline-primary" title="編集"><i class="fas fa-edit fa-fw"></i></a>
-                                <form action="{{ url_for('vehicle.delete_reminder', reminder_id=reminder.id) }}" method="POST" class="d-inline" onsubmit="return confirm('このリマインダーを削除してもよろしいですか？');">
-                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="削除"><i class="fas fa-trash fa-fw"></i></button>
-                                </form>
-                            </div>
-                        </div>
-
-                        <p class="card-text text-muted">
-                            <i class="fas fa-sync-alt me-1"></i>
-                            {% if reminder.interval_km %} {{ "{:,}".format(reminder.interval_km) }} km毎 {% endif %}
-                            {% if reminder.interval_km and reminder.interval_months %} / {% endif %}
-                            {% if reminder.interval_months %} {{ reminder.interval_months }} ヶ月毎 {% endif %}
-                        </p>
-                        
-                        <p class="card-text">
-                            <strong>最終実施記録:</strong><br>
-                            {% if reminder.last_maintenance_entry %}
-                                <i class="fas fa-link me-1 text-primary"></i>
-                                <a href="{{ url_for('maintenance.edit_maintenance', entry_id=reminder.last_maintenance_entry.id) }}" title="この整備記録を見る">
-                                    {{ reminder.last_maintenance_entry.maintenance_date.strftime('%Y-%m-%d') }}
-                                </a>
-                                {% if not vehicle.is_racer and reminder.last_maintenance_entry.total_distance_at_maintenance is not none %}
-                                    ({{ "{:,}".format(reminder.last_maintenance_entry.total_distance_at_maintenance) }} km)
-                                {% endif %}
-                                <span class="badge bg-primary ms-1">連携中</span>
-                            {% elif reminder.last_done_date %}
-                                <i class="fas fa-pencil-alt me-1 text-secondary"></i>
-                                {{ reminder.last_done_date.strftime('%Y-%m-%d') }}
-                                {% if not vehicle.is_racer and reminder.last_done_km is not none %}
-                                    ({{ "{:,}".format(reminder.last_done_km) }} km)
-                                {% endif %}
-                                <span class="badge bg-secondary ms-1">手動入力</span>
-                            {% else %}
-                                <span class="text-muted">未設定</span>
-                            {% endif %}
-                        </p>
-                    </div>
-                </div>
-            </div>
-        {% endfor %}
-        </div>
-    {% else %}
-        <div class="alert alert-info">この車両のメンテナンスリマインダーはありません。</div>
-    {% endif %}
-    {# --- リマインダーセクションここまで --- #}
+    {# --- ▼▼▼ リマインダーセクション全体を削除 ▼▼▼ --- #}
 
 {% endif %} {# End of form_action == 'edit' check #}
 
@@ -286,7 +222,6 @@
 document.addEventListener('DOMContentLoaded', function() {
     const isRacerCheckbox = document.getElementById('is_racer_checkbox');
     const totalOperatingHoursFieldContainer = document.getElementById('total_operating_hours_field_container');
-    // --- ▼▼▼ 変更点: initial_odometerのコンテナを取得 ▼▼▼ ---
     const initialOdometerFieldContainer = document.getElementById('initial_odometer_field_container');
 
     function toggleVehicleSpecificFields() {
@@ -296,34 +231,30 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         if (isRacerCheckbox.checked) {
-            totalOperatingHoursFieldContainer.style.display = ''; // 表示
-            initialOdometerFieldContainer.style.display = 'none'; // 非表示
+            totalOperatingHoursFieldContainer.style.display = '';
+            initialOdometerFieldContainer.style.display = 'none';
         } else {
-            totalOperatingHoursFieldContainer.style.display = 'none'; // 非表示
-            initialOdometerFieldContainer.style.display = ''; // 表示
+            totalOperatingHoursFieldContainer.style.display = 'none';
+            initialOdometerFieldContainer.style.display = '';
         }
     }
 
     if (isRacerCheckbox) {
-        // 編集画面の場合、is_racer チェックボックスを無効化
         {% if form_action == 'edit' %}
             isRacerCheckbox.disabled = true;
-            // 既存の車両がレーサーの場合、チェックボックスを強制的にcheckedにする
             {% if vehicle and vehicle.is_racer %}
-                if (!isRacerCheckbox.checked) { // ビューでdata設定されていれば不要な場合も
+                if (!isRacerCheckbox.checked) {
                     isRacerCheckbox.checked = true;
                 }
             {% endif %}
             
-            // --- ▼▼▼ 変更点: 編集時は初期ODO入力欄を常に非表示にする ▼▼▼ ---
             if (initialOdometerFieldContainer) {
                 initialOdometerFieldContainer.style.display = 'none';
             }
-
         {% endif %}
 
         isRacerCheckbox.addEventListener('change', toggleVehicleSpecificFields);
-        toggleVehicleSpecificFields(); // ページの初期読み込み時にも実行
+        toggleVehicleSpecificFields();
     }
 });
 </script>

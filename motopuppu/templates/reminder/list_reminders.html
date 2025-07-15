@@ -1,0 +1,84 @@
+{# motopuppu/templates/reminder/list_reminders.html #}
+{% extends "base.html" %}
+
+{% block title %}メンテナンスリマインダー ({{ motorcycle.name }}) - もとぷっぷー{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap">
+    <div>
+        <h2 class="mb-0">メンテナンスリマインダー</h2>
+        <p class="text-muted lead">{{ motorcycle.name }}</p>
+    </div>
+    <a href="{{ url_for('reminder.add_reminder', vehicle_id=motorcycle.id) }}" class="btn btn-primary"><i class="fas fa-plus me-1"></i> 新しいリマインダーを追加</a>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+            <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show" role="alert">
+                {{ message | safe }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
+
+{% if reminders %}
+    <div class="row row-cols-1 row-cols-md-2 g-4">
+    {% for reminder in reminders %}
+        <div class="col">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <h5 class="card-title mb-1">{{ reminder.task_description }}</h5>
+                        <div class="btn-group">
+                            <a href="{{ url_for('reminder.edit_reminder', reminder_id=reminder.id) }}" class="btn btn-sm btn-outline-primary" title="編集"><i class="fas fa-edit fa-fw"></i></a>
+                            <form action="{{ url_for('reminder.delete_reminder', reminder_id=reminder.id) }}" method="POST" class="d-inline" onsubmit="return confirm('このリマインダーを削除してもよろしいですか？');">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                <button type="submit" class="btn btn-sm btn-outline-danger" title="削除"><i class="fas fa-trash fa-fw"></i></button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <p class="card-text text-muted">
+                        <i class="fas fa-sync-alt me-1"></i>
+                        {% if reminder.interval_km %} {{ "{:,}".format(reminder.interval_km) }} km毎 {% endif %}
+                        {% if reminder.interval_km and reminder.interval_months %} / {% endif %}
+                        {% if reminder.interval_months %} {{ reminder.interval_months }} ヶ月毎 {% endif %}
+                    </p>
+                    
+                    <p class="card-text">
+                        <strong>最終実施記録:</strong><br>
+                        {% if reminder.last_maintenance_entry %}
+                            <i class="fas fa-link me-1 text-primary"></i>
+                            <a href="{{ url_for('maintenance.edit_maintenance', entry_id=reminder.last_maintenance_entry.id) }}" title="この整備記録を見る">
+                                {{ reminder.last_maintenance_entry.maintenance_date.strftime('%Y-%m-%d') }}
+                            </a>
+                            {% if not motorcycle.is_racer and reminder.last_maintenance_entry.total_distance_at_maintenance is not none %}
+                                ({{ "{:,}".format(reminder.last_maintenance_entry.total_distance_at_maintenance) }} km)
+                            {% endif %}
+                            <span class="badge bg-primary ms-1">連携中</span>
+                        {% elif reminder.last_done_date %}
+                            <i class="fas fa-pencil-alt me-1 text-secondary"></i>
+                            {{ reminder.last_done_date.strftime('%Y-%m-%d') }}
+                            {% if not motorcycle.is_racer and reminder.last_done_km is not none %}
+                                ({{ "{:,}".format(reminder.last_done_km) }} km)
+                            {% endif %}
+                            <span class="badge bg-secondary ms-1">手動入力</span>
+                        {% else %}
+                            <span class="text-muted">未設定</span>
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+        </div>
+    {% endfor %}
+    </div>
+{% else %}
+    <div class="alert alert-info">
+        <h4 class="alert-heading">リマインダーがありません</h4>
+        <p>この車両にはまだメンテナンスリマインダーが設定されていません。上の「新しいリマインダーを追加」ボタンから最初の項目を追加しましょう。</p>
+    </div>
+{% endif %}
+
+{% endblock %}
