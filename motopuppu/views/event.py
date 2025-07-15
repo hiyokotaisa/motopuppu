@@ -149,30 +149,44 @@ def public_event_view(public_id):
     if form.validate_on_submit():
         participant_name = form.name.data
         passcode = form.passcode.data
+        status = form.status.data
         existing_participant = event.participants.filter_by(name=participant_name).first()
 
         try:
             if existing_participant:
-                # 更新の場合：パスコードをチェック
+                # --- ▼▼▼ ここから修正 ▼▼▼ ---
+                # 既存参加者の処理
                 if not existing_participant.check_passcode(passcode):
                     flash('パスコードが正しくありません。', 'danger')
-                    # この return 文がないと処理が続行してしまう
                     return redirect(url_for('event.public_event_view', public_id=public_id))
-                
-                existing_participant.status = ParticipationStatus(form.status.data)
-                flash(f'「{participant_name}」さんの出欠を更新しました。', 'success')
+
+                if status == 'delete':
+                    # 参加取り消しの場合
+                    db.session.delete(existing_participant)
+                    db.session.commit()
+                    flash(f'「{participant_name}」さんの参加登録を取り消しました。', 'info')
+                else:
+                    # ステータス更新の場合
+                    existing_participant.status = ParticipationStatus(status)
+                    db.session.commit()
+                    flash(f'「{participant_name}」さんの出欠を更新しました。', 'success')
+                # --- ▲▲▲ 修正ここまで ▲▲▲ ---
             else:
                 # 新規作成の場合
+                if status == 'delete':
+                    flash('まだ参加登録されていません。', 'warning')
+                    return redirect(url_for('event.public_event_view', public_id=public_id))
+
                 new_participant = EventParticipant(
                     event_id=event.id,
                     name=participant_name,
-                    status=ParticipationStatus(form.status.data)
+                    status=ParticipationStatus(status)
                 )
                 new_participant.set_passcode(passcode)
                 db.session.add(new_participant)
+                db.session.commit()
                 flash(f'「{participant_name}」さんの出欠を登録しました。ありがとうございます！', 'success')
-            
-            db.session.commit()
+
         except IntegrityError:
             db.session.rollback()
             flash('出欠の登録に失敗しました。同じ名前の参加者が既に登録されている可能性があります。', 'danger')
@@ -196,7 +210,7 @@ def public_event_view(public_id):
         participants_not_attending=participants_not_attending
     )
 
-# --- ▼▼▼ ここから追加 ▼▼▼ ---
+
 @event_bp.route('/participant/<int:participant_id>/delete', methods=['POST'])
 @login_required_custom
 def delete_participant(participant_id):
@@ -218,7 +232,6 @@ def delete_participant(participant_id):
         flash('参加者の削除中にエラーが発生しました。', 'danger')
         
     return redirect(url_for('event.event_detail', event_id=event.id))
-# --- ▲▲▲ 追加ここまで ▲▲▲ ---
 
 
 @event_bp.route('/<int:event_id>/export.ics')

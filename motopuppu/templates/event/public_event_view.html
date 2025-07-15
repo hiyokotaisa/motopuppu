@@ -49,7 +49,7 @@
                 <h2 class="h5 mb-0"><i class="fas fa-edit me-2"></i>出欠を登録・更新する</h2>
             </div>
             <div class="card-body">
-                <p class="small text-muted">初めて登録する方は、お名前と好きなパスコードを入力してください。既に参加登録済みの方は、同じお名前と登録したパスコードを入力することで出欠ステータスを更新できます。</p>
+                <p class="small text-muted">初めて登録する方は、お名前と好きなパスコードを入力してください。既に参加登録済みの方は、同じお名前と登録したパスコードを入力することで出欠ステータスを更新したり、参加登録を取り消すことができます。</p>
                 <form method="POST" action="{{ url_for('event.public_event_view', public_id=event.public_id) }}" novalidate>
                     {{ form.hidden_tag() }}
                     <div class="mb-3">
@@ -62,18 +62,16 @@
                         {% endif %}
                     </div>
                     
-                    {# --- ▼▼▼ パスコード入力欄を追加 ▼▼▼ --- #}
                     <div class="mb-3">
                         {{ form.passcode.label(class="form-label") }}
                         {{ form.passcode(class="form-control" + (" is-invalid" if form.passcode.errors else ""), placeholder="4文字以上で設定") }}
-                        <div class="form-text">出欠ステータスを変更する際に必要になります。忘れないようにしてください。</div>
+                        <div class="form-text">出欠ステータスを変更、または参加を取り消す際に必要になります。忘れないようにしてください。</div>
                         {% if form.passcode.errors %}
                         <div class="invalid-feedback">
                             {% for error in form.passcode.errors %}{{ error }}{% endfor %}
                         </div>
                         {% endif %}
                     </div>
-                    {# --- ▲▲▲ 追加ここまで ▲▲▲ --- #}
 
                     <div class="mb-3">
                         {{ form.status.label(class="form-label") }}
@@ -83,7 +81,8 @@
                             <label class="btn 
                                 {% if subfield.data == 'attending' %}btn-outline-success{% endif %}
                                 {% if subfield.data == 'tentative' %}btn-outline-warning{% endif %}
-                                {% if subfield.data == 'not_attending' %}btn-outline-secondary{% endif %}" 
+                                {% if subfield.data == 'not_attending' %}btn-outline-secondary{% endif %}
+                                {% if subfield.data == 'delete' %}btn-outline-danger{% endif %}"
                                 for="{{ subfield.id }}">{{ subfield.label.text }}</label>
                             {% endfor %}
                         </div>

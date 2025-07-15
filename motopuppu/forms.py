@@ -692,7 +692,6 @@ class ParticipantForm(FlaskForm):
             Length(max=20, message='お名前は20文字以内で入力してください。')
         ]
     )
-    # --- ▼▼▼ ここから修正 ▼▼▼ ---
     passcode = PasswordField(
         'パスコード (4〜20文字)',
         validators=[
@@ -705,12 +704,12 @@ class ParticipantForm(FlaskForm):
         choices=[
             ('attending', '参加'),
             ('tentative', '保留'),
-            ('not_attending', '不参加')
+            ('not_attending', '不参加'),
+            ('delete', '参加を取り消す') # --- ▼▼▼ ここに追加 ▼▼▼ ---
         ],
         validators=[DataRequired(message='出欠を選択してください。')],
         default='attending'
     )
     submit = SubmitField('出欠を登録・更新する')
-    # --- ▲▲▲ 修正ここまで ▲▲▲ ---
     
 # --- ▲▲▲ イベント機能 (ここまで) ▲▲▲ ---
