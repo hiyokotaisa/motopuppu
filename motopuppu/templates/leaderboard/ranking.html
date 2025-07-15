@@ -58,7 +58,19 @@
                             {% endif %}
                         </th>
                         <td><strong class="fs-5">{{ item.lap_time }}</strong></td>
-                        <td>{{ item.username }}</td>
+                        {# --- ▼▼▼ ここから変更 ▼▼▼ --- #}
+                        <td>
+                            <div class="d-flex align-items-center">
+                                {% if item.avatar_url %}
+                                    <img src="{{ item.avatar_url }}" alt="{{ item.username }}" class="rounded-circle me-2" style="width: 32px; height: 32px; object-fit: cover;">
+                                {% else %}
+                                    {# フォールバック用のアイコン（サイズと色を調整） #}
+                                    <i class="fas fa-user-circle fa-2x me-2 text-secondary" style="line-height: 1;"></i>
+                                {% endif %}
+                                <span>{{ item.username }}</span>
+                            </div>
+                        </td>
+                        {# --- ▲▲▲ ここまで変更 ▲▲▲ --- #}
                         <td>{{ item.motorcycle_name }}</td>
                         <td class="text-end text-muted small">{{ item.date }}</td>
                     </tr>
