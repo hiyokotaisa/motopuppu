@@ -116,13 +116,17 @@
                                 </div>
                                 {% if not motorcycle.is_racer %}
                                 <div class="col-md-6">
-                                    {{ form.last_done_km.label(class="form-label") }}
-                                    {{ form.last_done_km(class="form-control" + (" is-invalid" if form.last_done_km.errors else ""), min="0", id="last-done-km") }}
-                                    {% if form.last_done_km.errors %}
+                                    {# --- ▼▼▼ ここから変更 ▼▼▼ --- #}
+                                    {{ form.last_done_odo.label(class="form-label") }}
+                                    {{ form.last_done_odo(class="form-control" + (" is-invalid" if form.last_done_odo.errors else ""), min="0", id="last-done-odo") }}
+                                    {% if form.last_done_odo.errors %}
                                         <div class="invalid-feedback">
-                                            {% for error in form.last_done_km.errors %}<span>{{ error }}</span><br>{% endfor %}
+                                            {% for error in form.last_done_odo.errors %}<span>{{ error }}</span><br>{% endfor %}
                                         </div>
+                                    {% else %}
+                                    <div class="form-text">メーターに表示されている数値を入力します。</div>
                                     {% endif %}
+                                    {# --- ▲▲▲ ここまで変更 ▲▲▲ --- #}
                                 </div>
                                 {% endif %}
                             </div>
@@ -150,14 +154,18 @@ document.addEventListener('DOMContentLoaded', function() {
     // 必要なDOM要素を取得
     const selectEl = document.getElementById('maintenance-entry-select');
     const dateInput = document.getElementById('last-done-date');
-    const kmInput = document.getElementById('last-done-km');
+    // --- ▼▼▼ 変更 ▼▼▼ ---
+    const odoInput = document.getElementById('last-done-odo'); 
+    // --- ▲▲▲ 変更 ▲▲▲ ---
     const fieldset = document.getElementById('manual-input-fieldset');
 
     const maintenanceData = {
         {% for entry in maintenance_entries_for_js %}
             "{{ entry.id }}": {
                 "date": "{{ entry.maintenance_date.isoformat() if entry.maintenance_date else '' }}",
-                "km": "{{ entry.total_distance_at_maintenance if entry.total_distance_at_maintenance is not none else '' }}"
+                // --- ▼▼▼ 変更 ▼▼▼ ---
+                "odo": "{{ entry.odometer_reading_at_maintenance if entry.odometer_reading_at_maintenance is not none else '' }}"
+                // --- ▲▲▲ 変更 ▲▲▲ ---
             },
         {% endfor %}
     };
@@ -168,9 +176,11 @@ document.addEventListener('DOMContentLoaded', function() {
         if (selectedId && maintenanceData[selectedId]) {
             const data = maintenanceData[selectedId];
             dateInput.value = data.date;
-            if (kmInput) {
-                kmInput.value = data.km;
+            // --- ▼▼▼ 変更 ▼▼▼ ---
+            if (odoInput) {
+                odoInput.value = data.odo;
             }
+            // --- ▲▲▲ 変更 ▲▲▲ ---
             fieldset.disabled = true;
         } else {
             fieldset.disabled = false;

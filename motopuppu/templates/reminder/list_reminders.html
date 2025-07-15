@@ -54,16 +54,20 @@
                             <a href="{{ url_for('maintenance.edit_maintenance', entry_id=reminder.last_maintenance_entry.id) }}" title="この整備記録を見る">
                                 {{ reminder.last_maintenance_entry.maintenance_date.strftime('%Y-%m-%d') }}
                             </a>
-                            {% if not motorcycle.is_racer and reminder.last_maintenance_entry.total_distance_at_maintenance is not none %}
-                                ({{ "{:,}".format(reminder.last_maintenance_entry.total_distance_at_maintenance) }} km)
+                            {# --- ▼▼▼ ここから変更 ▼▼▼ --- #}
+                            {% if not motorcycle.is_racer and reminder.last_maintenance_entry.odometer_reading_at_maintenance is not none %}
+                                ({{ "{:,}".format(reminder.last_maintenance_entry.odometer_reading_at_maintenance) }} km)
                             {% endif %}
+                            {# --- ▲▲▲ ここまで変更 ▲▲▲ --- #}
                             <span class="badge bg-primary ms-1">連携中</span>
                         {% elif reminder.last_done_date %}
                             <i class="fas fa-pencil-alt me-1 text-secondary"></i>
                             {{ reminder.last_done_date.strftime('%Y-%m-%d') }}
-                            {% if not motorcycle.is_racer and reminder.last_done_km is not none %}
-                                ({{ "{:,}".format(reminder.last_done_km) }} km)
+                            {# --- ▼▼▼ ここから変更 ▼▼▼ --- #}
+                            {% if not motorcycle.is_racer and reminder.last_done_odo is not none %}
+                                ({{ "{:,}".format(reminder.last_done_odo) }} km)
                             {% endif %}
+                            {# --- ▲▲▲ ここまで変更 ▲▲▲ --- #}
                             <span class="badge bg-secondary ms-1">手動入力</span>
                         {% else %}
                             <span class="text-muted">未設定</span>

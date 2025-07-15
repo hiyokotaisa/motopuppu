@@ -80,8 +80,11 @@ def get_upcoming_reminders(user_motorcycles_all, user_id):
             current_public_distances[m.id] = get_latest_total_distance(
                 m.id, m.odometer_offset)
 
-    all_reminders = MaintenanceReminder.query.options(db.joinedload(MaintenanceReminder.motorcycle)).join(Motorcycle).filter(
-        Motorcycle.user_id == user_id).all()
+    all_reminders = MaintenanceReminder.query.options(
+        db.joinedload(MaintenanceReminder.motorcycle),
+        db.joinedload(MaintenanceReminder.last_maintenance_entry) # N+1問題対策で追加
+    ).join(Motorcycle).filter(Motorcycle.user_id == user_id).all()
+
 
     for reminder in all_reminders:
         motorcycle = reminder.motorcycle
@@ -133,14 +136,24 @@ def get_upcoming_reminders(user_motorcycles_all, user_id):
                 is_due = True
 
         if is_due:
+            # --- ▼▼▼ ここから変更 ▼▼▼ ---
             last_done_str = "未実施"
+            last_done_odo_val = None
+            
+            # 表示するODO値を決定（連携記録を優先）
+            if reminder.last_maintenance_entry:
+                last_done_odo_val = reminder.last_maintenance_entry.odometer_reading_at_maintenance
+            elif reminder.last_done_odo is not None:
+                last_done_odo_val = reminder.last_done_odo
+
+            # 表示用の文字列を生成
             if reminder.last_done_date:
-                last_done_str = reminder.last_done_date.strftime(
-                    '%Y-%m-%d')
-                if not motorcycle.is_racer and reminder.last_done_km is not None:
-                    last_done_str += f" ({reminder.last_done_km:,} km)"
-            elif not motorcycle.is_racer and reminder.last_done_km is not None:
-                last_done_str = f"{reminder.last_done_km:,} km"
+                last_done_str = reminder.last_done_date.strftime('%Y-%m-%d')
+                if not motorcycle.is_racer and last_done_odo_val is not None:
+                    last_done_str += f" ({last_done_odo_val:,} km)"
+            elif not motorcycle.is_racer and last_done_odo_val is not None:
+                last_done_str = f"{last_done_odo_val:,} km"
+            # --- ▲▲▲ ここまで変更 ▲▲▲ ---
 
             upcoming_reminders.append({
                 'reminder_id': reminder.id,

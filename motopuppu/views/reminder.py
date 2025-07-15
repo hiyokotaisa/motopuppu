@@ -18,8 +18,6 @@ def list_reminders(vehicle_id):
     motorcycle = Motorcycle.query.filter_by(id=vehicle_id, user_id=g.user.id).first_or_404()
     reminders = MaintenanceReminder.query.filter_by(motorcycle_id=vehicle_id).order_by(MaintenanceReminder.task_description, MaintenanceReminder.id).all()
     
-    # ここで各リマインダーのステータスを計算するロジックを追加することも可能 (将来的な改善)
-
     return render_template('reminder/list_reminders.html', 
                            motorcycle=motorcycle, 
                            reminders=reminders)
@@ -41,18 +39,32 @@ def add_reminder(vehicle_id):
     if form.validate_on_submit():
         new_reminder = MaintenanceReminder(motorcycle_id=vehicle_id)
         
-        form.populate_obj(new_reminder)
+        # --- ▼▼▼ ここから変更 ▼▼▼ ---
+        new_reminder.task_description = form.task_description.data.strip() if form.task_description.data else None
+        new_reminder.interval_km = form.interval_km.data
+        new_reminder.interval_months = form.interval_months.data
+        new_reminder.auto_update_from_category = form.auto_update_from_category.data
 
         selected_entry = form.maintenance_entry.data
         if selected_entry:
+            # 整備ログと連携する場合
             new_reminder.last_maintenance_entry_id = selected_entry.id
             new_reminder.last_done_date = selected_entry.maintenance_date
             new_reminder.last_done_km = selected_entry.total_distance_at_maintenance
+            new_reminder.last_done_odo = selected_entry.odometer_reading_at_maintenance
         else:
+            # 手動で入力する場合
             new_reminder.last_maintenance_entry_id = None
-        
-        if new_reminder.task_description:
-            new_reminder.task_description = new_reminder.task_description.strip()
+            new_reminder.last_done_date = form.last_done_date.data
+            new_reminder.last_done_odo = form.last_done_odo.data
+
+            # ODO値と日付から総走行距離を計算して last_done_km に格納
+            if new_reminder.last_done_odo is not None and new_reminder.last_done_date is not None:
+                offset = motorcycle.calculate_cumulative_offset_from_logs(target_date=new_reminder.last_done_date)
+                new_reminder.last_done_km = new_reminder.last_done_odo + offset
+            else:
+                new_reminder.last_done_km = None # ODOが未入力なら総走行距離もNone
+        # --- ▲▲▲ ここまで変更 ▲▲▲ ---
 
         try:
             db.session.add(new_reminder)
@@ -102,20 +114,38 @@ def edit_reminder(reminder_id):
     
     if request.method == 'GET':
         form.maintenance_entry.data = reminder.last_maintenance_entry
+        # --- ▼▼▼ ここから変更 ▼▼▼ ---
+        # obj でフォームに渡すので、last_done_odo も自動的に設定されるはずだが、念のため明示
+        form.last_done_odo.data = reminder.last_done_odo
+        # --- ▲▲▲ ここまで変更 ▲▲▲ ---
 
     if form.validate_on_submit():
-        form.populate_obj(reminder)
+        # --- ▼▼▼ ここから変更 ▼▼▼ ---
+        reminder.task_description = form.task_description.data.strip() if form.task_description.data else None
+        reminder.interval_km = form.interval_km.data
+        reminder.interval_months = form.interval_months.data
+        reminder.auto_update_from_category = form.auto_update_from_category.data
 
         selected_entry = form.maintenance_entry.data
         if selected_entry:
+            # 整備ログと連携する場合
             reminder.last_maintenance_entry_id = selected_entry.id
             reminder.last_done_date = selected_entry.maintenance_date
             reminder.last_done_km = selected_entry.total_distance_at_maintenance
+            reminder.last_done_odo = selected_entry.odometer_reading_at_maintenance
         else:
+            # 手動で入力する場合
             reminder.last_maintenance_entry_id = None
+            reminder.last_done_date = form.last_done_date.data
+            reminder.last_done_odo = form.last_done_odo.data
             
-        if reminder.task_description:
-            reminder.task_description = reminder.task_description.strip()
+            # ODO値と日付から総走行距離を計算して last_done_km に格納
+            if reminder.last_done_odo is not None and reminder.last_done_date is not None:
+                offset = motorcycle.calculate_cumulative_offset_from_logs(target_date=reminder.last_done_date)
+                reminder.last_done_km = reminder.last_done_odo + offset
+            else:
+                reminder.last_done_km = None # ODOが未入力なら総走行距離もNone
+        # --- ▲▲▲ ここまで変更 ▲▲▲ ---
             
         try:
             db.session.commit()

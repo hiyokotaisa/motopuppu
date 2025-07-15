@@ -38,7 +38,7 @@ def get_previous_maintenance_entry(motorcycle_id, current_maintenance_date, curr
     
     return previous_entry
 
-# --- ▼▼▼ ここを修正 ▼▼▼ ---
+
 def _update_reminder_if_applicable(maintenance_entry: MaintenanceEntry):
     """
     条件付きでリマインダーを自動更新する関数。
@@ -77,14 +77,18 @@ def _update_reminder_if_applicable(maintenance_entry: MaintenanceEntry):
                 is_newer = True
 
             if is_newer:
+                # --- ▼▼▼ ここから変更 ▼▼▼ ---
                 # 新しい整備記録に自動的に紐づける
                 reminder.last_maintenance_entry_id = maintenance_entry.id
                 reminder.last_done_date = maintenance_entry.maintenance_date
                 reminder.last_done_km = maintenance_entry.total_distance_at_maintenance
+                # last_done_odo にも値をセットする
+                reminder.last_done_odo = maintenance_entry.odometer_reading_at_maintenance
+                # --- ▲▲▲ ここまで変更 ▲▲▲ ---
                 flash(f"整備記録に基づき、リマインダー「{reminder.task_description}」を新しい記録に自動連携しました。", 'info')
                 current_app.logger.info(f"Reminder '{reminder.task_description}' (ID:{reminder.id}) was auto-linked to new MaintenanceEntry ID:{maintenance_entry.id}")
                 break
-# --- ▲▲▲ ここまで修正 ▲▲▲ ---
+
 
 @maintenance_bp.route('/')
 @login_required_custom

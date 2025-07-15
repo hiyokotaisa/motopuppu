@@ -380,21 +380,23 @@ class ReminderForm(FlaskForm):
         validators=[Optional()],
         format='%Y-%m-%d'
     )
-    last_done_km = IntegerField(
-        '最終実施時の総走行距離 (km)',
+    
+    # --- ▼▼▼ ここから変更 ▼▼▼ ---
+    # last_done_km を last_done_odo に変更し、ラベルも修正
+    last_done_odo = IntegerField(
+        '最終実施時のメーターODO値 (km)',
         validators=[
             Optional(),
-            NumberRange(min=0, message='最終実施距離は0以上の値を入力してください。')
+            NumberRange(min=0, message='最終実施時のODO値は0以上の値を入力してください。')
         ],
         render_kw={"placeholder": "例: 15000"}
     )
+    # --- ▲▲▲ ここまで変更 ▲▲▲ ---
     
-    # --- ▼▼▼ ここから追加 ▼▼▼ ---
     auto_update_from_category = BooleanField(
         '整備記録のカテゴリ名が一致した場合、このリマインダーを自動的に連携・更新する',
         default=True
     )
-    # --- ▲▲▲ ここまで追加 ▲▲▲ ---
 
     submit = SubmitField('保存する')
 

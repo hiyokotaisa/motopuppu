@@ -172,7 +172,9 @@ class MaintenanceEntry(db.Model):
     @property
     def maintenance_summary_for_select(self):
         """リマインダーの選択肢で表示するための整形済みテキストを返す"""
-        odo_text = f"({self.total_distance_at_maintenance:,}km)" if self.total_distance_at_maintenance is not None else ""
+        # --- ▼▼▼ ここから変更 ▼▼▼ ---
+        odo_text = f"({self.odometer_reading_at_maintenance:,}km)" if self.odometer_reading_at_maintenance is not None else ""
+        # --- ▲▲▲ ここまで変更 ▲▲▲ ---
         desc_text = f"{self.description[:25]}..." if len(self.description) > 25 else self.description
         return f"{self.maintenance_date.strftime('%Y-%m-%d')} / {desc_text} {odo_text}"
 
@@ -198,14 +200,16 @@ class MaintenanceReminder(db.Model):
     interval_km = db.Column(db.Integer, nullable=True)
     interval_months = db.Column(db.Integer, nullable=True)
     last_done_date = db.Column(db.Date, nullable=True, comment="手動入力または連携された最終実施日")
-    last_done_km = db.Column(db.Integer, nullable=True, comment="手動入力または連携された最終実施距離")
+    
+    # last_done_km は「総走行距離」を格納する役割を維持
+    last_done_km = db.Column(db.Integer, nullable=True, comment="最終実施時の『総走行距離』(計算済み)") 
+    # 新しく「メーターODO値」を保存するカラムを追加
+    last_done_odo = db.Column(db.Integer, nullable=True, comment="最終実施時の『メーターODO値』(手動入力用)") 
 
     # 紐づく整備記録への外部キー
     last_maintenance_entry_id = db.Column(db.Integer, db.ForeignKey('maintenance_entries.id', ondelete='SET NULL'), nullable=True)
     
-    # --- ▼▼▼ ここから追加 ▼▼▼ ---
     auto_update_from_category = db.Column(db.Boolean, nullable=False, default=True, server_default='true', comment="カテゴリ名が一致した整備記録で自動更新するか")
-    # --- ▲▲▲ ここまで追加 ▲▲▲ ---
 
     # 整備記録へのリレーションシップ
     last_maintenance_entry = db.relationship(
