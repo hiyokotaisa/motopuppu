@@ -5,6 +5,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy import Index, func
 import uuid
 from enum import Enum as PyEnum
+from werkzeug.security import generate_password_hash, check_password_hash
 
 # --- データベースモデル定義 ---
 
@@ -305,9 +306,7 @@ class ActivityLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     motorcycle_id = db.Column(db.Integer, db.ForeignKey('motorcycles.id', ondelete='CASCADE'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
-    # --- ▼▼▼ ここから追加 ▼▼▼ ---
     event_id = db.Column(db.Integer, db.ForeignKey('events.id', ondelete='SET NULL'), nullable=True, index=True, comment="この活動ログが紐づくイベントのID")
-    # --- ▲▲▲ 追加ここまで ▲▲▲ ---
     activity_date = db.Column(db.Date, nullable=False, index=True)
     
     # --- ▼▼▼ 変更 ▼▼▼ ---
@@ -418,9 +417,7 @@ class Event(db.Model):
     owner = db.relationship('User', backref=db.backref('events', lazy='dynamic'))
     motorcycle = db.relationship('Motorcycle', backref=db.backref('events', lazy='dynamic'))
     participants = db.relationship('EventParticipant', backref='event', lazy='dynamic', cascade="all, delete-orphan")
-    # --- ▼▼▼ ここから追加 ▼▼▼ ---
     activity_logs = db.relationship('ActivityLog', backref='origin_event', lazy='dynamic', order_by="desc(ActivityLog.activity_date)")
-    # --- ▲▲▲ 追加ここまで ▲▲▲ ---
 
     def __repr__(self):
         return f'<Event id={self.id} title="{self.title}">'
@@ -433,10 +430,31 @@ class EventParticipant(db.Model):
     
     name = db.Column(db.String(100), nullable=False, comment="参加者名")
     status = db.Column(db.Enum(ParticipationStatus, values_callable=lambda x: [e.value for e in x]), nullable=False, comment="出欠ステータス")
+    
+    # --- ▼▼▼ ここから修正 ▼▼▼ ---
+    passcode_hash = db.Column(db.String(255), nullable=True, comment="出欠変更用のパスコードのハッシュ")
+    # --- ▲▲▲ 修正ここまで ▲▲▲ ---
 
     created_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
 
     __table_args__ = (db.UniqueConstraint('event_id', 'name', name='uq_event_participant_name'),)
+
+    # --- ▼▼▼ ここから追加 ▼▼▼ ---
+    def set_passcode(self, passcode):
+        """パスコードをハッシュ化して保存する"""
+        if passcode:
+            self.passcode_hash = generate_password_hash(passcode)
+        else:
+            self.passcode_hash = None
+
+    def check_passcode(self, passcode):
+        """入力されたパスコードが正しいかチェックする"""
+        if self.passcode_hash is None: # パスコードが設定されていない場合は常にTrue（後方互換性のため）
+            return True
+        if not passcode: # パスコードが入力されていない場合はFalse
+            return False
+        return check_password_hash(self.passcode_hash, passcode)
+    # --- ▲▲▲ 追加ここまで ▲▲▲ ---
 
     def __repr__(self):
         return f'<EventParticipant id={self.id} event_id={self.event_id} name="{self.name}" status="{self.status.value}">'

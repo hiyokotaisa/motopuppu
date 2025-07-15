@@ -61,6 +61,7 @@
             </div>
         </div>
         {% endif %}
+
         <h2 class="h4">参加者リスト</h2>
         <div class="accordion" id="participantsAccordion">
             {# --- 参加者 --- #}
@@ -75,7 +76,12 @@
                         {% if participants_attending %}
                         <ul class="list-group list-group-flush">
                             {% for p in participants_attending %}
-                            <li class="list-group-item">{{ p.name }}</li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                {{ p.name }}
+                                <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteParticipantModal" data-bs-participant-id="{{ p.id }}" data-bs-participant-name="{{ p.name }}">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </li>
                             {% endfor %}
                         </ul>
                         {% else %}
@@ -97,7 +103,12 @@
                         {% if participants_tentative %}
                         <ul class="list-group list-group-flush">
                             {% for p in participants_tentative %}
-                            <li class="list-group-item">{{ p.name }}</li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                {{ p.name }}
+                                <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteParticipantModal" data-bs-participant-id="{{ p.id }}" data-bs-participant-name="{{ p.name }}">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </li>
                             {% endfor %}
                         </ul>
                         {% else %}
@@ -119,7 +130,12 @@
                         {% if participants_not_attending %}
                         <ul class="list-group list-group-flush">
                             {% for p in participants_not_attending %}
-                            <li class="list-group-item">{{ p.name }}</li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                {{ p.name }}
+                                <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteParticipantModal" data-bs-participant-id="{{ p.id }}" data-bs-participant-name="{{ p.name }}">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </li>
                             {% endfor %}
                         </ul>
                         {% else %}
@@ -152,11 +168,9 @@
                     </a>
                     {% endif %}
                     {% if event.motorcycle %}
-                    {# --- ▼▼▼ a タグの href を修正して event_id を追加 ▼▼▼ --- #}
                     <a href="{{ url_for('activity.add_activity', vehicle_id=event.motorcycle_id, event_id=event.id, activity_title=event.title, activity_date=(event.start_datetime|to_jst('%Y-%m-%d')), custom_location=event.location) }}" class="btn btn-outline-info">
                         <i class="fas fa-flag-checkered me-1"></i> このイベントの活動ログを作成
                     </a>
-                    {# --- ▲▲▲ 修正ここまで ▲▲▲ --- #}
                     {% endif %}
                 </div>
             </div>
@@ -201,6 +215,28 @@
         </div>
     </div>
 </div>
+
+<div class="modal fade" id="deleteParticipantModal" tabindex="-1" aria-labelledby="deleteParticipantModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteParticipantModalLabel">参加者の削除</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>参加者「<strong id="modalParticipantName"></strong>」を本当に削除しますか？</p>
+                <p class="text-muted small">この操作は、参加者がパスコードを忘れた場合などに使用します。</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                <form id="deleteParticipantForm" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-danger">削除</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -212,16 +248,29 @@ document.addEventListener('DOMContentLoaded', function() {
         copyBtn.addEventListener('click', function() {
             const urlInput = document.getElementById('publicUrl');
             navigator.clipboard.writeText(urlInput.value).then(function() {
-                // コピー成功時のフィードバック
                 const originalIcon = copyBtn.innerHTML;
                 copyBtn.innerHTML = '<i class="fas fa-check"></i>';
                 setTimeout(function() {
                     copyBtn.innerHTML = originalIcon;
                 }, 2000);
             }, function(err) {
-                // コピー失敗時のフォールバック
                 alert('URLのコピーに失敗しました。');
             });
+        });
+    }
+
+    const deleteParticipantModal = document.getElementById('deleteParticipantModal');
+    if (deleteParticipantModal) {
+        deleteParticipantModal.addEventListener('show.bs.modal', function(event) {
+            const button = event.relatedTarget;
+            const participantId = button.getAttribute('data-bs-participant-id');
+            const participantName = button.getAttribute('data-bs-participant-name');
+            
+            const modalName = deleteParticipantModal.querySelector('#modalParticipantName');
+            const deleteForm = deleteParticipantModal.querySelector('#deleteParticipantForm');
+            
+            modalName.textContent = participantName;
+            deleteForm.action = `/event/participant/${participantId}/delete`;
         });
     }
 });

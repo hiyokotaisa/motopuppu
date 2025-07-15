@@ -1,8 +1,8 @@
 # motopuppu/forms.py
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileField, FileRequired, FileAllowed
-from wtforms import StringField, SelectField, DateField, DecimalField, IntegerField, TextAreaField, BooleanField, SubmitField, RadioField, FieldList, FormField, HiddenField, DateTimeField
-from wtforms.validators import DataRequired, Optional, NumberRange, Length, ValidationError, InputRequired
+from wtforms import StringField, SelectField, DateField, DecimalField, IntegerField, TextAreaField, BooleanField, SubmitField, RadioField, FieldList, FormField, HiddenField, DateTimeField, PasswordField
+from wtforms.validators import DataRequired, Optional, NumberRange, Length, ValidationError, InputRequired, EqualTo
 from datetime import date, datetime
 from wtforms_sqlalchemy.fields import QuerySelectField
 
@@ -692,6 +692,14 @@ class ParticipantForm(FlaskForm):
             Length(max=20, message='お名前は20文字以内で入力してください。')
         ]
     )
+    # --- ▼▼▼ ここから修正 ▼▼▼ ---
+    passcode = PasswordField(
+        'パスコード (4〜20文字)',
+        validators=[
+            DataRequired(message='パスコードは必須です。'),
+            Length(min=4, max=20, message='パスコードは4文字以上20文字以内で設定してください。')
+        ]
+    )
     status = RadioField(
         '出欠',
         choices=[
@@ -702,6 +710,7 @@ class ParticipantForm(FlaskForm):
         validators=[DataRequired(message='出欠を選択してください。')],
         default='attending'
     )
-    submit = SubmitField('出欠を登録する')
+    submit = SubmitField('出欠を登録・更新する')
+    # --- ▲▲▲ 修正ここまで ▲▲▲ ---
     
 # --- ▲▲▲ イベント機能 (ここまで) ▲▲▲ ---

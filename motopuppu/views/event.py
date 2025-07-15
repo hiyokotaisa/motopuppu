@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from .auth import login_required_custom
 from ..models import db, Event, EventParticipant, Motorcycle, ParticipationStatus
 from ..forms import EventForm, ParticipantForm
-from ..utils.datetime_helpers import JST # ★★★ jst から JST (大文字) に修正 ★★★
+from ..utils.datetime_helpers import JST
 
 # iCalenderライブラリのインポート
 try:
@@ -42,8 +42,8 @@ def add_event():
 
     if form.validate_on_submit():
         # フォームから受け取った日時はNaiveなので、JSTとして解釈し、UTCに変換してDBに保存
-        start_dt_utc = form.start_datetime.data.replace(tzinfo=JST).astimezone(timezone.utc) # ★★★ JSTに修正
-        end_dt_utc = form.end_datetime.data.replace(tzinfo=JST).astimezone(timezone.utc) if form.end_datetime.data else None # ★★★ JSTに修正
+        start_dt_utc = form.start_datetime.data.replace(tzinfo=JST).astimezone(timezone.utc)
+        end_dt_utc = form.end_datetime.data.replace(tzinfo=JST).astimezone(timezone.utc) if form.end_datetime.data else None
 
         new_event = Event(
             user_id=g.user.id,
@@ -78,8 +78,8 @@ def edit_event(event_id):
     form.motorcycle_id.choices.insert(0, (0, '--- 車両を関連付けない ---'))
 
     if form.validate_on_submit():
-        start_dt_utc = form.start_datetime.data.replace(tzinfo=JST).astimezone(timezone.utc) # ★★★ JSTに修正
-        end_dt_utc = form.end_datetime.data.replace(tzinfo=JST).astimezone(timezone.utc) if form.end_datetime.data else None # ★★★ JSTに修正
+        start_dt_utc = form.start_datetime.data.replace(tzinfo=JST).astimezone(timezone.utc)
+        end_dt_utc = form.end_datetime.data.replace(tzinfo=JST).astimezone(timezone.utc) if form.end_datetime.data else None
 
         event.motorcycle_id = form.motorcycle_id.data if form.motorcycle_id.data != 0 else None
         event.title = form.title.data
@@ -97,9 +97,9 @@ def edit_event(event_id):
             flash('イベントの更新中にエラーが発生しました。', 'danger')
 
     # GETリクエスト時、DBのUTC時刻をJSTに変換してフォームにセット
-    form.start_datetime.data = event.start_datetime.astimezone(JST) # ★★★ JSTに修正
+    form.start_datetime.data = event.start_datetime.astimezone(JST)
     if event.end_datetime:
-        form.end_datetime.data = event.end_datetime.astimezone(JST) # ★★★ JSTに修正
+        form.end_datetime.data = event.end_datetime.astimezone(JST)
     
     return render_template('event/event_form.html', form=form, mode='edit', event=event)
 
@@ -126,9 +126,9 @@ def event_detail(event_id):
     """イベントの詳細ページ（作成者向け）"""
     event = Event.query.filter_by(id=event_id, user_id=g.user.id).first_or_404()
     
-    participants_attending = event.participants.filter_by(status=ParticipationStatus.ATTENDING).all()
-    participants_tentative = event.participants.filter_by(status=ParticipationStatus.TENTATIVE).all()
-    participants_not_attending = event.participants.filter_by(status=ParticipationStatus.NOT_ATTENDING).all()
+    participants_attending = event.participants.filter_by(status=ParticipationStatus.ATTENDING).order_by(EventParticipant.created_at).all()
+    participants_tentative = event.participants.filter_by(status=ParticipationStatus.TENTATIVE).order_by(EventParticipant.created_at).all()
+    participants_not_attending = event.participants.filter_by(status=ParticipationStatus.NOT_ATTENDING).order_by(EventParticipant.created_at).all()
 
     return render_template(
         'event/event_detail.html', 
@@ -148,21 +148,27 @@ def public_event_view(public_id):
 
     if form.validate_on_submit():
         participant_name = form.name.data
-        # 同じ名前の参加者が既にいるかチェック
+        passcode = form.passcode.data
         existing_participant = event.participants.filter_by(name=participant_name).first()
 
         try:
             if existing_participant:
-                # 更新
+                # 更新の場合：パスコードをチェック
+                if not existing_participant.check_passcode(passcode):
+                    flash('パスコードが正しくありません。', 'danger')
+                    # この return 文がないと処理が続行してしまう
+                    return redirect(url_for('event.public_event_view', public_id=public_id))
+                
                 existing_participant.status = ParticipationStatus(form.status.data)
                 flash(f'「{participant_name}」さんの出欠を更新しました。', 'success')
             else:
-                # 新規作成
+                # 新規作成の場合
                 new_participant = EventParticipant(
                     event_id=event.id,
                     name=participant_name,
                     status=ParticipationStatus(form.status.data)
                 )
+                new_participant.set_passcode(passcode)
                 db.session.add(new_participant)
                 flash(f'「{participant_name}」さんの出欠を登録しました。ありがとうございます！', 'success')
             
@@ -189,6 +195,30 @@ def public_event_view(public_id):
         participants_tentative=participants_tentative,
         participants_not_attending=participants_not_attending
     )
+
+# --- ▼▼▼ ここから追加 ▼▼▼ ---
+@event_bp.route('/participant/<int:participant_id>/delete', methods=['POST'])
+@login_required_custom
+def delete_participant(participant_id):
+    """主催者が参加者を削除する"""
+    participant = EventParticipant.query.get_or_404(participant_id)
+    event = participant.event
+    
+    # この操作を実行しようとしているのが、本当にイベントの主催者か確認
+    if event.user_id != g.user.id:
+        abort(403)
+        
+    try:
+        db.session.delete(participant)
+        db.session.commit()
+        flash(f'参加者「{participant.name}」を削除しました。', 'info')
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error deleting participant {participant_id} by owner: {e}", exc_info=True)
+        flash('参加者の削除中にエラーが発生しました。', 'danger')
+        
+    return redirect(url_for('event.event_detail', event_id=event.id))
+# --- ▲▲▲ 追加ここまで ▲▲▲ ---
 
 
 @event_bp.route('/<int:event_id>/export.ics')
