@@ -203,6 +203,10 @@ class MaintenanceReminder(db.Model):
     # 紐づく整備記録への外部キー
     last_maintenance_entry_id = db.Column(db.Integer, db.ForeignKey('maintenance_entries.id', ondelete='SET NULL'), nullable=True)
     
+    # --- ▼▼▼ ここから追加 ▼▼▼ ---
+    auto_update_from_category = db.Column(db.Boolean, nullable=False, default=True, server_default='true', comment="カテゴリ名が一致した整備記録で自動更新するか")
+    # --- ▲▲▲ ここまで追加 ▲▲▲ ---
+
     # 整備記録へのリレーションシップ
     last_maintenance_entry = db.relationship(
         'MaintenanceEntry', 

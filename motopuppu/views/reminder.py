@@ -41,9 +41,7 @@ def add_reminder(vehicle_id):
     if form.validate_on_submit():
         new_reminder = MaintenanceReminder(motorcycle_id=vehicle_id)
         
-        new_reminder.task_description = form.task_description.data.strip() if form.task_description.data else None
-        new_reminder.interval_km = form.interval_km.data
-        new_reminder.interval_months = form.interval_months.data
+        form.populate_obj(new_reminder)
 
         selected_entry = form.maintenance_entry.data
         if selected_entry:
@@ -52,8 +50,9 @@ def add_reminder(vehicle_id):
             new_reminder.last_done_km = selected_entry.total_distance_at_maintenance
         else:
             new_reminder.last_maintenance_entry_id = None
-            new_reminder.last_done_date = form.last_done_date.data
-            new_reminder.last_done_km = form.last_done_km.data
+        
+        if new_reminder.task_description:
+            new_reminder.task_description = new_reminder.task_description.strip()
 
         try:
             db.session.add(new_reminder)
@@ -105,9 +104,7 @@ def edit_reminder(reminder_id):
         form.maintenance_entry.data = reminder.last_maintenance_entry
 
     if form.validate_on_submit():
-        reminder.task_description = form.task_description.data.strip() if form.task_description.data else None
-        reminder.interval_km = form.interval_km.data
-        reminder.interval_months = form.interval_months.data
+        form.populate_obj(reminder)
 
         selected_entry = form.maintenance_entry.data
         if selected_entry:
@@ -116,8 +113,9 @@ def edit_reminder(reminder_id):
             reminder.last_done_km = selected_entry.total_distance_at_maintenance
         else:
             reminder.last_maintenance_entry_id = None
-            reminder.last_done_date = form.last_done_date.data
-            reminder.last_done_km = form.last_done_km.data
+            
+        if reminder.task_description:
+            reminder.task_description = reminder.task_description.strip()
             
         try:
             db.session.commit()

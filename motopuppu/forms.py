@@ -388,6 +388,14 @@ class ReminderForm(FlaskForm):
         ],
         render_kw={"placeholder": "例: 15000"}
     )
+    
+    # --- ▼▼▼ ここから追加 ▼▼▼ ---
+    auto_update_from_category = BooleanField(
+        '整備記録のカテゴリ名が一致した場合、このリマインダーを自動的に連携・更新する',
+        default=True
+    )
+    # --- ▲▲▲ ここまで追加 ▲▲▲ ---
+
     submit = SubmitField('保存する')
 
     def validate(self, extra_validators=None):

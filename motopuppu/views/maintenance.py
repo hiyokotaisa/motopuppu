@@ -38,42 +38,53 @@ def get_previous_maintenance_entry(motorcycle_id, current_maintenance_date, curr
     
     return previous_entry
 
-def _update_reminder_last_done(maintenance_entry: MaintenanceEntry):
+# --- ▼▼▼ ここを修正 ▼▼▼ ---
+def _update_reminder_if_applicable(maintenance_entry: MaintenanceEntry):
+    """
+    条件付きでリマインダーを自動更新する関数。
+    - カテゴリ名とタスク名が一致する
+    - かつ、リマインダー側で自動更新が有効になっている
+    - かつ、整備記録の日付がリマインダーの最終実施日より新しい
+    場合に、リマインダーを新しい整備記録に自動的に紐づける。
+    """
     if not maintenance_entry or not maintenance_entry.category:
-        current_app.logger.debug(f"Skipping reminder update for maintenance {maintenance_entry.id}: No category.")
         return
-    maintenance_category_lower = maintenance_entry.category.strip().lower()
-    if not maintenance_category_lower:
-        current_app.logger.debug(f"Skipping reminder update for maintenance {maintenance_entry.id}: Empty category after strip/lower.")
+
+    maint_category_lower = maintenance_entry.category.strip().lower()
+    if not maint_category_lower:
         return
-    potential_reminders = MaintenanceReminder.query.filter_by(motorcycle_id=maintenance_entry.motorcycle_id).all()
-    matched_reminder = None
+
+    potential_reminders = MaintenanceReminder.query.filter_by(
+        motorcycle_id=maintenance_entry.motorcycle_id).all()
+
     for reminder in potential_reminders:
-        if reminder.task_description and reminder.task_description.strip().lower() == maintenance_category_lower:
-            matched_reminder = reminder; break
-    if matched_reminder:
-        try:
-            update_needed = False; log_prefix = f"Reminder '{matched_reminder.task_description}' (ID: {matched_reminder.id}) for Maint {maintenance_entry.id}:"
-            should_update_date = (matched_reminder.last_done_date is None or maintenance_entry.maintenance_date >= matched_reminder.last_done_date)
-            if should_update_date:
-                should_update_km = (matched_reminder.last_done_km is None or maintenance_entry.maintenance_date > matched_reminder.last_done_date or
-                                    (maintenance_entry.maintenance_date == matched_reminder.last_done_date and
-                                     (maintenance_entry.total_distance_at_maintenance or 0) >= (matched_reminder.last_done_km or 0)))
-                if should_update_km:
-                    if matched_reminder.last_done_date != maintenance_entry.maintenance_date or matched_reminder.last_done_km != maintenance_entry.total_distance_at_maintenance:
-                        matched_reminder.last_done_date = maintenance_entry.maintenance_date
-                        matched_reminder.last_done_km = maintenance_entry.total_distance_at_maintenance
-                        update_needed = True
-                        current_app.logger.info(f"{log_prefix} Updating last_done_date to {matched_reminder.last_done_date} and last_done_km to {matched_reminder.last_done_km}")
-                elif matched_reminder.last_done_date != maintenance_entry.maintenance_date:
-                        matched_reminder.last_done_date = maintenance_entry.maintenance_date; update_needed = True
-                        current_app.logger.info(f"{log_prefix} Updating last_done_date to {matched_reminder.last_done_date} (KM unchanged).")
-            if not update_needed and matched_reminder.last_done_date is not None and maintenance_entry.maintenance_date == matched_reminder.last_done_date and matched_reminder.last_done_km is None and maintenance_entry.total_distance_at_maintenance is not None:
-                matched_reminder.last_done_km = maintenance_entry.total_distance_at_maintenance; update_needed = True
-                current_app.logger.info(f"{log_prefix} Updating last_done_km to {matched_reminder.last_done_km} (Date was same, KM was missing).")
-            if not update_needed: current_app.logger.debug(f"{log_prefix} No update needed for reminder based on this maintenance entry.")
-        except Exception as e: current_app.logger.error(f"Error updating reminder {matched_reminder.id} for maintenance entry {maintenance_entry.id}: {e}", exc_info=True)
-    else: current_app.logger.debug(f"No matching reminder found for maintenance category '{maintenance_category_lower}' (Maint ID: {maintenance_entry.id}).")
+        if reminder.task_description and reminder.task_description.strip().lower() == maint_category_lower:
+            
+            # 1. 自動更新が有効になっているかチェック
+            if not reminder.auto_update_from_category:
+                current_app.logger.debug(f"Reminder '{reminder.task_description}' (ID:{reminder.id}) has auto-update disabled. Skipping.")
+                continue
+
+            # 2. 日付が新しいか、または日付が同じでも距離が進んでいる場合のみ更新する
+            is_newer = False
+            if reminder.last_done_date is None:
+                is_newer = True
+            elif maintenance_entry.maintenance_date > reminder.last_done_date:
+                is_newer = True
+            elif (maintenance_entry.maintenance_date == reminder.last_done_date and
+                  not reminder.motorcycle.is_racer and
+                  (maintenance_entry.total_distance_at_maintenance or 0) >= (reminder.last_done_km or 0)):
+                is_newer = True
+
+            if is_newer:
+                # 新しい整備記録に自動的に紐づける
+                reminder.last_maintenance_entry_id = maintenance_entry.id
+                reminder.last_done_date = maintenance_entry.maintenance_date
+                reminder.last_done_km = maintenance_entry.total_distance_at_maintenance
+                flash(f"整備記録に基づき、リマインダー「{reminder.task_description}」を新しい記録に自動連携しました。", 'info')
+                current_app.logger.info(f"Reminder '{reminder.task_description}' (ID:{reminder.id}) was auto-linked to new MaintenanceEntry ID:{maintenance_entry.id}")
+                break
+# --- ▲▲▲ ここまで修正 ▲▲▲ ---
 
 @maintenance_bp.route('/')
 @login_required_custom
@@ -132,7 +143,7 @@ def maintenance_log():
     sort_column = sort_column_map.get(current_sort_by, MaintenanceEntry.maintenance_date)
     current_order = 'desc' if order == 'desc' else 'asc'
 
-    sort_modifier = desc if current_order == 'desc' else asc
+    sort_modifier = desc if current_order == 'desc' else 'asc'
 
     if sort_column == MaintenanceEntry.maintenance_date:
         query = query.order_by(sort_modifier(MaintenanceEntry.maintenance_date), desc(MaintenanceEntry.total_distance_at_maintenance), MaintenanceEntry.id.desc())
@@ -220,7 +231,8 @@ def add_maintenance():
 
         try:
             db.session.add(new_entry)
-            _update_reminder_last_done(new_entry)
+            db.session.flush()
+            _update_reminder_if_applicable(new_entry)
             db.session.commit()
             flash('整備記録を追加しました。', 'success')
 
@@ -293,9 +305,8 @@ def edit_maintenance(entry_id):
         entry.labor_cost = form.labor_cost.data
         entry.notes = form.notes.data.strip() if form.notes.data else None
 
-        _update_reminder_last_done(entry)
-
         try:
+            _update_reminder_if_applicable(entry)
             db.session.commit()
             flash('整備記録を更新しました。', 'success')
             return redirect(url_for('maintenance.maintenance_log'))

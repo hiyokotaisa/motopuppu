@@ -12,6 +12,7 @@
             <h2>{{ page_title }}</h2>
             <p class="text-muted lead">{{ motorcycle.name }}</p>
 
+            {# Flash Messages #}
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
                     {% for category, message in messages %}
@@ -73,6 +74,15 @@
                                 <p class="form-text text-muted mb-0">距離または期間の少なくとも一方を設定してください。</p>
                             </div>
                         </div>
+                        
+                        <hr class="my-4">
+                        <div class="form-check">
+                            {{ form.auto_update_from_category(class="form-check-input") }}
+                            {{ form.auto_update_from_category.label(class="form-check-label") }}
+                            <div class="form-text mt-1">
+                                このオプションを有効にすると、整備記録を追加した際にカテゴリ名が一致した場合、このリマインダーの「最終実施記録」が自動で新しいものに更新されます。
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -81,7 +91,7 @@
                         <h5 class="mb-0">2. 最終実施記録 (任意)</h5>
                     </div>
                     <div class="card-body">
-                        <p class="card-text text-muted">過去の整備ログと連携するか、日付と距離を手動で入力します。</p>
+                        <p class="card-text text-muted">過去の整備ログと連携するか、日付と距離を手動で入力します。自動更新が有効な場合は、ここで手動で設定した連携も上書きされる可能性があります。</p>
 
                         <div class="mb-3">
                             {{ form.maintenance_entry.label(class="form-label") }}
