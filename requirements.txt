@@ -10,6 +10,7 @@ jpholiday # 日本の祝日を取得するためのライブラリ
 psycopg2-binary
 Flask-WTF
 wtforms-sqlalchemy
+icalendar
 
 # Flask-Login>=0.6 # ログイン管理の補助に (Authlibや自前でも可) (任意)
 # Flask-Uploads-Fork # ファイルアップロード処理に (代替ライブラリも検討可) (任意)

@@ -3,6 +3,8 @@ from . import db
 from datetime import datetime, date
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy import Index, func
+import uuid
+from enum import Enum as PyEnum
 
 # --- データベースモデル定義 ---
 
@@ -303,6 +305,9 @@ class ActivityLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     motorcycle_id = db.Column(db.Integer, db.ForeignKey('motorcycles.id', ondelete='CASCADE'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    # --- ▼▼▼ ここから追加 ▼▼▼ ---
+    event_id = db.Column(db.Integer, db.ForeignKey('events.id', ondelete='SET NULL'), nullable=True, index=True, comment="この活動ログが紐づくイベントのID")
+    # --- ▲▲▲ 追加ここまで ▲▲▲ ---
     activity_date = db.Column(db.Date, nullable=False, index=True)
     
     # --- ▼▼▼ 変更 ▼▼▼ ---
@@ -373,3 +378,67 @@ class SessionLog(db.Model):
         return f'<SessionLog id={self.id} activity_id={self.activity_log_id}>'
 
 # --- ▲▲▲ 活動ログ機能 (ここまで) ▲▲▲ ---
+
+
+# --- ▼▼▼ イベント機能 (ここから) ▼▼▼ ---
+
+class ParticipationStatus(PyEnum):
+    ATTENDING = 'attending'
+    TENTATIVE = 'tentative'
+    NOT_ATTENDING = 'not_attending'
+
+    @property
+    def label(self):
+        return {
+            'attending': '参加',
+            'tentative': '保留',
+            'not_attending': '不参加'
+        }.get(self.value, '')
+
+class Event(db.Model):
+    """ツーリングや走行会などのイベント情報を格納するモデル"""
+    __tablename__ = 'events'
+    id = db.Column(db.Integer, primary_key=True)
+    public_id = db.Column(db.String(36), unique=True, nullable=False, default=lambda: str(uuid.uuid4()), index=True)
+
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False, comment="イベント作成者のID")
+    motorcycle_id = db.Column(db.Integer, db.ForeignKey('motorcycles.id', ondelete='SET NULL'), nullable=True, comment="関連する車両のID")
+    
+    title = db.Column(db.String(200), nullable=False, comment="イベント名")
+    description = db.Column(db.Text, nullable=True, comment="イベントの詳細説明")
+    location = db.Column(db.String(200), nullable=True, comment="開催場所")
+    
+    start_datetime = db.Column(db.DateTime, nullable=False, comment="開始日時 (UTC)")
+    end_datetime = db.Column(db.DateTime, nullable=True, comment="終了日時 (UTC)")
+
+    created_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
+    updated_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now(), onupdate=db.func.now())
+
+    # リレーションシップ
+    owner = db.relationship('User', backref=db.backref('events', lazy='dynamic'))
+    motorcycle = db.relationship('Motorcycle', backref=db.backref('events', lazy='dynamic'))
+    participants = db.relationship('EventParticipant', backref='event', lazy='dynamic', cascade="all, delete-orphan")
+    # --- ▼▼▼ ここから追加 ▼▼▼ ---
+    activity_logs = db.relationship('ActivityLog', backref='origin_event', lazy='dynamic', order_by="desc(ActivityLog.activity_date)")
+    # --- ▲▲▲ 追加ここまで ▲▲▲ ---
+
+    def __repr__(self):
+        return f'<Event id={self.id} title="{self.title}">'
+
+class EventParticipant(db.Model):
+    """イベントへの参加者情報を格納するモデル"""
+    __tablename__ = 'event_participants'
+    id = db.Column(db.Integer, primary_key=True)
+    event_id = db.Column(db.Integer, db.ForeignKey('events.id', ondelete='CASCADE'), nullable=False, index=True)
+    
+    name = db.Column(db.String(100), nullable=False, comment="参加者名")
+    status = db.Column(db.Enum(ParticipationStatus, values_callable=lambda x: [e.value for e in x]), nullable=False, comment="出欠ステータス")
+
+    created_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
+
+    __table_args__ = (db.UniqueConstraint('event_id', 'name', name='uq_event_participant_name'),)
+
+    def __repr__(self):
+        return f'<EventParticipant id={self.id} event_id={self.event_id} name="{self.name}" status="{self.status.value}">'
+
+# --- ▲▲▲ イベント機能 (ここまで) ▲▲▲ ---

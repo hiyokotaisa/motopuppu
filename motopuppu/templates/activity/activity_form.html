@@ -1,4 +1,4 @@
-{# motopuppu/templates/activity/activity_form.html #}
+{# templates/activity/activity_form.html #}
 {% extends "base.html" %}
 
 {% set page_title = "活動ログの追加" if form_action == 'add' else "活動ログの編集" %}
@@ -27,6 +27,12 @@
 
 <form method="POST" action="{{ url_for('activity.add_activity', vehicle_id=motorcycle.id) if form_action == 'add' else url_for('activity.edit_activity', activity_id=activity.id) }}">
     {{ form.hidden_tag() }} {# CSRFトークン #}
+    
+    {# --- ▼▼▼ ここから追加 ▼▼▼ --- #}
+    {% if event_id %}
+    <input type="hidden" name="event_id" value="{{ event_id }}">
+    {% endif %}
+    {# --- ▲▲▲ 追加ここまで ▲▲▲ --- #}
 
     <div class="card">
         <div class="card-body">

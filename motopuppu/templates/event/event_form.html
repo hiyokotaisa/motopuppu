@@ -1,0 +1,101 @@
+{# templates/event/event_form.html #}
+{% extends 'base.html' %}
+
+{% block title %}
+{% if mode == 'add' %}
+新しいイベントの作成 - もとぷっぷー
+{% else %}
+イベントの編集 - もとぷっぷー
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8 col-md-10">
+
+        <h1 class="h2 mb-4">
+            {% if mode == 'add' %}
+            <i class="fas fa-calendar-plus me-2"></i>新しいイベントの作成
+            {% else %}
+            <i class="fas fa-edit me-2"></i>イベントの編集
+            {% endif %}
+        </h1>
+
+        <div class="card">
+            <div class="card-body">
+                <form method="POST" action="{% if mode == 'add' %}{{ url_for('event.add_event') }}{% else %}{{ url_for('event.edit_event', event_id=event.id) }}{% endif %}" novalidate>
+                    {{ form.hidden_tag() }}
+
+                    <div class="mb-3">
+                        {{ form.title.label(class="form-label") }}
+                        {{ form.title(class="form-control" + (" is-invalid" if form.title.errors else "")) }}
+                        {% if form.title.errors %}
+                        <div class="invalid-feedback">
+                            {% for error in form.title.errors %}{{ error }}{% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            {{ form.start_datetime.label(class="form-label") }}
+                            {{ form.start_datetime(class="form-control" + (" is-invalid" if form.start_datetime.errors else ""), type="datetime-local") }}
+                            {% if form.start_datetime.errors %}
+                            <div class="invalid-feedback">
+                                {% for error in form.start_datetime.errors %}{{ error }}{% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            {{ form.end_datetime.label(class="form-label") }}
+                            {{ form.end_datetime(class="form-control" + (" is-invalid" if form.end_datetime.errors else ""), type="datetime-local") }}
+                             {% if form.end_datetime.errors %}
+                            <div class="invalid-feedback">
+                                {% for error in form.end_datetime.errors %}{{ error }}{% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        {{ form.location.label(class="form-label") }}
+                        {{ form.location(class="form-control" + (" is-invalid" if form.location.errors else "")) }}
+                        {% if form.location.errors %}
+                        <div class="invalid-feedback">
+                            {% for error in form.location.errors %}{{ error }}{% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-3">
+                        {{ form.motorcycle_id.label(class="form-label") }}
+                        {{ form.motorcycle_id(class="form-select" + (" is-invalid" if form.motorcycle_id.errors else "")) }}
+                        {% if form.motorcycle_id.errors %}
+                        <div class="invalid-feedback">
+                            {% for error in form.motorcycle_id.errors %}{{ error }}{% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-3">
+                        {{ form.description.label(class="form-label") }}
+                        {{ form.description(class="form-control" + (" is-invalid" if form.description.errors else "")) }}
+                        <div class="form-text">集合場所、時間、ルート、持ち物など、イベントに関する詳細を自由に記述できます。</div>
+                        {% if form.description.errors %}
+                        <div class="invalid-feedback">
+                            {% for error in form.description.errors %}{{ error }}{% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{{ url_for('event.list_events') }}" class="btn btn-secondary">キャンセル</a>
+                        {{ form.submit(class="btn btn-primary") }}
+                    </div>
+                </form>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

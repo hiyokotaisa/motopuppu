@@ -1,0 +1,126 @@
+{# templates/event/public_event_view.html #}
+{% extends 'base.html' %}
+
+{% block title %}{{ event.title }} - イベント案内{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8 col-md-10">
+        
+        {# --- イベント情報 --- #}
+        <div class="card mb-4">
+            <div class="card-header bg-dark text-white">
+                <h1 class="h3 mb-0">{{ event.title }}</h1>
+            </div>
+            <div class="card-body">
+                <p><strong><i class="fas fa-user-circle fa-fw me-2 text-secondary"></i>主催者:</strong> {{ event.owner.display_name or event.owner.misskey_username }}</p>
+                <p><strong><i class="fas fa-clock fa-fw me-2 text-secondary"></i>日時:</strong>
+                    {{ event.start_datetime | to_jst }}
+                    {% if event.end_datetime %}
+                    ～ {{ event.end_datetime | to_jst('%H:%M') }}
+                    {% endif %}
+                </p>
+                {% if event.location %}
+                <p><strong><i class="fas fa-map-marker-alt fa-fw me-2 text-secondary"></i>場所:</strong> {{ event.location }}</p>
+                {% endif %}
+                {% if event.description %}
+                <hr>
+                <h5 class="card-title">イベント詳細</h5>
+                <p class="card-text" style="white-space: pre-wrap;">{{ event.description }}</p>
+                {% endif %}
+            </div>
+        </div>
+
+        {# --- フラッシュメッセージ --- #}
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        {# --- 出欠登録フォーム --- #}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h2 class="h5 mb-0"><i class="fas fa-edit me-2"></i>出欠を登録する</h2>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('event.public_event_view', public_id=event.public_id) }}" novalidate>
+                    {{ form.hidden_tag() }}
+                    <div class="mb-3">
+                        {{ form.name.label(class="form-label") }}
+                        {{ form.name(class="form-control" + (" is-invalid" if form.name.errors else ""), placeholder="ハンドルネーム等") }}
+                        {% if form.name.errors %}
+                        <div class="invalid-feedback">
+                            {% for error in form.name.errors %}{{ error }}{% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="mb-3">
+                        {{ form.status.label(class="form-label") }}
+                        <div class="btn-group w-100" role="group" aria-label="Participation status">
+                           {% for subfield in form.status %}
+                            <input type="radio" class="btn-check" name="{{ subfield.name }}" id="{{ subfield.id }}" value="{{ subfield.data }}" {% if subfield.checked %}checked{% endif %}>
+                            <label class="btn 
+                                {% if subfield.data == 'attending' %}btn-outline-success{% endif %}
+                                {% if subfield.data == 'tentative' %}btn-outline-warning{% endif %}
+                                {% if subfield.data == 'not_attending' %}btn-outline-secondary{% endif %}" 
+                                for="{{ subfield.id }}">{{ subfield.label.text }}</label>
+                            {% endfor %}
+                        </div>
+                         {% if form.status.errors %}
+                        <div class="invalid-feedback d-block">
+                            {% for error in form.status.errors %}{{ error }}{% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="d-grid">
+                        {{ form.submit(class="btn btn-primary btn-lg") }}
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        {# --- 参加状況リスト --- #}
+        <div class="card">
+            <div class="card-header">
+                <h2 class="h5 mb-0"><i class="fas fa-users me-2"></i>現在の参加状況</h2>
+            </div>
+            <div class="card-body">
+                <h6 class="card-subtitle mb-2 text-success">
+                    <i class="fas fa-check-circle me-1"></i> 参加 ({{ participants_attending|length }}名)
+                </h6>
+                {% if participants_attending %}
+                <p>
+                    {% for p in participants_attending %}
+                    <span class="badge bg-light text-dark me-1 mb-1 fs-6">{{ p.name }}</span>
+                    {% endfor %}
+                </p>
+                {% else %}
+                <p class="text-muted">まだいません</p>
+                {% endif %}
+
+                <hr>
+
+                <h6 class="card-subtitle mb-2 text-warning">
+                    <i class="fas fa-question-circle me-1"></i> 保留 ({{ participants_tentative|length }}名)
+                </h6>
+                 {% if participants_tentative %}
+                 <p>
+                    {% for p in participants_tentative %}
+                    <span class="badge bg-light text-dark me-1 mb-1 fs-6">{{ p.name }}</span>
+                    {% endfor %}
+                </p>
+                {% else %}
+                <p class="text-muted">まだいません</p>
+                {% endif %}
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

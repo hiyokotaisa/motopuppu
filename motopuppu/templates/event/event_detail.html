@@ -1,0 +1,229 @@
+{# templates/event/event_detail.html #}
+{% extends 'base.html' %}
+
+{% block title %}{{ event.title }} - イベント詳細{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <a href="{{ url_for('event.list_events') }}" class="btn btn-sm btn-outline-secondary">
+        <i class="fas fa-arrow-left me-1"></i> イベント一覧に戻る
+    </a>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    {% for category, message in messages %}
+      <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+      </div>
+    {% endfor %}
+  {% endif %}
+{% endwith %}
+
+<div class="row">
+    {# --- 左側カラム: イベント詳細と参加者リスト --- #}
+    <div class="col-lg-8">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h1 class="h3 mb-0">{{ event.title }}</h1>
+            </div>
+            <div class="card-body">
+                <p><strong><i class="fas fa-clock fa-fw me-2 text-secondary"></i>日時:</strong>
+                    {{ event.start_datetime | to_jst }}
+                    {% if event.end_datetime %}
+                    ～ {{ event.end_datetime | to_jst('%H:%M') }}
+                    {% endif %}
+                </p>
+                {% if event.location %}
+                <p><strong><i class="fas fa-map-marker-alt fa-fw me-2 text-secondary"></i>場所:</strong> {{ event.location }}</p>
+                {% endif %}
+                {% if event.motorcycle %}
+                <p><strong><i class="fas fa-motorcycle fa-fw me-2 text-secondary"></i>関連車両:</strong> {{ event.motorcycle.name }}</p>
+                {% endif %}
+                <hr>
+                <p class="card-text" style="white-space: pre-wrap;">{{ event.description }}</p>
+            </div>
+        </div>
+
+        {% if event.activity_logs.all() %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="fas fa-flag-checkered me-2"></i>関連する活動ログ
+            </div>
+            <div class="list-group list-group-flush">
+                {% for log in event.activity_logs %}
+                <a href="{{ url_for('activity.detail_activity', activity_id=log.id) }}" class="list-group-item list-group-item-action">
+                    {{ log.activity_date.strftime('%Y/%m/%d') }} - {{ log.activity_title or '無題の活動' }}
+                    <i class="fas fa-chevron-right float-end mt-1"></i>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        <h2 class="h4">参加者リスト</h2>
+        <div class="accordion" id="participantsAccordion">
+            {# --- 参加者 --- #}
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="headingAttending">
+                    <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseAttending" aria-expanded="true" aria-controls="collapseAttending">
+                        <span class="badge bg-success me-2">参加</span> {{ participants_attending | length }} 名
+                    </button>
+                </h2>
+                <div id="collapseAttending" class="accordion-collapse collapse show" aria-labelledby="headingAttending" data-bs-parent="#participantsAccordion">
+                    <div class="accordion-body p-0">
+                        {% if participants_attending %}
+                        <ul class="list-group list-group-flush">
+                            {% for p in participants_attending %}
+                            <li class="list-group-item">{{ p.name }}</li>
+                            {% endfor %}
+                        </ul>
+                        {% else %}
+                        <div class="p-3 text-muted">まだいません</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            {# --- 保留 --- #}
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="headingTentative">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTentative" aria-expanded="false" aria-controls="collapseTentative">
+                        <span class="badge bg-warning text-dark me-2">保留</span> {{ participants_tentative | length }} 名
+                    </button>
+                </h2>
+                <div id="collapseTentative" class="accordion-collapse collapse" aria-labelledby="headingTentative" data-bs-parent="#participantsAccordion">
+                    <div class="accordion-body p-0">
+                        {% if participants_tentative %}
+                        <ul class="list-group list-group-flush">
+                            {% for p in participants_tentative %}
+                            <li class="list-group-item">{{ p.name }}</li>
+                            {% endfor %}
+                        </ul>
+                        {% else %}
+                        <div class="p-3 text-muted">まだいません</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            {# --- 不参加 --- #}
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="headingNotAttending">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseNotAttending" aria-expanded="false" aria-controls="collapseNotAttending">
+                         <span class="badge bg-secondary me-2">不参加</span> {{ participants_not_attending | length }} 名
+                    </button>
+                </h2>
+                <div id="collapseNotAttending" class="accordion-collapse collapse" aria-labelledby="headingNotAttending" data-bs-parent="#participantsAccordion">
+                     <div class="accordion-body p-0">
+                        {% if participants_not_attending %}
+                        <ul class="list-group list-group-flush">
+                            {% for p in participants_not_attending %}
+                            <li class="list-group-item">{{ p.name }}</li>
+                            {% endfor %}
+                        </ul>
+                        {% else %}
+                        <div class="p-3 text-muted">まだいません</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# --- 右側カラム: アクションパネル --- #}
+    <div class="col-lg-4">
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="fas fa-share-alt me-1"></i> 共有と連携
+            </div>
+            <div class="card-body">
+                <label for="publicUrl" class="form-label">公開URL</label>
+                <div class="input-group mb-3">
+                    <input type="text" id="publicUrl" class="form-control" value="{{ url_for('event.public_event_view', public_id=event.public_id, _external=True) }}" readonly>
+                    <button class="btn btn-outline-secondary" type="button" id="copyUrlBtn" title="URLをコピー">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+                <div class="d-grid gap-2">
+                    {% if ical_available %}
+                    <a href="{{ url_for('event.export_ics', event_id=event.id) }}" class="btn btn-outline-primary">
+                        <i class="fas fa-calendar-download me-1"></i> カレンダーに登録
+                    </a>
+                    {% endif %}
+                    {% if event.motorcycle %}
+                    {# --- ▼▼▼ a タグの href を修正して event_id を追加 ▼▼▼ --- #}
+                    <a href="{{ url_for('activity.add_activity', vehicle_id=event.motorcycle_id, event_id=event.id, activity_title=event.title, activity_date=(event.start_datetime|to_jst('%Y-%m-%d')), custom_location=event.location) }}" class="btn btn-outline-info">
+                        <i class="fas fa-flag-checkered me-1"></i> このイベントの活動ログを作成
+                    </a>
+                    {# --- ▲▲▲ 修正ここまで ▲▲▲ --- #}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-cogs me-1"></i> イベント管理
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('event.edit_event', event_id=event.id) }}" class="btn btn-secondary">
+                        <i class="fas fa-edit me-1"></i> イベントを編集
+                    </a>
+                    <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteEventModal">
+                        <i class="fas fa-trash-alt me-1"></i> イベントを削除
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="deleteEventModal" tabindex="-1" aria-labelledby="deleteEventModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteEventModalLabel">イベントの削除</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>イベント「<strong>{{ event.title }}</strong>」を本当に削除しますか？</p>
+                <p class="text-danger">この操作は取り消せません。参加者情報もすべて削除されます。</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                <form action="{{ url_for('event.delete_event', event_id=event.id) }}" method="POST" class="d-inline">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-danger">削除を実行</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const copyBtn = document.getElementById('copyUrlBtn');
+    if (copyBtn) {
+        copyBtn.addEventListener('click', function() {
+            const urlInput = document.getElementById('publicUrl');
+            navigator.clipboard.writeText(urlInput.value).then(function() {
+                // コピー成功時のフィードバック
+                const originalIcon = copyBtn.innerHTML;
+                copyBtn.innerHTML = '<i class="fas fa-check"></i>';
+                setTimeout(function() {
+                    copyBtn.innerHTML = originalIcon;
+                }, 2000);
+            }, function(err) {
+                // コピー失敗時のフォールバック
+                alert('URLのコピーに失敗しました。');
+            });
+        });
+    }
+});
+</script>
+{% endblock %}

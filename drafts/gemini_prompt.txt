@@ -103,13 +103,16 @@ kyagisaw@kyagisaw-mac motopuppu % tree
 │       ├── 4bc80d3366bf_add_activity_log_models.py
 │       ├── 4ec29611c9b5_add_trigger_event_type_to_.py
 │       ├── 5d18f0a4938e_allow_null_for_content_in_general_notes.py
+│       ├── 6a92e8863546_link_activity_log_to_event.py
 │       ├── 6dadc8ff0649_add_racer_fields_to_motorcycle.py
 │       ├── 760969e7b61d_populate_new_achievement_definitions_.py
 │       ├── 896791ff77ea_add_odo_reset_log_table_and_data_.py
+│       ├── 9516bc768302_add_event_and_event_participant_models.py
 │       ├── cb61b6485ca8_add_missing_general_notes_and_odo_reset_.py
 │       ├── cbc2495d2f76_initial_migration.py
 │       ├── cd7db2474a21_check_sync_after_fixing_relationship.py
 │       ├── d5b35174a1cb_add_display_name_to_user_model.py
+│       ├── df2ec8ec945c_add_last_done_odo_to_maintenancereminder.py
 │       └── f0c7fc2c92ad_add_auto_update_from_category_to_.py
 ├── motopuppu
 │   ├── __init__.py
@@ -156,6 +159,11 @@ kyagisaw@kyagisaw-mac motopuppu % tree
 │   │   │   └── delete_account_complete.html
 │   │   ├── base.html
 │   │   ├── dashboard.html
+│   │   ├── event
+│   │   │   ├── event_detail.html
+│   │   │   ├── event_form.html
+│   │   │   ├── list_events.html
+│   │   │   └── public_event_view.html
 │   │   ├── fuel_form.html
 │   │   ├── fuel_log.html
 │   │   ├── index.html
@@ -185,6 +193,7 @@ kyagisaw@kyagisaw-mac motopuppu % tree
 │       ├── activity.py
 │       ├── auth.py
 │       ├── dev_auth.py
+│       ├── event.py
 │       ├── fuel.py
 │       ├── leaderboard.py
 │       ├── main.py
@@ -197,7 +206,7 @@ kyagisaw@kyagisaw-mac motopuppu % tree
 ├── requirements.txt
 └── tests
 
-23 directories, 94 files
+24 directories, 102 files
     ```
 
 7.  **今回のセッションでの目標 [毎回更新]:**

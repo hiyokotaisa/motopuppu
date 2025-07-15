@@ -73,8 +73,8 @@ def create_app(config_name=None):
             g.user_motorcycles = Motorcycle.query.filter_by(user_id=g.user.id).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
 
     try:
-        # --- ▼▼▼ reminder をインポートリストに追加 ▼▼▼ ---
-        from .views import auth, main, vehicle, fuel, maintenance, notes, dev_auth, activity, leaderboard, profile, reminder
+        # --- ▼▼▼ event をインポートリストに追加 ▼▼▼ ---
+        from .views import auth, main, vehicle, fuel, maintenance, notes, dev_auth, activity, leaderboard, profile, reminder, event
         from .views import achievements as achievements_view 
 
         app.register_blueprint(auth.auth_bp)
@@ -82,14 +82,14 @@ def create_app(config_name=None):
         app.register_blueprint(vehicle.vehicle_bp)
         app.register_blueprint(fuel.fuel_bp)
         app.register_blueprint(maintenance.maintenance_bp)
-        # --- ▼▼▼ ここに追加 ▼▼▼ ---
         app.register_blueprint(reminder.reminder_bp)
-        # --- ▲▲▲ ---
         app.register_blueprint(notes.notes_bp)
         app.register_blueprint(achievements_view.achievements_bp)
         app.register_blueprint(activity.activity_bp)
         app.register_blueprint(leaderboard.leaderboard_bp)
         app.register_blueprint(profile.profile_bp)
+        # --- ▼▼▼ ここに event_bp を登録 ▼▼▼ ---
+        app.register_blueprint(event.event_bp)
 
         if app.config['ENV'] == 'development' or app.debug: 
             app.register_blueprint(dev_auth.dev_auth_bp)
@@ -125,14 +125,16 @@ def create_app(config_name=None):
 
     @app.shell_context_processor
     def make_shell_context():
+        # --- ▼▼▼ Event, EventParticipant を追加 ▼▼▼ ---
         from .models import db, User, Motorcycle, FuelEntry, MaintenanceEntry, MaintenanceReminder, GeneralNote, OdoResetLog, AchievementDefinition, UserAchievement
-        from .models import SettingSheet, ActivityLog, SessionLog
+        from .models import SettingSheet, ActivityLog, SessionLog, Event, EventParticipant
         return {
             'db': db, 'User': User, 'Motorcycle': Motorcycle, 'FuelEntry': FuelEntry,
             'MaintenanceEntry': MaintenanceEntry, 'MaintenanceReminder': MaintenanceReminder,
             'GeneralNote': GeneralNote, 'OdoResetLog': OdoResetLog,
             'AchievementDefinition': AchievementDefinition, 'UserAchievement': UserAchievement,
-            'SettingSheet': SettingSheet, 'ActivityLog': ActivityLog, 'SessionLog': SessionLog
+            'SettingSheet': SettingSheet, 'ActivityLog': ActivityLog, 'SessionLog': SessionLog,
+            'Event': Event, 'EventParticipant': EventParticipant
         }
 
     try:

@@ -284,12 +284,20 @@ def list_activities(vehicle_id):
 def add_activity(vehicle_id):
     """新しい活動ログを作成する"""
     motorcycle = get_motorcycle_or_404(vehicle_id)
-    form = ActivityLogForm()
+    # --- ▼▼▼ ここから修正 ▼▼▼ ---
+    # POSTリクエストの場合はフォームから、GETリクエストの場合はURL引数からevent_idを取得
+    if request.method == 'POST':
+        event_id = request.form.get('event_id', type=int)
+    else:
+        event_id = request.args.get('event_id', type=int)
+
+    form = ActivityLogForm(request.form) # POST時にも引数をフォームに渡すため request.form を使用
     
     if form.validate_on_submit():
         new_activity = ActivityLog(
             motorcycle_id=motorcycle.id,
             user_id=g.user.id,
+            event_id=event_id, # 取得したevent_idを保存
             activity_date=form.activity_date.data,
             activity_title=form.activity_title.data,
             location_type=form.location_type.data,
@@ -309,10 +317,27 @@ def add_activity(vehicle_id):
             current_app.logger.error(f"Error adding new activity log: {e}", exc_info=True)
             flash('活動記録の保存中にエラーが発生しました。', 'danger')
 
+    # GETリクエスト時にURL引数からフォームの初期値を設定
+    if request.method == 'GET':
+        form.activity_title.data = request.args.get('activity_title', '')
+        activity_date_str = request.args.get('activity_date')
+        if activity_date_str:
+            try:
+                form.activity_date.data = date.fromisoformat(activity_date_str)
+            except (ValueError, TypeError):
+                form.activity_date.data = date.today() # 不正な場合は今日の日付
+        
+        custom_location = request.args.get('custom_location')
+        if custom_location:
+            form.location_type.data = 'custom'
+            form.custom_location.data = custom_location
+
     return render_template('activity/activity_form.html',
                            form=form,
                            motorcycle=motorcycle,
+                           event_id=event_id, # event_idをテンプレートに渡す
                            form_action='add')
+    # --- ▲▲▲ 修正ここまで ▲▲▲ ---
 
 @activity_bp.route('/<int:activity_id>/edit', methods=['GET', 'POST'])
 @login_required_custom

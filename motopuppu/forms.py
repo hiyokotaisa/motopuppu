@@ -1,7 +1,7 @@
 # motopuppu/forms.py
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileField, FileRequired, FileAllowed
-from wtforms import StringField, SelectField, DateField, DecimalField, IntegerField, TextAreaField, BooleanField, SubmitField, RadioField, FieldList, FormField, HiddenField
+from wtforms import StringField, SelectField, DateField, DecimalField, IntegerField, TextAreaField, BooleanField, SubmitField, RadioField, FieldList, FormField, HiddenField, DateTimeField
 from wtforms.validators import DataRequired, Optional, NumberRange, Length, ValidationError, InputRequired
 from datetime import date, datetime
 from wtforms_sqlalchemy.fields import QuerySelectField
@@ -638,3 +638,70 @@ class SessionLogForm(FlaskForm):
     submit = SubmitField('セッションを記録')
 
 # --- ▲▲▲ 活動ログ機能 (ここまで) ▲▲▲ ---
+
+
+# --- ▼▼▼ イベント機能 (ここから) ▼▼▼ ---
+
+class EventForm(FlaskForm):
+    """イベント作成・編集用のフォーム"""
+    motorcycle_id = SelectField(
+        '関連車両 (任意)',
+        coerce=int,
+        validators=[Optional()]
+    )
+    title = StringField(
+        'イベント名',
+        validators=[
+            DataRequired(message='イベント名は必須です。'),
+            Length(max=200, message='イベント名は200文字以内で入力してください。')
+        ],
+        render_kw={"placeholder": "例: 夏のビーナスラインツーリング"}
+    )
+    description = TextAreaField(
+        'イベント詳細',
+        validators=[Optional(), Length(max=2000)],
+        render_kw={"rows": 5, "placeholder": "集合場所、時間、ルート、持ち物などの詳細を記入します。"}
+    )
+    location = StringField(
+        '開催場所 / エリア',
+        validators=[Optional(), Length(max=200)],
+        render_kw={"placeholder": "例: 八ヶ岳PA (中央道下り)"}
+    )
+    start_datetime = DateTimeField(
+        '開始日時',
+        validators=[DataRequired(message='開始日時は必須です。')],
+        format='%Y-%m-%dT%H:%M'
+    )
+    end_datetime = DateTimeField(
+        '終了日時 (任意)',
+        validators=[Optional()],
+        format='%Y-%m-%dT%H:%M'
+    )
+    submit = SubmitField('イベントを保存')
+    
+    def validate_end_datetime(self, field):
+        if field.data and self.start_datetime.data and field.data < self.start_datetime.data:
+            raise ValidationError('終了日時は開始日時より後に設定してください。')
+
+class ParticipantForm(FlaskForm):
+    """公開ページでの出欠登録用フォーム"""
+    name = StringField(
+        'お名前',
+        validators=[
+            DataRequired(message='お名前は必須です。'),
+            Length(max=20, message='お名前は20文字以内で入力してください。')
+        ]
+    )
+    status = RadioField(
+        '出欠',
+        choices=[
+            ('attending', '参加'),
+            ('tentative', '保留'),
+            ('not_attending', '不参加')
+        ],
+        validators=[DataRequired(message='出欠を選択してください。')],
+        default='attending'
+    )
+    submit = SubmitField('出欠を登録する')
+    
+# --- ▲▲▲ イベント機能 (ここまで) ▲▲▲ ---
