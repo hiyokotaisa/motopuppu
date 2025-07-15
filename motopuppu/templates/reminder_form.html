@@ -5,114 +5,180 @@
 {% block title %}{{ page_title }} ({{ motorcycle.name }}) - もとぷっぷー{% endblock %}
 
 {% block content %}
-<h2>{{ page_title }}</h2>
-<h4 class="text-muted mb-4">{{ motorcycle.name }}</h4> {# 対象車両名を表示 #}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-9">
 
-{# Flash Messages (一般的なメッセージ用) #}
-{% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-        {% for category, message in messages %}
-            <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show" role="alert">
-                {{ message }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-        {% endfor %}
-    {% endif %}
-{% endwith %}
+            <h2>{{ page_title }}</h2>
+            <p class="text-muted lead">{{ motorcycle.name }}</p>
 
-{# フォームのactionはビュー側で設定されたものを使用 #}
-<form method="POST" action="{{ url_for('vehicle.add_reminder', vehicle_id=motorcycle.id) if form_action == 'add' else url_for('vehicle.edit_reminder', reminder_id=reminder_id) }}">
-    {{ form.hidden_tag() }} {# CSRFトークン等 (ReminderForm) #}
-
-    {# リマインド内容 #}
-    <div class="mb-3">
-        {{ form.task_description.label(class="form-label") }} {% if form.task_description.flags.required %}<span class="text-danger">*</span>{% endif %}
-        {{ form.task_description(class="form-control" + (" is-invalid" if form.task_description.errors else ""), placeholder=(form.task_description.render_kw.get("placeholder", "") if form.task_description.render_kw else "")) }}
-        {% if form.task_description.errors %}
-            <div class="invalid-feedback">
-                {% for error in form.task_description.errors %}<span>{{ error }}</span><br>{% endfor %}
-            </div>
-        {% else %}
-            <div class="form-text">例: エンジンオイル交換, タイヤ空気圧チェック</div>
-        {% endif %}
-    </div>
-
-    {# サイクル設定 #}
-    <div class="row g-3">
-        <div class="col-md-6 mb-3">
-            {{ form.interval_km.label(class="form-label") }}
-            {{ form.interval_km(class="form-control" + (" is-invalid" if form.interval_km.errors else ""), min="1", placeholder=(form.interval_km.render_kw.get("placeholder", "") if form.interval_km.render_kw else "")) }}
-            {% if form.interval_km.errors %}
-                <div class="invalid-feedback">
-                    {% for error in form.interval_km.errors %}<span>{{ error }}</span><br>{% endfor %}
-                </div>
-            {% else %}
-                 <div class="form-text">この距離を走行するごとにお知らせします。</div>
-            {% endif %}
-        </div>
-        <div class="col-md-6 mb-3">
-            {{ form.interval_months.label(class="form-label") }}
-            {{ form.interval_months(class="form-control" + (" is-invalid" if form.interval_months.errors else ""), min="1", placeholder=(form.interval_months.render_kw.get("placeholder", "") if form.interval_months.render_kw else "")) }}
-            {% if form.interval_months.errors %}
-                <div class="invalid-feedback">
-                    {% for error in form.interval_months.errors %}<span>{{ error }}</span><br>{% endfor %}
-                </div>
-            {% else %}
-                 <div class="form-text">この期間が経過するごとにお知らせします。</div>
-            {% endif %}
-        </div>
-        {# フォームレベルのエラー (距離/期間サイクルのどちらか必須エラーなど) #}
-        {% if form.errors and ('interval_km' in form.errors or 'interval_months' in form.errors or '__all__' in form.errors) %}
-            <div class="col-12">
-            {% for field_name, error_list in form.errors.items() %}
-                {% if field_name == 'interval_km' or field_name == 'interval_months' or field_name == '__all__' %}
-                    {% for error in error_list %}
-                        <div class="alert alert-danger py-1 px-2 small" role="alert">{{ error }}</div>
+            {# Flash Messages #}
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show" role="alert">
+                            {{ message | safe }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
                     {% endfor %}
                 {% endif %}
-            {% endfor %}
-            </div>
-        {% else %}
-            <div class="col-12">
-                 <p class="text-muted small">距離または期間の少なくとも一方は入力してください。</p>
-            </div>
-        {% endif %}
-    </div>
+            {% endwith %}
 
-    <hr> {# 区切り線 #}
+            <form method="POST" action="{{ url_for('vehicle.add_reminder', vehicle_id=motorcycle.id) if form_action == 'add' else url_for('vehicle.edit_reminder', reminder_id=reminder_id) }}">
+                {{ form.hidden_tag() }}
 
-    {# 最終実施記録 #}
-    <h5 class="mt-4">最終実施記録 (任意)</h5>
-    <p class="text-muted small">このリマインダーに該当するメンテナンスを最後に実施した日付と、その時の総走行距離を入力します。</p>
+                <div class="card shadow-sm mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">1. リマインダー設定</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            {{ form.task_description.label(class="form-label") }} {% if form.task_description.flags.required %}<span class="text-danger">*</span>{% endif %}
+                            {{ form.task_description(class="form-control" + (" is-invalid" if form.task_description.errors else ""), **form.task_description.render_kw) }}
+                            
+                            <datalist id="maintenance-category-suggestions">
+                                {% for cat in category_suggestions %}
+                                    <option value="{{ cat }}">
+                                {% endfor %}
+                            </datalist>
 
-     <div class="row g-3">
-        <div class="col-md-6 mb-3">
-            {{ form.last_done_date.label(class="form-label") }}
-            {{ form.last_done_date(class="form-control" + (" is-invalid" if form.last_done_date.errors else "")) }}
-            {% if form.last_done_date.errors %}
-                <div class="invalid-feedback">
-                    {% for error in form.last_done_date.errors %}<span>{{ error }}</span><br>{% endfor %}
+                            {% if form.task_description.errors %}
+                                <div class="invalid-feedback">
+                                    {% for error in form.task_description.errors %}<span>{{ error }}</span><br>{% endfor %}
+                                </div>
+                            {% else %}
+                                <div class="form-text">リマインドしたい作業内容を入力してください。(例: エンジンオイル交換)</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                {{ form.interval_km.label(class="form-label") }}
+                                {{ form.interval_km(class="form-control" + (" is-invalid" if form.interval_km.errors else ""), min="1") }}
+                                {% if form.interval_km.errors %}
+                                    <div class="invalid-feedback">
+                                        {% for error in form.interval_km.errors %}<span>{{ error }}</span><br>{% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                {{ form.interval_months.label(class="form-label") }}
+                                {{ form.interval_months(class="form-control" + (" is-invalid" if form.interval_months.errors else ""), min="1") }}
+                                {% if form.interval_months.errors %}
+                                    <div class="invalid-feedback">
+                                        {% for error in form.interval_months.errors %}<span>{{ error }}</span><br>{% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-12">
+                                <p class="form-text text-muted mb-0">距離または期間の少なくとも一方を設定してください。</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-            {% endif %}
-        </div>
-        <div class="col-md-6 mb-3">
-            {{ form.last_done_km.label(class="form-label") }}
-            {{ form.last_done_km(class="form-control" + (" is-invalid" if form.last_done_km.errors else ""), min="0", placeholder=(form.last_done_km.render_kw.get("placeholder", "") if form.last_done_km.render_kw else "")) }}
-            {% if form.last_done_km.errors %}
-                <div class="invalid-feedback">
-                    {% for error in form.last_done_km.errors %}<span>{{ error }}</span><br>{% endfor %}
+
+                <div class="card shadow-sm">
+                    <div class="card-header">
+                        <h5 class="mb-0">2. 最終実施記録 (任意)</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="card-text text-muted">過去の整備ログと連携するか、日付と距離を手動で入力します。</p>
+
+                        <div class="mb-3">
+                            {{ form.maintenance_entry.label(class="form-label") }}
+                            {{ form.maintenance_entry(class="form-select" + (" is-invalid" if form.maintenance_entry.errors else ""), id="maintenance-entry-select") }}
+                             {% if form.maintenance_entry.errors %}
+                                <div class="invalid-feedback">
+                                    {% for error in form.maintenance_entry.errors %}<span>{{ error }}</span><br>{% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <fieldset id="manual-input-fieldset">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    {{ form.last_done_date.label(class="form-label") }}
+                                    {{ form.last_done_date(class="form-control" + (" is-invalid" if form.last_done_date.errors else ""), id="last-done-date") }}
+                                    {% if form.last_done_date.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.last_done_date.errors %}<span>{{ error }}</span><br>{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                {% if not motorcycle.is_racer %}
+                                <div class="col-md-6">
+                                    {{ form.last_done_km.label(class="form-label") }}
+                                    {{ form.last_done_km(class="form-control" + (" is-invalid" if form.last_done_km.errors else ""), min="0", id="last-done-km") }}
+                                    {% if form.last_done_km.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.last_done_km.errors %}<span>{{ error }}</span><br>{% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </fieldset>
+                    </div>
                 </div>
-            {% endif %}
+
+                <div class="mt-4">
+                    {{ form.submit(class="btn btn-primary px-4", value=('登録する' if form_action == 'add' else '更新する')) }}
+                    <a href="{{ url_for('vehicle.edit_vehicle', vehicle_id=motorcycle.id) }}" class="btn btn-secondary">
+                        <i class="fas fa-times me-1"></i> キャンセル
+                    </a>
+                </div>
+            </form>
+
         </div>
     </div>
+</div>
+{% endblock %}
 
-    {# 送信・キャンセルボタン #}
-    <div class="mt-4">
-        {{ form.submit(class="btn btn-primary", value=('追加する' if form_action == 'add' else '更新する')) }}
-        <a href="{{ url_for('vehicle.edit_vehicle', vehicle_id=motorcycle.id) }}" class="btn btn-secondary">
-             <i class="fas fa-times me-1"></i> キャンセル
-        </a>
-    </div>
-</form>
+{% block scripts %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 必要なDOM要素を取得
+    const selectEl = document.getElementById('maintenance-entry-select');
+    const dateInput = document.getElementById('last-done-date');
+    const kmInput = document.getElementById('last-done-km');
+    const fieldset = document.getElementById('manual-input-fieldset');
 
+    // --- ▼▼▼ ここから修正 ▼▼▼ ---
+    // ビューから渡されたリストを使用して、連携される整備記録の情報をJSON形式で保持
+    const maintenanceData = {
+        {% for entry in maintenance_entries_for_js %}
+            "{{ entry.id }}": {
+                "date": "{{ entry.maintenance_date.isoformat() if entry.maintenance_date else '' }}",
+                "km": "{{ entry.total_distance_at_maintenance if entry.total_distance_at_maintenance is not none else '' }}"
+            },
+        {% endfor %}
+    };
+    // --- ▲▲▲ ここまで修正 ▲▲▲ ---
+
+    function updateManualFields() {
+        const selectedId = selectEl.value;
+
+        if (selectedId && maintenanceData[selectedId]) {
+            // 連携データがある場合、値を設定してフィールドを無効化
+            const data = maintenanceData[selectedId];
+            dateInput.value = data.date;
+            if (kmInput) { // レーサーの場合はkmInputがないのでチェック
+                kmInput.value = data.km;
+            }
+            fieldset.disabled = true; // 手動入力欄を無効化
+        } else {
+            // 「手動入力」が選択された場合、フィールドを有効化
+            fieldset.disabled = false;
+        }
+    }
+
+    // セレクタのイベントリスナーを設定
+    if(selectEl && dateInput) {
+        selectEl.addEventListener('change', updateManualFields);
+        // ページ読み込み時にも一度実行して、初期状態を設定
+        updateManualFields();
+    }
+});
+</script>
 {% endblock %}

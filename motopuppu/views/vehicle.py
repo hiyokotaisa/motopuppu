@@ -79,7 +79,7 @@ def add_vehicle():
         else:
             new_motorcycle.total_operating_hours = None # 公道車は総稼働時間を使用しない
             # odometer_offset はデフォルトの0が設定される
-        # --- ▲▲▲ フェーズ1変更点 ▲▲▲
+        # --- ▲▲▲ フェーズ1変更点 ▲▲▲ ---
 
         if vehicle_count_before_add == 0:
             new_motorcycle.is_default = True
@@ -123,7 +123,7 @@ def add_vehicle():
                 'racer_vehicle_count_after_add': racer_vehicle_count_after_add # レーサー車両の場合のみカウント
             }
             check_achievements_for_event(g.user, EVENT_ADD_VEHICLE, event_data=event_data_for_ach)
-            # --- ▲▲▲ フェーズ1変更点 ▲▲▲
+            # --- ▲▲▲ フェーズ1変更点 ▲▲▲ ---
 
             return redirect(url_for('vehicle.vehicle_list'))
         except Exception as e:
@@ -148,7 +148,7 @@ def edit_vehicle(vehicle_id):
     motorcycle = Motorcycle.query.filter_by(id=vehicle_id, user_id=g.user.id).first_or_404()
     # --- ▼▼▼ フェーズ1変更点 (is_racer の値を保持) ▼▼▼
     original_is_racer = motorcycle.is_racer # 編集前の is_racer の値を保持
-    # --- ▲▲▲ フェーズ1変更点 ▲▲▲
+    # --- ▲▲▲ フェーズ1変更点 ▲▲▲ ---
 
     form = VehicleForm(obj=motorcycle)
     odo_form = OdoResetLogForm() # ODOリセットフォームは変更なし
@@ -165,7 +165,7 @@ def edit_vehicle(vehicle_id):
         form.is_racer.data = motorcycle.is_racer
         if motorcycle.is_racer:
             form.total_operating_hours.data = motorcycle.total_operating_hours
-        # --- ▲▲▲ フェーズ1変更点 ▲▲▲
+        # --- ▲▲▲ フェーズ1変更点 ▲▲▲ ---
         if not motorcycle.is_racer: # 公道車の場合のみODOフォームのデフォルト値を設定
             odo_form.reset_date.data = date.fromisoformat(today_jst_iso)
             odo_form.display_odo_after_reset.data = 0
@@ -187,7 +187,7 @@ def edit_vehicle(vehicle_id):
             motorcycle.total_operating_hours = form.total_operating_hours.data if form.total_operating_hours.data is not None else motorcycle.total_operating_hours
         # else: # 公道車両の場合、total_operating_hours は None のまま or 更新しない
         #     motorcycle.total_operating_hours = None # 明示的にNoneにするか、何もしない
-        # --- ▲▲▲ フェーズ1変更点 ▲▲▲
+        # --- ▲▲▲ フェーズ1変更点 ▲▲▲ ---
 
         try:
             db.session.commit()
@@ -302,9 +302,9 @@ def add_odo_reset_log(vehicle_id):
 
             return redirect(url_for('vehicle.edit_vehicle', vehicle_id=motorcycle.id))
         except Exception as e:
-                 db.session.rollback()
-                 flash(f'履歴の追加中にエラーが発生しました: {e}', 'danger')
-                 current_app.logger.error(f"Error adding OdoResetLog for vehicle {vehicle_id}: {e}", exc_info=True)
+                db.session.rollback()
+                flash(f'履歴の追加中にエラーが発生しました: {e}', 'danger')
+                current_app.logger.error(f"Error adding OdoResetLog for vehicle {vehicle_id}: {e}", exc_info=True)
 
     elif request.method == 'POST': # バリデーション失敗時
         flash('入力内容にエラーがあります。ご確認ください。', 'danger')
@@ -402,20 +402,41 @@ def edit_odo_reset_log(log_id):
                            now_date_iso=now_date_iso_for_template)
 
 
-# --- Maintenance Reminder Routes (フェーズ1では大きな変更なし) ---
-# リマインダー自体は is_racer フラグを直接参照しないが、
-# 距離ベースのリマインダーはレーサー車両では意味をなさなくなる点に注意 (これは main.py の表示ロジック側で考慮)
+# --- Maintenance Reminder Routes ---
 @vehicle_bp.route('/<int:vehicle_id>/reminders/add', methods=['GET', 'POST'])
 @login_required_custom
 def add_reminder(vehicle_id):
     motorcycle = Motorcycle.query.filter_by(id=vehicle_id, user_id=g.user.id).first_or_404()
     form = ReminderForm()
 
+    # 整備記録をプルダウンの選択肢として設定するファクトリ関数
+    def get_maintenance_entries():
+        # 公道車のみ整備記録を持つ
+        if motorcycle.is_racer:
+            return []
+        return MaintenanceEntry.query.filter_by(motorcycle_id=motorcycle.id).order_by(MaintenanceEntry.maintenance_date.desc(), MaintenanceEntry.id.desc())
+    
+    form.maintenance_entry.query_factory = get_maintenance_entries
+
     if form.validate_on_submit():
         new_reminder = MaintenanceReminder(motorcycle_id=vehicle_id)
-        form.populate_obj(new_reminder)
-        if new_reminder.task_description:
-            new_reminder.task_description = new_reminder.task_description.strip()
+        
+        # フォームの値をモデルに設定
+        new_reminder.task_description = form.task_description.data.strip() if form.task_description.data else None
+        new_reminder.interval_km = form.interval_km.data
+        new_reminder.interval_months = form.interval_months.data
+
+        # 整備記録との連携処理
+        selected_entry = form.maintenance_entry.data
+        if selected_entry:
+            new_reminder.last_maintenance_entry_id = selected_entry.id
+            new_reminder.last_done_date = selected_entry.maintenance_date
+            new_reminder.last_done_km = selected_entry.total_distance_at_maintenance
+        else:
+            new_reminder.last_maintenance_entry_id = None
+            new_reminder.last_done_date = form.last_done_date.data
+            new_reminder.last_done_km = form.last_done_km.data
+
         try:
             db.session.add(new_reminder)
             db.session.commit()
@@ -425,15 +446,29 @@ def add_reminder(vehicle_id):
             db.session.rollback()
             flash(f'リマインダーの追加中にエラーが発生しました: {e}', 'danger')
             current_app.logger.error(f"Error adding reminder for vehicle {vehicle_id}: {e}", exc_info=True)
-    elif request.method == 'POST': # バリデーション失敗時
+    elif request.method == 'POST':
         flash('入力内容にエラーがあります。ご確認ください。', 'danger')
 
-    current_year_for_template = datetime.now(timezone.utc).year
+    # カテゴリのサジェストリストを作成
+    category_suggestions = [
+        cat[0] for cat in db.session.query(MaintenanceEntry.category).filter(
+            MaintenanceEntry.category.isnot(None),
+            MaintenanceEntry.category != ''
+        ).distinct().all()
+    ]
+
+    # --- ▼▼▼ ここから修正 ▼▼▼ ---
+    # JavaScriptで使うための整備記録リストを取得
+    maintenance_entries_for_js = get_maintenance_entries()
+    
     return render_template('reminder_form.html',
                            form=form,
                            form_action='add',
                            motorcycle=motorcycle,
-                           current_year=current_year_for_template)
+                           category_suggestions=category_suggestions,
+                           maintenance_entries_for_js=maintenance_entries_for_js) # テンプレートに渡す
+    # --- ▲▲▲ ここまで修正 ▲▲▲ ---
+
 
 @vehicle_bp.route('/reminders/<int:reminder_id>/edit', methods=['GET', 'POST'])
 @login_required_custom
@@ -445,10 +480,35 @@ def edit_reminder(reminder_id):
     motorcycle = reminder.motorcycle
     form = ReminderForm(obj=reminder)
 
+    # 整備記録をプルダウンの選択肢として設定するファクトリ関数
+    def get_maintenance_entries():
+        if motorcycle.is_racer:
+            return []
+        return MaintenanceEntry.query.filter_by(motorcycle_id=motorcycle.id).order_by(MaintenanceEntry.maintenance_date.desc(), MaintenanceEntry.id.desc())
+
+    form.maintenance_entry.query_factory = get_maintenance_entries
+    
+    # GETリクエスト時、連携されている整備記録があればフォームに設定
+    if request.method == 'GET':
+        form.maintenance_entry.data = reminder.last_maintenance_entry
+
     if form.validate_on_submit():
-        form.populate_obj(reminder)
-        if reminder.task_description:
-            reminder.task_description = reminder.task_description.strip()
+        # フォームの値をモデルに設定
+        reminder.task_description = form.task_description.data.strip() if form.task_description.data else None
+        reminder.interval_km = form.interval_km.data
+        reminder.interval_months = form.interval_months.data
+
+        # 整備記録との連携処理
+        selected_entry = form.maintenance_entry.data
+        if selected_entry:
+            reminder.last_maintenance_entry_id = selected_entry.id
+            reminder.last_done_date = selected_entry.maintenance_date
+            reminder.last_done_km = selected_entry.total_distance_at_maintenance
+        else:
+            reminder.last_maintenance_entry_id = None
+            reminder.last_done_date = form.last_done_date.data
+            reminder.last_done_km = form.last_done_km.data
+            
         try:
             db.session.commit()
             flash(f'リマインダー「{reminder.task_description}」を更新しました。', 'success')
@@ -457,16 +517,29 @@ def edit_reminder(reminder_id):
             db.session.rollback()
             flash(f'リマインダーの更新中にエラーが発生しました: {e}', 'danger')
             current_app.logger.error(f"Error editing reminder {reminder_id}: {e}", exc_info=True)
-    elif request.method == 'POST': # バリデーション失敗時
+    elif request.method == 'POST':
         flash('入力内容にエラーがあります。ご確認ください。', 'danger')
 
-    current_year_for_template = datetime.now(timezone.utc).year
+    # カテゴリのサジェストリストを作成
+    category_suggestions = [
+        cat[0] for cat in db.session.query(MaintenanceEntry.category).filter(
+            MaintenanceEntry.category.isnot(None),
+            MaintenanceEntry.category != ''
+        ).distinct().all()
+    ]
+
+    # --- ▼▼▼ ここから修正 ▼▼▼ ---
+    # JavaScriptで使うための整備記録リストを取得
+    maintenance_entries_for_js = get_maintenance_entries()
+
     return render_template('reminder_form.html',
                            form=form,
                            form_action='edit',
                            motorcycle=motorcycle,
                            reminder_id=reminder.id,
-                           current_year=current_year_for_template)
+                           category_suggestions=category_suggestions,
+                           maintenance_entries_for_js=maintenance_entries_for_js) # テンプレートに渡す
+    # --- ▲▲▲ ここまで修正 ▲▲▲ ---
 
 @vehicle_bp.route('/reminders/<int:reminder_id>/delete', methods=['POST'])
 @login_required_custom

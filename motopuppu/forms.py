@@ -4,6 +4,7 @@ from flask_wtf.file import FileField, FileRequired, FileAllowed
 from wtforms import StringField, SelectField, DateField, DecimalField, IntegerField, TextAreaField, BooleanField, SubmitField, RadioField, FieldList, FormField, HiddenField
 from wtforms.validators import DataRequired, Optional, NumberRange, Length, ValidationError, InputRequired
 from datetime import date, datetime
+from wtforms_sqlalchemy.fields import QuerySelectField
 
 # スタンド名の候補リスト (FuelForm用)
 GAS_STATION_BRANDS = [
@@ -343,12 +344,20 @@ class OdoResetLogForm(FlaskForm):
 
 class ReminderForm(FlaskForm):
     task_description = StringField(
-        'リマインド内容',
+        'リマインド内容 / カテゴリ',
         validators=[
             DataRequired(message='リマインド内容は必須です。'),
             Length(max=200, message='リマインド内容は200文字以内で入力してください。')
         ],
-        render_kw={"placeholder": "例: エンジンオイル交換"}
+        render_kw={"placeholder": "例: エンジンオイル交換", "list": "maintenance-category-suggestions"}
+    )
+    maintenance_entry = QuerySelectField(
+        '最終実施記録 (整備ログから選択)',
+        query_factory=None,
+        allow_blank=True,
+        blank_text='--- 手動で入力する / 連携しない ---',
+        get_label='maintenance_summary_for_select',
+        validators=[Optional()]
     )
     interval_km = IntegerField(
         '距離サイクル (kmごと)',
@@ -455,9 +464,9 @@ class NoteForm(FlaskForm):
 class ProfileForm(FlaskForm):
     """プロフィール編集用フォーム"""
     display_name = StringField('表示名',
-                                validators=[DataRequired(message="表示名を入力してください。"),
-                                            Length(min=1, max=20, message="表示名は20文字以内で入力してください。")],
-                                render_kw={"placeholder": "例: もとぷー太郎"})
+                                 validators=[DataRequired(message="表示名を入力してください。"),
+                                             Length(min=1, max=20, message="表示名は20文字以内で入力してください。")],
+                                 render_kw={"placeholder": "例: もとぷー太郎"})
     submit_profile = SubmitField('表示名を更新')
 # --- ▲▲▲ ここまで追加 ▲▲▲ ---
 

@@ -168,6 +168,14 @@ class MaintenanceEntry(db.Model):
         cost_parts = self.parts_cost if self.parts_cost is not None else 0.0
         cost_labor = self.labor_cost if self.labor_cost is not None else 0.0
         return cost_parts + cost_labor
+
+    @property
+    def maintenance_summary_for_select(self):
+        """リマインダーの選択肢で表示するための整形済みテキストを返す"""
+        odo_text = f"({self.total_distance_at_maintenance:,}km)" if self.total_distance_at_maintenance is not None else ""
+        desc_text = f"{self.description[:25]}..." if len(self.description) > 25 else self.description
+        return f"{self.maintenance_date.strftime('%Y-%m-%d')} / {desc_text} {odo_text}"
+
     def __repr__(self):
         return f'<MaintenanceEntry id={self.id} date={self.maintenance_date}>'
 
@@ -186,11 +194,23 @@ class MaintenanceReminder(db.Model):
     __tablename__ = 'maintenance_reminders'
     id = db.Column(db.Integer, primary_key=True)
     motorcycle_id = db.Column(db.Integer, db.ForeignKey('motorcycles.id', ondelete='CASCADE'), nullable=False)
-    task_description = db.Column(db.String(200), nullable=False)
+    task_description = db.Column(db.String(200), nullable=False, comment="リマインド内容/カテゴリ")
     interval_km = db.Column(db.Integer, nullable=True)
     interval_months = db.Column(db.Integer, nullable=True)
-    last_done_date = db.Column(db.Date, nullable=True)
-    last_done_km = db.Column(db.Integer, nullable=True)
+    last_done_date = db.Column(db.Date, nullable=True, comment="手動入力または連携された最終実施日")
+    last_done_km = db.Column(db.Integer, nullable=True, comment="手動入力または連携された最終実施距離")
+
+    # 紐づく整備記録への外部キー
+    last_maintenance_entry_id = db.Column(db.Integer, db.ForeignKey('maintenance_entries.id', ondelete='SET NULL'), nullable=True)
+    
+    # 整備記録へのリレーションシップ
+    last_maintenance_entry = db.relationship(
+        'MaintenanceEntry', 
+        foreign_keys=[last_maintenance_entry_id],
+        backref=db.backref('reminders_as_last', lazy='dynamic'), # 逆参照
+        lazy='joined' # N+1問題対策
+    )
+
     def __repr__(self): return f'<MaintenanceReminder id={self.id} task={self.task_description}>'
 
 class Attachment(db.Model):
@@ -307,7 +327,7 @@ class ActivityLog(db.Model):
             return self.custom_location
         # 後方互換性のため、古い location_name フィールドもチェック
         elif self.location_name:
-             return self.location_name
+            return self.location_name
         return ''
 
     def __repr__(self):
