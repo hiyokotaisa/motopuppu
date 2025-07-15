@@ -17,7 +17,7 @@
                 <p><strong><i class="fas fa-clock fa-fw me-2 text-secondary"></i>日時:</strong>
                     {{ event.start_datetime | to_jst }}
                     {% if event.end_datetime %}
-                    ～ {{ event.end_datetime | to_jst('%H:%M') }}
+                    ～ {{ event.end_datetime | to_jst }}
                     {% endif %}
                 </p>
                 {% if event.location %}
@@ -132,6 +132,23 @@
                 {% else %}
                 <p class="text-muted">まだいません</p>
                 {% endif %}
+                
+                {# --- ▼▼▼ ここから追加 ▼▼▼ --- #}
+                <hr>
+
+                <h6 class="card-subtitle mb-2 text-secondary">
+                    <i class="fas fa-times-circle me-1"></i> 不参加 ({{ participants_not_attending|length }}名)
+                </h6>
+                 {% if participants_not_attending %}
+                 <p>
+                    {% for p in participants_not_attending %}
+                    <span class="badge bg-light text-dark me-1 mb-1 fs-6">{{ p.name }}</span>
+                    {% endfor %}
+                </p>
+                {% else %}
+                <p class="text-muted">まだいません</p>
+                {% endif %}
+                {# --- ▲▲▲ 追加ここまで ▲▲▲ --- #}
             </div>
         </div>
 

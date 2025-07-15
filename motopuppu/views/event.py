@@ -3,7 +3,7 @@ from flask import (
     Blueprint, flash, g, redirect, render_template, request, url_for, abort, Response, current_app
 )
 from sqlalchemy.exc import IntegrityError
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
 
 from .auth import login_required_custom
 from ..models import db, Event, EventParticipant, Motorcycle, ParticipationStatus
@@ -72,7 +72,10 @@ def add_event():
 def edit_event(event_id):
     """イベントを編集する"""
     event = Event.query.filter_by(id=event_id, user_id=g.user.id).first_or_404()
-    form = EventForm(obj=event)
+    # --- ▼▼▼ This is the main fix ▼▼▼ ---
+    # Don't pass obj=event to the constructor. Populate the form manually on GET requests.
+    form = EventForm(request.form)
+    # --- ▲▲▲ End of fix ▲▲▲ ---
 
     form.motorcycle_id.choices = [(m.id, m.name) for m in Motorcycle.query.filter_by(user_id=g.user.id).order_by('name')]
     form.motorcycle_id.choices.insert(0, (0, '--- 車両を関連付けない ---'))
@@ -81,6 +84,7 @@ def edit_event(event_id):
         start_dt_utc = form.start_datetime.data.replace(tzinfo=JST).astimezone(timezone.utc)
         end_dt_utc = form.end_datetime.data.replace(tzinfo=JST).astimezone(timezone.utc) if form.end_datetime.data else None
 
+        # Manually update the event object from form data
         event.motorcycle_id = form.motorcycle_id.data if form.motorcycle_id.data != 0 else None
         event.title = form.title.data
         event.description = form.description.data
@@ -96,10 +100,19 @@ def edit_event(event_id):
             current_app.logger.error(f"Error editing event {event_id}: {e}", exc_info=True)
             flash('イベントの更新中にエラーが発生しました。', 'danger')
 
-    # GETリクエスト時、DBのUTC時刻をJSTに変換してフォームにセット
-    form.start_datetime.data = event.start_datetime.astimezone(JST)
-    if event.end_datetime:
-        form.end_datetime.data = event.end_datetime.astimezone(JST)
+    # --- ▼▼▼ This is the second part of the fix ▼▼▼ ---
+    # On a GET request, manually populate the form with data from the event object.
+    # This ensures the timezone conversion happens correctly before rendering.
+    elif request.method == 'GET':
+        form.title.data = event.title
+        form.description.data = event.description
+        form.location.data = event.location
+        form.motorcycle_id.data = event.motorcycle_id
+        # Convert UTC from DB to JST for display in the form
+        form.start_datetime.data = event.start_datetime.astimezone(JST)
+        if event.end_datetime:
+            form.end_datetime.data = event.end_datetime.astimezone(JST)
+    # --- ▲▲▲ End of fix ▲▲▲ ---
     
     return render_template('event/event_form.html', form=form, mode='edit', event=event)
 
@@ -154,25 +167,17 @@ def public_event_view(public_id):
 
         try:
             if existing_participant:
-                # --- ▼▼▼ ここから修正 ▼▼▼ ---
-                # 既存参加者の処理
                 if not existing_participant.check_passcode(passcode):
                     flash('パスコードが正しくありません。', 'danger')
                     return redirect(url_for('event.public_event_view', public_id=public_id))
 
                 if status == 'delete':
-                    # 参加取り消しの場合
                     db.session.delete(existing_participant)
-                    db.session.commit()
                     flash(f'「{participant_name}」さんの参加登録を取り消しました。', 'info')
                 else:
-                    # ステータス更新の場合
                     existing_participant.status = ParticipationStatus(status)
-                    db.session.commit()
                     flash(f'「{participant_name}」さんの出欠を更新しました。', 'success')
-                # --- ▲▲▲ 修正ここまで ▲▲▲ ---
             else:
-                # 新規作成の場合
                 if status == 'delete':
                     flash('まだ参加登録されていません。', 'warning')
                     return redirect(url_for('event.public_event_view', public_id=public_id))
@@ -184,9 +189,9 @@ def public_event_view(public_id):
                 )
                 new_participant.set_passcode(passcode)
                 db.session.add(new_participant)
-                db.session.commit()
                 flash(f'「{participant_name}」さんの出欠を登録しました。ありがとうございます！', 'success')
-
+            
+            db.session.commit()
         except IntegrityError:
             db.session.rollback()
             flash('出欠の登録に失敗しました。同じ名前の参加者が既に登録されている可能性があります。', 'danger')

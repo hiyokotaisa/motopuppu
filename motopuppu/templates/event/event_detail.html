@@ -31,9 +31,11 @@
             <div class="card-body">
                 <p><strong><i class="fas fa-clock fa-fw me-2 text-secondary"></i>日時:</strong>
                     {{ event.start_datetime | to_jst }}
+                    {# --- ▼▼▼ This is the fix ▼▼▼ --- #}
                     {% if event.end_datetime %}
-                    ～ {{ event.end_datetime | to_jst('%H:%M') }}
+                    ～ {{ event.end_datetime | to_jst }}
                     {% endif %}
+                    {# --- ▲▲▲ End of fix ▲▲▲ --- #}
                 </p>
                 {% if event.location %}
                 <p><strong><i class="fas fa-map-marker-alt fa-fw me-2 text-secondary"></i>場所:</strong> {{ event.location }}</p>
