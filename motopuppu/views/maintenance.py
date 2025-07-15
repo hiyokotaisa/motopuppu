@@ -143,7 +143,7 @@ def maintenance_log():
     sort_column = sort_column_map.get(current_sort_by, MaintenanceEntry.maintenance_date)
     current_order = 'desc' if order == 'desc' else 'asc'
 
-    sort_modifier = desc if current_order == 'desc' else 'asc'
+    sort_modifier = desc if current_order == 'desc' else asc
 
     if sort_column == MaintenanceEntry.maintenance_date:
         query = query.order_by(sort_modifier(MaintenanceEntry.maintenance_date), desc(MaintenanceEntry.total_distance_at_maintenance), MaintenanceEntry.id.desc())
