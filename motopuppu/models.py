@@ -15,21 +15,16 @@ class User(db.Model):
     misskey_user_id = db.Column(db.String(100), unique=True, nullable=False)
     misskey_username = db.Column(db.String(100), nullable=True)
     display_name = db.Column(db.String(100), nullable=True, comment="ユーザーが設定する表示名")
-    # --- ▼▼▼ ここから追加 ▼▼▼ ---
     avatar_url = db.Column(db.String(2048), nullable=True, comment="MisskeyのアバターURL")
-    # --- ▲▲▲ ここまで追加 ▲▲▲ ---
     is_admin = db.Column(db.Boolean, default=False, nullable=False)
-
     motorcycles = db.relationship('Motorcycle', backref='owner', lazy=True, cascade="all, delete-orphan")
     general_notes = db.relationship('GeneralNote', backref='owner', lazy=True, cascade="all, delete-orphan")
     achievements = db.relationship('UserAchievement', backref='user', lazy='dynamic', cascade="all, delete-orphan")
-    # --- ▼▼▼ 活動ログ機能 リレーションシップ追加 ▼▼▼ ---
     setting_sheets = db.relationship('SettingSheet', backref='user', lazy='dynamic', cascade="all, delete-orphan")
     activity_logs = db.relationship('ActivityLog', backref='user', lazy='dynamic', cascade="all, delete-orphan")
-    # --- ▲▲▲ 活動ログ機能 リレーションシップ追加 ▲▲▲ ---
-
     def __repr__(self):
         return f'<User id={self.id} username={self.misskey_username}>'
+
 
 class Motorcycle(db.Model):
     __tablename__ = 'motorcycles'
@@ -40,12 +35,8 @@ class Motorcycle(db.Model):
     year = db.Column(db.Integer, nullable=True)
     odometer_offset = db.Column(db.Integer, nullable=False, default=0, server_default='0')
     is_default = db.Column(db.Boolean, nullable=False, server_default='false')
-
-    # --- ▼▼▼ フェーズ1変更点 ▼▼▼ ---
     is_racer = db.Column(db.Boolean, nullable=False, default=False, server_default='false')
     total_operating_hours = db.Column(db.Numeric(8, 2), nullable=True, default=0.00)
-    # --- ▲▲▲ フェーズ1変更点 ▲▲▲ ---
-
     fuel_entries = db.relationship('FuelEntry', backref='motorcycle', lazy='dynamic', order_by="desc(FuelEntry.entry_date)", cascade="all, delete-orphan")
     maintenance_entries = db.relationship('MaintenanceEntry', backref='motorcycle', lazy='dynamic', order_by="desc(MaintenanceEntry.maintenance_date)", cascade="all, delete-orphan")
     consumable_logs = db.relationship('ConsumableLog', backref='motorcycle', lazy='dynamic', order_by="desc(ConsumableLog.change_date)", cascade="all, delete-orphan")
@@ -55,10 +46,8 @@ class Motorcycle(db.Model):
         'OdoResetLog', backref='motorcycle', lazy='dynamic',
         order_by="desc(OdoResetLog.reset_date)", cascade="all, delete-orphan"
     )
-    # --- ▼▼▼ 活動ログ機能 リレーションシップ追加 ▼▼▼ ---
     setting_sheets = db.relationship('SettingSheet', backref='motorcycle', lazy='dynamic', cascade="all, delete-orphan")
     activity_logs = db.relationship('ActivityLog', backref='motorcycle', lazy='dynamic', order_by="desc(ActivityLog.activity_date)", cascade="all, delete-orphan")
-    # --- ▲▲▲ 活動ログ機能 リレーションシップ追加 ▲▲▲ ---
 
     def calculate_cumulative_offset_from_logs(self, target_date=None):
         if self.is_racer:
@@ -74,42 +63,8 @@ class Motorcycle(db.Model):
         current_offset = self.odometer_offset if self.odometer_offset is not None else 0
         return max(latest_fuel_dist, latest_maint_dist, current_offset)
 
-    def get_display_average_kpl(self):
-        if self.is_racer:
-            return None
-        all_full_tank_entries = FuelEntry.query.filter(
-            FuelEntry.motorcycle_id == self.id,
-            FuelEntry.is_full_tank == True
-        ).order_by(FuelEntry.total_distance.asc()).all()
-        if len(all_full_tank_entries) < 2:
-            return None
-        total_distance = 0.0
-        total_fuel = 0.0
-        for i in range(len(all_full_tank_entries) - 1):
-            start_entry = all_full_tank_entries[i]
-            end_entry = all_full_tank_entries[i+1]
-            if start_entry.exclude_from_average or end_entry.exclude_from_average:
-                continue
-            distance_diff = end_entry.total_distance - start_entry.total_distance
-            fuel_in_interval = db.session.query(func.sum(FuelEntry.fuel_volume)).filter(
-                FuelEntry.motorcycle_id == self.id,
-                FuelEntry.total_distance > start_entry.total_distance,
-                FuelEntry.total_distance <= end_entry.total_distance,
-                FuelEntry.exclude_from_average == False
-            ).scalar() or 0.0
-            if distance_diff > 0 and fuel_in_interval > 0:
-                total_distance += distance_diff
-                total_fuel += fuel_in_interval
-        if total_fuel > 0 and total_distance > 0:
-            try:
-                return round(total_distance / total_fuel, 2)
-            except ZeroDivisionError:
-                return None
-        return None
-
     def __repr__(self):
         return f'<Motorcycle id={self.id} name={self.name}>'
-
 
 class FuelEntry(db.Model):
     __tablename__ = 'fuel_entries'
@@ -175,10 +130,7 @@ class MaintenanceEntry(db.Model):
 
     @property
     def maintenance_summary_for_select(self):
-        """リマインダーの選択肢で表示するための整形済みテキストを返す"""
-        # --- ▼▼▼ ここから変更 ▼▼▼ ---
         odo_text = f"({self.odometer_reading_at_maintenance:,}km)" if self.odometer_reading_at_maintenance is not None else ""
-        # --- ▲▲▲ ここまで変更 ▲▲▲ ---
         desc_text = f"{self.description[:25]}..." if len(self.description) > 25 else self.description
         return f"{self.maintenance_date.strftime('%Y-%m-%d')} / {desc_text} {odo_text}"
 
@@ -204,25 +156,16 @@ class MaintenanceReminder(db.Model):
     interval_km = db.Column(db.Integer, nullable=True)
     interval_months = db.Column(db.Integer, nullable=True)
     last_done_date = db.Column(db.Date, nullable=True, comment="手動入力または連携された最終実施日")
-    
-    # last_done_km は「総走行距離」を格納する役割を維持
     last_done_km = db.Column(db.Integer, nullable=True, comment="最終実施時の『総走行距離』(計算済み)") 
-    # 新しく「メーターODO値」を保存するカラムを追加
     last_done_odo = db.Column(db.Integer, nullable=True, comment="最終実施時の『メーターODO値』(手動入力用)") 
-
-    # 紐づく整備記録への外部キー
     last_maintenance_entry_id = db.Column(db.Integer, db.ForeignKey('maintenance_entries.id', ondelete='SET NULL'), nullable=True)
-    
     auto_update_from_category = db.Column(db.Boolean, nullable=False, default=True, server_default='true', comment="カテゴリ名が一致した整備記録で自動更新するか")
-
-    # 整備記録へのリレーションシップ
     last_maintenance_entry = db.relationship(
         'MaintenanceEntry', 
         foreign_keys=[last_maintenance_entry_id],
-        backref=db.backref('reminders_as_last', lazy='dynamic'), # 逆参照
-        lazy='joined' # N+1問題対策
+        backref=db.backref('reminders_as_last', lazy='dynamic'), 
+        lazy='joined' 
     )
-
     def __repr__(self): return f'<MaintenanceReminder id={self.id} task={self.task_description}>'
 
 class Attachment(db.Model):
@@ -283,10 +226,7 @@ class UserAchievement(db.Model):
     __table_args__ = (db.UniqueConstraint('user_id', 'achievement_code', name='uq_user_achievement'),)
     def __repr__(self): return f'<UserAchievement user_id={self.user_id} achievement_code={self.achievement_code} unlocked_at={self.unlocked_at}>'
 
-# --- ▼▼▼ 活動ログ機能 (ここから) ▼▼▼ ---
-
 class SettingSheet(db.Model):
-    """再利用可能なセッティング情報を格納するモデル"""
     __tablename__ = 'setting_sheets'
     id = db.Column(db.Integer, primary_key=True)
     motorcycle_id = db.Column(db.Integer, db.ForeignKey('motorcycles.id', ondelete='CASCADE'), nullable=False)
@@ -297,57 +237,40 @@ class SettingSheet(db.Model):
     is_archived = db.Column(db.Boolean, default=False, nullable=False)
     created_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
     updated_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now(), onupdate=db.func.now())
-
     def __repr__(self):
         return f'<SettingSheet id={self.id} name="{self.sheet_name}">'
 
 class ActivityLog(db.Model):
-    """1日の活動（サーキット走行、ツーリング等）の親コンテナとなるモデル"""
     __tablename__ = 'activity_logs'
     id = db.Column(db.Integer, primary_key=True)
     motorcycle_id = db.Column(db.Integer, db.ForeignKey('motorcycles.id', ondelete='CASCADE'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     event_id = db.Column(db.Integer, db.ForeignKey('events.id', ondelete='SET NULL'), nullable=True, index=True, comment="この活動ログが紐づくイベントのID")
     activity_date = db.Column(db.Date, nullable=False, index=True)
-    
-    # --- ▼▼▼ 変更 ▼▼▼ ---
-    # 既存の location_name は nullable に変更して後方互換性を維持
     location_name = db.Column(db.String(150), nullable=True)
-    
-    # 新しい構造化されたフィールドを追加
     activity_title = db.Column(db.String(200), nullable=True, comment="活動名 (例: 7月の走行会)")
     location_type = db.Column(db.String(20), nullable=True, comment="場所の種別 (例: circuit, custom)")
     circuit_name = db.Column(db.String(150), nullable=True, index=True, comment="location_typeが'circuit'の場合のサーキット名")
     custom_location = db.Column(db.String(200), nullable=True, comment="location_typeが'custom'の場合の自由入力場所名")
-    # --- ▲▲▲ 変更ここまで ▲▲▲ ---
-    
     weather = db.Column(db.String(50), nullable=True)
     temperature = db.Column(db.Numeric(4, 1), nullable=True)
     notes = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
     updated_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now(), onupdate=db.func.now())
-    
-    # ▼▼▼ lazy='dynamic' は元のまま維持 ▼▼▼
     sessions = db.relationship('SessionLog', backref='activity', lazy='dynamic', order_by="asc(SessionLog.id)", cascade="all, delete-orphan")
-
-    # ▼▼▼ 影響のない location_name_display プロパティのみ追加 ▼▼▼
     @property
     def location_name_display(self):
-        """共有や表示に使うための場所名を返すプロパティ"""
         if self.location_type == 'circuit' and self.circuit_name:
             return self.circuit_name
         elif self.location_type == 'custom' and self.custom_location:
             return self.custom_location
-        # 後方互換性のため、古い location_name フィールドもチェック
         elif self.location_name:
             return self.location_name
         return ''
-
     def __repr__(self):
         return f'<ActivityLog id={self.id} date="{self.activity_date}" location="{self.location_name}">'
 
 class SessionLog(db.Model):
-    """個別の走行セッションの記録モデル"""
     __tablename__ = 'session_logs'
     id = db.Column(db.Integer, primary_key=True)
     activity_log_id = db.Column(db.Integer, db.ForeignKey('activity_logs.id', ondelete='CASCADE'), nullable=False)
@@ -355,38 +278,22 @@ class SessionLog(db.Model):
     session_name = db.Column(db.String(100), nullable=True, default='Session 1')
     lap_times = db.Column(JSONB, nullable=True)
     rider_feel = db.Column(db.Text, nullable=True)
-    
-    # 従来のデータ形式 (後方互換性のために残す)
     operating_hours_start = db.Column(db.Numeric(8, 2), nullable=True)
     operating_hours_end = db.Column(db.Numeric(8, 2), nullable=True)
     odo_start = db.Column(db.Integer, nullable=True)
     odo_end = db.Column(db.Integer, nullable=True)
-
-    # --- ▼▼▼ 新しいデータ形式 ▼▼▼ ---
-    session_duration_hours = db.Column(db.Numeric(8, 2), nullable=True) # レーサー用のセッション稼働時間
-    session_distance = db.Column(db.Integer, nullable=True)          # 公道車用のセッション走行距離
-    
-    # --- ▼▼▼ 変更 ▼▼▼ ---
-    # 将来のリーダーボード機能のためのフィールド
+    session_duration_hours = db.Column(db.Numeric(8, 2), nullable=True)
+    session_distance = db.Column(db.Integer, nullable=True)
     best_lap_seconds = db.Column(db.Numeric(8, 3), nullable=True, index=True, comment="このセッションでのベストラップ（秒）")
     include_in_leaderboard = db.Column(db.Boolean, nullable=False, default=True, server_default='true', comment="この記録をリーダーボードに掲載するか")
-    # --- ▲▲▲ 変更ここまで ▲▲▲ ---
-
     setting_sheet = db.relationship('SettingSheet', backref='sessions')
-
     def __repr__(self):
         return f'<SessionLog id={self.id} activity_id={self.activity_log_id}>'
-
-# --- ▲▲▲ 活動ログ機能 (ここまで) ▲▲▲ ---
-
-
-# --- ▼▼▼ イベント機能 (ここから) ▼▼▼ ---
 
 class ParticipationStatus(PyEnum):
     ATTENDING = 'attending'
     TENTATIVE = 'tentative'
     NOT_ATTENDING = 'not_attending'
-
     @property
     def label(self):
         return {
@@ -396,68 +303,44 @@ class ParticipationStatus(PyEnum):
         }.get(self.value, '')
 
 class Event(db.Model):
-    """ツーリングや走行会などのイベント情報を格納するモデル"""
     __tablename__ = 'events'
     id = db.Column(db.Integer, primary_key=True)
     public_id = db.Column(db.String(36), unique=True, nullable=False, default=lambda: str(uuid.uuid4()), index=True)
-
     user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False, comment="イベント作成者のID")
     motorcycle_id = db.Column(db.Integer, db.ForeignKey('motorcycles.id', ondelete='SET NULL'), nullable=True, comment="関連する車両のID")
-    
     title = db.Column(db.String(200), nullable=False, comment="イベント名")
     description = db.Column(db.Text, nullable=True, comment="イベントの詳細説明")
     location = db.Column(db.String(200), nullable=True, comment="開催場所")
-    
     start_datetime = db.Column(db.DateTime, nullable=False, comment="開始日時 (UTC)")
     end_datetime = db.Column(db.DateTime, nullable=True, comment="終了日時 (UTC)")
-
     created_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
     updated_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now(), onupdate=db.func.now())
-
-    # リレーションシップ
     owner = db.relationship('User', backref=db.backref('events', lazy='dynamic'))
     motorcycle = db.relationship('Motorcycle', backref=db.backref('events', lazy='dynamic'))
     participants = db.relationship('EventParticipant', backref='event', lazy='dynamic', cascade="all, delete-orphan")
     activity_logs = db.relationship('ActivityLog', backref='origin_event', lazy='dynamic', order_by="desc(ActivityLog.activity_date)")
-
     def __repr__(self):
         return f'<Event id={self.id} title="{self.title}">'
 
 class EventParticipant(db.Model):
-    """イベントへの参加者情報を格納するモデル"""
     __tablename__ = 'event_participants'
     id = db.Column(db.Integer, primary_key=True)
     event_id = db.Column(db.Integer, db.ForeignKey('events.id', ondelete='CASCADE'), nullable=False, index=True)
-    
     name = db.Column(db.String(100), nullable=False, comment="参加者名")
     status = db.Column(db.Enum(ParticipationStatus, values_callable=lambda x: [e.value for e in x]), nullable=False, comment="出欠ステータス")
-    
-    # --- ▼▼▼ ここから修正 ▼▼▼ ---
     passcode_hash = db.Column(db.String(255), nullable=True, comment="出欠変更用のパスコードのハッシュ")
-    # --- ▲▲▲ 修正ここまで ▲▲▲ ---
-
     created_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
-
     __table_args__ = (db.UniqueConstraint('event_id', 'name', name='uq_event_participant_name'),)
-
-    # --- ▼▼▼ ここから追加 ▼▼▼ ---
     def set_passcode(self, passcode):
-        """パスコードをハッシュ化して保存する"""
         if passcode:
             self.passcode_hash = generate_password_hash(passcode)
         else:
             self.passcode_hash = None
-
     def check_passcode(self, passcode):
-        """入力されたパスコードが正しいかチェックする"""
-        if self.passcode_hash is None: # パスコードが設定されていない場合は常にTrue（後方互換性のため）
+        if self.passcode_hash is None:
             return True
-        if not passcode: # パスコードが入力されていない場合はFalse
+        if not passcode:
             return False
         return check_password_hash(self.passcode_hash, passcode)
-    # --- ▲▲▲ 追加ここまで ▲▲▲ ---
-
     def __repr__(self):
         return f'<EventParticipant id={self.id} event_id={self.event_id} name="{self.name}" status="{self.status.value}">'
-
-# --- ▲▲▲ イベント機能 (ここまで) ▲▲▲ ---

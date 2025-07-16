@@ -7,10 +7,11 @@ from zoneinfo import ZoneInfo # Python 3.9+
 from sqlalchemy import func
 from ..models import db, User, Motorcycle, MaintenanceReminder, OdoResetLog, MaintenanceEntry, ActivityLog
 from .auth import login_required_custom, get_current_user
-# --- ▼▼▼ ReminderFormのインポートを削除 ▼▼▼ ---
 from ..forms import VehicleForm, OdoResetLogForm
-# --- ▲▲▲ ---
 from ..achievement_evaluator import check_achievements_for_event, EVENT_ADD_VEHICLE, EVENT_ADD_ODO_RESET
+# ▼▼▼ servicesモジュールをインポート ▼▼▼
+from .. import services
+# ▲▲▲ ここまで追加 ▲▲▲
 
 vehicle_bp = Blueprint('vehicle', __name__, url_prefix='/vehicles')
 
@@ -37,10 +38,18 @@ def vehicle_list():
     user_motorcycles = []
     for motorcycle, count in motorcycles_with_counts:
         motorcycle.activity_log_count = count or 0
+        # ▼▼▼ ここで事前に平均燃費を計算してオブジェクトにセットする ▼▼▼
+        if not motorcycle.is_racer:
+            motorcycle.avg_kpl = services.calculate_average_kpl(motorcycle)
+        else:
+            motorcycle.avg_kpl = None # レーサーの場合はNoneをセット
+        # ▲▲▲ ここまで修正 ▲▲▲
         user_motorcycles.append(motorcycle)
 
     return render_template('vehicles.html', motorcycles=user_motorcycles)
 
+# (以降の add_vehicle, edit_vehicle などの関数は変更ありません)
+# ... add_vehicle 以降のコードは元のまま ...
 @vehicle_bp.route('/add', methods=['GET', 'POST'])
 @login_required_custom
 def add_vehicle():
@@ -150,9 +159,6 @@ def edit_vehicle(vehicle_id):
             odo_form.display_odo_after_reset.data = 0
 
     current_year_for_validation = datetime.now(timezone.utc).year
-    # --- ▼▼▼ リマインダーリスト取得のロジックを削除 ▼▼▼ ---
-    # reminders = MaintenanceReminder.query.filter_by(motorcycle_id=vehicle_id).order_by(MaintenanceReminder.task_description, MaintenanceReminder.id).all()
-    # --- ▲▲▲ ---
     odo_logs = OdoResetLog.query.filter_by(motorcycle_id=vehicle_id).order_by(OdoResetLog.reset_date.desc(), OdoResetLog.id.desc()).all()
 
     if form.submit.data and form.validate_on_submit():
@@ -181,15 +187,10 @@ def edit_vehicle(vehicle_id):
                            form=form,
                            odo_form=odo_form,
                            vehicle=motorcycle,
-                           # --- ▼▼▼ remindersのテンプレートへの受け渡しを削除 ▼▼▼ ---
-                           # reminders=reminders,
-                           # --- ▲▲▲ ---
                            odo_logs=odo_logs,
                            current_year=current_year_for_validation,
                            now_date_iso=today_jst_iso,
                            is_racer_vehicle=motorcycle.is_racer)
-
-# --- ▼▼▼ 以下、このファイル内のODOリセット関連以外のルートは、新しく作成した reminder.py に移動するため削除 ▼▼▼ ---
 
 @vehicle_bp.route('/<int:vehicle_id>/delete', methods=['POST'])
 @login_required_custom

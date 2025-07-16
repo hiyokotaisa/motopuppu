@@ -10,10 +10,8 @@ from sqlalchemy import or_, asc, desc, func
 
 from .auth import login_required_custom, get_current_user
 from ..models import db, Motorcycle, FuelEntry
-# ▼▼▼ インポート文を修正 ▼▼▼
 from ..forms import FuelForm
 from ..constants import GAS_STATION_BRANDS
-# ▲▲▲ ここまで修正 ▲▲▲
 # 実績評価モジュールとイベントタイプをインポート
 from ..achievement_evaluator import check_achievements_for_event, EVENT_ADD_FUEL_LOG
 

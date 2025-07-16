@@ -121,6 +121,7 @@ kyagisaw@hiyoko-pc:/mnt/c/Users/hiyoko/Dev/motopuppu$ tree
 ├── motopuppu
 │   ├── achievement_evaluator.py
 │   ├── achievements_utils.py
+│   ├── constants.py
 │   ├── forms.py
 │   ├── __init__.py
 │   ├── manage_commands.py
@@ -193,10 +194,15 @@ kyagisaw@hiyoko-pc:/mnt/c/Users/hiyoko/Dev/motopuppu$ tree
 │   │   ├── vehicle_form.html
 │   │   └── vehicles.html
 │   ├── utils
-│   │   └── datetime_helpers.py
+│   │   ├── datetime_helpers.py
+│   │   └── lap_time_utils.py
 │   └── views
 │       ├── achievements.py
-│       ├── activity.py
+│       ├── activity
+│       │   ├── activity_routes.py
+│       │   ├── __init__.py
+│       │   ├── session_routes.py
+│       │   └── setting_routes.py
 │       ├── auth.py
 │       ├── dev_auth.py
 │       ├── event.py
@@ -211,7 +217,7 @@ kyagisaw@hiyoko-pc:/mnt/c/Users/hiyoko/Dev/motopuppu$ tree
 ├── README.md
 └── requirements.txt
 
-23 directories, 106 files
+24 directories, 111 files
     ```
 
 7.  **今回のセッションでの目標 [毎回更新]:**
