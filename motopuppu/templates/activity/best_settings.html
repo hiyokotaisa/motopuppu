@@ -1,0 +1,80 @@
+{# motopuppu/templates/activity/best_settings.html #}
+{% extends "base.html" %}
+
+{% block title %}ベストセッティング一覧 - {{ motorcycle.name }} - もとぷっぷー{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center mb-3">
+    <a href="{{ url_for('activity.list_activities', vehicle_id=motorcycle.id) }}" class="btn btn-sm btn-outline-secondary me-3" title="活動ログ一覧へ戻る">
+        <i class="fas fa-arrow-left"></i>
+    </a>
+    <div>
+        <h2 class="mb-0">各サーキットのベストセッティング</h2>
+        <span class="text-muted">{{ motorcycle.name }}</span>
+    </div>
+</div>
+
+{% if best_sessions %}
+<div class="row row-cols-1 row-cols-md-2 g-4">
+    {% for session in best_sessions %}
+    <div class="col">
+        <div class="card h-100 border-warning">
+            <div class="card-header bg-warning">
+                <h5 class="mb-0 text-dark">
+                    <i class="fas fa-trophy me-2"></i>{{ session.activity.circuit_name }}
+                </h5>
+            </div>
+            <div class="card-body">
+                <h3 class="card-title text-danger text-center mb-3">
+                    {{ format_seconds_to_time(session.best_lap_seconds) }}
+                </h3>
+                <p class="card-text text-center text-muted">
+                    達成日: {{ session.activity.activity_date.strftime('%Y年%m月%d日') }}<br>
+                    セッション: <a href="{{ url_for('activity.detail_activity', activity_id=session.activity_log_id) }}#session-card-{{session.id}}">{{ session.session_name }}</a>
+                </p>
+
+                {% if session.setting_sheet %}
+                <details class="mt-3">
+                    <summary style="cursor: pointer;"><strong>使用セッティング:</strong> {{ session.setting_sheet.sheet_name }}</summary>
+                    <div class="mt-2 small bg-light p-3 rounded">
+                        {% for category_key, items in session.setting_sheet.details.items() %}
+                            {% set category_info = setting_key_map.get(category_key, {}) %}
+                            <strong>{{ category_info.get('title', category_key) }}</strong>
+                            <ul class="list-unstyled ps-3 mb-2">
+                            {% for item_key, item_value in items.items() %}
+                                {% set item_label = category_info.get('keys', {}).get(item_key, item_key) %}
+                                <li>{{ item_label }}: {{ item_value }}</li>
+                            {% endfor %}
+                            </ul>
+                        {% else %}
+                            <p class="mb-0">詳細なセッティング項目はありません。</p>
+                        {% endfor %}
+                        {% if session.setting_sheet.notes %}
+                        <hr>
+                        <strong>メモ:</strong>
+                        <p class="mb-0" style="white-space: pre-wrap;">{{ session.setting_sheet.notes }}</p>
+                        {% endif %}
+                    </div>
+                </details>
+                {% else %}
+                <p class="text-muted mt-3">セッティングシートは使用されていません。</p>
+                {% endif %}
+            </div>
+            <div class="card-footer">
+                <a href="{{ url_for('activity.edit_setting', setting_id=session.setting_sheet.id) }}" class="btn btn-sm btn-outline-primary w-100">
+                    <i class="fas fa-edit me-1"></i>このセッティングシートを編集
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="alert alert-info">
+    <h4 class="alert-heading">データがありません</h4>
+    <p>この車両で記録された、サーキットでのラップタイム付きセッションがまだありません。</p>
+    <hr>
+    <p class="mb-0">活動ログからセッションを記録して、ラップタイムを入力すると、ここにサーキットごとの自己ベストセッティングが表示されるようになります。</p>
+</div>
+{% endif %}
+{% endblock %}

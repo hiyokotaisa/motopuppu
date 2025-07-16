@@ -1,0 +1,270 @@
+{# motopuppu/templates/activity/compare_sessions.html #}
+{% extends "base.html" %}
+
+{% block title %}セッション比較 - {{ motorcycle.name }} - もとぷっぷー{% endblock %}
+
+{% block content %}
+<style>
+    .session-card {
+        border: 1px solid #ddd;
+        border-radius: .25rem;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    .fastest-lap {
+        font-size: 1.2em;
+        font-weight: bold;
+        color: #0d6efd; /* Bootstrap primary color */
+    }
+    .fastest-indicator {
+        color: gold;
+    }
+    .accordion-button:not(.collapsed) {
+        color: #0d6efd;
+        background-color: #e7f1ff;
+    }
+    .diff-row > td {
+        background-color: #fff3cd !important;
+    }
+</style>
+
+<div class="d-flex align-items-center mb-3">
+    <a href="{{ url_for('activity.detail_activity', activity_id=(sessions|first).activity_log_id) }}" class="btn btn-sm btn-outline-secondary me-3" title="活動ログ詳細へ戻る">
+        <i class="fas fa-arrow-left"></i>
+    </a>
+    <div>
+        <h2 class="mb-0">セッション比較</h2>
+        <span class="text-muted">{{ motorcycle.name }}</span>
+    </div>
+</div>
+
+{# --- サマリーセクション --- #}
+<div class="row mb-4">
+    {% set best_stats = comparison_data.lap_analysis.stats.values() | selectattr('best_sec', 'number') | list %}
+    {% set min_best_sec = (best_stats | map(attribute='best_sec') | min) if best_stats else none %}
+    {% set avg_stats = comparison_data.lap_analysis.stats.values() | selectattr('avg_sec', 'number') | list %}
+    {% set min_avg_sec = (avg_stats | map(attribute='avg_sec') | min) if avg_stats else none %}
+
+    {% for session in sessions %}
+    {% set stats = comparison_data.lap_analysis.stats.get(session.id) %}
+    <div class="col-md-6 col-lg-4 mb-3">
+        <div class="session-card h-100 d-flex flex-column">
+            <h4>{{ session.session_name }}</h4>
+            <h6 class="text-muted">{{ session.setting_sheet.sheet_name if session.setting_sheet else 'セッティングなし' }}</h6>
+            <hr>
+            <div class="mb-2">
+                ベストラップ:
+                {% if stats.best_sec is number and stats.best_sec == min_best_sec %}
+                    <span class="fastest-lap"><i class="fas fa-crown fastest-indicator me-1"></i>{{ stats.best }}</span>
+                {% elif stats.best != 'N/A' %}
+                    <span>{{ stats.best }} <small class="text-danger">({{ stats.best_diff }})</small></span>
+                {% else %}
+                    <span>{{ stats.best }}</span>
+                {% endif %}
+            </div>
+            <div class="mb-2">
+                平均ラップ:
+                 {% if stats.avg_sec is number and stats.avg_sec == min_avg_sec %}
+                    <span class="fastest-lap"><i class="fas fa-crown fastest-indicator me-1"></i>{{ stats.avg }}</span>
+                {% elif stats.avg != 'N/A' %}
+                    <span>{{ stats.avg }} <small class="text-danger">({{ stats.avg_diff }})</small></span>
+                {% else %}
+                    <span>{{ stats.avg }}</span>
+                {% endif %}
+            </div>
+            <p class="text-muted small mt-auto pt-2 mb-0">
+                日付: {{ session.activity.activity_date }}
+                {% if session.activity.weather %}<br>天候: {{ session.activity.weather }}{% endif %}
+                {% if session.activity.temperature %}<br>気温: {{ session.activity.temperature }}{% if session.activity.temperature is number %}℃{% endif %}{% endif %}
+            </p>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{# --- タブナビゲーション --- #}
+<ul class="nav nav-tabs mb-3" id="comparisonTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="lap-analysis-tab" data-bs-toggle="tab" data-bs-target="#lap-analysis" type="button" role="tab" aria-controls="lap-analysis" aria-selected="true">
+            <i class="fas fa-chart-line me-2"></i>ラップタイム分析
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="settings-comparison-tab" data-bs-toggle="tab" data-bs-target="#settings-comparison" type="button" role="tab" aria-controls="settings-comparison" aria-selected="false">
+            <i class="fas fa-sliders-h me-2"></i>セッティング比較
+        </button>
+    </li>
+</ul>
+
+<div class="tab-content" id="comparisonTabsContent">
+    {# --- ラップタイム分析タブ --- #}
+    <div class="tab-pane fade show active" id="lap-analysis" role="tabpanel" aria-labelledby="lap-analysis-tab">
+        <div class="card">
+            <div class="card-body">
+                 <div style="height: 400px;">
+                    <canvas id="lapComparisonChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# --- セッティング比較タブ --- #}
+    <div class="tab-pane fade" id="settings-comparison" role="tabpanel" aria-labelledby="settings-comparison-tab">
+        <div class="card">
+            <div class="card-header">
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="diffOnlyCheckbox">
+                    <label class="form-check-label" for="diffOnlyCheckbox">値が異なる項目のみ表示</label>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="accordion" id="settingsAccordion">
+                    {% for group in comparison_data.settings_comparison | groupby('category') %}
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="heading{{ loop.index }}">
+                            <button class="accordion-button {% if not loop.first %}collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ loop.index }}" aria-expanded="{{ 'true' if loop.first else 'false' }}" aria-controls="collapse{{ loop.index }}">
+                                {{ group.grouper }}
+                            </button>
+                        </h2>
+                        <div id="collapse{{ loop.index }}" class="accordion-collapse collapse {% if loop.first %}show{% endif %}" aria-labelledby="heading{{ loop.index }}" data-bs-parent="#settingsAccordion">
+                            <div class="accordion-body table-responsive">
+                                <table class="table table-bordered table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>項目</th>
+                                            {% for session in sessions %}
+                                            <th class="text-center">{{ session.session_name }}</th>
+                                            {% endfor %}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for row in group.list %}
+                                        <tr {% if row.is_diff %}class="diff-row"{% endif %} data-diff="{{ row.is_diff|lower }}">
+                                            <td>{{ row.item }}</td>
+                                            {% for session in sessions %}
+                                            {# --- ▼▼▼ ここから修正 ▼▼▼ --- #}
+                                            <td class="text-center">{{ row['values'].get(session.id, 'N/A') }}</td>
+                                            {# --- ▲▲▲ ここまで修正 ▲▲▲ --- #}
+                                            {% endfor %}
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                     <div class="text-center p-3">
+                        <p>比較できるセッティング項目がありません。</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // ラップタイムグラフの描画処理
+        const ctx = document.getElementById('lapComparisonChart');
+        if (ctx) {
+            const chartData = {{ comparison_data.lap_analysis.chart_data | tojson }};
+
+            function formatChartTime(totalSeconds) {
+                if (totalSeconds === null || typeof totalSeconds === 'undefined' || isNaN(totalSeconds)) {
+                    return 'N/A';
+                }
+                const minutes = Math.floor(totalSeconds / 60);
+                const seconds = totalSeconds % 60;
+                return `${minutes}:${seconds.toFixed(3).padStart(6, '0')}`;
+            }
+
+            new Chart(ctx, {
+                type: 'line',
+                data: chartData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed.y !== null) {
+                                        label += formatChartTime(context.parsed.y);
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Lap Time (seconds)'
+                            },
+                            ticks: {
+                                callback: function(value, index, ticks) {
+                                    return value.toFixed(1) + 's';
+                                }
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Lap Number'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // 「値が異なる項目のみ表示」チェックボックスの処理
+        const diffOnlyCheckbox = document.getElementById('diffOnlyCheckbox');
+        if (diffOnlyCheckbox) {
+            diffOnlyCheckbox.addEventListener('change', function() {
+                const accordionItems = document.querySelectorAll('#settingsAccordion .accordion-item');
+                
+                accordionItems.forEach(item => {
+                    const rows = item.querySelectorAll('tbody tr');
+                    let hasVisibleRow = false;
+
+                    rows.forEach(row => {
+                        if (this.checked) {
+                            if (row.dataset.diff === 'false') {
+                                row.style.display = 'none';
+                            } else {
+                                row.style.display = '';
+                                hasVisibleRow = true;
+                            }
+                        } else {
+                            row.style.display = '';
+                            hasVisibleRow = true;
+                        }
+                    });
+                    
+                    if (this.checked && !hasVisibleRow) {
+                        item.style.display = 'none';
+                    } else {
+                        item.style.display = '';
+                    }
+                });
+            });
+        }
+    });
+</script>
+{% endblock %}

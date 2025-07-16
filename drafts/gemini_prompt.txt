@@ -80,6 +80,8 @@
     ```
 kyagisaw@kyagisaw-mac motopuppu % tree
 .
+kyagisaw@hiyoko-pc:/mnt/c/Users/hiyoko/Dev/motopuppu$ tree
+.
 ├── announcements.json
 ├── compose.yml
 ├── Dockerfile
@@ -95,6 +97,7 @@ kyagisaw@kyagisaw-mac motopuppu % tree
 │   ├── script.py.mako
 │   └── versions
 │       ├── 03b74d3f953e_add_criteria_column_to_.py
+│       ├── 2611ecc6c187_add_avatar_url_to_user_model.py
 │       ├── 3c3d01d7c4c9_add_exclude_from_average_to_fuel_entries.py
 │       ├── 3f7f9b1139eb_add_activity_log_models.py
 │       ├── 3f8fa3c5156e_add_maintenance_record_link_to_reminders.py
@@ -108,6 +111,7 @@ kyagisaw@kyagisaw-mac motopuppu % tree
 │       ├── 760969e7b61d_populate_new_achievement_definitions_.py
 │       ├── 896791ff77ea_add_odo_reset_log_table_and_data_.py
 │       ├── 9516bc768302_add_event_and_event_participant_models.py
+│       ├── c9271122696a_add_passcode_hash_to_event_participants.py
 │       ├── cb61b6485ca8_add_missing_general_notes_and_odo_reset_.py
 │       ├── cbc2495d2f76_initial_migration.py
 │       ├── cd7db2474a21_check_sync_after_fixing_relationship.py
@@ -115,15 +119,15 @@ kyagisaw@kyagisaw-mac motopuppu % tree
 │       ├── df2ec8ec945c_add_last_done_odo_to_maintenancereminder.py
 │       └── f0c7fc2c92ad_add_auto_update_from_category_to_.py
 ├── motopuppu
-│   ├── __init__.py
 │   ├── achievement_evaluator.py
 │   ├── achievements_utils.py
 │   ├── forms.py
+│   ├── __init__.py
 │   ├── manage_commands.py
 │   ├── models.py
 │   ├── parsers
-│   │   ├── __init__.py
 │   │   ├── base_parser.py
+│   │   ├── __init__.py
 │   │   ├── mylaps_parser.py
 │   │   ├── simple_csv_parser.py
 │   │   └── ziix_parser.py
@@ -150,6 +154,8 @@ kyagisaw@kyagisaw-mac motopuppu % tree
 │   │   │   └── unlocked_list.html
 │   │   ├── activity
 │   │   │   ├── activity_form.html
+│   │   │   ├── best_settings.html
+│   │   │   ├── compare_sessions.html
 │   │   │   ├── detail_activity.html
 │   │   │   ├── list_activities.html
 │   │   │   ├── list_settings.html
@@ -203,10 +209,9 @@ kyagisaw@kyagisaw-mac motopuppu % tree
 │       ├── reminder.py
 │       └── vehicle.py
 ├── README.md
-├── requirements.txt
-└── tests
+└── requirements.txt
 
-24 directories, 102 files
+23 directories, 106 files
     ```
 
 7.  **今回のセッションでの目標 [毎回更新]:**

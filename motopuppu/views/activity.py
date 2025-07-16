@@ -5,13 +5,15 @@ from decimal import Decimal
 import io
 import re # ▼▼▼ 正規表現モジュールをインポート ▼▼▼
 import statistics
+# ▼▼▼ 追加 ▼▼▼
+from collections import defaultdict
 
 from flask import (
     Blueprint, flash, g, redirect, render_template, request, url_for, abort, current_app
 )
 # ▼ func をインポート
 from sqlalchemy import func
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, aliased
 
 from .auth import login_required_custom
 from ..models import db, Motorcycle, ActivityLog, SessionLog, SettingSheet
@@ -19,7 +21,7 @@ from ..forms import ActivityLogForm, SessionLogForm, SettingSheetForm, LapTimeIm
 from ..parsers import get_parser
 
 
-# --- ▼▼▼ セッティング項目定義を追加 ▼▼▼ ---
+# --- ▼▼▼ セッティング項目定義を修正 ▼▼▼ ---
 SETTING_KEY_MAP = {
     "sprocket": {
         "title": "スプロケット",
@@ -38,18 +40,18 @@ SETTING_KEY_MAP = {
         "title": "サスペンション",
         "keys": {
             # フロント
-            "front_protrusion_mm": "突き出し(mm)",
-            "front_preload": "プリロード",
-            "front_spring_rate_nm": "スプリングレート(Nm)",
-            "front_fork_oil": "フォークオイル",
-            "front_oil_level_mm": "油面(mm)",
-            "front_damping_compression": "減衰(圧側)",
-            "front_damping_rebound": "減衰(伸側)",
+            "front_protrusion_mm": "F: 突き出し(mm)",
+            "front_preload": "F: プリロード",
+            "front_spring_rate_nm": "F: スプリングレート(Nm)",
+            "front_fork_oil": "F: フォークオイル",
+            "front_oil_level_mm": "F: 油面(mm)",
+            "front_damping_compression": "F: 減衰(圧側)",
+            "front_damping_rebound": "F: 減衰(伸側)",
             # リア
-            "rear_spring_rate_nm": "スプリングレート(Nm)",
-            "rear_preload": "プリロード",
-            "rear_damping_compression": "減衰(圧側)",
-            "rear_damping_rebound": "減衰(伸側)"
+            "rear_spring_rate_nm": "R: スプリングレート(Nm)",
+            "rear_preload": "R: プリロード",
+            "rear_damping_compression": "R: 減衰(圧側)",
+            "rear_damping_rebound": "R: 減衰(伸側)"
         }
     },
     "tire": {
@@ -77,7 +79,7 @@ SETTING_KEY_MAP = {
         }
     }
 }
-# --- ▲▲▲ 追加はここまで ▲▲▲ ---
+# --- ▲▲▲ 修正ここまで ▲▲▲ ---
 
 
 # --- ▼▼▼ ラップタイム計算用ヘルパー関数 ▼▼▼ ---
@@ -238,8 +240,131 @@ def get_motorcycle_or_404(vehicle_id):
     """指定されたIDの車両を取得し、所有者でなければ404を返す"""
     return Motorcycle.query.filter_by(id=vehicle_id, user_id=g.user.id).first_or_404()
 
-# --- ActivityLog Routes ---
+# --- ▼▼▼ 比較機能ヘルパー関数 (完成版) ▼▼▼ ---
+def _prepare_comparison_data(sessions):
+    """選択されたセッション群から比較用のデータを生成する"""
+    if not sessions:
+        return {}
 
+    # 1. ラップタイム分析
+    lap_analysis = {'stats': {}, 'chart_data': {'labels': [], 'datasets': []}}
+    max_laps = 0
+    chart_colors = ['rgb(75, 192, 192)', 'rgb(255, 99, 132)', 'rgb(54, 162, 235)', 'rgb(255, 205, 86)']
+    
+    # 1a. 各セッションのタイムを秒で計算し、一時的に保存
+    session_stats_raw = []
+    for i, session in enumerate(sessions):
+        best_str, avg_str, _ = calculate_lap_stats(session.lap_times)
+        best_sec = parse_time_to_seconds(best_str)
+        avg_sec = parse_time_to_seconds(avg_str)
+        session_stats_raw.append({
+            'id': session.id,
+            'best_str': best_str,
+            'avg_str': avg_str,
+            'best_sec': best_sec,
+            'avg_sec': avg_sec
+        })
+        
+        # グラフ用データ作成
+        lap_seconds = [s for s in (parse_time_to_seconds(t) for t in session.lap_times or []) if s]
+        if lap_seconds:
+            max_laps = max(max_laps, len(lap_seconds))
+            lap_analysis['chart_data']['datasets'].append({
+                'label': session.session_name,
+                'data': [float(s) for s in lap_seconds if s is not None],
+                'borderColor': chart_colors[i % len(chart_colors)],
+                'tension': 0.1
+            })
+    lap_analysis['chart_data']['labels'] = [f"Lap {i+1}" for i in range(max_laps)]
+
+    # 1b. 全セッション中のベストタイムと平均タイムの最小値を見つける
+    valid_best_laps = [s['best_sec'] for s in session_stats_raw if s['best_sec'] is not None]
+    min_best_sec = min(valid_best_laps) if valid_best_laps else None
+    
+    valid_avg_laps = [s['avg_sec'] for s in session_stats_raw if s['avg_sec'] is not None]
+    min_avg_sec = min(valid_avg_laps) if valid_avg_laps else None
+
+    # 1c. 最終的な統計データを作成（差分計算を含む）
+    for stats in session_stats_raw:
+        session_id = stats['id']
+        
+        # ベストラップの差分
+        best_diff_str = ''
+        if min_best_sec is not None and stats['best_sec'] is not None:
+            diff = stats['best_sec'] - min_best_sec
+            if diff > 0:
+                best_diff_str = f"+{diff:.3f}"
+
+        # 平均ラップの差分
+        avg_diff_str = ''
+        if min_avg_sec is not None and stats['avg_sec'] is not None:
+            diff = stats['avg_sec'] - min_avg_sec
+            if diff > 0:
+                avg_diff_str = f"+{diff:.3f}"
+        
+        lap_analysis['stats'][session_id] = {
+            'best': stats['best_str'],
+            'avg': stats['avg_str'],
+            'best_diff': best_diff_str,
+            'avg_diff': avg_diff_str,
+            'best_sec': stats['best_sec'],
+            'avg_sec': stats['avg_sec']
+        }
+
+    # 2. セッティングシート比較
+    settings_comparison = []
+    all_keys = defaultdict(set)
+    session_details_map = {}
+
+    for session in sessions:
+        details_data = {}
+        if session.setting_sheet and session.setting_sheet.details is not None:
+            raw_details = session.setting_sheet.details
+            if isinstance(raw_details, dict):
+                details_data = raw_details
+            elif isinstance(raw_details, str):
+                try:
+                    details_data = json.loads(raw_details) if raw_details else {}
+                except json.JSONDecodeError:
+                    details_data = {}
+        
+        session_details_map[session.id] = details_data
+        for category, items in details_data.items():
+            if isinstance(items, dict):
+                for key in items.keys():
+                    all_keys[category].add(key)
+    
+    sorted_categories = sorted(all_keys.keys())
+    for category_key in sorted_categories:
+        category_info = SETTING_KEY_MAP.get(category_key, {'title': category_key.capitalize(), 'keys': {}})
+        sorted_item_keys = sorted(list(all_keys[category_key]))
+        
+        for item_key in sorted_item_keys:
+            item_label = category_info['keys'].get(item_key, item_key)
+            row_data = {'category': category_info['title'], 'item': item_label, 'values': {}}
+            values_set = set()
+            for session in sessions:
+                value = "N/A"
+                details_data = session_details_map.get(session.id, {})
+                retrieved_value = details_data.get(category_key, {}).get(item_key)
+                if retrieved_value not in [None, '']:
+                    value = retrieved_value
+                row_data['values'][session.id] = value
+                values_set.add(str(value))
+
+            # ★★★ ここでキー名を 'is_diff' に変更 ★★★
+            row_data['is_diff'] = len(values_set) > 1
+            settings_comparison.append(row_data)
+
+    return {
+        'lap_analysis': lap_analysis,
+        'settings_comparison': settings_comparison,
+    }
+# --- ▲▲▲ 比較機能ヘルパー関数 ▲▲▲ ---
+
+
+# --- ActivityLog Routes ---
+# ... (以降のコードは変更ありませんので、そのままお使いください) ...
 @activity_bp.route('/<int:vehicle_id>')
 @login_required_custom
 def list_activities(vehicle_id):
@@ -284,20 +409,18 @@ def list_activities(vehicle_id):
 def add_activity(vehicle_id):
     """新しい活動ログを作成する"""
     motorcycle = get_motorcycle_or_404(vehicle_id)
-    # --- ▼▼▼ ここから修正 ▼▼▼ ---
-    # POSTリクエストの場合はフォームから、GETリクエストの場合はURL引数からevent_idを取得
     if request.method == 'POST':
         event_id = request.form.get('event_id', type=int)
     else:
         event_id = request.args.get('event_id', type=int)
 
-    form = ActivityLogForm(request.form) # POST時にも引数をフォームに渡すため request.form を使用
+    form = ActivityLogForm(request.form)
     
     if form.validate_on_submit():
         new_activity = ActivityLog(
             motorcycle_id=motorcycle.id,
             user_id=g.user.id,
-            event_id=event_id, # 取得したevent_idを保存
+            event_id=event_id,
             activity_date=form.activity_date.data,
             activity_title=form.activity_title.data,
             location_type=form.location_type.data,
@@ -317,7 +440,6 @@ def add_activity(vehicle_id):
             current_app.logger.error(f"Error adding new activity log: {e}", exc_info=True)
             flash('活動記録の保存中にエラーが発生しました。', 'danger')
 
-    # GETリクエスト時にURL引数からフォームの初期値を設定
     if request.method == 'GET':
         form.activity_title.data = request.args.get('activity_title', '')
         activity_date_str = request.args.get('activity_date')
@@ -325,7 +447,7 @@ def add_activity(vehicle_id):
             try:
                 form.activity_date.data = date.fromisoformat(activity_date_str)
             except (ValueError, TypeError):
-                form.activity_date.data = date.today() # 不正な場合は今日の日付
+                form.activity_date.data = date.today()
         
         custom_location = request.args.get('custom_location')
         if custom_location:
@@ -335,9 +457,8 @@ def add_activity(vehicle_id):
     return render_template('activity/activity_form.html',
                            form=form,
                            motorcycle=motorcycle,
-                           event_id=event_id, # event_idをテンプレートに渡す
+                           event_id=event_id,
                            form_action='add')
-    # --- ▲▲▲ 修正ここまで ▲▲▲ ---
 
 @activity_bp.route('/<int:activity_id>/edit', methods=['GET', 'POST'])
 @login_required_custom
@@ -406,36 +527,26 @@ def detail_activity(activity_id):
     motorcycle = activity.motorcycle
     sessions = SessionLog.query.filter_by(activity_log_id=activity.id).order_by(SessionLog.id.asc()).all()
 
-    # ラップタイムの表示用データとグラフ用データを準備
     for session in sessions:
-        # 既存の統計計算
         session.best_lap, session.average_lap, session.lap_details = calculate_lap_stats(session.lap_times)
         
-        # --- ▼▼▼ ここからグラフ用データを変更 ▼▼▼ ---
         lap_seconds_for_chart = []
         if session.lap_times and isinstance(session.lap_times, list):
             for lap_str in session.lap_times:
                 sec = parse_time_to_seconds(lap_str)
-                # 有効なタイム（秒に変換でき、0より大きい）のみを追加
                 if sec is not None and sec > 0:
                     lap_seconds_for_chart.append(float(sec))
         
-        # グラフデータが存在する場合のみ、チャート用データを生成
         if lap_seconds_for_chart:
             best_lap_seconds = min(lap_seconds_for_chart)
-            
-            # 各ラップをベストラップに対するパーセンテージに変換
             lap_percentages = [(best_lap_seconds / sec) * 100 for sec in lap_seconds_for_chart]
-
-            # Python辞書を直接属性にセットする
             session.lap_chart_dict = {
                 'labels': list(range(1, len(lap_seconds_for_chart) + 1)),
-                'percentages': lap_percentages,    # Y軸のデータとしてパーセンテージを使用
-                'raw_times': lap_seconds_for_chart # ツールチップ表示用に元のタイムも渡す
+                'percentages': lap_percentages,
+                'raw_times': lap_seconds_for_chart
             }
         else:
             session.lap_chart_dict = None
-        # --- ▲▲▲ 変更ここまで ▲▲▲ ---
     
     session_form = SessionLogForm()
     import_form = LapTimeImportForm()
@@ -487,16 +598,90 @@ def detail_activity(activity_id):
                            import_form=import_form,
                            setting_key_map=SETTING_KEY_MAP)
 
-# --- SessionLog Routes ---
+@activity_bp.route('/compare', methods=['GET'])
+@login_required_custom
+def compare_sessions():
+    vehicle_id = request.args.get('vehicle_id', type=int)
+    session_ids = request.args.getlist('session_ids', type=int)
+
+    if not vehicle_id:
+        abort(400, "Vehicle ID is required.")
+
+    motorcycle = get_motorcycle_or_404(vehicle_id)
+    
+    if len(session_ids) < 2:
+        flash('比較するには、セッションを2つ以上選択してください。', 'warning')
+        if session_ids:
+            first_session = SessionLog.query.get(session_ids[0])
+            if first_session and first_session.activity.motorcycle_id == vehicle_id:
+                 return redirect(url_for('activity.detail_activity', activity_id=first_session.activity_log_id))
+        return redirect(url_for('activity.list_activities', vehicle_id=vehicle_id))
+    
+    sessions = SessionLog.query.options(
+            joinedload(SessionLog.setting_sheet),
+            joinedload(SessionLog.activity)
+        ).filter(
+            SessionLog.id.in_(session_ids),
+            SessionLog.activity.has(motorcycle_id=vehicle_id)
+        ).order_by(SessionLog.id.asc()).all()
+
+    if len(sessions) < 2:
+        flash('選択されたセッションが見つからないか、比較するにはセッションが少なすぎます。', 'danger')
+        return redirect(url_for('activity.list_activities', vehicle_id=vehicle_id))
+        
+    comparison_data = _prepare_comparison_data(sessions)
+
+    return render_template('activity/compare_sessions.html',
+                           motorcycle=motorcycle,
+                           sessions=sessions,
+                           comparison_data=comparison_data,
+                           setting_key_map=SETTING_KEY_MAP)
+
+@activity_bp.route('/<int:vehicle_id>/best_settings')
+@login_required_custom
+def best_settings_finder(vehicle_id):
+    motorcycle = get_motorcycle_or_404(vehicle_id)
+
+    ranked_sessions_subq = db.session.query(
+        SessionLog.id,
+        func.row_number().over(
+            partition_by=ActivityLog.circuit_name,
+            order_by=SessionLog.best_lap_seconds.asc()
+        ).label('rn')
+    ).join(ActivityLog).filter(
+        ActivityLog.motorcycle_id == vehicle_id,
+        ActivityLog.location_type == 'circuit',
+        ActivityLog.circuit_name.isnot(None),
+        SessionLog.best_lap_seconds.isnot(None)
+    ).subquery()
+    
+    best_session_ids_query = db.session.query(ranked_sessions_subq.c.id)\
+                                         .filter(ranked_sessions_subq.c.rn == 1)
+
+    best_sessions = SessionLog.query.options(
+        joinedload(SessionLog.activity),
+        joinedload(SessionLog.setting_sheet)
+    ).join(
+        ActivityLog, SessionLog.activity_log_id == ActivityLog.id
+    ).filter(
+        SessionLog.id.in_(best_session_ids_query)
+    ).order_by(
+        ActivityLog.circuit_name.asc()
+    ).all()
+    
+    return render_template('activity/best_settings.html',
+                           motorcycle=motorcycle,
+                           best_sessions=best_sessions,
+                           setting_key_map=SETTING_KEY_MAP,
+                           format_seconds_to_time=format_seconds_to_time)
 
 @activity_bp.route('/session/<int:session_id>/edit', methods=['GET', 'POST'])
 @login_required_custom
 def edit_session(session_id):
-    """セッションログを編集する"""
     session = SessionLog.query.options(joinedload(SessionLog.activity).joinedload(ActivityLog.motorcycle))\
-                                 .join(ActivityLog)\
-                                 .filter(SessionLog.id == session_id, ActivityLog.user_id == g.user.id)\
-                                 .first_or_404()
+                               .join(ActivityLog)\
+                               .filter(SessionLog.id == session_id, ActivityLog.user_id == g.user.id)\
+                               .first_or_404()
 
     motorcycle = session.activity.motorcycle
     form = SessionLogForm(obj=session)
@@ -548,7 +733,6 @@ def edit_session(session_id):
 @activity_bp.route('/session/<int:session_id>/delete', methods=['POST'])
 @login_required_custom
 def delete_session(session_id):
-    """セッションログを削除する"""
     session = SessionLog.query.join(ActivityLog).filter(SessionLog.id == session_id, ActivityLog.user_id == g.user.id).first_or_404()
     activity_id = session.activity_log_id
     try:
@@ -625,7 +809,6 @@ def import_laps(session_id):
 @activity_bp.route('/<int:vehicle_id>/settings')
 @login_required_custom
 def list_settings(vehicle_id):
-    """セッティングシートの一覧を表示する"""
     motorcycle = get_motorcycle_or_404(vehicle_id)
     settings = SettingSheet.query.filter_by(motorcycle_id=motorcycle.id).order_by(SettingSheet.is_archived, SettingSheet.sheet_name).all()
     return render_template('activity/list_settings.html',
@@ -635,7 +818,6 @@ def list_settings(vehicle_id):
 @activity_bp.route('/<int:vehicle_id>/settings/add', methods=['GET', 'POST'])
 @login_required_custom
 def add_setting(vehicle_id):
-    """新しいセッティングシートを作成する"""
     motorcycle = get_motorcycle_or_404(vehicle_id)
     form = SettingSheetForm()
 
@@ -677,7 +859,6 @@ def add_setting(vehicle_id):
 @activity_bp.route('/settings/<int:setting_id>/edit', methods=['GET', 'POST'])
 @login_required_custom
 def edit_setting(setting_id):
-    """セッティングシートを編集する"""
     setting = SettingSheet.query.filter_by(id=setting_id, user_id=g.user.id).first_or_404()
     motorcycle = setting.motorcycle
     form = SettingSheetForm(obj=setting)
@@ -715,7 +896,6 @@ def edit_setting(setting_id):
 @activity_bp.route('/settings/<int:setting_id>/toggle_archive', methods=['POST'])
 @login_required_custom
 def toggle_archive_setting(setting_id):
-    """セッティングシートのアーカイブ状態を切り替える"""
     setting = SettingSheet.query.filter_by(id=setting_id, user_id=g.user.id).first_or_404()
     setting.is_archived = not setting.is_archived
     try:
@@ -731,7 +911,6 @@ def toggle_archive_setting(setting_id):
 @activity_bp.route('/settings/<int:setting_id>/delete', methods=['POST'])
 @login_required_custom
 def delete_setting(setting_id):
-    """セッティングシートを完全に削除する"""
     setting = SettingSheet.query.filter_by(id=setting_id, user_id=g.user.id).first_or_404()
     vehicle_id = setting.motorcycle_id
     sheet_name = setting.sheet_name
