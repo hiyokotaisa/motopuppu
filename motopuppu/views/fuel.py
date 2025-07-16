@@ -10,7 +10,10 @@ from sqlalchemy import or_, asc, desc, func
 
 from .auth import login_required_custom, get_current_user
 from ..models import db, Motorcycle, FuelEntry
-from ..forms import FuelForm, GAS_STATION_BRANDS
+# ▼▼▼ インポート文を修正 ▼▼▼
+from ..forms import FuelForm
+from ..constants import GAS_STATION_BRANDS
+# ▲▲▲ ここまで修正 ▲▲▲
 # 実績評価モジュールとイベントタイプをインポート
 from ..achievement_evaluator import check_achievements_for_event, EVENT_ADD_FUEL_LOG
 
@@ -286,7 +289,7 @@ def edit_fuel(entry_id):
         total_distance = form.odometer_reading.data + offset_at_entry_date
 
         if previous_fuel and total_distance < previous_fuel.total_distance:
-                     flash(f'注意: 今回の総走行距離 ({total_distance:,}km) が、前回記録 ({previous_fuel.entry_date.strftime("%Y-%m-%d")} の {previous_fuel.total_distance:,}km) より小さくなっています。入力内容を確認してください。', 'warning')
+                      flash(f'注意: 今回の総走行距離 ({total_distance:,}km) が、前回記録 ({previous_fuel.entry_date.strftime("%Y-%m-%d")} の {previous_fuel.total_distance:,}km) より小さくなっています。入力内容を確認してください。', 'warning')
 
         total_cost_val = form.total_cost.data
         if total_cost_val is None and form.price_per_liter.data is not None and form.fuel_volume.data is not None:
@@ -386,8 +389,8 @@ def export_all_fuel_records_csv():
     user_motorcycle_ids_for_fuel = [m.id for m in user_motorcycles_for_fuel]
 
     all_fuel_records = FuelEntry.query.filter(FuelEntry.motorcycle_id.in_(user_motorcycle_ids_for_fuel))\
-                                          .options(db.joinedload(FuelEntry.motorcycle))\
-                                          .order_by(FuelEntry.motorcycle_id, FuelEntry.entry_date.asc(), FuelEntry.total_distance.asc()).all()
+                                         .options(db.joinedload(FuelEntry.motorcycle))\
+                                         .order_by(FuelEntry.motorcycle_id, FuelEntry.entry_date.asc(), FuelEntry.total_distance.asc()).all()
 
     if not all_fuel_records:
         flash('エクスポート対象の燃費記録がありません。', 'info')

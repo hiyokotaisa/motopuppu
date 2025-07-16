@@ -8,7 +8,10 @@ import json
 
 from .auth import login_required_custom 
 from ..models import db, Motorcycle, GeneralNote
-from ..forms import NoteForm, NOTE_CATEGORIES, MAX_TODO_ITEMS 
+# ▼▼▼ インポート文を修正 ▼▼▼
+from ..forms import NoteForm
+from ..constants import NOTE_CATEGORIES, MAX_TODO_ITEMS
+# ▲▲▲ ここまで修正 ▲▲▲
 from ..achievement_evaluator import check_achievements_for_event, EVENT_ADD_NOTE
 
 notes_bp = Blueprint('notes', __name__, url_prefix='/notes')
@@ -150,8 +153,8 @@ def edit_note(note_id):
         if note.category == 'task' and note.todos:
             num_entries_to_pop = len(form.todos.entries)
             for _ in range(num_entries_to_pop):
-                 if form.todos.entries: 
-                     form.todos.pop_entry()
+                if form.todos.entries: 
+                    form.todos.pop_entry()
 
             for item_data in note.todos:
                 if isinstance(item_data, dict) and item_data.get('text'): 
@@ -221,4 +224,4 @@ def delete_note(note_id):
         db.session.rollback()
         flash(f'ノートの削除中にエラーが発生しました: {e}', 'error')
         current_app.logger.error(f"Error deleting general note ID {note_id}: {e}", exc_info=True)
-    return redirect(url_for('notes.notes_log'))
+    return redirect(url_for('notes.notes_log'))nkjmb cd 

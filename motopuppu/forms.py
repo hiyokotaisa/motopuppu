@@ -6,82 +6,14 @@ from wtforms.validators import DataRequired, Optional, NumberRange, Length, Vali
 from datetime import date, datetime
 from wtforms_sqlalchemy.fields import QuerySelectField
 
-# スタンド名の候補リスト (FuelForm用)
-GAS_STATION_BRANDS = [
-    'ENEOS', '出光興産/apollostation', 'コスモ石油', 'キグナス石油', 'JA-SS', 'SOLATO',
-]
-
-# --- ▼▼▼ 変更: 日本の二輪走行可能サーキットリストを更新 ▼▼▼ ---
-JAPANESE_CIRCUITS = [
-    # --- 北海道 / 東北 ---
-    "十勝スピードウェイ",
-    "スポーツランドSUGO",
-    "エビスサーキット東コース",
-    "エビスサーキット西コース",
-    
-    # --- 関東 ---
-    "ツインリンクもてぎ ロードコース",
-    "筑波サーキット TC2000",
-    "筑波サーキット TC1000",
-    "袖ヶ浦フォレストレースウェイ",
-    "桶川スポーツランド ロングコース",
-    "桶川スポーツランド ミドルコース",
-    "桶川スポーツランド ショートコース",
-    "ヒーローしのいサーキット",
-    "日光サーキット",
-    "茂原ツインサーキット ショートコース(西)",
-    "茂原ツインサーキット ロングコース(東)",
-    
-    # --- 中部 / 東海 ---
-    "富士スピードウェイ 本コース",
-    "富士スピードウェイ ショートコース",
-    "富士スピードウェイ カートコース",
-    "白糸スピードランド",
-    "スパ西浦モーターパーク",
-    "モーターランド三河",
-    "YZサーキット東コース",
-    "鈴鹿ツインサーキット",
-    
-    # --- 近畿 ---
-    "鈴鹿サーキット フルコース",
-    "鈴鹿サーキット 南コース",
-    "近畿スポーツランド",
-    "レインボースポーツ カートコース",
-    "セントラルサーキット",
-    "岡山国際サーキット",
-    
-    # --- 中国 / 四国 ---
-    "TSタカタサーキット",
-    "瀬戸内海サーキット",
-    
-    # --- 九州 / 沖縄 ---
-    "オートポリス",
-    "HSR九州",
-]
-# --- ▲▲▲ 変更ここまで ▲▲▲ ---
-
-
-# 油種の選択肢を定数として定義
-FUEL_TYPE_CHOICES = [
-    ('', '--- 選択してください ---'), # 未選択時の表示
-    ('レギュラー', 'レギュラー'),
-    ('ハイオク', 'ハイオク'),
-    ('軽油', '軽油'),
-    ('混合', '混合')
-]
-
-# カテゴリの候補リスト (MaintenanceForm用)
-MAINTENANCE_CATEGORIES = [
-    'エンジンオイル交換', 'タイヤ交換', 'ブレーキパッド交換', 'チェーンメンテナンス',
-    '定期点検', '洗車', 'その他',
-]
-
-# ノート/タスクのカテゴリ (NoteForm用)
-NOTE_CATEGORIES = [
-    ('note', 'ノート'),
-    ('task', 'タスク (TODOリスト)')
-]
-MAX_TODO_ITEMS = 50
+# ▼▼▼ 定義を削除し、constantsモジュールからインポートする ▼▼▼
+from .constants import (
+    FUEL_TYPE_CHOICES,
+    NOTE_CATEGORIES,
+    MAX_TODO_ITEMS,
+    JAPANESE_CIRCUITS
+)
+# ▲▲▲ ここまで変更 ▲▲▲
 
 
 class FuelForm(FlaskForm):
@@ -147,7 +79,7 @@ class FuelForm(FlaskForm):
     )
     fuel_type = SelectField(
         '油種',
-        choices=FUEL_TYPE_CHOICES, # choicesは__init__でコピーして使う
+        # ▼▼▼ choicesの直接参照をやめる（__init__で設定）▼▼▼
         validators=[Optional()]
     )
     is_full_tank = BooleanField(
@@ -168,7 +100,7 @@ class FuelForm(FlaskForm):
     def __init__(self, *args, **kwargs):
         super(FuelForm, self).__init__(*args, **kwargs)
         
-        # choicesが他のインスタンスに影響を与えないようにコピーを使用する
+        # ▼▼▼ インポートした定数からchoicesを設定する ▼▼▼
         self.fuel_type.choices = list(FUEL_TYPE_CHOICES)
 
         # フォームにDBオブジェクトが渡された場合 (編集時) の処理
@@ -195,7 +127,6 @@ class MaintenanceForm(FlaskForm):
         validators=[DataRequired(message='整備日は必須です。')],
         format='%Y-%m-%d'
     )
-    # --- ▼▼▼ ここから変更 ▼▼▼ ---
     input_mode = BooleanField(
         'トリップメーターで入力する',
         default=False
@@ -216,7 +147,6 @@ class MaintenanceForm(FlaskForm):
         ],
         render_kw={"placeholder": "前回整備からの走行距離"}
     )
-    # --- ▲▲▲ ここまで変更 ▲▲▲ ---
     description = TextAreaField(
         '整備内容',
         validators=[
@@ -381,8 +311,6 @@ class ReminderForm(FlaskForm):
         format='%Y-%m-%d'
     )
     
-    # --- ▼▼▼ ここから変更 ▼▼▼ ---
-    # last_done_km を last_done_odo に変更し、ラベルも修正
     last_done_odo = IntegerField(
         '最終実施時のメーターODO値 (km)',
         validators=[
@@ -391,7 +319,6 @@ class ReminderForm(FlaskForm):
         ],
         render_kw={"placeholder": "例: 15000"}
     )
-    # --- ▲▲▲ ここまで変更 ▲▲▲ ---
     
     auto_update_from_category = BooleanField(
         '整備記録のカテゴリ名が一致した場合、このリマインダーを自動的に連携・更新する',
@@ -470,19 +397,18 @@ class NoteForm(FlaskForm):
             if not field.entries:
                 raise ValidationError('タスクカテゴリの場合、TODOアイテムを1つ以上入力してください。')
 
-# --- ▼▼▼ ここから追加 ▼▼▼ ---
+
 class ProfileForm(FlaskForm):
     """プロフィール編集用フォーム"""
     display_name = StringField('表示名',
-                                 validators=[DataRequired(message="表示名を入力してください。"),
-                                             Length(min=1, max=20, message="表示名は20文字以内で入力してください。")],
-                                 render_kw={"placeholder": "例: もとぷー太郎"})
+                               validators=[DataRequired(message="表示名を入力してください。"),
+                                           Length(min=1, max=20, message="表示名は20文字以内で入力してください。")],
+                               render_kw={"placeholder": "例: もとぷー太郎"})
     submit_profile = SubmitField('表示名を更新')
-# --- ▲▲▲ ここまで追加 ▲▲▲ ---
+
 
 class DeleteAccountForm(FlaskForm):
     """アカウント削除確認フォーム"""
-    # --- ▼▼▼ 変更: プレースホルダーと検証ルールをテンプレートに合わせる ▼▼▼ ---
     confirm_text = StringField(
         '確認のため「削除します」と入力してください。',
         validators=[DataRequired(message="このフィールドは必須です。")]
@@ -492,22 +418,19 @@ class DeleteAccountForm(FlaskForm):
     def validate_confirm_text(self, field):
         if field.data != "削除します":
             raise ValidationError("入力された文字列が一致しません。「削除します」と正しく入力してください。")
-    # --- ▲▲▲ ここまで変更 ▲▲▲ ---
 
 
-# --- ▼▼▼ 活動ログ機能 (ここから) ▼▼▼ ---
+# --- 活動ログ機能 (ここから) ---
 
 class LapTimeImportForm(FlaskForm):
     """ラップタイムCSVインポート用のフォーム"""
     device_type = SelectField(
         'ラップタイマー機種',
-        # --- ▼▼▼ 変更 ▼▼▼ ---
         choices=[
             ('simple_csv', '手入力 / シンプルCSV'),
             ('ziix', 'ZiiX'),
             ('mylaps', 'MYLAPS(Speedhive)')
         ],
-        # --- ▲▲▲ 変更ここまで ▲▲▲ ---
         validators=[DataRequired(message="機種を選択してください。")]
     )
     csv_file = FileField(
@@ -531,7 +454,6 @@ class SettingSheetForm(FlaskForm):
         validators=[DataRequired(message='シート名は必須です。'), Length(max=100)],
         render_kw={"placeholder": "例: FSWドライ基本セット"}
     )
-    # details_jsonフィールドを削除
     notes = TextAreaField(
         'メモ',
         validators=[Optional(), Length(max=1000)],
@@ -547,7 +469,6 @@ class ActivityLogForm(FlaskForm):
         format='%Y-%m-%d',
         default=date.today
     )
-    # --- ▼▼▼ 変更: フィールドを新しい構造に刷新 ▼▼▼ ---
     activity_title = StringField(
         '活動名',
         validators=[DataRequired(message='活動名は必須です。'), Length(max=200)],
@@ -561,6 +482,7 @@ class ActivityLogForm(FlaskForm):
     )
     circuit_name = SelectField(
         'サーキット名',
+        # ▼▼▼ インポートした定数を使用する ▼▼▼
         choices=[('', '--- サーキットを選択 ---')] + [(c, c) for c in JAPANESE_CIRCUITS],
         validators=[Optional()]
     )
@@ -569,8 +491,6 @@ class ActivityLogForm(FlaskForm):
         validators=[Optional(), Length(max=200)],
         render_kw={"placeholder": "例: 箱根、ビーナスライン"}
     )
-    # --- ▲▲▲ 変更ここまで ▲▲▲ ---
-    
     weather = StringField('天候', validators=[Optional(), Length(max=50)])
     temperature = DecimalField('気温 (℃)', places=1, validators=[Optional(), NumberRange(min=-50, max=60)])
     notes = TextAreaField(
@@ -582,11 +502,9 @@ class ActivityLogForm(FlaskForm):
 
     def validate(self, extra_validators=None):
         """場所の種別に応じて必須項目をチェックするカスタムバリデーション"""
-        # 親クラスのバリデーションを先に実行
         if not super(ActivityLogForm, self).validate(extra_validators):
             return False
         
-        # location_type の値に基づいてチェック
         if self.location_type.data == 'circuit':
             if not self.circuit_name.data:
                 self.circuit_name.errors.append('サーキットを選択してください。')
@@ -628,19 +546,15 @@ class SessionLogForm(FlaskForm):
     )
     lap_times_json = HiddenField('Lap Times JSON', validators=[Optional()])
 
-    # --- ▼▼▼ 変更: リーダーボード設定を追加 ▼▼▼ ---
     include_in_leaderboard = BooleanField(
         'このセッションの記録をリーダーボードに掲載することを許可する',
         default=True
     )
-    # --- ▲▲▲ 変更ここまで ▲▲▲ ---
     
     submit = SubmitField('セッションを記録')
 
-# --- ▲▲▲ 活動ログ機能 (ここまで) ▲▲▲ ---
 
-
-# --- ▼▼▼ イベント機能 (ここから) ▼▼▼ ---
+# --- イベント機能 (ここから) ---
 
 class EventForm(FlaskForm):
     """イベント作成・編集用のフォーム"""
@@ -705,11 +619,9 @@ class ParticipantForm(FlaskForm):
             ('attending', '参加'),
             ('tentative', '保留'),
             ('not_attending', '不参加'),
-            ('delete', '参加を取り消す') # --- ▼▼▼ ここに追加 ▼▼▼ ---
+            ('delete', '参加を取り消す')
         ],
         validators=[DataRequired(message='出欠を選択してください。')],
         default='attending'
     )
     submit = SubmitField('出欠を登録・更新する')
-    
-# --- ▲▲▲ イベント機能 (ここまで) ▲▲▲ ---

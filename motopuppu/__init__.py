@@ -73,9 +73,14 @@ def create_app(config_name=None):
             g.user_motorcycles = Motorcycle.query.filter_by(user_id=g.user.id).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
 
     try:
-        # --- ▼▼▼ event をインポートリストに追加 ▼▼▼ ---
-        from .views import auth, main, vehicle, fuel, maintenance, notes, dev_auth, activity, leaderboard, profile, reminder, event
-        from .views import achievements as achievements_view 
+        # --- ▼▼▼ ここから変更 ▼▼▼ ---
+        # 古い activity をインポートリストから削除
+        from .views import auth, main, vehicle, fuel, maintenance, notes, dev_auth, leaderboard, profile, reminder, event
+        from .views import achievements as achievements_view
+
+        # 新しい activity_bp をインポート
+        from .views.activity import activity_bp
+        # --- ▲▲▲ ここまで変更 ▲▲▲ ---
 
         app.register_blueprint(auth.auth_bp)
         app.register_blueprint(main.main_bp)
@@ -85,11 +90,15 @@ def create_app(config_name=None):
         app.register_blueprint(reminder.reminder_bp)
         app.register_blueprint(notes.notes_bp)
         app.register_blueprint(achievements_view.achievements_bp)
-        app.register_blueprint(activity.activity_bp)
         app.register_blueprint(leaderboard.leaderboard_bp)
         app.register_blueprint(profile.profile_bp)
-        # --- ▼▼▼ ここに event_bp を登録 ▼▼▼ ---
         app.register_blueprint(event.event_bp)
+
+        # --- ▼▼▼ ここから変更 ▼▼▼ ---
+        # 新しい activity_bp を登録
+        app.register_blueprint(activity_bp)
+        # 古い activity.activity_bp の登録は不要
+        # --- ▲▲▲ ここまで変更 ▲▲▲ ---
 
         if app.config['ENV'] == 'development' or app.debug: 
             app.register_blueprint(dev_auth.dev_auth_bp)
@@ -107,11 +116,11 @@ def create_app(config_name=None):
             commit_hash_short = render_commit[:7]; source_info = "(Render Build)"
         elif app.debug: 
             try:
-                    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-                    commit_hash_short = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD'], cwd=project_root).decode('utf-8').strip()
-                    source_info = "(local dev)"
+                project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+                commit_hash_short = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD'], cwd=project_root).decode('utf-8').strip()
+                source_info = "(local dev)"
             except Exception:
-                    commit_hash_short = "N/A (git error)"; source_info = ""
+                commit_hash_short = "N/A (git error)"; source_info = ""
         
         build_version_string = f"{commit_hash_short} {source_info}".strip()
         misskey_instance_url = app.config.get('MISSKEY_INSTANCE_URL', 'https://misskey.io')

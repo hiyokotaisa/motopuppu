@@ -4,20 +4,16 @@ from flask import Blueprint, render_template, current_app, redirect, url_for
 from sqlalchemy import func
 
 from ..models import db, ActivityLog, SessionLog, User, Motorcycle
+# ▼▼▼ インポート文を追加 ▼▼▼
+from ..constants import TARGET_CIRCUITS
+# ▲▲▲ ここまで追加 ▲▲▲
 
 # リーダーボード機能のBlueprintを作成
 leaderboard_bp = Blueprint('leaderboard', __name__, url_prefix='/leaderboard')
 
-# リーダーボードの対象とするサーキットを定義
-TARGET_CIRCUITS = [
-    "桶川スポーツランド ロングコース",
-    "桶川スポーツランド ミドルコース",
-    "桶川スポーツランド ショートコース",
-    "茂原ツインサーキット ショートコース(西)",
-    "茂原ツインサーキット ロングコース(東)",
-    "白糸スピードランド",
-    "レインボースポーツ カートコース"
-]
+# ▼▼▼ 定義を削除（constants.pyからインポートするため）▼▼▼
+# TARGET_CIRCUITS = [ ... ]
+# ▲▲▲ ここまで削除 ▲▲▲
 
 def format_seconds_to_time(total_seconds):
     """ 秒(Decimal)を "M:SS.fff" 形式の文字列に変換するヘルパー関数 """
