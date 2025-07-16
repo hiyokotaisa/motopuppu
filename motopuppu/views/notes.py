@@ -224,4 +224,4 @@ def delete_note(note_id):
         db.session.rollback()
         flash(f'ノートの削除中にエラーが発生しました: {e}', 'error')
         current_app.logger.error(f"Error deleting general note ID {note_id}: {e}", exc_info=True)
-    return redirect(url_for('notes.notes_log'))nkjmb cd 
+    return redirect(url_for('notes.notes_log'))

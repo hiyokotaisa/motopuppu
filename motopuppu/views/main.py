@@ -3,22 +3,17 @@ from flask import (
     Blueprint, render_template, redirect, url_for, session, g, flash,
     current_app, jsonify, request
 )
-# datetime をインポートリストに追加
 from datetime import date, timedelta, datetime
 from dateutil.relativedelta import relativedelta
-# zoneinfoを追加
 from zoneinfo import ZoneInfo
-# ActivityLogモデルをインポートリストに追加
 from ..models import db, User, Motorcycle, FuelEntry, MaintenanceEntry, GeneralNote, ActivityLog
 from sqlalchemy.orm import joinedload
 import math
-import jpholiday  # 祝日ライブラリ
-import json  # JSONライブラリ
-import os  # os をインポート (お知らせファイルパス用)
+import os
+import json
 
-# servicesモジュールをインポート
 from .. import services
-from .auth import login_required_custom, get_current_user  # get_current_user はここでインポート
+from .auth import login_required_custom, get_current_user
 
 
 main_bp = Blueprint('main', __name__)
@@ -46,16 +41,14 @@ def parse_period_from_request(req):
             end_date_obj = date.fromisoformat(custom_end_date_str)
             if start_date_obj > end_date_obj:
                 flash('開始日は終了日より前の日付を選択してください。', 'warning')
-                # 日付を入れ替えて処理を継続
                 start_date_obj, end_date_obj = end_date_obj, start_date_obj
     except (ValueError, TypeError):
         flash('無効な日付形式です。YYYY-MM-DD形式で入力してください。', 'danger')
-        period = 'all'  # エラー時は全期間表示に戻す
+        period = 'all'
         start_date_obj = None
         end_date_obj = datetime.now(ZoneInfo("Asia/Tokyo")).date()
 
     if start_date_obj:
-        # betweenで使いやすくするため、終了日を1日進める
         end_date_obj = end_date_obj + timedelta(days=1)
 
     return period, start_date_obj, end_date_obj
@@ -109,10 +102,7 @@ def dashboard():
         flash('ようこそ！最初に利用する車両を登録してください。', 'info')
         return redirect(url_for('vehicle.add_vehicle'))
 
-    user_motorcycle_ids_all = [m.id for m in user_motorcycles_all]
-    user_motorcycles_public = [m for m in user_motorcycles_all if not m.is_racer]
-    user_motorcycle_ids_public = [m.id for m in user_motorcycles_public]
-
+    user_motorcycle_ids_public = [m.id for m in user_motorcycles_all if not m.is_racer]
     selected_fuel_vehicle_id = request.args.get('fuel_vehicle_id', type=int)
     selected_maint_vehicle_id = request.args.get('maint_vehicle_id', type=int)
     selected_stats_vehicle_id = request.args.get('stats_vehicle_id', type=int)
@@ -120,9 +110,9 @@ def dashboard():
     # 2. サービスを呼び出してビジネスロジックを実行
     upcoming_reminders = services.get_upcoming_reminders(user_motorcycles_all, g.user.id)
 
-    # 燃費は全期間で計算するため、事前に各車両オブジェクトにセットしておく
     for m in user_motorcycles_all:
-        m._average_kpl = services.calculate_average_kpl(m)
+        if not m.is_racer:
+            m._average_kpl = services.calculate_average_kpl(m)
 
     target_vehicle_for_stats = next((m for m in user_motorcycles_all if m.id == selected_stats_vehicle_id), None)
     dashboard_stats = services.get_dashboard_stats(
@@ -150,32 +140,17 @@ def dashboard():
         extra_filters=[MaintenanceEntry.category != '初期設定']
     )
 
-    # 3. テンプレート表示用のその他のデータ準備
-    holidays_json = '{}'
-    try:
-        today_for_holiday = date.today()
-        years_to_fetch = [today_for_holiday.year - 1,
-                          today_for_holiday.year, today_for_holiday.year + 1]
-        holidays_dict = {}
-        for year in years_to_fetch:
-            try:
-                holidays_raw = jpholiday.year_holidays(year)
-                for holiday_date_obj, holiday_name in holidays_raw:
-                    holidays_dict[holiday_date_obj.strftime(
-                        '%Y-%m-%d')] = holiday_name
-            except Exception as e:
-                current_app.logger.error(
-                    f"Error fetching holidays for year {year}: {e}")
-        holidays_json = json.dumps(holidays_dict)
-    except Exception as e:
-        current_app.logger.error(f"Error processing holidays data: {e}")
+    # ▼▼▼ 祝日取得ロジックをサービス呼び出しに置き換え ▼▼▼
+    holidays_json = services.get_holidays_json()
+    if holidays_json == '{}':
         flash('祝日情報の取得または処理中にエラーが発生しました。', 'warning')
+    # ▲▲▲ ここまで変更 ▲▲▲
 
     # 4. テンプレートをレンダリング
     return render_template(
         'dashboard.html',
         motorcycles=user_motorcycles_all,
-        motorcycles_public=user_motorcycles_public,
+        motorcycles_public=[m for m in user_motorcycles_all if not m.is_racer],
         recent_fuel_entries=recent_fuel_entries,
         recent_maintenance_entries=recent_maintenance_entries,
         upcoming_reminders=upcoming_reminders,
@@ -194,128 +169,14 @@ def dashboard():
 @main_bp.route('/api/dashboard/events')
 @login_required_custom
 def dashboard_events_api():
-    # このAPIはカレンダー用で全期間表示のため、期間フィルターは適用しない
-    events = []
+    # ▼▼▼ ロジックをサービス層に完全に委譲 ▼▼▼
     if not g.user:
         return jsonify({'error': 'User not logged in'}), 401
-    user_id = g.user.id
     
-    # 全車両IDを取得
-    user_motorcycle_ids_all = [m.id for m in Motorcycle.query.filter_by(user_id=user_id).all()]
-    # 公道車のみのIDリスト
-    user_motorcycle_ids_public = [m.id for m in Motorcycle.query.filter_by(user_id=user_id, is_racer=False).all()]
-
-    # 給油記録 (公道車のみ)
-    if user_motorcycle_ids_public:
-        fuel_entries = FuelEntry.query.options(db.joinedload(FuelEntry.motorcycle)).filter(
-            FuelEntry.motorcycle_id.in_(user_motorcycle_ids_public)).all()
-        for entry in fuel_entries:
-            kpl = entry.km_per_liter
-            kpl_display = f"{kpl:.2f} km/L" if kpl is not None else None
-            edit_url = url_for('fuel.edit_fuel', entry_id=entry.id)
-            events.append({
-                'id': f'fuel-{entry.id}', 'title': f"⛽ 給油: {entry.motorcycle.name}",
-                'start': entry.entry_date.isoformat(), 'allDay': True, 'url': edit_url,
-                'backgroundColor': '#198754', 'borderColor': '#198754', 'textColor': 'white',
-                'extendedProps': {
-                    'type': 'fuel', 'motorcycleName': entry.motorcycle.name,
-                    'odometer': entry.odometer_reading, 'fuelVolume': entry.fuel_volume, 'kmPerLiter': kpl_display,
-                    'totalCost': math.ceil(entry.total_cost) if entry.total_cost is not None else None,
-                    'stationName': entry.station_name, 'notes': entry.notes, 'editUrl': edit_url
-                }
-            })
-
-    # 整備記録 (公道車のみ)
-    if user_motorcycle_ids_public:
-        maintenance_entries = MaintenanceEntry.query.options(db.joinedload(MaintenanceEntry.motorcycle)).filter(
-            MaintenanceEntry.motorcycle_id.in_(user_motorcycle_ids_public),
-            MaintenanceEntry.category != '初期設定'
-        ).all()
-        for entry in maintenance_entries:
-            event_title_base = entry.category if entry.category else entry.description
-            event_title = f"🔧 整備: {event_title_base[:15]}" + ("..." if len(event_title_base) > 15 else "")
-            total_cost = entry.total_cost
-            edit_url = url_for('maintenance.edit_maintenance', entry_id=entry.id)
-            events.append({
-                'id': f'maint-{entry.id}', 'title': event_title,
-                'start': entry.maintenance_date.isoformat(), 'allDay': True, 'url': edit_url,
-                'backgroundColor': '#ffc107', 'borderColor': '#ffc107', 'textColor': 'black',
-                'extendedProps': {
-                    'type': 'maintenance', 'motorcycleName': entry.motorcycle.name,
-                    'odometer': entry.total_distance_at_maintenance, 'description': entry.description, 'category': entry.category,
-                    'totalCost': math.ceil(total_cost) if total_cost is not None else None,
-                    'location': entry.location, 'notes': entry.notes, 'editUrl': edit_url
-                }
-            })
-
-    # --- ▼▼▼ ここから変更 ▼▼▼ ---
-    # 活動ログ (全車両対象)
-    if user_motorcycle_ids_all:
-        activity_logs = ActivityLog.query.options(db.joinedload(ActivityLog.motorcycle)).filter(
-            ActivityLog.motorcycle_id.in_(user_motorcycle_ids_all)).all()
-        for entry in activity_logs:
-            # 表示用の場所名を決定
-            location_display = entry.activity_title or entry.location_name or '活動'
-            event_title = f"🏁 {location_display[:15]}" + ("..." if len(location_display) > 15 else "")
-            # 編集画面へのURLを生成
-            edit_url = url_for('activity.detail_activity', activity_id=entry.id)
-            
-            # 場所の詳細情報を結合して表示
-            location_details = []
-            if entry.circuit_name:
-                location_details.append(entry.circuit_name)
-            if entry.custom_location:
-                location_details.append(entry.custom_location)
-            location_full_display = ", ".join(location_details) or entry.location_name or '未設定'
-
-            events.append({
-                'id': f'activity-{entry.id}', 'title': event_title,
-                'start': entry.activity_date.isoformat(), 'allDay': True, 'url': edit_url,
-                'backgroundColor': '#0dcaf0', 'borderColor': '#0dcaf0', 'textColor': 'black',
-                'extendedProps': {
-                    'type': 'activity',
-                    'motorcycleName': entry.motorcycle.name,
-                    'isRacer': entry.motorcycle.is_racer,
-                    'activityTitle': entry.activity_title or '活動ログ',
-                    'location': location_full_display,
-                    'weather': entry.weather,
-                    'temperature': f"{entry.temperature}°C" if entry.temperature is not None else None,
-                    'notes': entry.notes,
-                    'editUrl': edit_url
-                }
-            })
-    # --- ▲▲▲ ここまで変更 ▲▲▲ ---
-
-    # 一般ノート・タスク (全車両対象)
-    general_notes = GeneralNote.query.options(
-        db.joinedload(GeneralNote.motorcycle)).filter_by(user_id=user_id).all()
-    for note in general_notes:
-        motorcycle_name = note.motorcycle.name if note.motorcycle else None
-        note_title_display = note.title or ('タスク' if note.category == 'task' else 'メモ')
-        icon = "✅" if note.category == 'task' else "📝"
-        title_prefix = f"{icon} {'タスク' if note.category == 'task' else 'メモ'}: "
-        event_type = note.category
-        event_title = title_prefix + note_title_display[:15] + ("..." if len(note_title_display) > 15 else "")
-        edit_url = url_for('notes.edit_note', note_id=note.id)
-        extended_props = {
-            'type': event_type, 'category': note.category, 'title': note.title, 'motorcycleName': motorcycle_name,
-            'noteDate': note.note_date.strftime('%Y-%m-%d'),
-            'createdAt': note.created_at.strftime('%Y-%m-%d %H:%M'),
-            'updatedAt': note.updated_at.strftime('%Y-%m-%d %H:%M'), 'editUrl': edit_url,
-            'isRacer': note.motorcycle.is_racer if note.motorcycle else False
-        }
-        if event_type == 'task':
-            extended_props['todos'] = note.todos if note.todos is not None else []
-        else:
-            extended_props['content'] = note.content
-        events.append({
-            'id': f'note-{note.id}', 'title': event_title,
-            'start': note.note_date.isoformat(), 'allDay': True, 'url': edit_url,
-            'backgroundColor': '#6c757d', 'borderColor': '#6c757d', 'textColor': 'white',
-            'extendedProps': extended_props
-        })
-
-    return jsonify(events)
+    calendar_events = services.get_calendar_events_for_user(g.user)
+    
+    return jsonify(calendar_events)
+    # ▲▲▲ ここまで変更 ▲▲▲
 
 
 @main_bp.route('/terms_of_service')
