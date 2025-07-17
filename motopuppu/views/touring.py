@@ -1,14 +1,14 @@
 # motopuppu/views/touring.py
 import json
-from datetime import datetime, date, timezone
+# ▼▼▼ timedelta をインポートリストに追加 ▼▼▼
+from datetime import datetime, date, timezone, timedelta
+# ▲▲▲ 変更ここまで ▲▲▲
 import requests
 
 from flask import (
     Blueprint, flash, g, redirect, render_template, request, url_for, current_app, jsonify
 )
-# ▼▼▼ func のインポートを追加 ▼▼▼
 from sqlalchemy import func
-# ▲▲▲ 変更ここまで ▲▲▲
 from sqlalchemy.orm import joinedload, subqueryload
 
 from .auth import login_required_custom
@@ -27,7 +27,6 @@ def get_motorcycle_or_404(vehicle_id):
 def list_logs(vehicle_id):
     """指定された車両のツーリングログ一覧を表示する"""
     motorcycle = get_motorcycle_or_404(vehicle_id)
-    # N+1問題を避けるため、関連スポット数をサブクエリで取得
     spot_count_subq = db.session.query(
         TouringSpot.touring_log_id,
         func.count(TouringSpot.id).label('spot_count')
@@ -66,10 +65,8 @@ def create_log(vehicle_id):
             memo=form.memo.data
         )
         db.session.add(new_log)
-        # 先にコミットしてIDを確定させる
         try:
             db.session.commit()
-            # スポットとスクラップブックを処理
             process_spots_and_scrapbook(new_log, form)
             flash('新しいツーリングログを作成しました。', 'success')
             return redirect(url_for('touring.detail_log', log_id=new_log.id))
@@ -103,7 +100,6 @@ def edit_log(log_id):
             current_app.logger.error(f"Error updating touring log {log_id}: {e}", exc_info=True)
             flash('ツーリングログの更新中にエラーが発生しました。', 'danger')
 
-    # GETリクエスト時にJSONデータをhiddenフィールドに設定
     if request.method == 'GET':
         spots_data = [{'spot_name': s.spot_name, 'memo': s.memo or '', 'photo_link_url': s.photo_link_url or ''} for s in log.spots]
         form.spots_data.data = json.dumps(spots_data)
@@ -116,22 +112,19 @@ def edit_log(log_id):
 
 def process_spots_and_scrapbook(log, form):
     """フォームから送られてきたスポットとスクラップブックのJSONデータを処理する"""
-    # 既存のデータを一度削除
     TouringSpot.query.filter_by(touring_log_id=log.id).delete()
     TouringScrapbookEntry.query.filter_by(touring_log_id=log.id).delete()
 
-    # スポットを再作成
     if form.spots_data.data:
         try:
             spots = json.loads(form.spots_data.data)
             for spot_data in spots:
-                if spot_data.get('spot_name'): # スポット名が空でないものだけを登録
+                if spot_data.get('spot_name'):
                     new_spot = TouringSpot(touring_log_id=log.id, **spot_data)
                     db.session.add(new_spot)
         except json.JSONDecodeError:
             current_app.logger.warning(f"Failed to decode spots_data JSON for log {log.id}")
 
-    # スクラップブックを再作成
     if form.scrapbook_note_ids.data:
         try:
             note_ids = json.loads(form.scrapbook_note_ids.data)
@@ -196,8 +189,6 @@ def fetch_misskey_notes_api():
         current_app.logger.error(f"Failed to decrypt API token for user {g.user.id}: {e}")
         return jsonify({"error": "Failed to decrypt API token."}), 500
 
-    # 日付の範囲をUTCのUNIXタイムスタンプ（ミリ秒）に変換
-    # JSTで解釈し、その日の00:00:00から23:59:59までをUTCに変換する
     jst = timezone(timedelta(hours=9))
     start_dt_local = datetime.combine(target_date, datetime.min.time(), tzinfo=jst)
     end_dt_local = datetime.combine(target_date, datetime.max.time(), tzinfo=jst)
@@ -223,7 +214,6 @@ def fetch_misskey_notes_api():
         response.raise_for_status()
         notes = response.json()
         
-        # フロントで必要な情報だけを抽出して返す
         filtered_notes = [
             {
                 'id': note.get('id'),
