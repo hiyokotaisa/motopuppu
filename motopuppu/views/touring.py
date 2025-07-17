@@ -1,8 +1,6 @@
 # motopuppu/views/touring.py
 import json
-# ▼▼▼ timedelta をインポートリストに追加 ▼▼▼
 from datetime import datetime, date, timezone, timedelta
-# ▲▲▲ 変更ここまで ▲▲▲
 import requests
 
 from flask import (
@@ -206,6 +204,7 @@ def fetch_misskey_notes_api():
         'sinceDate': since_ts,
         'untilDate': until_ts,
         'includeMyRenotes': False,
+        'withChannelNotes': True,  # ▼▼▼ チャンネル投稿を含める設定を追加 ▼▼▼
         'limit': 100
     }
     
