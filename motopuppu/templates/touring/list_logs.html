@@ -44,9 +44,11 @@
                         <span class="badge bg-secondary me-2" title="立ち寄りスポット数">
                             <i class="fas fa-map-marker-alt fa-fw me-1"></i> {{ spot_count or 0 }}
                         </span>
+                        {# ▼▼▼ ここを修正しました ▼▼▼ #}
                         <span class="badge bg-info text-dark" title="Misskeyスクラップ数">
-                            <i class="fab fa-misskey fa-fw me-1"></i> {{ scrapbook_count or 0 }}
+                            <i class="fas fa-comments fa-fw me-1"></i> {{ scrapbook_count or 0 }}
                         </span>
+                        {# ▲▲▲ 修正ここまで ▲▲▲ #}
                     </div>
                     <a href="{{ url_for('touring.detail_log', log_id=log.id) }}" class="btn btn-sm btn-outline-primary stretched-link">詳細</a>
                 </div>

@@ -78,9 +78,7 @@
                              <small class="text-muted">#{{ loop.index }}</small>
                         </div>
                         {% if spot.memo %}
-                            {# ▼▼▼ ここを修正しました ▼▼▼ #}
                             <p class="mb-1 small" style="white-space: pre-wrap;">{{ spot.memo }}</p>
-                            {# ▲▲▲ 修正ここまで ▲▲▲ #}
                         {% endif %}
                         {% if spot.photo_link_url %}
                             <small><a href="{{ spot.photo_link_url }}" target="_blank" rel="noopener noreferrer">写真を見る <i class="fas fa-external-link-alt fa-xs"></i></a></small>
@@ -96,7 +94,9 @@
         {% endif %}
     </div>
     <div class="col-lg-7">
-        <h4 class="mb-3"><i class="fab fa-misskey me-2"></i>Misskey スクラップブック</h4>
+        {# ▼▼▼ ここを修正しました ▼▼▼ #}
+        <h4 class="mb-3"><i class="fas fa-comments me-2"></i>Misskey スクラップブック</h4>
+        {# ▲▲▲ 修正ここまで ▲▲▲ #}
         <div class="row row-cols-1 row-cols-md-2 g-4" id="scrapbook-notes-container">
         {% if log.scrapbook_entries %}
             {# JavaScriptでノートを読み込むためのプレースホルダーを生成 #}
@@ -164,7 +164,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (!placeholderWrapper) continue;
 
                 let cardHtml = '';
-                if (note) {
+                if (note && note.user) { // note と note.user の存在を確認
                     const imageHtml = note.files && note.files.length > 0
                         ? `<a href="${note.files[0].url}" target="_blank" rel="noopener noreferrer"><img src="${note.files[0].thumbnailUrl}" class="card-img-top" alt="Note Image"></a>` : '';
                     
@@ -172,7 +172,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
                     const noteUrl = `{{ url_for('main.misskey_redirect', note_id='__NOTE_ID__') }}`.replace('__NOTE_ID__', note.id);
 
-                    const userProfileUrl = `{{ misskey_instance_url }}/@{{ current_user.misskey_username }}`;
+                    // note.user.username を使って、各ノートの投稿者のプロフィールURLを動的に生成します
+                    const userProfileUrl = `{{ misskey_instance_url }}/@${note.user.username}`;
 
                     const cardHeaderHtml = `
                         <div class="card-header bg-white d-flex align-items-center p-2">
