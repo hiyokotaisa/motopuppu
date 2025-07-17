@@ -4,7 +4,6 @@
 {% block title %}{{ log.title }} - ツーリングログ - もとぷっぷー{% endblock %}
 
 {% block content %}
-{# ▼▼▼ 戻るボタンの追加とレイアウト調整 ▼▼▼ #}
 <div class="d-flex align-items-center mb-3">
     <a href="{{ url_for('touring.list_logs', vehicle_id=log.motorcycle.id) }}" class="btn btn-sm btn-outline-secondary me-3" title="ツーリングログ一覧へ戻る">
         <i class="fas fa-arrow-left"></i>
@@ -27,7 +26,6 @@
         </form>
     </div>
 </div>
-{# ▲▲▲ 変更ここまで ▲▲▲ #}
 
 {% if log.memo %}
 <div class="card mb-4">
@@ -63,29 +61,111 @@
     </div>
     <div class="col-lg-7">
         <h4 class="mb-3"><i class="fab fa-misskey me-2"></i>Misskey スクラップブック</h4>
+        {# ▼▼▼ id="scrapbook-notes-container" を追加 ▼▼▼ #}
+        <div class="row row-cols-1 row-cols-md-2 g-4" id="scrapbook-notes-container">
         {% if log.scrapbook_entries %}
-            <div class="row row-cols-1 row-cols-md-2 g-4" id="scrapbook-notes-container">
+            {# JavaScriptでノートを読み込むためのプレースホルダーを生成 #}
             {% for entry in log.scrapbook_entries %}
-                <div class="col">
-                    <div class="card h-100 misskey-note-card">
-                        <div class="card-body">
-                            <p class="card-text small">
-                                Misskeyノートが関連付けられています。
-                            </p>
-                        </div>
-                        <div class="card-footer text-muted small">
-                            <a href="{{ url_for('main.misskey_redirect', note_id=entry.misskey_note_id) }}" target="_blank" rel="noopener noreferrer">
-                                Misskeyでノートを見る <i class="fas fa-external-link-alt"></i>
-                            </a>
+                <div class="col" data-note-id="{{ entry.misskey_note_id }}">
+                    <div class="card h-100 misskey-note-card-placeholder">
+                        <div class="card-body text-center">
+                            <div class="spinner-border spinner-border-sm" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p class="card-text small mt-2">ノートを読み込み中...</p>
                         </div>
                     </div>
                 </div>
             {% endfor %}
-            </div>
         {% else %}
             <p class="text-muted">関連付けられたMisskeyノートはありません。</p>
         {% endif %}
+        </div>
     </div>
 </div>
+{% endblock %}
 
+{% block scripts %}
+{{ super() }}
+<script>
+// MisskeyのMFMを簡易的にHTMLに変換する処理
+function parseMfm(text) {
+    if (!text) return '';
+    text = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    text = text.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
+    const instanceDomain = "{{ misskey_instance_domain }}";
+    text = text.replace(/#([\w\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF_]+)/g, `<a href="https://${instanceDomain}/tags/$1" target="_blank" rel="noopener noreferrer">#$1</a>`);
+    text = text.replace(/\n/g, '<br>');
+    return text;
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+    const container = document.getElementById('scrapbook-notes-container');
+    const notePlaceholders = container.querySelectorAll('.misskey-note-card-placeholder');
+
+    if (notePlaceholders.length > 0) {
+        const noteIds = Array.from(notePlaceholders).map(el => el.parentElement.dataset.noteId);
+        
+        fetch("{{ url_for('touring.fetch_note_details_api') }}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify({ note_ids: noteIds })
+        })
+        .then(response => response.json())
+        .then(data => {
+            for (const noteId in data) {
+                const note = data[noteId];
+                const placeholderWrapper = container.querySelector(`[data-note-id="${noteId}"]`);
+                if (!placeholderWrapper) continue;
+
+                let cardHtml = '';
+                if (note) {
+                    const imageHtml = note.files && note.files.length > 0
+                        ? `<img src="${note.files[0].thumbnailUrl}" class="card-img-top" alt="Note Image">` : '';
+                    
+                    const textHtml = note.text ? `<p class="card-text small">${parseMfm(note.text)}</p>` : '';
+                    
+                    const footerHtml = `
+                        <div class="card-footer text-muted small">
+                            <a href="{{ misskey_instance_url }}/notes/${note.id}" target="_blank" rel="noopener noreferrer">
+                                ${new Date(note.createdAt).toLocaleString()}
+                            </a>
+                        </div>`;
+
+                    cardHtml = `
+                        <div class="card h-100 misskey-note-card">
+                            ${imageHtml}
+                            <div class="card-body">
+                                ${textHtml}
+                            </div>
+                            ${footerHtml}
+                        </div>`;
+                } else {
+                    cardHtml = `
+                        <div class="card h-100">
+                            <div class="card-body text-danger">
+                                <p class="card-text small">ノートの読み込みに失敗しました。</p>
+                            </div>
+                        </div>`;
+                }
+                placeholderWrapper.innerHTML = cardHtml;
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching note details:', error);
+            notePlaceholders.forEach(ph => {
+                ph.parentElement.innerHTML = `
+                    <div class="card h-100">
+                        <div class="card-body text-danger">
+                            <p class="card-text small">ノートの読み込みに失敗しました。</p>
+                        </div>
+                    </div>`;
+            });
+        });
+    }
+});
+</script>
 {% endblock %}

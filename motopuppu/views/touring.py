@@ -16,6 +16,7 @@ from ..services import CryptoService
 
 touring_bp = Blueprint('touring', __name__, url_prefix='/touring')
 
+# ... (既存の list_logs, create_log, edit_log, delete_log などの関数は変更なし) ...
 def get_motorcycle_or_404(vehicle_id):
     """指定されたIDの車両を取得し、所有者でなければ404を返す"""
     return Motorcycle.query.filter_by(id=vehicle_id, user_id=g.user.id).first_or_404()
@@ -112,6 +113,7 @@ def process_spots_and_scrapbook(log, form):
     """フォームから送られてきたスポットとスクラップブックのJSONデータを処理する"""
     TouringSpot.query.filter_by(touring_log_id=log.id).delete()
     TouringScrapbookEntry.query.filter_by(touring_log_id=log.id).delete()
+    db.session.commit()
 
     if form.spots_data.data:
         try:
@@ -204,7 +206,7 @@ def fetch_misskey_notes_api():
         'sinceDate': since_ts,
         'untilDate': until_ts,
         'includeMyRenotes': False,
-        'withChannelNotes': True,  # ▼▼▼ チャンネル投稿を含める設定を追加 ▼▼▼
+        'withChannelNotes': True,
         'limit': 100
     }
     
@@ -228,3 +230,40 @@ def fetch_misskey_notes_api():
     except Exception as e:
         current_app.logger.error(f"An unexpected error occurred while fetching notes: {e}", exc_info=True)
         return jsonify({"error": "ノートの取得中に予期せぬエラーが発生しました。"}), 500
+
+# ▼▼▼ 以下をファイルの末尾に追記 ▼▼▼
+@touring_bp.route('/api/fetch_note_details', methods=['POST'])
+@login_required_custom
+def fetch_note_details_api():
+    """ノートIDのリストを受け取り、Misskeyから詳細情報を取得して返すAPI"""
+    note_ids = request.json.get('note_ids')
+    if not note_ids or not isinstance(note_ids, list):
+        return jsonify({"error": "note_ids (list) is required"}), 400
+
+    if not g.user.encrypted_misskey_api_token:
+        return jsonify({"error": "Misskey API token not found."}), 403
+
+    try:
+        crypto = CryptoService()
+        api_token = crypto.decrypt(g.user.encrypted_misskey_api_token)
+    except Exception:
+        return jsonify({"error": "Failed to decrypt API token."}), 500
+    
+    misskey_instance_url = current_app.config.get('MISSKEY_INSTANCE_URL', 'https://misskey.io')
+    api_url = f"{misskey_instance_url}/api/notes/show"
+    headers = {'Content-Type': 'application/json'}
+    
+    note_details = {}
+    for note_id in note_ids:
+        payload = {'i': api_token, 'noteId': note_id}
+        try:
+            response = requests.post(api_url, headers=headers, json=payload, timeout=5)
+            if response.status_code == 200:
+                note_details[note_id] = response.json()
+            else:
+                note_details[note_id] = None # 見つからなかったか、エラー
+        except requests.RequestException:
+            note_details[note_id] = None # 接続エラー
+
+    return jsonify(note_details)
+# ▲▲▲ 追記ここまで ▲▲▲
