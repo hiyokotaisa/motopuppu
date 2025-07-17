@@ -1,0 +1,91 @@
+{# motopuppu/templates/touring/detail_log.html #}
+{% extends "base.html" %}
+
+{% block title %}{{ log.title }} - ツーリングログ - もとぷっぷー{% endblock %}
+
+{% block content %}
+{# ▼▼▼ 戻るボタンの追加とレイアウト調整 ▼▼▼ #}
+<div class="d-flex align-items-center mb-3">
+    <a href="{{ url_for('touring.list_logs', vehicle_id=log.motorcycle.id) }}" class="btn btn-sm btn-outline-secondary me-3" title="ツーリングログ一覧へ戻る">
+        <i class="fas fa-arrow-left"></i>
+    </a>
+    <div class="flex-grow-1">
+        <h2 class="mb-0">{{ log.title }}</h2>
+        <p class="text-muted mb-0">
+            {{ log.touring_date.strftime('%Y年%m月%d日') }} / {{ log.motorcycle.name }}
+        </p>
+    </div>
+    <div class="btn-group">
+        <a href="{{ url_for('touring.edit_log', log_id=log.id) }}" class="btn btn-primary">
+            <i class="fas fa-edit me-1"></i> 編集
+        </a>
+        <form action="{{ url_for('touring.delete_log', log_id=log.id) }}" method="POST" class="d-inline" onsubmit="return confirm('このツーリングログを本当に削除しますか？');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-danger">
+                <i class="fas fa-trash me-1"></i> 削除
+            </button>
+        </form>
+    </div>
+</div>
+{# ▲▲▲ 変更ここまで ▲▲▲ #}
+
+{% if log.memo %}
+<div class="card mb-4">
+    <div class="card-body">
+        <p class="card-text" style="white-space: pre-wrap;">{{ log.memo }}</p>
+    </div>
+</div>
+{% endif %}
+
+<div class="row">
+    <div class="col-lg-5">
+        <h4 class="mb-3"><i class="fas fa-map-marker-alt me-2"></i>立ち寄りスポット</h4>
+        {% if log.spots %}
+            <div class="list-group">
+            {% for spot in log.spots %}
+                <div class="list-group-item">
+                    <div class="d-flex w-100 justify-content-between">
+                        <h5 class="mb-1">{{ spot.spot_name }}</h5>
+                        <small class="text-muted">#{{ loop.index }}</small>
+                    </div>
+                    {% if spot.memo %}
+                        <p class="mb-1">{{ spot.memo }}</p>
+                    {% endif %}
+                    {% if spot.photo_link_url %}
+                        <small><a href="{{ spot.photo_link_url }}" target="_blank" rel="noopener noreferrer">写真を見る <i class="fas fa-external-link-alt"></i></a></small>
+                    {% endif %}
+                </div>
+            {% endfor %}
+            </div>
+        {% else %}
+            <p class="text-muted">登録されているスポットはありません。</p>
+        {% endif %}
+    </div>
+    <div class="col-lg-7">
+        <h4 class="mb-3"><i class="fab fa-misskey me-2"></i>Misskey スクラップブック</h4>
+        {% if log.scrapbook_entries %}
+            <div class="row row-cols-1 row-cols-md-2 g-4" id="scrapbook-notes-container">
+            {% for entry in log.scrapbook_entries %}
+                <div class="col">
+                    <div class="card h-100 misskey-note-card">
+                        <div class="card-body">
+                            <p class="card-text small">
+                                Misskeyノートが関連付けられています。
+                            </p>
+                        </div>
+                        <div class="card-footer text-muted small">
+                            <a href="{{ url_for('main.misskey_redirect', note_id=entry.misskey_note_id) }}" target="_blank" rel="noopener noreferrer">
+                                Misskeyでノートを見る <i class="fas fa-external-link-alt"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+            </div>
+        {% else %}
+            <p class="text-muted">関連付けられたMisskeyノートはありません。</p>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}

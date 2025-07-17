@@ -9,6 +9,9 @@ import jpholiday
 import json
 import math
 from zoneinfo import ZoneInfo
+# ▼▼▼ cryptographyのインポートを追記 ▼▼▼
+from cryptography.fernet import Fernet
+# ▲▲▲ 追記ここまで ▲▲▲
 
 # ▼▼▼ モデルのインポートを追加 ▼▼▼
 from .models import db, Motorcycle, FuelEntry, MaintenanceEntry, MaintenanceReminder, ActivityLog, GeneralNote
@@ -425,3 +428,63 @@ def get_calendar_events_for_user(user):
     return events
 
 # --- ▲▲▲ 新しいサービス関数 (ここまで) ▲▲▲ ---
+
+# ▼▼▼ ここからCryptoServiceを追記 ▼▼▼
+# --- 暗号化サービス ---
+
+class CryptoService:
+    """
+    データ暗号化・復号を行うサービスクラス。
+    Fernet (AES128-CBC) を使用します。
+    """
+    def __init__(self):
+        """
+        コンストラクタ。
+        環境変数から暗号化キーを読み込み、Fernetインスタンスを初期化します。
+        """
+        key = current_app.config.get('SECRET_CRYPTO_KEY')
+        if not key:
+            raise ValueError("SECRET_CRYPTO_KEY is not set in the application configuration.")
+        
+        # Fernetは32バイトのキーを要求する。'openssl rand -hex 32' で生成されたキーを想定。
+        try:
+            key_bytes = bytes.fromhex(key)
+        except ValueError:
+            # 16進数文字列でない場合は、キーの形式が不正である可能性がある
+            raise ValueError("Invalid format for SECRET_CRYPTO_KEY. It should be a 32-byte hex-encoded string.")
+
+        if len(key_bytes) != 32:
+            raise ValueError("SECRET_CRYPTO_KEY must resolve to 32 bytes.")
+            
+        self.fernet = Fernet(key_bytes)
+
+    def encrypt(self, data: str) -> str | None:
+        """
+        与えられた文字列を暗号化します。
+
+        Args:
+            data: 暗号化する文字列。
+
+        Returns:
+            暗号化された文字列。データが空の場合はNone。
+        """
+        if not data:
+            return None
+        return self.fernet.encrypt(data.encode()).decode()
+
+    def decrypt(self, encrypted_data: str) -> str | None:
+        """
+        与えられた暗号化文字列を復号します。
+
+        Args:
+            encrypted_data: 復号する文字列。
+
+        Returns:
+            復号された文字列。データが空の場合はNone。
+            復号に失敗した場合は例外が発生します。
+        """
+        if not encrypted_data:
+            return None
+        return self.fernet.decrypt(encrypted_data.encode()).decode()
+
+# ▲▲▲ 追記ここまで ▲▲▲

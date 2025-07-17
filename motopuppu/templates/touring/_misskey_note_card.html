@@ -1,0 +1,14 @@
+{# motopuppu/templates/touring/_misskey_note_card.html #}
+<div class="card h-100 misskey-note-card">
+    {% if entry.misskey_note.files and entry.misskey_note.files|length > 0 %}
+        <img src="{{ entry.misskey_note.files[0].thumbnailUrl }}" class="card-img-top" alt="Note Image">
+    {% endif %}
+    <div class="card-body">
+        <p class="card-text small misskey-note-text">{{ entry.misskey_note.text }}</p>
+    </div>
+    <div class="card-footer text-muted small">
+        <a href="{{ misskey_instance_url }}/notes/{{ entry.misskey_note_id }}" target="_blank" rel="noopener noreferrer">
+            {{ entry.misskey_note.createdAt | to_jst }}
+        </a>
+    </div>
+</div>

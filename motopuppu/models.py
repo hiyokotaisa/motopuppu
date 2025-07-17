@@ -17,6 +17,9 @@ class User(db.Model):
     display_name = db.Column(db.String(100), nullable=True, comment="ユーザーが設定する表示名")
     avatar_url = db.Column(db.String(2048), nullable=True, comment="MisskeyのアバターURL")
     is_admin = db.Column(db.Boolean, default=False, nullable=False)
+    
+    encrypted_misskey_api_token = db.Column(db.Text, nullable=True, comment="暗号化されたMisskey APIトークン")
+
     motorcycles = db.relationship('Motorcycle', backref='owner', lazy=True, cascade="all, delete-orphan")
     general_notes = db.relationship('GeneralNote', backref='owner', lazy=True, cascade="all, delete-orphan")
     achievements = db.relationship('UserAchievement', backref='user', lazy='dynamic', cascade="all, delete-orphan")
@@ -344,3 +347,54 @@ class EventParticipant(db.Model):
         return check_password_hash(self.passcode_hash, passcode)
     def __repr__(self):
         return f'<EventParticipant id={self.id} event_id={self.event_id} name="{self.name}" status="{self.status.value}">'
+
+class TouringLog(db.Model):
+    __tablename__ = 'touring_logs'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+    motorcycle_id = db.Column(db.Integer, db.ForeignKey('motorcycles.id', ondelete='CASCADE'), nullable=False, index=True)
+    
+    title = db.Column(db.String(200), nullable=False)
+    touring_date = db.Column(db.Date, nullable=False, index=True)
+    memo = db.Column(db.Text, nullable=True)
+    
+    created_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
+    updated_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now(), onupdate=db.func.now())
+
+    # リレーションシップ
+    owner = db.relationship('User', backref=db.backref('touring_logs', lazy='dynamic'))
+    motorcycle = db.relationship('Motorcycle', backref=db.backref('touring_logs', lazy='dynamic'))
+    # ▼▼▼ lazy='dynamic' を削除 ▼▼▼
+    spots = db.relationship('TouringSpot', backref='touring_log', cascade="all, delete-orphan", order_by="TouringSpot.order")
+    scrapbook_entries = db.relationship('TouringScrapbookEntry', backref='touring_log', cascade="all, delete-orphan")
+    # ▲▲▲ 変更ここまで ▲▲▲
+
+    def __repr__(self):
+        return f'<TouringLog id={self.id} title="{self.title}">'
+
+
+class TouringSpot(db.Model):
+    __tablename__ = 'touring_spots'
+    id = db.Column(db.Integer, primary_key=True)
+    touring_log_id = db.Column(db.Integer, db.ForeignKey('touring_logs.id', ondelete='CASCADE'), nullable=False, index=True)
+    
+    spot_name = db.Column(db.String(150), nullable=False)
+    memo = db.Column(db.Text, nullable=True)
+    order = db.Column(db.Integer, nullable=False, default=0, comment="スポットの順序")
+    photo_link_url = db.Column(db.String(2048), nullable=True, comment="外部の写真URL")
+
+    def __repr__(self):
+        return f'<TouringSpot id={self.id} name="{self.spot_name}">'
+
+
+class TouringScrapbookEntry(db.Model):
+    __tablename__ = 'touring_scrapbook_entries'
+    id = db.Column(db.Integer, primary_key=True)
+    touring_log_id = db.Column(db.Integer, db.ForeignKey('touring_logs.id', ondelete='CASCADE'), nullable=False)
+    misskey_note_id = db.Column(db.String(32), nullable=False, index=True)
+
+    # 同じログに同じノートが重複して登録されないように制約を設ける
+    __table_args__ = (db.UniqueConstraint('touring_log_id', 'misskey_note_id', name='uq_touring_log_note'),)
+
+    def __repr__(self):
+        return f'<TouringScrapbookEntry log_id={self.touring_log_id} note_id="{self.misskey_note_id}">'

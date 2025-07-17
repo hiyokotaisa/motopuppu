@@ -27,6 +27,9 @@ def create_app(config_name=None):
 
     app.config.from_mapping(
         SECRET_KEY=os.environ.get('SECRET_KEY', 'dev-secret-key-replace-me'),
+        # ▼▼▼ 暗号化キーの読み込み設定を追記 ▼▼▼
+        SECRET_CRYPTO_KEY=os.environ.get('SECRET_CRYPTO_KEY'),
+        # ▲▲▲ 追記ここまで ▲▲▲
         SQLALCHEMY_DATABASE_URI=os.environ.get('DATABASE_URI', f"sqlite:///{os.path.join(app.instance_path, 'app.db')}"),
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
         MAX_CONTENT_LENGTH = int(os.environ.get('MAX_CONTENT_LENGTH', 16)) * 1024 * 1024,
@@ -44,6 +47,13 @@ def create_app(config_name=None):
         app.logger.warning("CRITICAL: SECRET_KEY is set to the default development value in a non-development environment. This is a security risk!")
     elif app.config['SECRET_KEY'] == 'dev-secret-key-replace-me':
         print("Warning: SECRET_KEY is set to the default development value. Set it in .env for production!")
+
+    # ▼▼▼ 暗号化キーの存在チェックを追加 ▼▼▼
+    if not app.config['SECRET_CRYPTO_KEY'] and app.config['ENV'] != 'development':
+        app.logger.warning("CRITICAL: SECRET_CRYPTO_KEY is not set in a non-development environment. This is required for data encryption.")
+    elif not app.config['SECRET_CRYPTO_KEY']:
+        print("Warning: SECRET_CRYPTO_KEY is not set. Set it in .env for production!")
+    # ▲▲▲ 追記ここまで ▲▲▲
 
     log_level_name = os.environ.get('LOG_LEVEL', 'INFO').upper()
     log_level = getattr(logging, log_level_name, logging.INFO)
@@ -73,14 +83,11 @@ def create_app(config_name=None):
             g.user_motorcycles = Motorcycle.query.filter_by(user_id=g.user.id).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
 
     try:
-        # --- ▼▼▼ ここから変更 ▼▼▼ ---
-        # 古い activity をインポートリストから削除
-        from .views import auth, main, vehicle, fuel, maintenance, notes, dev_auth, leaderboard, profile, reminder, event
+        # ▼▼▼ touring をインポートリストに追加 ▼▼▼
+        from .views import auth, main, vehicle, fuel, maintenance, notes, dev_auth, leaderboard, profile, reminder, event, touring
         from .views import achievements as achievements_view
-
-        # 新しい activity_bp をインポート
         from .views.activity import activity_bp
-        # --- ▲▲▲ ここまで変更 ▲▲▲ ---
+        # ▲▲▲ 変更ここまで ▲▲▲
 
         app.register_blueprint(auth.auth_bp)
         app.register_blueprint(main.main_bp)
@@ -93,12 +100,11 @@ def create_app(config_name=None):
         app.register_blueprint(leaderboard.leaderboard_bp)
         app.register_blueprint(profile.profile_bp)
         app.register_blueprint(event.event_bp)
-
-        # --- ▼▼▼ ここから変更 ▼▼▼ ---
-        # 新しい activity_bp を登録
         app.register_blueprint(activity_bp)
-        # 古い activity.activity_bp の登録は不要
-        # --- ▲▲▲ ここまで変更 ▲▲▲ ---
+        
+        # ▼▼▼ 新しい touring_bp を登録 ▼▼▼
+        app.register_blueprint(touring.touring_bp)
+        # ▲▲▲ 登録ここまで ▲▲▲
 
         if app.config['ENV'] == 'development' or app.debug: 
             app.register_blueprint(dev_auth.dev_auth_bp)
@@ -134,17 +140,19 @@ def create_app(config_name=None):
 
     @app.shell_context_processor
     def make_shell_context():
-        # --- ▼▼▼ Event, EventParticipant を追加 ▼▼▼ ---
+        # ▼▼▼ 新しいモデルをインポートリストと辞書に追加 ▼▼▼
         from .models import db, User, Motorcycle, FuelEntry, MaintenanceEntry, MaintenanceReminder, GeneralNote, OdoResetLog, AchievementDefinition, UserAchievement
-        from .models import SettingSheet, ActivityLog, SessionLog, Event, EventParticipant
+        from .models import SettingSheet, ActivityLog, SessionLog, Event, EventParticipant, TouringLog, TouringSpot, TouringScrapbookEntry
         return {
             'db': db, 'User': User, 'Motorcycle': Motorcycle, 'FuelEntry': FuelEntry,
             'MaintenanceEntry': MaintenanceEntry, 'MaintenanceReminder': MaintenanceReminder,
             'GeneralNote': GeneralNote, 'OdoResetLog': OdoResetLog,
             'AchievementDefinition': AchievementDefinition, 'UserAchievement': UserAchievement,
             'SettingSheet': SettingSheet, 'ActivityLog': ActivityLog, 'SessionLog': SessionLog,
-            'Event': Event, 'EventParticipant': EventParticipant
+            'Event': Event, 'EventParticipant': EventParticipant,
+            'TouringLog': TouringLog, 'TouringSpot': TouringSpot, 'TouringScrapbookEntry': TouringScrapbookEntry
         }
+        # ▲▲▲ 変更ここまで ▲▲▲
 
     try:
         os.makedirs(app.instance_path)

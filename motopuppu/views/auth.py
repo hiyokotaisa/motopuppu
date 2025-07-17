@@ -10,6 +10,9 @@ from .. import db
 from ..models import User
 from functools import wraps
 from ..forms import DeleteAccountForm # DeleteAccountForm をインポート
+# ▼▼▼ CryptoServiceをインポート ▼▼▼
+from ..services import CryptoService
+# ▲▲▲ インポートここまで ▲▲▲
 
 auth_bp = Blueprint('auth', __name__, url_prefix='/auth')
 
@@ -115,10 +118,8 @@ def miauth_callback():
         user_info = check_data['user']
         misskey_user_id = user_info.get('id')
         misskey_username = user_info.get('username')
-        # --- ▼▼▼ ここから追加 ▼▼▼ ---
         avatar_url = user_info.get('avatarUrl') # アバターURLを取得
         current_app.logger.info(f"MiAuth check successful. Token received (masked): {token[:5]}..., User ID: {misskey_user_id}, Username: {misskey_username}, Avatar URL: {avatar_url}")
-        # --- ▲▲▲ ここまで追加 ▲▲▲ ---
 
         if not misskey_user_id:
             raise ValueError("Misskey User ID not found in check response user object.")
@@ -128,20 +129,32 @@ def miauth_callback():
         current_app.logger.error(f"Misskey MiAuth /check request failed: {e}")
         return redirect(url_for('auth.login_page'))
     except (ValueError, KeyError, Exception) as e:
-         current_app.logger.error(f"Failed to process MiAuth /check response or other error: {e}. Check data if available: {check_data if check_data is not None else 'Not available during this exception'}")
-         flash(f'Misskey MiAuth 認証処理中に予期せぬエラーが発生しました。 ({e})', 'error')
-         return redirect(url_for('auth.login_page'))
+        current_app.logger.error(f"Failed to process MiAuth /check response or other error: {e}. Check data if available: {check_data if check_data is not None else 'Not available during this exception'}")
+        flash(f'Misskey MiAuth 認証処理中に予期せぬエラーが発生しました。 ({e})', 'error')
+        return redirect(url_for('auth.login_page'))
 
     user = db.session.scalar(db.select(User).filter_by(misskey_user_id=misskey_user_id)) # SQLAlchemy 2.0+
+    
+    # ▼▼▼ ここからトークン暗号化・保存処理 ▼▼▼
+    try:
+        crypto_service = CryptoService()
+        encrypted_token = crypto_service.encrypt(token)
+    except Exception as e:
+        current_app.logger.error(f"Failed to initialize CryptoService or encrypt token for user {misskey_username}: {e}")
+        flash('セキュリティトークンの処理中にエラーが発生しました。設定を確認してください。', 'danger')
+        return redirect(url_for('main.index'))
+    # ▲▲▲ ここまで ▲▲▲
+
     if not user:
-        # --- ▼▼▼ ここから変更 ▼▼▼ ---
+        # ▼▼▼ 新規ユーザー作成時に暗号化トークンを保存 ▼▼▼
         user = User(
             misskey_user_id=misskey_user_id,
             misskey_username=misskey_username,
-            avatar_url=avatar_url, # 新規作成時にアバターURLを保存
+            avatar_url=avatar_url,
+            encrypted_misskey_api_token=encrypted_token, # 追記
             is_admin=False
         )
-        # --- ▲▲▲ ここまで変更 ▲▲▲ ---
+        # ▲▲▲ ここまで ▲▲▲
         db.session.add(user)
         try:
             db.session.commit()
@@ -153,14 +166,17 @@ def miauth_callback():
             current_app.logger.error(f"Database error creating user: {e}")
             return redirect(url_for('auth.login_page'))
     else:
-        # --- ▼▼▼ ここから変更 ▼▼▼ ---
-        # ユーザー名とアバターURLに変更があれば更新
+        # ▼▼▼ 既存ユーザーの情報を更新 ▼▼▼
         needs_commit = False
         if user.misskey_username != misskey_username:
             user.misskey_username = misskey_username
             needs_commit = True
         if user.avatar_url != avatar_url:
             user.avatar_url = avatar_url
+            needs_commit = True
+        # ログインの都度、トークンを更新する
+        if user.encrypted_misskey_api_token != encrypted_token:
+            user.encrypted_misskey_api_token = encrypted_token
             needs_commit = True
         
         if needs_commit:
@@ -170,17 +186,11 @@ def miauth_callback():
             except Exception as e:
                 db.session.rollback()
                 current_app.logger.error(f"Error updating user info for {misskey_username}: {e}")
-        # --- ▲▲▲ ここまで変更 ▲▲▲ ---
+        # ▲▲▲ ここまで ▲▲▲
         current_app.logger.info(f"Existing user logged in: {user.misskey_username} (App User ID: {user.id})")
 
     session.clear()
     session['user_id'] = user.id
-    # g.user の設定: MiAuthコールバック成功時にg.userを明示的に設定すると、
-    # この直後のリダイレクト先での最初のリクエスト処理で get_current_user() を呼び出した際に、
-    # DBアクセスなしでg.userからユーザー情報を取得できる可能性があります（リクエストサイクルによる）。
-    # ただし、通常はリダイレクト後のリクエストではgコンテキストはリセットされるため、
-    # get_current_user()内で再度DBから取得されることが多いです。
-    # ここでの g.user = user の設定は、必須というよりは念のため、あるいは特定のケースでの最適化です。
     g.user = user 
     current_app.logger.info(f"User {user.misskey_username} (App User ID: {user.id}) successfully logged in. Session 'user_id' set. Redirecting to dashboard.")
     flash('ログインしました。', 'success')
@@ -219,7 +229,7 @@ def login_page():
                         else:
                             announcements_for_modal.append(item) # モーダル用にリスト追加
         else:
-             current_app.logger.warning(f"announcements.json not found at {announcement_file}")
+                current_app.logger.warning(f"announcements.json not found at {announcement_file}")
     except Exception as e:
         current_app.logger.error(f"An unexpected error occurred loading announcements: {e}", exc_info=True)
         # エラーが発生した場合でも、テンプレート変数が未定義にならないように空の値を設定することも検討
@@ -228,8 +238,8 @@ def login_page():
         # (ただし、上記の初期化でカバーされている)
 
     return render_template('index.html', 
-                           announcements=announcements_for_modal, # モーダル用のお知らせリスト
-                           important_notice=important_notice_content) # 固定表示用のお知らせ
+                            announcements=announcements_for_modal, # モーダル用のお知らせリスト
+                            important_notice=important_notice_content) # 固定表示用のお知らせ
 
 def login_required_custom(f):
     @wraps(f)
@@ -239,47 +249,6 @@ def login_required_custom(f):
             return redirect(url_for('auth.login_page', next=request.url))
         return f(*args, **kwargs)
     return decorated_function
-
-# --- ▼▼▼ このセクションは profile.py に移動したためコメントアウト（または削除）▼▼▼ ---
-# @auth_bp.route('/delete_account', methods=['GET', 'POST'])
-# @login_required_custom # ログイン必須
-# def delete_account():
-#     form = DeleteAccountForm()
-#     user_to_delete = g.user # @login_required_custom により g.user には現在のユーザーがセットされているはず
-# 
-#     if form.validate_on_submit():
-#         try:
-#             if user_to_delete:
-#                 user_id_deleted = user_to_delete.id # ログ用にIDを保持
-#                 user_name_deleted = user_to_delete.misskey_username # ログ用に名前を保持
-#                 
-#                 db.session.delete(user_to_delete)
-#                 db.session.commit()
-#                 
-#                 if 'user' in g:
-#                     del g.user
-#                 session.pop('user_id', None)
-#                 session.clear()
-#                 
-#                 current_app.logger.info(f"User account deleted successfully: App User ID={user_id_deleted}, Username={user_name_deleted}")
-#                 # ▼▼▼ 退会完了ページへリダイレクト ▼▼▼
-#                 return redirect(url_for('auth.delete_account_complete'))
-#             else:
-#                 flash('ユーザーが見つかりませんでした。操作をやり直してください。', 'error')
-#                 current_app.logger.error(f"Attempt to delete account, but g.user was not available or invalid.")
-#                 return redirect(url_for('main.dashboard'))
-# 
-#         except Exception as e:
-#             db.session.rollback()
-#             current_app.logger.error(f"Error deleting user account (ID: {user_to_delete.id if user_to_delete else 'Unknown'}): {e}", exc_info=True)
-#             flash('アカウントの削除中にエラーが発生しました。しばらくしてからもう一度お試しいただくか、管理者にご連絡ください。', 'danger')
-#     
-#     elif request.method == 'POST' and not form.validate():
-#         flash('入力内容を確認してください。', 'warning')
-# 
-#     return render_template('auth/delete_account.html', title='アカウント削除', form=form, user_to_delete_name=user_to_delete.misskey_username if user_to_delete else "ユーザー")
-# --- ▲▲▲ ここまで ▲▲▲ ---
-
 
 # ▼▼▼ 退会完了ページ表示用のルートを追加 ▼▼▼
 @auth_bp.route('/delete_account_complete')

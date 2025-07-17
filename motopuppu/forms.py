@@ -401,9 +401,9 @@ class NoteForm(FlaskForm):
 class ProfileForm(FlaskForm):
     """プロフィール編集用フォーム"""
     display_name = StringField('表示名',
-                               validators=[DataRequired(message="表示名を入力してください。"),
-                                           Length(min=1, max=20, message="表示名は20文字以内で入力してください。")],
-                               render_kw={"placeholder": "例: もとぷー太郎"})
+                                validators=[DataRequired(message="表示名を入力してください。"),
+                                            Length(min=1, max=20, message="表示名は20文字以内で入力してください。")],
+                                render_kw={"placeholder": "例: もとぷー太郎"})
     submit_profile = SubmitField('表示名を更新')
 
 
@@ -553,6 +553,19 @@ class SessionLogForm(FlaskForm):
     
     submit = SubmitField('セッションを記録')
 
+# ▼▼▼ 新しいフォームクラスを追記 ▼▼▼
+class TouringLogForm(FlaskForm):
+    """ツーリングログ用のフォーム"""
+    title = StringField('ツーリング名', validators=[DataRequired(), Length(max=200)])
+    touring_date = DateField('日付', validators=[DataRequired()], format='%Y-%m-%d', default=date.today)
+    memo = TextAreaField('メモ', validators=[Optional(), Length(max=2000)], render_kw={"rows": 4})
+    
+    # フロントエンドからJSONでデータを受け取るための隠しフィールド
+    spots_data = HiddenField('Spots Data JSON', validators=[Optional()])
+    scrapbook_note_ids = HiddenField('Scrapbook Note IDs JSON', validators=[Optional()])
+
+    submit = SubmitField('保存する')
+# ▲▲▲ 追記ここまで ▲▲▲
 
 # --- イベント機能 (ここから) ---
 

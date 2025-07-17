@@ -1,0 +1,51 @@
+{# motopuppu/templates/touring/list_logs.html #}
+{% extends "base.html" %}
+
+{% block title %}ツーリングログ ({{ motorcycle.name }}) - もとぷっぷー{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>
+        <i class="fas fa-map-signs me-2"></i>ツーリングログ
+        <small class="text-muted fs-5">- {{ motorcycle.name }}</small>
+    </h2>
+    <a href="{{ url_for('touring.create_log', vehicle_id=motorcycle.id) }}" class="btn btn-primary">
+        <i class="fas fa-plus me-1"></i> 新規ログ作成
+    </a>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
+
+{% if logs_with_counts %}
+<div class="list-group">
+    {% for log, spot_count, scrapbook_count in logs_with_counts %}
+    <a href="{{ url_for('touring.detail_log', log_id=log.id) }}" class="list-group-item list-group-item-action flex-column align-items-start">
+        <div class="d-flex w-100 justify-content-between">
+            <h5 class="mb-1">{{ log.title }}</h5>
+            <small>{{ log.touring_date.strftime('%Y年%m月%d日') }}</small>
+        </div>
+        <p class="mb-1 text-muted small">
+            {{ log.memo | truncate(100) if log.memo else ' ' }}
+        </p>
+        <small>
+            <span class="badge bg-secondary me-2"><i class="fas fa-map-marker-alt me-1"></i> スポット: {{ spot_count or 0 }}</span>
+            <span class="badge bg-info text-dark"><i class="fab fa-misskey me-1"></i> スクラップ: {{ scrapbook_count or 0 }}</span>
+        </small>
+    </a>
+    {% endfor %}
+</div>
+{% else %}
+<div class="alert alert-info">
+    まだツーリングログがありません。「新規ログ作成」ボタンから最初のログを記録しましょう。
+</div>
+{% endif %}
+{% endblock %}
