@@ -187,7 +187,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function updateNoScrapbookMessage() {
         noScrapbookMessage.style.display = scrapbookPreviewContainer.children.length === 0 ? 'block' : 'none';
     }
-
+    
     openModalBtn.addEventListener('click', async () => {
         const touringDate = document.querySelector('input[name="touring_date"]').value;
         if (!touringDate) {
@@ -244,8 +244,33 @@ document.addEventListener('DOMContentLoaded', function() {
         misskeyNotesModal.hide();
     });
 
-    function renderScrapbookPreview() {
+    async function renderScrapbookPreview() {
         scrapbookPreviewContainer.innerHTML = '';
+        if (selectedNoteIds.size === 0) {
+            updateNoScrapbookMessage();
+            return;
+        }
+
+        // まだ詳細を取得していないノートIDだけを対象にする
+        const idsToFetch = Array.from(selectedNoteIds).filter(id => !allFetchedNotes.has(id));
+
+        if (idsToFetch.length > 0) {
+            try {
+                const response = await fetch("{{ url_for('touring.fetch_note_details_api') }}", {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token() }}' },
+                    body: JSON.stringify({ note_ids: idsToFetch })
+                });
+                const details = await response.json();
+                for (const id in details) {
+                    if (details[id]) allFetchedNotes.set(id, details[id]);
+                }
+            } catch (error) {
+                console.error("Failed to fetch details for saved notes:", error);
+            }
+        }
+
+        // プレビューを再描画
         selectedNoteIds.forEach(noteId => {
             const noteData = allFetchedNotes.get(noteId);
             if(noteData) {
@@ -265,7 +290,6 @@ document.addEventListener('DOMContentLoaded', function() {
         updateNoScrapbookMessage();
     }
     
-    // --- フォーム送信時の処理 ---
     touringForm.addEventListener('submit', () => {
         const spots = Array.from(spotsContainer.querySelectorAll('.spot-item')).map((item, index) => ({
             order: index,
@@ -274,13 +298,11 @@ document.addEventListener('DOMContentLoaded', function() {
             photo_link_url: item.querySelector('.spot-photo').value,
         }));
         spotsDataInput.value = JSON.stringify(spots.filter(s => s.spot_name && s.spot_name.trim()));
-
         scrapbookNoteIdsInput.value = JSON.stringify(Array.from(selectedNoteIds));
     });
 
     // --- 初期化処理 ---
     function initializeForm() {
-        // 編集モードの場合、スポットを復元
         if (spotsDataInput.value) {
             try {
                 const spots = JSON.parse(spotsDataInput.value);
@@ -288,14 +310,18 @@ document.addEventListener('DOMContentLoaded', function() {
             } catch(e) { console.error("Could not parse spots data", e); }
         }
 
-        // 編集モードの場合、スクラップブックを復元
+        // ▼▼▼ 編集ページ読み込み時にスクラップブックを復元する処理を追加 ▼▼▼
         if (scrapbookNoteIdsInput.value) {
             try {
                 const noteIds = JSON.parse(scrapbookNoteIdsInput.value);
-                selectedNoteIds = new Set(noteIds);
-                // プレビューはモーダルを開いてノート情報を取得してから再描画
+                if (Array.isArray(noteIds) && noteIds.length > 0) {
+                    selectedNoteIds = new Set(noteIds);
+                    // プレビューを描画（ノート詳細は非同期で取得される）
+                    renderScrapbookPreview();
+                }
             } catch(e) { console.error("Could not parse scrapbook data", e); }
         }
+        // ▲▲▲ 変更ここまで ▲▲▲
 
         updateNoSpotsMessage();
         updateNoScrapbookMessage();
