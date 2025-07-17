@@ -58,7 +58,7 @@
                     </a>
                     <ul class="dropdown-menu" aria-labelledby="activityLogDropdown">
                         {# ツーリングログへのリンク #}
-                        <li><h6 class="dropdown-header">ツーリングログ</h6></li>
+                        <li><h6 class="dropdown-header"><i class="fas fa-map-signs me-1"></i> ツーリングログ</h6></li>
                         {% if g.user_motorcycles %}
                             {% for motorcycle in g.user_motorcycles %}
                             <li>
@@ -73,7 +73,7 @@
                         <li><hr class="dropdown-divider"></li>
 
                         {# 走行ログ（旧活動ログ）へのリンク #}
-                        <li><h6 class="dropdown-header">走行ログ</h6></li>
+                        <li><h6 class="dropdown-header"><i class="fas fa-flag-checkered me-1"></i> 走行ログ</h6></li>
                         {% if g.user_motorcycles %}
                             {% for motorcycle in g.user_motorcycles %}
                             <li>
