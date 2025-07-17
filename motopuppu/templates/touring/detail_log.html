@@ -14,18 +14,48 @@
             {{ log.touring_date.strftime('%Y年%m月%d日') }} / {{ log.motorcycle.name }}
         </p>
     </div>
+    {# ▼▼▼ div.btn-group の中身を修正 ▼▼▼ #}
     <div class="btn-group">
         <a href="{{ url_for('touring.edit_log', log_id=log.id) }}" class="btn btn-primary">
             <i class="fas fa-edit me-1"></i> 編集
         </a>
-        <form action="{{ url_for('touring.delete_log', log_id=log.id) }}" method="POST" class="d-inline" onsubmit="return confirm('このツーリングログを本当に削除しますか？');">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button type="submit" class="btn btn-danger">
-                <i class="fas fa-trash me-1"></i> 削除
-            </button>
-        </form>
+        <button class="btn btn-info btn-share-misskey"
+                data-type="touring"
+                data-title="{{ log.title }}"
+                data-date="{{ log.touring_date.isoformat() }}"
+                data-vehicle-name="{{ log.motorcycle.name }}"
+                data-spots-json='{{ log.spots | map(attribute="spot_name") | list | tojson }}'
+                title="Misskeyで共有">
+            <i class="fa-solid fa-share-nodes fa-fw"></i> 共有
+        </button>
+        <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">
+            <i class="fas fa-trash me-1"></i> 削除
+        </button>
     </div>
 </div>
+
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="deleteModalLabel">削除の確認</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        このツーリングログ「{{ log.title }}」を本当に削除しますか？
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+        <form action="{{ url_for('touring.delete_log', log_id=log.id) }}" method="POST" class="d-inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-danger">削除する</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{# ▲▲▲ 変更ここまで ▲▲▲ #}
+
 
 {% if log.memo %}
 <div class="card mb-4">
@@ -61,7 +91,6 @@
     </div>
     <div class="col-lg-7">
         <h4 class="mb-3"><i class="fab fa-misskey me-2"></i>Misskey スクラップブック</h4>
-        {# ▼▼▼ id="scrapbook-notes-container" を追加 ▼▼▼ #}
         <div class="row row-cols-1 row-cols-md-2 g-4" id="scrapbook-notes-container">
         {% if log.scrapbook_entries %}
             {# JavaScriptでノートを読み込むためのプレースホルダーを生成 #}
@@ -83,6 +112,7 @@
         </div>
     </div>
 </div>
+
 {% endblock %}
 
 {% block scripts %}
@@ -130,7 +160,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     
                     const footerHtml = `
                         <div class="card-footer text-muted small">
-                            <a href="{{ misskey_instance_url }}/notes/${note.id}" target="_blank" rel="noopener noreferrer">
+                            <a href="{{ url_for('main.misskey_redirect', note_id=note.id) }}" target="_blank" rel="noopener noreferrer">
                                 ${new Date(note.createdAt).toLocaleString()}
                             </a>
                         </div>`;
