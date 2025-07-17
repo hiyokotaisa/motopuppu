@@ -26,26 +26,56 @@
 {% endwith %}
 
 {% if logs_with_counts %}
-<div class="list-group">
+<div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
     {% for log, spot_count, scrapbook_count in logs_with_counts %}
-    <a href="{{ url_for('touring.detail_log', log_id=log.id) }}" class="list-group-item list-group-item-action flex-column align-items-start">
-        <div class="d-flex w-100 justify-content-between">
-            <h5 class="mb-1">{{ log.title }}</h5>
-            <small>{{ log.touring_date.strftime('%Y年%m月%d日') }}</small>
+    <div class="col">
+        <div class="card h-100 touring-log-card-item">
+            <div class="card-body d-flex flex-column">
+                <h5 class="card-title">{{ log.title }}</h5>
+                <p class="card-subtitle mb-2 text-muted small">
+                    <i class="far fa-calendar-alt fa-fw me-1"></i>
+                    {{ log.touring_date.strftime('%Y年%m月%d日') }}
+                </p>
+                <p class="card-text small flex-grow-1">
+                    {{ log.memo | truncate(80) if log.memo else ' ' }}
+                </p>
+                <div class="mt-auto d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="badge bg-secondary me-2" title="立ち寄りスポット数">
+                            <i class="fas fa-map-marker-alt fa-fw me-1"></i> {{ spot_count or 0 }}
+                        </span>
+                        <span class="badge bg-info text-dark" title="Misskeyスクラップ数">
+                            <i class="fab fa-misskey fa-fw me-1"></i> {{ scrapbook_count or 0 }}
+                        </span>
+                    </div>
+                    <a href="{{ url_for('touring.detail_log', log_id=log.id) }}" class="btn btn-sm btn-outline-primary stretched-link">詳細</a>
+                </div>
+            </div>
         </div>
-        <p class="mb-1 text-muted small">
-            {{ log.memo | truncate(100) if log.memo else ' ' }}
-        </p>
-        <small>
-            <span class="badge bg-secondary me-2"><i class="fas fa-map-marker-alt me-1"></i> スポット: {{ spot_count or 0 }}</span>
-            <span class="badge bg-info text-dark"><i class="fab fa-misskey me-1"></i> スクラップ: {{ scrapbook_count or 0 }}</span>
-        </small>
-    </a>
+    </div>
     {% endfor %}
 </div>
 {% else %}
-<div class="alert alert-info">
-    まだツーリングログがありません。「新規ログ作成」ボタンから最初のログを記録しましょう。
+<div class="text-center p-5 border rounded bg-light">
+    <h4><i class="fas fa-motorcycle fa-2x mb-3"></i></h4>
+    <p class="lead">まだツーリングログがありません。</p>
+    <p>最初のツーリングの思い出を記録してみましょう！</p>
+    <a href="{{ url_for('touring.create_log', vehicle_id=motorcycle.id) }}" class="btn btn-primary mt-3">
+        <i class="fas fa-plus me-1"></i> 最初のログを作成
+    </a>
 </div>
 {% endif %}
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<style>
+.touring-log-card-item {
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+.touring-log-card-item:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+</style>
 {% endblock %}

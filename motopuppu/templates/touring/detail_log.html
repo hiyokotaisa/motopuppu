@@ -57,6 +57,7 @@
 
 {% if log.memo %}
 <div class="card mb-4">
+    <div class="card-header"><i class="far fa-sticky-note fa-fw me-2"></i>ツーリングメモ</div>
     <div class="card-body">
         <p class="card-text" style="white-space: pre-wrap;">{{ log.memo }}</p>
     </div>
@@ -67,24 +68,29 @@
     <div class="col-lg-5">
         <h4 class="mb-3"><i class="fas fa-map-marker-alt me-2"></i>立ち寄りスポット</h4>
         {% if log.spots %}
-            <div class="list-group">
-            {% for spot in log.spots %}
-                <div class="list-group-item">
-                    <div class="d-flex w-100 justify-content-between">
-                        <h5 class="mb-1">{{ spot.spot_name }}</h5>
-                        <small class="text-muted">#{{ loop.index }}</small>
+            <ul class="timeline">
+                {% for spot in log.spots %}
+                <li class="timeline-item">
+                    <div class="timeline-item-marker"></div>
+                    <div class="timeline-item-content">
+                        <div class="d-flex justify-content-between">
+                             <h5 class="timeline-item-title">{{ spot.spot_name }}</h5>
+                             <small class="text-muted">#{{ loop.index }}</small>
+                        </div>
+                        {% if spot.memo %}
+                            <p class="mb-1 small">{{ spot.memo | nl2br }}</p>
+                        {% endif %}
+                        {% if spot.photo_link_url %}
+                            <small><a href="{{ spot.photo_link_url }}" target="_blank" rel="noopener noreferrer">写真を見る <i class="fas fa-external-link-alt fa-xs"></i></a></small>
+                        {% endif %}
                     </div>
-                    {% if spot.memo %}
-                        <p class="mb-1">{{ spot.memo }}</p>
-                    {% endif %}
-                    {% if spot.photo_link_url %}
-                        <small><a href="{{ spot.photo_link_url }}" target="_blank" rel="noopener noreferrer">写真を見る <i class="fas fa-external-link-alt"></i></a></small>
-                    {% endif %}
-                </div>
-            {% endfor %}
-            </div>
+                </li>
+                {% endfor %}
+            </ul>
         {% else %}
-            <p class="text-muted">登録されているスポットはありません。</p>
+            <div class="text-center p-4 border rounded bg-light">
+                <p class="text-muted mb-0">登録されているスポットはありません。</p>
+            </div>
         {% endif %}
     </div>
     <div class="col-lg-7">
@@ -95,17 +101,23 @@
             {% for entry in log.scrapbook_entries %}
                 <div class="col" data-note-id="{{ entry.misskey_note_id }}">
                     <div class="card h-100 misskey-note-card-placeholder">
-                        <div class="card-body text-center">
-                            <div class="spinner-border spinner-border-sm" role="status">
-                                <span class="visually-hidden">Loading...</span>
+                        <div class="card-body text-center d-flex align-items-center justify-content-center">
+                            <div>
+                                <div class="spinner-border spinner-border-sm" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                                <p class="card-text small mt-2 mb-0">ノートを読み込み中...</p>
                             </div>
-                            <p class="card-text small mt-2">ノートを読み込み中...</p>
                         </div>
                     </div>
                 </div>
             {% endfor %}
         {% else %}
-            <p class="text-muted">関連付けられたMisskeyノートはありません。</p>
+            <div class="col-12">
+                 <div class="text-center p-4 border rounded bg-light">
+                    <p class="text-muted mb-0">関連付けられたMisskeyノートはありません。</p>
+                 </div>
+            </div>
         {% endif %}
         </div>
     </div>
@@ -133,7 +145,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (notePlaceholders.length > 0) {
         const noteIds = Array.from(notePlaceholders).map(el => el.parentElement.dataset.noteId);
-        
+
         fetch("{{ url_for('touring.fetch_note_details_api') }}", {
             method: 'POST',
             headers: {
@@ -152,32 +164,43 @@ document.addEventListener('DOMContentLoaded', function () {
                 let cardHtml = '';
                 if (note) {
                     const imageHtml = note.files && note.files.length > 0
-                        ? `<img src="${note.files[0].thumbnailUrl}" class="card-img-top" alt="Note Image">` : '';
+                        ? `<a href="${note.files[0].url}" target="_blank" rel="noopener noreferrer"><img src="${note.files[0].thumbnailUrl}" class="card-img-top" alt="Note Image"></a>` : '';
                     
-                    const textHtml = note.text ? `<p class="card-text small">${parseMfm(note.text)}</p>` : '';
-                    
-                    {# ▼▼▼ url_for を使わずに、JavaScript内でURLを組み立てるように修正 ▼▼▼ #}
+                    const textHtml = note.text ? `<div class="card-text small mfm-content">${parseMfm(note.text)}</div>` : '';
+
                     const noteUrl = `{{ url_for('main.misskey_redirect', note_id='__NOTE_ID__') }}`.replace('__NOTE_ID__', note.id);
-                    const footerHtml = `
-                        <div class="card-footer text-muted small">
-                            <a href="${noteUrl}" target="_blank" rel="noopener noreferrer">
-                                ${new Date(note.createdAt).toLocaleString()}
-                            </a>
+
+                    const userProfileUrl = `{{ misskey_instance_url }}/@{{ current_user.misskey_username }}`;
+
+                    const cardHeaderHtml = `
+                        <div class="card-header bg-white d-flex align-items-center p-2">
+                           <a href="${userProfileUrl}" target="_blank" rel="noopener noreferrer">
+                               <img src="${note.user.avatarUrl}" alt="${note.user.name}" class="rounded-circle me-2" width="32" height="32">
+                           </a>
+                           <div class="flex-grow-1">
+                               <a href="${userProfileUrl}" class="text-dark text-decoration-none fw-bold small">${note.user.name || note.user.username}</a>
+                               <div class="text-muted small">
+                                   <a href="${noteUrl}" target="_blank" rel="noopener noreferrer" class="text-muted text-decoration-none">
+                                       ${new Date(note.createdAt).toLocaleString()}
+                                   </a>
+                               </div>
+                           </div>
                         </div>`;
 
                     cardHtml = `
                         <div class="card h-100 misskey-note-card">
+                            ${cardHeaderHtml}
                             ${imageHtml}
-                            <div class="card-body">
+                            <div class="card-body p-2">
                                 ${textHtml}
                             </div>
-                            ${footerHtml}
                         </div>`;
+
                 } else {
                     cardHtml = `
                         <div class="card h-100">
-                            <div class="card-body text-danger">
-                                <p class="card-text small">ノートの読み込みに失敗しました。</p>
+                            <div class="card-body text-danger d-flex align-items-center justify-content-center">
+                                <p class="card-text small mb-0">ノートの読み込みに失敗しました。</p>
                             </div>
                         </div>`;
                 }
@@ -189,8 +212,8 @@ document.addEventListener('DOMContentLoaded', function () {
             notePlaceholders.forEach(ph => {
                 ph.parentElement.innerHTML = `
                     <div class="card h-100">
-                        <div class="card-body text-danger">
-                            <p class="card-text small">ノートの読み込みに失敗しました。</p>
+                        <div class="card-body text-danger d-flex align-items-center justify-content-center">
+                            <p class="card-text small mb-0">エラーが発生しました。</p>
                         </div>
                     </div>`;
             });
@@ -198,4 +221,11 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 });
 </script>
+<style>
+/* Misskeyカード内のテキストが長すぎる場合にスクロールさせる */
+.misskey-note-card .mfm-content {
+    max-height: 150px;
+    overflow-y: auto;
+}
+</style>
 {% endblock %}

@@ -78,8 +78,6 @@
 6.  **現在のプロジェクトディレクトリ:**
 
     ```
-kyagisaw@kyagisaw-mac motopuppu % tree
-.
 kyagisaw@hiyoko-pc:/mnt/c/Users/hiyoko/Dev/motopuppu$ tree
 .
 ├── announcements.json
@@ -111,6 +109,7 @@ kyagisaw@hiyoko-pc:/mnt/c/Users/hiyoko/Dev/motopuppu$ tree
 │       ├── 760969e7b61d_populate_new_achievement_definitions_.py
 │       ├── 896791ff77ea_add_odo_reset_log_table_and_data_.py
 │       ├── 9516bc768302_add_event_and_event_participant_models.py
+│       ├── aa6d3aff4f5c_add_encrypted_misskey_api_token_to_user_.py
 │       ├── c9271122696a_add_passcode_hash_to_event_participants.py
 │       ├── cb61b6485ca8_add_missing_general_notes_and_odo_reset_.py
 │       ├── cbc2495d2f76_initial_migration.py
@@ -191,6 +190,11 @@ kyagisaw@hiyoko-pc:/mnt/c/Users/hiyoko/Dev/motopuppu$ tree
 │   │   ├── reminder
 │   │   │   ├── list_reminders.html
 │   │   │   └── reminder_form.html
+│   │   ├── touring
+│   │   │   ├── detail_log.html
+│   │   │   ├── list_logs.html
+│   │   │   ├── _misskey_note_card.html
+│   │   │   └── touring_log_form.html
 │   │   ├── vehicle_form.html
 │   │   └── vehicles.html
 │   ├── utils
@@ -213,11 +217,12 @@ kyagisaw@hiyoko-pc:/mnt/c/Users/hiyoko/Dev/motopuppu$ tree
 │       ├── notes.py
 │       ├── profile.py
 │       ├── reminder.py
+│       ├── touring.py
 │       └── vehicle.py
 ├── README.md
 └── requirements.txt
 
-24 directories, 111 files
+25 directories, 117 files
     ```
 
 7.  **今回のセッションでの目標 [毎回更新]:**
