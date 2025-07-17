@@ -287,8 +287,6 @@ def get_dashboard_stats(user_motorcycles_all, user_motorcycle_ids_public, target
         
     return stats
 
-# --- ▼▼▼ 新しいサービス関数 (ここから) ▼▼▼ ---
-
 def get_holidays_json():
     """祝日情報を取得し、JSON文字列として返す"""
     try:
@@ -427,9 +425,6 @@ def get_calendar_events_for_user(user):
 
     return events
 
-# --- ▲▲▲ 新しいサービス関数 (ここまで) ▲▲▲ ---
-
-# ▼▼▼ ここからCryptoServiceを追記 ▼▼▼
 # --- 暗号化サービス ---
 
 class CryptoService:
@@ -442,19 +437,14 @@ class CryptoService:
         コンストラクタ。
         環境変数から暗号化キーを読み込み、Fernetインスタンスを初期化します。
         """
-        key = current_app.config.get('SECRET_CRYPTO_KEY')
-        if not key:
+        key_str = current_app.config.get('SECRET_CRYPTO_KEY')
+        if not key_str:
             raise ValueError("SECRET_CRYPTO_KEY is not set in the application configuration.")
         
-        # Fernetは32バイトのキーを要求する。'openssl rand -hex 32' で生成されたキーを想定。
-        try:
-            key_bytes = bytes.fromhex(key)
-        except ValueError:
-            # 16進数文字列でない場合は、キーの形式が不正である可能性がある
-            raise ValueError("Invalid format for SECRET_CRYPTO_KEY. It should be a 32-byte hex-encoded string.")
-
-        if len(key_bytes) != 32:
-            raise ValueError("SECRET_CRYPTO_KEY must resolve to 32 bytes.")
+        # ▼▼▼ キーをバイト列に変換する処理を修正 ▼▼▼
+        # Fernetキーはbase64でエンコードされているため、そのままバイト列として扱う
+        key_bytes = key_str.encode()
+        # ▲▲▲ 修正ここまで ▲▲▲
             
         self.fernet = Fernet(key_bytes)
 
@@ -486,5 +476,3 @@ class CryptoService:
         if not encrypted_data:
             return None
         return self.fernet.decrypt(encrypted_data.encode()).decode()
-
-# ▲▲▲ 追記ここまで ▲▲▲
