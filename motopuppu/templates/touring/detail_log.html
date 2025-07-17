@@ -14,7 +14,6 @@
             {{ log.touring_date.strftime('%Y年%m月%d日') }} / {{ log.motorcycle.name }}
         </p>
     </div>
-    {# ▼▼▼ div.btn-group の中身を修正 ▼▼▼ #}
     <div class="btn-group">
         <a href="{{ url_for('touring.edit_log', log_id=log.id) }}" class="btn btn-primary">
             <i class="fas fa-edit me-1"></i> 編集
@@ -54,7 +53,6 @@
     </div>
   </div>
 </div>
-{# ▲▲▲ 変更ここまで ▲▲▲ #}
 
 
 {% if log.memo %}
@@ -158,9 +156,11 @@ document.addEventListener('DOMContentLoaded', function () {
                     
                     const textHtml = note.text ? `<p class="card-text small">${parseMfm(note.text)}</p>` : '';
                     
+                    {# ▼▼▼ url_for を使わずに、JavaScript内でURLを組み立てるように修正 ▼▼▼ #}
+                    const noteUrl = `{{ url_for('main.misskey_redirect', note_id='__NOTE_ID__') }}`.replace('__NOTE_ID__', note.id);
                     const footerHtml = `
                         <div class="card-footer text-muted small">
-                            <a href="{{ url_for('main.misskey_redirect', note_id=note.id) }}" target="_blank" rel="noopener noreferrer">
+                            <a href="${noteUrl}" target="_blank" rel="noopener noreferrer">
                                 ${new Date(note.createdAt).toLocaleString()}
                             </a>
                         </div>`;
