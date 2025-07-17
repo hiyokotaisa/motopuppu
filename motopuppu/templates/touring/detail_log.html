@@ -78,7 +78,9 @@
                              <small class="text-muted">#{{ loop.index }}</small>
                         </div>
                         {% if spot.memo %}
-                            <p class="mb-1 small">{{ spot.memo | nl2br }}</p>
+                            {# ▼▼▼ ここを修正しました ▼▼▼ #}
+                            <p class="mb-1 small" style="white-space: pre-wrap;">{{ spot.memo }}</p>
+                            {# ▲▲▲ 修正ここまで ▲▲▲ #}
                         {% endif %}
                         {% if spot.photo_link_url %}
                             <small><a href="{{ spot.photo_link_url }}" target="_blank" rel="noopener noreferrer">写真を見る <i class="fas fa-external-link-alt fa-xs"></i></a></small>
