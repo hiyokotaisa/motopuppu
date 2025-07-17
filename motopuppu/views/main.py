@@ -140,11 +140,9 @@ def dashboard():
         extra_filters=[MaintenanceEntry.category != '初期設定']
     )
 
-    # ▼▼▼ 祝日取得ロジックをサービス呼び出しに置き換え ▼▼▼
     holidays_json = services.get_holidays_json()
     if holidays_json == '{}':
         flash('祝日情報の取得または処理中にエラーが発生しました。', 'warning')
-    # ▲▲▲ ここまで変更 ▲▲▲
 
     # 4. テンプレートをレンダリング
     return render_template(
@@ -169,14 +167,12 @@ def dashboard():
 @main_bp.route('/api/dashboard/events')
 @login_required_custom
 def dashboard_events_api():
-    # ▼▼▼ ロジックをサービス層に完全に委譲 ▼▼▼
     if not g.user:
         return jsonify({'error': 'User not logged in'}), 401
     
     calendar_events = services.get_calendar_events_for_user(g.user)
     
     return jsonify(calendar_events)
-    # ▲▲▲ ここまで変更 ▲▲▲
 
 
 @main_bp.route('/terms_of_service')
@@ -188,6 +184,14 @@ def terms_of_service():
 def privacy_policy():
     return render_template('legal/privacy_policy.html', title="プライバシーポリシー")
 
+# ▼▼▼ 以下をファイルの末尾に追記 ▼▼▼
+@main_bp.route('/misskey_redirect/<note_id>')
+@login_required_custom
+def misskey_redirect(note_id):
+    """Misskeyのノートへリダイレクトする"""
+    misskey_instance_url = current_app.config.get('MISSKEY_INSTANCE_URL', 'https://misskey.io')
+    return redirect(f"{misskey_instance_url}/notes/{note_id}")
+# ▲▲▲ 追記ここまで ▲▲▲
 
 @main_bp.before_app_request
 def load_logged_in_user():
