@@ -10,8 +10,9 @@ from .. import db
 from ..models import User
 from functools import wraps
 from ..forms import DeleteAccountForm # DeleteAccountForm をインポート
-# ▼▼▼ CryptoServiceをインポート ▼▼▼
+# ▼▼▼ CryptoServiceとlimiterをインポート ▼▼▼
 from ..services import CryptoService
+from .. import limiter
 # ▲▲▲ インポートここまで ▲▲▲
 
 auth_bp = Blueprint('auth', __name__, url_prefix='/auth')
@@ -35,6 +36,7 @@ def get_current_user():
         return None
 
 @auth_bp.route('/login', methods=['GET'])
+@limiter.limit("10 per minute")
 def login():
     miauth_session_id = str(uuid.uuid4())
     session['miauth_session_id'] = miauth_session_id
@@ -238,8 +240,8 @@ def login_page():
         # (ただし、上記の初期化でカバーされている)
 
     return render_template('index.html', 
-                            announcements=announcements_for_modal, # モーダル用のお知らせリスト
-                            important_notice=important_notice_content) # 固定表示用のお知らせ
+                           announcements=announcements_for_modal, # モーダル用のお知らせリスト
+                           important_notice=important_notice_content) # 固定表示用のお知らせ
 
 def login_required_custom(f):
     @wraps(f)
