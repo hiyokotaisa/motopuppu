@@ -28,16 +28,29 @@
                             {% endif %}
                         </p>
                         {% if event.location %}
-                        <p class="mb-0">
+                        <p class="mb-1">
                             <i class="fas fa-map-marker-alt fa-fw me-1 text-muted"></i>
                             {{ event.location }}
                         </p>
                         {% endif %}
+
+                        {# ▼▼▼ 変更点: 主催者情報を表示するブロックを追加 ▼▼▼ #}
+                        {% if event.owner %}
+                        <div class="d-flex align-items-center mt-2 pt-2 border-top">
+                            {% if event.owner.avatar_url %}
+                                <img src="{{ event.owner.avatar_url }}" alt="{{ event.owner.display_name or event.owner.misskey_username }}" class="rounded-circle me-2" style="width: 24px; height: 24px; object-fit: cover;">
+                            {% else %}
+                                <i class="fas fa-user-circle fa-lg me-2 text-secondary"></i>
+                            {% endif %}
+                            <span class="small text-muted">主催者: {{ event.owner.display_name or event.owner.misskey_username }}</span>
+                        </div>
+                        {% endif %}
+                        {# ▲▲▲ 変更ここまで ▲▲▲ #}
                     </a>
                 {% endfor %}
             </div>
 
-            {# ▼▼▼ 既存実装に合わせてページネーションを修正 ▼▼▼ #}
+            {# --- ページネーション (既存実装に合わせた修正版) --- #}
             {% if events_pagination.pages > 1 %}
             <nav aria-label="Page navigation" class="mt-4">
                 <ul class="pagination justify-content-center">
@@ -59,7 +72,6 @@
                 </ul>
             </nav>
             {% endif %}
-            {# ▲▲▲ 変更ここまで ▲▲▲ #}
 
         {% else %}
             <div class="card text-center">

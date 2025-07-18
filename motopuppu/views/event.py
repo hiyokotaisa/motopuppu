@@ -23,20 +23,22 @@ except ImportError:
 
 event_bp = Blueprint('event', __name__, url_prefix='/event')
 
-# ▼▼▼ 変更点 1: 新しい公開イベント一覧ルートを追加 ▼▼▼
 @event_bp.route('/list')
 def public_events_list():
     """公開設定された、開催予定のイベント一覧を誰でも閲覧できるように表示する"""
     now_utc = datetime.now(timezone.utc)
     page = request.args.get('page', 1, type=int)
     
-    events_pagination = Event.query.filter(
+    # ▼▼▼ 変更点: joinedload を使ってユーザー情報を事前に読み込む ▼▼▼
+    events_pagination = Event.query.options(
+        db.joinedload(Event.owner)
+    ).filter(
         Event.is_public == True,
         Event.start_datetime >= now_utc
     ).order_by(Event.start_datetime.asc()).paginate(page=page, per_page=15, error_out=False)
+    # ▲▲▲ 変更ここまで ▲▲▲
     
     return render_template('event/public_list_events.html', events_pagination=events_pagination)
-# ▲▲▲ 変更ここまで ▲▲▲
 
 
 @event_bp.route('/')
