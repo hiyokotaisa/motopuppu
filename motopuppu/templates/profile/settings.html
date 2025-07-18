@@ -23,7 +23,9 @@
             <h5 class="mb-0">表示名の設定</h5>
         </div>
         <div class="card-body">
-            <p>ダッシュボードやリーダーボードなどで表示される名前を設定します。未設定の場合はMisskeyのユーザー名（<strong>{{ g.user.misskey_username }}</strong>）が使用されます。</p>
+            {# ▼▼▼ g.user を current_user に変更 ▼▼▼ #}
+            <p>ダッシュボードやリーダーボードなどで表示される名前を設定します。未設定の場合はMisskeyのユーザー名（<strong>{{ current_user.misskey_username }}</strong>）が使用されます。</p>
+            {# ▲▲▲ 変更ここまで ▲▲▲ #}
             <form method="POST" action="{{ url_for('profile.settings') }}" novalidate>
                 {{ profile_form.hidden_tag() }}
                 <div class="mb-3">

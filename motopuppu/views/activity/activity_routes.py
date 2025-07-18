@@ -4,7 +4,7 @@ from datetime import date
 from decimal import Decimal
 
 from flask import (
-    flash, g, redirect, render_template, request, url_for, abort, current_app
+    flash, redirect, render_template, request, url_for, abort, current_app
 )
 from sqlalchemy.orm import joinedload
 from sqlalchemy import func
@@ -14,8 +14,9 @@ from . import activity_bp
 from ...utils.lap_time_utils import calculate_lap_stats, parse_time_to_seconds, _calculate_and_set_best_lap, format_seconds_to_time
 from ...constants import SETTING_KEY_MAP
 
-# 他に必要なインポート
-from ..auth import login_required_custom
+# ▼▼▼ インポート文を修正 ▼▼▼
+from flask_login import login_required, current_user
+# ▲▲▲ 変更ここまで ▲▲▲
 from ...models import db, Motorcycle, ActivityLog, SessionLog, SettingSheet
 from ...forms import ActivityLogForm, SessionLogForm, LapTimeImportForm
 from ... import limiter
@@ -23,11 +24,13 @@ from ... import limiter
 
 def get_motorcycle_or_404(vehicle_id):
     """指定されたIDの車両を取得し、所有者でなければ404を返す"""
-    return Motorcycle.query.filter_by(id=vehicle_id, user_id=g.user.id).first_or_404()
+    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
+    return Motorcycle.query.filter_by(id=vehicle_id, user_id=current_user.id).first_or_404()
+    # ▲▲▲ 変更ここまで ▲▲▲
 
 
 @activity_bp.route('/<int:vehicle_id>')
-@login_required_custom
+@login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def list_activities(vehicle_id):
     """指定された車両の活動ログ一覧を表示する"""
     motorcycle = get_motorcycle_or_404(vehicle_id)
@@ -67,7 +70,7 @@ def list_activities(vehicle_id):
 
 @activity_bp.route('/<int:vehicle_id>/add', methods=['GET', 'POST'])
 @limiter.limit("30 per hour")
-@login_required_custom
+@login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def add_activity(vehicle_id):
     """新しい活動ログを作成する"""
     motorcycle = get_motorcycle_or_404(vehicle_id)
@@ -81,7 +84,9 @@ def add_activity(vehicle_id):
     if form.validate_on_submit():
         new_activity = ActivityLog(
             motorcycle_id=motorcycle.id,
-            user_id=g.user.id,
+            # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
+            user_id=current_user.id,
+            # ▲▲▲ 変更ここまで ▲▲▲
             event_id=event_id,
             activity_date=form.activity_date.data,
             activity_title=form.activity_title.data,
@@ -124,10 +129,12 @@ def add_activity(vehicle_id):
 
 @activity_bp.route('/<int:activity_id>/edit', methods=['GET', 'POST'])
 @limiter.limit("30 per hour")
-@login_required_custom
+@login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def edit_activity(activity_id):
     """活動ログを編集する"""
-    activity = ActivityLog.query.filter_by(id=activity_id, user_id=g.user.id).first_or_404()
+    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
+    activity = ActivityLog.query.filter_by(id=activity_id, user_id=current_user.id).first_or_404()
+    # ▲▲▲ 変更ここまで ▲▲▲
     motorcycle = activity.motorcycle
     form = ActivityLogForm(obj=activity)
 
@@ -162,10 +169,12 @@ def edit_activity(activity_id):
 
 @activity_bp.route('/<int:activity_id>/delete', methods=['POST'])
 @limiter.limit("30 per hour")
-@login_required_custom
+@login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def delete_activity(activity_id):
     """活動ログを削除する"""
-    activity = ActivityLog.query.filter_by(id=activity_id, user_id=g.user.id).first_or_404()
+    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
+    activity = ActivityLog.query.filter_by(id=activity_id, user_id=current_user.id).first_or_404()
+    # ▲▲▲ 変更ここまで ▲▲▲
     vehicle_id = activity.motorcycle_id
     try:
         db.session.delete(activity)
@@ -180,14 +189,16 @@ def delete_activity(activity_id):
 
 @activity_bp.route('/<int:activity_id>/detail', methods=['GET', 'POST'])
 @limiter.limit("30 per hour", methods=["POST"])
-@login_required_custom
+@login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def detail_activity(activity_id):
     """活動ログの詳細とセッションの追加/一覧表示"""
     activity = ActivityLog.query.options(joinedload(ActivityLog.motorcycle))\
                                .filter_by(id=activity_id)\
                                .first_or_404()
-    if activity.user_id != g.user.id:
+    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
+    if activity.user_id != current_user.id:
         abort(403)
+    # ▲▲▲ 変更ここまで ▲▲▲
         
     motorcycle = activity.motorcycle
     sessions = SessionLog.query.filter_by(activity_log_id=activity.id).order_by(SessionLog.id.asc()).all()

@@ -6,38 +6,24 @@ import os
 from flask import (
     Blueprint, flash, g, redirect, render_template, request, session, url_for, current_app
 )
+from flask_login import login_user, logout_user, current_user
 from .. import db
 from ..models import User
 from functools import wraps
-from ..forms import DeleteAccountForm # DeleteAccountForm をインポート
-# ▼▼▼ CryptoServiceとlimiterをインポート ▼▼▼
+from ..forms import DeleteAccountForm
 from ..services import CryptoService
 from .. import limiter
-# ▲▲▲ インポートここまで ▲▲▲
 
 auth_bp = Blueprint('auth', __name__, url_prefix='/auth')
-
-def get_current_user():
-    user_id = session.get('user_id')
-    if user_id is None:
-        if 'user' in g: del g.user
-        return None
-    if 'user' in g and hasattr(g.user, 'id') and g.user.id == user_id:
-        return g.user
-    
-    user = db.session.get(User, user_id) # SQLAlchemy 2.0+ 互換の可能性を考慮
-    if user:
-        g.user = user
-        return g.user
-    else:
-        current_app.logger.warning(f"User ID {user_id} found in session, but no user in DB. Clearing session.")
-        session.clear()
-        if 'user' in g: del g.user
-        return None
 
 @auth_bp.route('/login', methods=['GET'])
 @limiter.limit("10 per minute")
 def login():
+    # ▼▼▼ リメンバーミーの状態をセッションに保存 ▼▼▼
+    remember_me = request.args.get('remember') == '1'
+    session['remember_me'] = remember_me
+    # ▲▲▲ 変更ここまで ▲▲▲
+
     miauth_session_id = str(uuid.uuid4())
     session['miauth_session_id'] = miauth_session_id
     current_app.logger.debug(f"Session before redirect: {dict(session)}")
@@ -54,10 +40,9 @@ def login():
 
 @auth_bp.route('/miauth/callback', methods=['GET'])
 def miauth_callback():
-    if 'user_id' in session and get_current_user() is not None:
+    if current_user.is_authenticated:
         current_app.logger.info(
-            "User is already logged in (session['user_id'] exists). "
-            "This might be a rapid double callback. Redirecting to dashboard."
+            "User is already logged in. This might be a rapid double callback. Redirecting to dashboard."
         )
         return redirect(url_for('main.dashboard'))
 
@@ -75,7 +60,7 @@ def miauth_callback():
     expected_session_id = session.get('miauth_session_id')
 
     if not expected_session_id or expected_session_id != received_session_id:
-        if 'user_id' in session and get_current_user() is not None:
+        if current_user.is_authenticated:
             current_app.logger.warning(
                 f"MiAuth session ID mismatch or missing in session, but user is now logged in. "
                 f"Assuming this is a processed double callback. Expected in session: {expected_session_id}, Received: {received_session_id}. "
@@ -120,7 +105,7 @@ def miauth_callback():
         user_info = check_data['user']
         misskey_user_id = user_info.get('id')
         misskey_username = user_info.get('username')
-        avatar_url = user_info.get('avatarUrl') # アバターURLを取得
+        avatar_url = user_info.get('avatarUrl')
         current_app.logger.info(f"MiAuth check successful. Token received (masked): {token[:5]}..., User ID: {misskey_user_id}, Username: {misskey_username}, Avatar URL: {avatar_url}")
 
         if not misskey_user_id:
@@ -135,9 +120,8 @@ def miauth_callback():
         flash(f'Misskey MiAuth 認証処理中に予期せぬエラーが発生しました。 ({e})', 'error')
         return redirect(url_for('auth.login_page'))
 
-    user = db.session.scalar(db.select(User).filter_by(misskey_user_id=misskey_user_id)) # SQLAlchemy 2.0+
+    user = db.session.scalar(db.select(User).filter_by(misskey_user_id=misskey_user_id))
     
-    # ▼▼▼ ここからトークン暗号化・保存処理 ▼▼▼
     try:
         crypto_service = CryptoService()
         encrypted_token = crypto_service.encrypt(token)
@@ -145,18 +129,15 @@ def miauth_callback():
         current_app.logger.error(f"Failed to initialize CryptoService or encrypt token for user {misskey_username}: {e}")
         flash('セキュリティトークンの処理中にエラーが発生しました。設定を確認してください。', 'danger')
         return redirect(url_for('main.index'))
-    # ▲▲▲ ここまで ▲▲▲
 
     if not user:
-        # ▼▼▼ 新規ユーザー作成時に暗号化トークンを保存 ▼▼▼
         user = User(
             misskey_user_id=misskey_user_id,
             misskey_username=misskey_username,
             avatar_url=avatar_url,
-            encrypted_misskey_api_token=encrypted_token, # 追記
+            encrypted_misskey_api_token=encrypted_token,
             is_admin=False
         )
-        # ▲▲▲ ここまで ▲▲▲
         db.session.add(user)
         try:
             db.session.commit()
@@ -168,7 +149,6 @@ def miauth_callback():
             current_app.logger.error(f"Database error creating user: {e}")
             return redirect(url_for('auth.login_page'))
     else:
-        # ▼▼▼ 既存ユーザーの情報を更新 ▼▼▼
         needs_commit = False
         if user.misskey_username != misskey_username:
             user.misskey_username = misskey_username
@@ -176,7 +156,6 @@ def miauth_callback():
         if user.avatar_url != avatar_url:
             user.avatar_url = avatar_url
             needs_commit = True
-        # ログインの都度、トークンを更新する
         if user.encrypted_misskey_api_token != encrypted_token:
             user.encrypted_misskey_api_token = encrypted_token
             needs_commit = True
@@ -188,73 +167,51 @@ def miauth_callback():
             except Exception as e:
                 db.session.rollback()
                 current_app.logger.error(f"Error updating user info for {misskey_username}: {e}")
-        # ▲▲▲ ここまで ▲▲▲
         current_app.logger.info(f"Existing user logged in: {user.misskey_username} (App User ID: {user.id})")
 
-    session.clear()
-    session['user_id'] = user.id
-    g.user = user 
-    current_app.logger.info(f"User {user.misskey_username} (App User ID: {user.id}) successfully logged in. Session 'user_id' set. Redirecting to dashboard.")
+    # ▼▼▼ セッションからリメンバーミーの状態を読み出してログイン処理を行う ▼▼▼
+    should_remember = session.pop('remember_me', False)
+    login_user(user, remember=should_remember)
+    current_app.logger.info(f"User {user.misskey_username} (ID: {user.id}) logged in via Flask-Login (Remember Me: {should_remember}). Redirecting to dashboard.")
     flash('ログインしました。', 'success')
     return redirect(url_for('main.dashboard'))
+    # ▲▲▲ 変更ここまで ▲▲▲
 
 @auth_bp.route('/logout')
 def logout():
-    user_id_logged_out = session.pop('user_id', None) # ログ用に取得
-    # g.user が存在すればクリア (もし使われていれば)
-    if 'user' in g:
-        del g.user
-    session.clear() # セッション全体をクリア
-    if user_id_logged_out:
-        current_app.logger.info(f"User logged out: App User ID={user_id_logged_out}")
+    if current_user.is_authenticated:
+        current_app.logger.info(f"User logged out: App User ID={current_user.id}")
+    logout_user()
     flash('ログアウトしました。', 'info')
-    return redirect(url_for('main.index')) # ログアウト後はトップページへ
+    return redirect(url_for('main.index'))
 
 @auth_bp.route('/login_page')
 def login_page():
-    if 'user_id' in session and get_current_user() is not None:
+    if current_user.is_authenticated:
         return redirect(url_for('main.dashboard'))
 
     announcements_for_modal = []
-    important_notice_content = None # 固定表示用お知らせ
+    important_notice_content = None
     try:
-        # announcements.json のパスを修正: current_app.root_path は motopuppu パッケージのパスを指す想定
-        # プロジェクトルートに announcements.json がある場合、'..' が必要
         announcement_file = os.path.join(current_app.root_path, '..', 'announcements.json')
         if os.path.exists(announcement_file):
             with open(announcement_file, 'r', encoding='utf-8') as f:
                 all_announcements_data = json.load(f)
                 for item in all_announcements_data:
                     if item.get('active', False):
-                        if item.get('id') == 1: # id:1 のお知らせを特定
-                            important_notice_content = item # 固定表示用に保持
+                        if item.get('id') == 1:
+                            important_notice_content = item
                         else:
-                            announcements_for_modal.append(item) # モーダル用にリスト追加
+                            announcements_for_modal.append(item)
         else:
                 current_app.logger.warning(f"announcements.json not found at {announcement_file}")
     except Exception as e:
         current_app.logger.error(f"An unexpected error occurred loading announcements: {e}", exc_info=True)
-        # エラーが発生した場合でも、テンプレート変数が未定義にならないように空の値を設定することも検討
-        # announcements_for_modal = []
-        # important_notice_content = None
-        # (ただし、上記の初期化でカバーされている)
 
     return render_template('index.html', 
-                           announcements=announcements_for_modal, # モーダル用のお知らせリスト
-                           important_notice=important_notice_content) # 固定表示用のお知らせ
+                           announcements=announcements_for_modal,
+                           important_notice=important_notice_content)
 
-def login_required_custom(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if get_current_user() is None: # g.user がセットされていない、またはユーザーが存在しない場合
-            flash('このページにアクセスするにはログインが必要です。', 'warning')
-            return redirect(url_for('auth.login_page', next=request.url))
-        return f(*args, **kwargs)
-    return decorated_function
-
-# ▼▼▼ 退会完了ページ表示用のルートを追加 ▼▼▼
 @auth_bp.route('/delete_account_complete')
 def delete_account_complete():
-    # このページはログインしていなくても表示される（セッションはクリアされているため）
     return render_template('auth/delete_account_complete.html', title="退会完了")
-# ▲▲▲ 退会完了ページ表示用のルートを追加 ▲▲▲

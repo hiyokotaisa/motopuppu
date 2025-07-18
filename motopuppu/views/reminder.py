@@ -1,22 +1,27 @@
 # motopuppu/views/reminder.py
 from flask import (
-    Blueprint, flash, g, redirect, render_template, request, url_for, abort, current_app
+    Blueprint, flash, redirect, render_template, request, url_for, abort, current_app
 )
 from datetime import date, datetime, timezone
 from zoneinfo import ZoneInfo
 from sqlalchemy import func
+# ▼▼▼ インポート文を修正 ▼▼▼
+from flask_login import login_required, current_user
+# ▲▲▲ 変更ここまで ▲▲▲
 from ..models import db, Motorcycle, MaintenanceReminder, MaintenanceEntry
-from .auth import login_required_custom
 from ..forms import ReminderForm
 from .. import limiter
+
 
 reminder_bp = Blueprint('reminder', __name__, url_prefix='/reminders')
 
 @reminder_bp.route('/vehicle/<int:vehicle_id>')
-@login_required_custom
+@login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def list_reminders(vehicle_id):
     """車両別のリマインダー一覧ページ"""
-    motorcycle = Motorcycle.query.filter_by(id=vehicle_id, user_id=g.user.id).first_or_404()
+    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
+    motorcycle = Motorcycle.query.filter_by(id=vehicle_id, user_id=current_user.id).first_or_404()
+    # ▲▲▲ 変更ここまで ▲▲▲
     reminders = MaintenanceReminder.query.filter_by(motorcycle_id=vehicle_id).order_by(MaintenanceReminder.task_description, MaintenanceReminder.id).all()
     
     return render_template('reminder/list_reminders.html', 
@@ -25,10 +30,12 @@ def list_reminders(vehicle_id):
 
 @reminder_bp.route('/add/for/<int:vehicle_id>', methods=['GET', 'POST'])
 @limiter.limit("30 per hour")
-@login_required_custom
+@login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def add_reminder(vehicle_id):
     """リマインダー追加ページ"""
-    motorcycle = Motorcycle.query.filter_by(id=vehicle_id, user_id=g.user.id).first_or_404()
+    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
+    motorcycle = Motorcycle.query.filter_by(id=vehicle_id, user_id=current_user.id).first_or_404()
+    # ▲▲▲ 変更ここまで ▲▲▲
     form = ReminderForm()
 
     def get_maintenance_entries():
@@ -41,7 +48,6 @@ def add_reminder(vehicle_id):
     if form.validate_on_submit():
         new_reminder = MaintenanceReminder(motorcycle_id=vehicle_id)
         
-        # --- ▼▼▼ ここから変更 ▼▼▼ ---
         new_reminder.task_description = form.task_description.data.strip() if form.task_description.data else None
         new_reminder.interval_km = form.interval_km.data
         new_reminder.interval_months = form.interval_months.data
@@ -49,24 +55,20 @@ def add_reminder(vehicle_id):
 
         selected_entry = form.maintenance_entry.data
         if selected_entry:
-            # 整備ログと連携する場合
             new_reminder.last_maintenance_entry_id = selected_entry.id
             new_reminder.last_done_date = selected_entry.maintenance_date
             new_reminder.last_done_km = selected_entry.total_distance_at_maintenance
             new_reminder.last_done_odo = selected_entry.odometer_reading_at_maintenance
         else:
-            # 手動で入力する場合
             new_reminder.last_maintenance_entry_id = None
             new_reminder.last_done_date = form.last_done_date.data
             new_reminder.last_done_odo = form.last_done_odo.data
 
-            # ODO値と日付から総走行距離を計算して last_done_km に格納
             if new_reminder.last_done_odo is not None and new_reminder.last_done_date is not None:
                 offset = motorcycle.calculate_cumulative_offset_from_logs(target_date=new_reminder.last_done_date)
                 new_reminder.last_done_km = new_reminder.last_done_odo + offset
             else:
-                new_reminder.last_done_km = None # ODOが未入力なら総走行距離もNone
-        # --- ▲▲▲ ここまで変更 ▲▲▲ ---
+                new_reminder.last_done_km = None
 
         try:
             db.session.add(new_reminder)
@@ -98,13 +100,15 @@ def add_reminder(vehicle_id):
 
 @reminder_bp.route('/<int:reminder_id>/edit', methods=['GET', 'POST'])
 @limiter.limit("30 per hour")
-@login_required_custom
+@login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def edit_reminder(reminder_id):
     """リマインダー編集ページ"""
+    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
     reminder = MaintenanceReminder.query.join(Motorcycle).filter(
         MaintenanceReminder.id == reminder_id,
-        Motorcycle.user_id == g.user.id
+        Motorcycle.user_id == current_user.id
     ).first_or_404()
+    # ▲▲▲ 変更ここまで ▲▲▲
     motorcycle = reminder.motorcycle
     form = ReminderForm(obj=reminder)
 
@@ -117,13 +121,9 @@ def edit_reminder(reminder_id):
     
     if request.method == 'GET':
         form.maintenance_entry.data = reminder.last_maintenance_entry
-        # --- ▼▼▼ ここから変更 ▼▼▼ ---
-        # obj でフォームに渡すので、last_done_odo も自動的に設定されるはずだが、念のため明示
         form.last_done_odo.data = reminder.last_done_odo
-        # --- ▲▲▲ ここまで変更 ▲▲▲ ---
 
     if form.validate_on_submit():
-        # --- ▼▼▼ ここから変更 ▼▼▼ ---
         reminder.task_description = form.task_description.data.strip() if form.task_description.data else None
         reminder.interval_km = form.interval_km.data
         reminder.interval_months = form.interval_months.data
@@ -131,24 +131,20 @@ def edit_reminder(reminder_id):
 
         selected_entry = form.maintenance_entry.data
         if selected_entry:
-            # 整備ログと連携する場合
             reminder.last_maintenance_entry_id = selected_entry.id
             reminder.last_done_date = selected_entry.maintenance_date
             reminder.last_done_km = selected_entry.total_distance_at_maintenance
             reminder.last_done_odo = selected_entry.odometer_reading_at_maintenance
         else:
-            # 手動で入力する場合
             reminder.last_maintenance_entry_id = None
             reminder.last_done_date = form.last_done_date.data
             reminder.last_done_odo = form.last_done_odo.data
             
-            # ODO値と日付から総走行距離を計算して last_done_km に格納
             if reminder.last_done_odo is not None and reminder.last_done_date is not None:
                 offset = motorcycle.calculate_cumulative_offset_from_logs(target_date=reminder.last_done_date)
                 reminder.last_done_km = reminder.last_done_odo + offset
             else:
-                reminder.last_done_km = None # ODOが未入力なら総走行距離もNone
-        # --- ▲▲▲ ここまで変更 ▲▲▲ ---
+                reminder.last_done_km = None
             
         try:
             db.session.commit()
@@ -180,13 +176,15 @@ def edit_reminder(reminder_id):
 
 @reminder_bp.route('/<int:reminder_id>/delete', methods=['POST'])
 @limiter.limit("30 per hour")
-@login_required_custom
+@login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def delete_reminder(reminder_id):
     """リマインダー削除処理"""
+    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
     reminder = MaintenanceReminder.query.join(Motorcycle).filter(
         MaintenanceReminder.id == reminder_id,
-        Motorcycle.user_id == g.user.id
+        Motorcycle.user_id == current_user.id
     ).first_or_404()
+    # ▲▲▲ 変更ここまで ▲▲▲
     vehicle_id = reminder.motorcycle_id
     task_name = reminder.task_description
     try:

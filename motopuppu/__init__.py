@@ -11,6 +11,9 @@ import logging
 import subprocess
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+# ▼▼▼ Flask-Login関連のインポートを追加 ▼▼▼
+from flask_login import LoginManager, current_user
+# ▲▲▲ 変更ここまで ▲▲▲
 
 dotenv_path = os.path.join(os.path.dirname(__file__), '..', '.env')
 if os.path.exists(dotenv_path):
@@ -22,11 +25,19 @@ else:
 db = SQLAlchemy()
 migrate = Migrate()
 csrf = CSRFProtect()
+# ▼▼▼ LoginManagerのインスタンスを作成 ▼▼▼
+login_manager = LoginManager()
+login_manager.login_view = 'auth.login_page'  # 未ログイン時のリダイレクト先を指定
+login_manager.login_message = 'このページにアクセスするにはログインが必要です。'
+login_manager.login_message_category = 'warning'
+# ▲▲▲ 変更ここまで ▲▲▲
 
+# ▼▼▼ Limiterのキー関数をcurrent_userを使うように変更 ▼▼▼
 def user_or_ip_key():
-    if hasattr(g, 'user') and g.user is not None:
-        return str(g.user.id)
+    if current_user.is_authenticated:
+        return str(current_user.id)
     return get_remote_address()
+# ▲▲▲ 変更ここまで ▲▲▲
 
 limiter = Limiter(key_func=user_or_ip_key)
 
@@ -50,6 +61,10 @@ def create_app(config_name=None):
         NOTES_PER_PAGE = int(os.environ.get('NOTES_PER_PAGE', 20)),
         ACTIVITIES_PER_PAGE = 10,
         GOOGLE_PLACES_API_KEY=os.environ.get('GOOGLE_PLACES_API_KEY'),
+        # ▼▼▼ リメンバーミー機能のためのクッキー設定 ▼▼▼
+        REMEMBER_COOKIE_SAMESITE='Lax',
+        REMEMBER_COOKIE_SECURE=True if os.environ.get('FLASK_ENV') == 'production' else False,
+        # ▲▲▲ 変更ここまで ▲▲▲
     )
     if app.config['SECRET_KEY'] == 'dev-secret-key-replace-me' and app.config['ENV'] != 'development':
         app.logger.warning("CRITICAL: SECRET_KEY is set to the default development value in a non-development environment. This is a security risk!")
@@ -74,20 +89,33 @@ def create_app(config_name=None):
     db.init_app(app)
     migrate.init_app(app, db)
     csrf.init_app(app)
+    # ▼▼▼ LoginManagerとLimiterを初期化 ▼▼▼
+    login_manager.init_app(app)
     limiter.init_app(app)
+    # ▲▲▲ 変更ここまで ▲▲▲
 
     from .utils.datetime_helpers import format_utc_to_jst_string
     app.jinja_env.filters['to_jst'] = format_utc_to_jst_string
-
+    
+    # ▼▼▼ user_loader関数を定義 ▼▼▼
+    from .models import User
+    @login_manager.user_loader
+    def load_user(user_id):
+        try:
+            return db.session.get(User, int(user_id))
+        except (TypeError, ValueError):
+            return None
+    # ▲▲▲ 変更ここまで ▲▲▲
+            
+    # ▼▼▼ before_requestハンドラを修正 ▼▼▼
+    # g.userのロードは不要になり、g.user_motorcyclesのロードのみ行う
     @app.before_request
-    def load_logged_in_user_and_motorcycles():
-        from .views.auth import get_current_user
-        from .models import Motorcycle
-        
-        g.user = get_current_user()
+    def load_user_motorcycles():
         g.user_motorcycles = []
-        if g.user:
-            g.user_motorcycles = Motorcycle.query.filter_by(user_id=g.user.id).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
+        if current_user.is_authenticated:
+            from .models import Motorcycle # 循環インポートを避けるためここでインポート
+            g.user_motorcycles = Motorcycle.query.filter_by(user_id=current_user.id).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
+    # ▲▲▲ 変更ここまで ▲▲▲
 
     try:
         from .views import auth, main, vehicle, fuel, maintenance, notes, dev_auth, leaderboard, profile, reminder, event, touring

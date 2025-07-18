@@ -6,10 +6,15 @@ from sqlalchemy import Index, func
 import uuid
 from enum import Enum as PyEnum
 from werkzeug.security import generate_password_hash, check_password_hash
+# ▼▼▼ UserMixinをインポート ▼▼▼
+from flask_login import UserMixin
+# ▲▲▲ 変更ここまで ▲▲▲
 
 # --- データベースモデル定義 ---
 
-class User(db.Model):
+# ▼▼▼ UserクラスにUserMixinを継承させる ▼▼▼
+class User(UserMixin, db.Model):
+# ▲▲▲ 変更ここまで ▲▲▲
     __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
     misskey_user_id = db.Column(db.String(100), unique=True, nullable=False)
@@ -72,8 +77,6 @@ class Motorcycle(db.Model):
 
     def __repr__(self):
         return f'<Motorcycle id={self.id} name={self.name}>'
-
-# ... (FuelEntry から TouringScrapbookEntry までは変更なし) ...
 
 class FuelEntry(db.Model):
     __tablename__ = 'fuel_entries'

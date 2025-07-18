@@ -1,5 +1,5 @@
 {# motopuppu/templates/navigation.html #}
-{% if g.user %} {# g.userが存在する場合（ログイン中）のみ表示 #}
+{% if current_user.is_authenticated %} {# ▼▼▼ g.user を current_user.is_authenticated に変更 ▼▼▼ #}
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4 sticky-top">
     <div class="container">
         <a class="navbar-brand" href="{{ url_for('main.dashboard') }}">
@@ -30,6 +30,7 @@
                         <i class="fas fa-bell me-1"></i> リマインダー
                     </a>
                     <ul class="dropdown-menu" aria-labelledby="reminderDropdown">
+                        {# g.user_motorcycles は before_request で設定されているのでそのまま利用可能 #}
                         {% if g.user_motorcycles %}
                             {% for motorcycle in g.user_motorcycles %}
                             <li>
@@ -112,12 +113,14 @@
             <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle d-flex align-items-center {% if request.endpoint.startswith('achievements.') or request.endpoint.startswith('profile.') %}active{% endif %}" href="#" id="navbarUserDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                        {% if g.user.avatar_url %}
-                            <img src="{{ g.user.avatar_url }}" alt="{{ g.user.display_name or g.user.misskey_username }}" class="rounded-circle me-2" style="width: 24px; height: 24px; object-fit: cover;">
+                        {# ▼▼▼ g.user を current_user に変更 ▼▼▼ #}
+                        {% if current_user.avatar_url %}
+                            <img src="{{ current_user.avatar_url }}" alt="{{ current_user.display_name or current_user.misskey_username }}" class="rounded-circle me-2" style="width: 24px; height: 24px; object-fit: cover;">
                         {% else %}
                             <i class="fas fa-user-circle fa-lg me-2"></i>
                         {% endif %}
-                        <span>{{ g.user.display_name or g.user.misskey_username or 'ユーザー' }}</span>
+                        <span>{{ current_user.display_name or current_user.misskey_username or 'ユーザー' }}</span>
+                        {# ▲▲▲ 変更ここまで ▲▲▲ #}
                     </a>
                     <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarUserDropdown">
                         <li>

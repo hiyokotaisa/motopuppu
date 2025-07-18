@@ -3,6 +3,9 @@ import os
 from flask import (
     Blueprint, flash, redirect, session, url_for, current_app, abort
 )
+# ▼▼▼ login_userをインポート ▼▼▼
+from flask_login import login_user
+# ▲▲▲ 変更ここまで ▲▲▲
 from ..models import User # Userモデルをインポート
 from .. import db # dbオブジェクトはUserクエリに必要
 
@@ -43,12 +46,12 @@ def local_login():
         user = None
 
     if user:
-        # 既存のセッションをクリアしてからログイン情報を設定
-        session.clear()
-        session['user_id'] = user.id
+        # ▼▼▼ login_user()でログイン処理を行う ▼▼▼
+        login_user(user, remember=True)
         flash(f'開発用アカウント ({user.misskey_username or f"User ID: {user.id}"}) でログインしました。', 'success')
         current_app.logger.info(f"Local development login successful for user ID: {user.id} (Username: {user.misskey_username})")
-        return redirect(url_for('main.dashboard')) # ログイン後のリダイレクト先
+        return redirect(url_for('main.dashboard'))
+        # ▲▲▲ 変更ここまで ▲▲▲
     else:
         flash(f'指定された開発用ユーザーID ({local_dev_user_id}) がデータベースに見つかりません。', 'warning')
         current_app.logger.warning(f"Local development user ID {local_dev_user_id} not found in the database.")

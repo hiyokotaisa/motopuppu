@@ -1,40 +1,41 @@
 # motopuppu/views/notes.py
 from flask import (
-    Blueprint, flash, g, redirect, render_template, request, url_for, abort, current_app, jsonify
+    Blueprint, flash, redirect, render_template, request, url_for, abort, current_app, jsonify
 )
 from datetime import date, timezone, datetime 
 from sqlalchemy import or_
 import json
 
-from .auth import login_required_custom 
-from ..models import db, Motorcycle, GeneralNote
 # ▼▼▼ インポート文を修正 ▼▼▼
+from flask_login import login_required, current_user
+# ▲▲▲ 変更ここまで ▲▲▲
+from ..models import db, Motorcycle, GeneralNote
 from ..forms import NoteForm
 from ..constants import NOTE_CATEGORIES, MAX_TODO_ITEMS
-# ▲▲▲ ここまで修正 ▲▲▲
 from ..achievement_evaluator import check_achievements_for_event, EVENT_ADD_NOTE
-# ▼▼▼ 変更 ▼▼▼
 from .. import limiter
-# ▲▲▲ 変更 ▲▲▲
+
 
 notes_bp = Blueprint('notes', __name__, url_prefix='/notes')
 
 @notes_bp.route('/')
-@login_required_custom
+@login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def notes_log():
     page = request.args.get('page', 1, type=int)
     per_page = current_app.config.get('NOTES_PER_PAGE', 20)
-    user_motorcycles = Motorcycle.query.filter_by(user_id=g.user.id).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
+    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
+    user_motorcycles = Motorcycle.query.filter_by(user_id=current_user.id).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
     user_motorcycle_ids = [m.id for m in user_motorcycles]
+
+    request_args_dict = {k: v for k, v in request.args.items() if k != 'page'}
+    query = GeneralNote.query.filter_by(user_id=current_user.id)
+    # ▲▲▲ 変更ここまで ▲▲▲
 
     start_date_str = request.args.get('start_date')
     end_date_str = request.args.get('end_date')
     vehicle_id_str = request.args.get('vehicle_id')
     keyword = request.args.get('q', '').strip()
     category_filter = request.args.get('category')
-
-    request_args_dict = {k: v for k, v in request.args.items() if k != 'page'}
-    query = GeneralNote.query.filter_by(user_id=g.user.id)
 
     try:
         if start_date_str: query = query.filter(GeneralNote.note_date >= date.fromisoformat(start_date_str))
@@ -66,7 +67,6 @@ def notes_log():
     pagination = query.order_by(GeneralNote.note_date.desc(), GeneralNote.created_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
     entries = pagination.items
     
-    # フィルタがアクティブかどうかを判定するフラグを作成
     is_filter_active = bool(request_args_dict)
 
     return render_template('notes_log.html',
@@ -78,9 +78,11 @@ def notes_log():
 
 @notes_bp.route('/add', methods=['GET', 'POST'])
 @limiter.limit("30 per hour")
-@login_required_custom
+@login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def add_note():
-    user_motorcycles = Motorcycle.query.filter_by(user_id=g.user.id).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
+    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
+    user_motorcycles = Motorcycle.query.filter_by(user_id=current_user.id).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
+    # ▲▲▲ 変更ここまで ▲▲▲
     form = NoteForm()
     form.motorcycle_id.choices = [(0, '-- 車両に紐付けない --')] + [(m.id, m.name) for m in user_motorcycles]
 
@@ -94,7 +96,9 @@ def add_note():
             form.motorcycle_id.data = preselected_motorcycle_id
 
     if form.validate_on_submit():
-        new_note = GeneralNote(user_id=g.user.id)
+        # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
+        new_note = GeneralNote(user_id=current_user.id)
+        # ▲▲▲ 変更ここまで ▲▲▲
         selected_motorcycle_id = form.motorcycle_id.data
         new_note.motorcycle_id = selected_motorcycle_id if selected_motorcycle_id != 0 else None
         new_note.note_date = form.note_date.data
@@ -124,13 +128,17 @@ def add_note():
             flash('ノートを追加しました。', 'success')
 
             event_data_for_ach = {'new_note_id': new_note.id, 'category': new_note.category}
-            check_achievements_for_event(g.user, EVENT_ADD_NOTE, event_data=event_data_for_ach)
+            # ▼▼▼ g.user を current_user に変更 ▼▼▼
+            check_achievements_for_event(current_user, EVENT_ADD_NOTE, event_data=event_data_for_ach)
+            # ▲▲▲ 変更ここまで ▲▲▲
 
             return redirect(url_for('notes.notes_log'))
         except Exception as e:
             db.session.rollback()
+            # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
             flash(f'ノートの保存中にエラーが発生しました: {e}', 'error')
-            current_app.logger.error(f"Error saving new general note for user {g.user.id}: {e}", exc_info=True)
+            current_app.logger.error(f"Error saving new general note for user {current_user.id}: {e}", exc_info=True)
+            # ▲▲▲ 変更ここまで ▲▲▲
 
     elif request.method == 'POST': 
         form.motorcycle_id.choices = [(0, '-- 車両に紐付けない --')] + [(m.id, m.name) for m in user_motorcycles]
@@ -146,10 +154,12 @@ def add_note():
 
 @notes_bp.route('/<int:note_id>/edit', methods=['GET', 'POST'])
 @limiter.limit("30 per hour")
-@login_required_custom
+@login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def edit_note(note_id):
-    note = GeneralNote.query.filter_by(id=note_id, user_id=g.user.id).first_or_404()
-    user_motorcycles = Motorcycle.query.filter_by(user_id=g.user.id).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
+    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
+    note = GeneralNote.query.filter_by(id=note_id, user_id=current_user.id).first_or_404()
+    user_motorcycles = Motorcycle.query.filter_by(user_id=current_user.id).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
+    # ▲▲▲ 変更ここまで ▲▲▲
     form = NoteForm(obj=note)
     form.motorcycle_id.choices = [(0, '-- 車両に紐付けない --')] + [(m.id, m.name) for m in user_motorcycles]
 
@@ -180,14 +190,11 @@ def edit_note(note_id):
         elif note.category == 'task':
             note.content = '' 
             todos_data = []
-            # form.todos.data は FieldList によって、送信されたデータと
-            # DOMの順序に基づいて再構築されたPythonの辞書のリストになります。
-            # (WTFormsが name="todos-X-text" のような属性を解釈します)
-            for item_data_from_form in form.todos.data: # form.todos ではなく form.todos.data を使用
+            for item_data_from_form in form.todos.data:
                 if item_data_from_form.get('text') and item_data_from_form['text'].strip(): 
                     todos_data.append({
                         'text': item_data_from_form['text'].strip(),
-                        'checked': item_data_from_form.get('checked', False) # .get() で安全に
+                        'checked': item_data_from_form.get('checked', False)
                     })
             note.todos = todos_data if todos_data else None 
         
@@ -196,9 +203,6 @@ def edit_note(note_id):
         try:
             db.session.commit()
             flash('ノートを更新しました。', 'success')
-            # 必要であればノート更新の実績評価
-            # event_data_for_ach = {'note_id': note.id, 'category': note.category, 'action': 'edit'}
-            # check_achievements_for_event(g.user, EVENT_UPDATE_NOTE, event_data=event_data_for_ach)
             return redirect(url_for('notes.notes_log'))
         except Exception as e:
             db.session.rollback()
@@ -219,9 +223,11 @@ def edit_note(note_id):
 
 @notes_bp.route('/<int:note_id>/delete', methods=['POST'])
 @limiter.limit("30 per hour")
-@login_required_custom
+@login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def delete_note(note_id):
-    note = GeneralNote.query.filter_by(id=note_id, user_id=g.user.id).first_or_404()
+    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
+    note = GeneralNote.query.filter_by(id=note_id, user_id=current_user.id).first_or_404()
+    # ▲▲▲ 変更ここまで ▲▲▲
     try:
         db.session.delete(note)
         db.session.commit()

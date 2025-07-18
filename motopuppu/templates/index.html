@@ -1,28 +1,22 @@
 {# motopuppu/templates/index.html #}
 {% extends "base.html" %}
 
-{# ブロック名は "ログイン" のままですが、実質トップページなので適宜変更してもOK #}
 {% block title %}もとぷっぷーへようこそ - ログイン{% endblock %} 
 
-{# ▼▼▼ ページ固有のヘッド要素ブロックにPoppinsフォント読み込みを追加 ▼▼▼ #}
 {% block page_specific_head %}
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 {% endblock %}
-{# ▲▲▲ ページ固有のヘッド要素ブロック ▲▲▲ #}
 
 {% block content %}
 <div class="container mt-5">
     <div class="row justify-content-center">
         <div class="col-md-6 col-lg-5">
-            <h2 class="text-center mb-2">もとぷっぷー</h2> {# "ログイン" を削除してアプリ名のみに #}
-
-            {# --- サービス概要/キャッチコピー --- #}
+            <h2 class="text-center mb-2">もとぷっぷー</h2>
             <p class="text-center text-muted mb-4 px-3">
                 愛車の記録を、もっと手軽に、もっと楽しく。あなたのバイクライフをサポートします。
             </p>
-            {# --- ここまで サービス概要/キャッチコピー --- #}
 
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
@@ -39,14 +33,26 @@
                 <div class="card-body text-center">
                     <h5 class="card-title">Misskey アカウントでログイン</h5>
                     <p class="card-text small text-muted">下のボタンをクリックして認証を開始します。</p>
-                    <a href="{{ url_for('auth.login') }}" class="btn btn-primary btn-lg">
+                    
+                    <a href="{{ url_for('auth.login') }}" class="btn btn-primary btn-lg" id="login-button">
                         <i class="fas fa-key me-2"></i>Misskeyでログイン
                     </a>
-                    <p class="mt-2 mb-0"><small>インスタンス: {{ config.MISSKEY_INSTANCE_URL }}</small></p>
+                    
+                    {# ▼▼▼ チェックボックスの位置をインスタンス表示の下に移動 ▼▼▼ #}
+                    <p class="mt-2 mb-3"><small>インスタンス: {{ config.MISSKEY_INSTANCE_URL }}</small></p>
+
+                    <div class="d-flex justify-content-center">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="" id="remember-me" checked>
+                            <label class="form-check-label small" for="remember-me">
+                                ログインしたままにする
+                            </label>
+                        </div>
+                    </div>
+                    {# ▲▲▲ 変更ここまで ▲▲▲ #}
                 </div>
             </div>
 
-            {# --- 主な機能のハイライト --- #}
             <div class="card mb-4" id="indexFunctionalHighlights">
                 <div class="card-header">
                     <i class="fas fa-star me-1"></i> もとぷっぷーの主な機能
@@ -87,9 +93,7 @@
                     </div>
                 </div>
             </div>
-            {# --- ここまで 主な機能のハイライト --- #}
 
-            {# --- 重要なお知らせの固定表示 --- #}
             {% if important_notice %}
             <div class="alert alert-warning p-3 mb-3 small" role="alert">
                 <h6 class="alert-heading fw-bold"><i class="fas fa-exclamation-triangle me-1"></i> {{ important_notice.title }}</h6>
@@ -97,7 +101,6 @@
                 <p class="mb-0">{{ important_notice.content | replace('\n', '<br>') | safe }}</p>
             </div>
             {% endif %}
-            {# --- ここまで 重要なお知らせの固定表示 --- #}
 
             <div class="text-center my-3">
                 <small class="text-muted">
@@ -118,7 +121,6 @@
             </div>
             {% endif %}
 
-            {# --- 通常のお知らせ (モーダル表示) --- #}
             {% if announcements %} 
             <div class="card mb-4">
                 <div class="card-header">
@@ -184,4 +186,33 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const loginButton = document.getElementById('login-button');
+    if (loginButton) {
+        loginButton.addEventListener('click', function(event) {
+            event.preventDefault();
+            
+            const rememberMeCheckbox = document.getElementById('remember-me');
+            const remember = rememberMeCheckbox.checked;
+            
+            let loginUrl = this.href;
+            
+            if (remember) {
+                if (loginUrl.includes('?')) {
+                    loginUrl += '&remember=1';
+                } else {
+                    loginUrl += '?remember=1';
+                }
+            }
+            
+            window.location.href = loginUrl;
+        });
+    }
+});
+</script>
 {% endblock %}

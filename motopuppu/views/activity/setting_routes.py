@@ -2,22 +2,23 @@
 import json
 
 from flask import (
-    flash, g, redirect, render_template, request, url_for, current_app
+    flash, redirect, render_template, request, url_for, current_app
 )
 
 # 分割したBlueprintをインポート
 from . import activity_bp
 
-# 他に必要なインポート
-from .activity_routes import get_motorcycle_or_404 # ヘルパー関数をインポート
-from ..auth import login_required_custom
+# ▼▼▼ インポート文を修正 ▼▼▼
+from .activity_routes import get_motorcycle_or_404
+from flask_login import login_required, current_user
+# ▲▲▲ 変更ここまで ▲▲▲
 from ...models import db, SettingSheet
 from ...forms import SettingSheetForm
 from ... import limiter
 
 
 @activity_bp.route('/<int:vehicle_id>/settings')
-@login_required_custom
+@login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def list_settings(vehicle_id):
     motorcycle = get_motorcycle_or_404(vehicle_id)
     settings = SettingSheet.query.filter_by(motorcycle_id=motorcycle.id).order_by(SettingSheet.is_archived, SettingSheet.sheet_name).all()
@@ -27,7 +28,7 @@ def list_settings(vehicle_id):
 
 @activity_bp.route('/<int:vehicle_id>/settings/add', methods=['GET', 'POST'])
 @limiter.limit("30 per hour")
-@login_required_custom
+@login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def add_setting(vehicle_id):
     motorcycle = get_motorcycle_or_404(vehicle_id)
     form = SettingSheetForm()
@@ -42,7 +43,9 @@ def add_setting(vehicle_id):
 
         new_setting = SettingSheet(
             motorcycle_id=motorcycle.id,
-            user_id=g.user.id,
+            # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
+            user_id=current_user.id,
+            # ▲▲▲ 変更ここまで ▲▲▲
             sheet_name=form.sheet_name.data,
             details=details,
             notes=form.notes.data
@@ -69,9 +72,11 @@ def add_setting(vehicle_id):
 
 @activity_bp.route('/settings/<int:setting_id>/edit', methods=['GET', 'POST'])
 @limiter.limit("30 per hour")
-@login_required_custom
+@login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def edit_setting(setting_id):
-    setting = SettingSheet.query.filter_by(id=setting_id, user_id=g.user.id).first_or_404()
+    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
+    setting = SettingSheet.query.filter_by(id=setting_id, user_id=current_user.id).first_or_404()
+    # ▲▲▲ 変更ここまで ▲▲▲
     motorcycle = setting.motorcycle
     form = SettingSheetForm(obj=setting)
 
@@ -107,9 +112,11 @@ def edit_setting(setting_id):
 
 @activity_bp.route('/settings/<int:setting_id>/toggle_archive', methods=['POST'])
 @limiter.limit("30 per hour")
-@login_required_custom
+@login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def toggle_archive_setting(setting_id):
-    setting = SettingSheet.query.filter_by(id=setting_id, user_id=g.user.id).first_or_404()
+    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
+    setting = SettingSheet.query.filter_by(id=setting_id, user_id=current_user.id).first_or_404()
+    # ▲▲▲ 変更ここまで ▲▲▲
     setting.is_archived = not setting.is_archived
     try:
         db.session.commit()
@@ -123,9 +130,11 @@ def toggle_archive_setting(setting_id):
 
 @activity_bp.route('/settings/<int:setting_id>/delete', methods=['POST'])
 @limiter.limit("30 per hour")
-@login_required_custom
+@login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def delete_setting(setting_id):
-    setting = SettingSheet.query.filter_by(id=setting_id, user_id=g.user.id).first_or_404()
+    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
+    setting = SettingSheet.query.filter_by(id=setting_id, user_id=current_user.id).first_or_404()
+    # ▲▲▲ 変更ここまで ▲▲▲
     vehicle_id = setting.motorcycle_id
     sheet_name = setting.sheet_name
     try:

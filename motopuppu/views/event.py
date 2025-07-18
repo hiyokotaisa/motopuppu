@@ -1,11 +1,13 @@
 # motopuppu/views/event.py
 from flask import (
-    Blueprint, flash, g, redirect, render_template, request, url_for, abort, Response, current_app
+    Blueprint, flash, redirect, render_template, request, url_for, abort, Response, current_app
 )
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime, timezone, date
 
-from .auth import login_required_custom
+# ▼▼▼ インポート文を修正 ▼▼▼
+from flask_login import login_required, current_user
+# ▲▲▲ 変更ここまで ▲▲▲
 from ..models import db, Event, EventParticipant, Motorcycle, ParticipationStatus
 from ..forms import EventForm, ParticipantForm
 from ..utils.datetime_helpers import JST
@@ -22,33 +24,36 @@ except ImportError:
 event_bp = Blueprint('event', __name__, url_prefix='/event')
 
 @event_bp.route('/')
-@login_required_custom
+@login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def list_events():
     """ログインユーザーが作成したイベントの一覧を表示する"""
     page = request.args.get('page', 1, type=int)
-    # 日付が新しい順にイベントを並べる
-    events_pagination = Event.query.filter_by(user_id=g.user.id).order_by(Event.start_datetime.desc()).paginate(page=page, per_page=10, error_out=False)
+    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
+    events_pagination = Event.query.filter_by(user_id=current_user.id).order_by(Event.start_datetime.desc()).paginate(page=page, per_page=10, error_out=False)
+    # ▲▲▲ 変更ここまで ▲▲▲
     
     return render_template('event/list_events.html', events_pagination=events_pagination)
 
 
 @event_bp.route('/add', methods=['GET', 'POST'])
 @limiter.limit("20 per hour")
-@login_required_custom
+@login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def add_event():
     """新しいイベントを作成する"""
     form = EventForm()
-    # ユーザーが所有する車両をドロップダウンにセット
-    form.motorcycle_id.choices = [(m.id, m.name) for m in Motorcycle.query.filter_by(user_id=g.user.id).order_by('name')]
+    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
+    form.motorcycle_id.choices = [(m.id, m.name) for m in Motorcycle.query.filter_by(user_id=current_user.id).order_by('name')]
+    # ▲▲▲ 変更ここまで ▲▲▲
     form.motorcycle_id.choices.insert(0, (0, '--- 車両を関連付けない ---'))
 
     if form.validate_on_submit():
-        # フォームから受け取った日時はNaiveなので、JSTとして解釈し、UTCに変換してDBに保存
         start_dt_utc = form.start_datetime.data.replace(tzinfo=JST).astimezone(timezone.utc)
         end_dt_utc = form.end_datetime.data.replace(tzinfo=JST).astimezone(timezone.utc) if form.end_datetime.data else None
 
         new_event = Event(
-            user_id=g.user.id,
+            # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
+            user_id=current_user.id,
+            # ▲▲▲ 変更ここまで ▲▲▲
             motorcycle_id=form.motorcycle_id.data if form.motorcycle_id.data != 0 else None,
             title=form.title.data,
             description=form.description.data,
@@ -71,23 +76,23 @@ def add_event():
 
 @event_bp.route('/<int:event_id>/edit', methods=['GET', 'POST'])
 @limiter.limit("30 per hour")
-@login_required_custom
+@login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def edit_event(event_id):
     """イベントを編集する"""
-    event = Event.query.filter_by(id=event_id, user_id=g.user.id).first_or_404()
-    # --- ▼▼▼ This is the main fix ▼▼▼ ---
-    # Don't pass obj=event to the constructor. Populate the form manually on GET requests.
+    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
+    event = Event.query.filter_by(id=event_id, user_id=current_user.id).first_or_404()
+    # ▲▲▲ 変更ここまで ▲▲▲
     form = EventForm(request.form)
-    # --- ▲▲▲ End of fix ▲▲▲ ---
 
-    form.motorcycle_id.choices = [(m.id, m.name) for m in Motorcycle.query.filter_by(user_id=g.user.id).order_by('name')]
+    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
+    form.motorcycle_id.choices = [(m.id, m.name) for m in Motorcycle.query.filter_by(user_id=current_user.id).order_by('name')]
+    # ▲▲▲ 変更ここまで ▲▲▲
     form.motorcycle_id.choices.insert(0, (0, '--- 車両を関連付けない ---'))
 
     if form.validate_on_submit():
         start_dt_utc = form.start_datetime.data.replace(tzinfo=JST).astimezone(timezone.utc)
         end_dt_utc = form.end_datetime.data.replace(tzinfo=JST).astimezone(timezone.utc) if form.end_datetime.data else None
 
-        # Manually update the event object from form data
         event.motorcycle_id = form.motorcycle_id.data if form.motorcycle_id.data != 0 else None
         event.title = form.title.data
         event.description = form.description.data
@@ -103,29 +108,26 @@ def edit_event(event_id):
             current_app.logger.error(f"Error editing event {event_id}: {e}", exc_info=True)
             flash('イベントの更新中にエラーが発生しました。', 'danger')
 
-    # --- ▼▼▼ This is the second part of the fix ▼▼▼ ---
-    # On a GET request, manually populate the form with data from the event object.
-    # This ensures the timezone conversion happens correctly before rendering.
     elif request.method == 'GET':
         form.title.data = event.title
         form.description.data = event.description
         form.location.data = event.location
         form.motorcycle_id.data = event.motorcycle_id
-        # Convert UTC from DB to JST for display in the form
         form.start_datetime.data = event.start_datetime.astimezone(JST)
         if event.end_datetime:
             form.end_datetime.data = event.end_datetime.astimezone(JST)
-    # --- ▲▲▲ End of fix ▲▲▲ ---
     
     return render_template('event/event_form.html', form=form, mode='edit', event=event)
 
 
 @event_bp.route('/<int:event_id>/delete', methods=['POST'])
 @limiter.limit("30 per hour")
-@login_required_custom
+@login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def delete_event(event_id):
     """イベントを削除する"""
-    event = Event.query.filter_by(id=event_id, user_id=g.user.id).first_or_404()
+    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
+    event = Event.query.filter_by(id=event_id, user_id=current_user.id).first_or_404()
+    # ▲▲▲ 変更ここまで ▲▲▲
     try:
         db.session.delete(event)
         db.session.commit()
@@ -138,10 +140,12 @@ def delete_event(event_id):
 
 
 @event_bp.route('/<int:event_id>')
-@login_required_custom
+@login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def event_detail(event_id):
     """イベントの詳細ページ（作成者向け）"""
-    event = Event.query.filter_by(id=event_id, user_id=g.user.id).first_or_404()
+    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
+    event = Event.query.filter_by(id=event_id, user_id=current_user.id).first_or_404()
+    # ▲▲▲ 変更ここまで ▲▲▲
     
     participants_attending = event.participants.filter_by(status=ParticipationStatus.ATTENDING).order_by(EventParticipant.created_at).all()
     participants_tentative = event.participants.filter_by(status=ParticipationStatus.TENTATIVE).order_by(EventParticipant.created_at).all()
@@ -223,15 +227,16 @@ def public_event_view(public_id):
 
 @event_bp.route('/participant/<int:participant_id>/delete', methods=['POST'])
 @limiter.limit("30 per hour")
-@login_required_custom
+@login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def delete_participant(participant_id):
     """主催者が参加者を削除する"""
     participant = EventParticipant.query.get_or_404(participant_id)
     event = participant.event
     
-    # この操作を実行しようとしているのが、本当にイベントの主催者か確認
-    if event.user_id != g.user.id:
+    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
+    if event.user_id != current_user.id:
         abort(403)
+    # ▲▲▲ 変更ここまで ▲▲▲
         
     try:
         db.session.delete(participant)
@@ -246,14 +251,16 @@ def delete_participant(participant_id):
 
 
 @event_bp.route('/<int:event_id>/export.ics')
-@login_required_custom
+@login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def export_ics(event_id):
     """iCal形式でイベントをエクスポートする"""
     if not ICALENDAR_AVAILABLE:
         flash('カレンダーエクスポート機能は現在利用できません。', 'danger')
         return redirect(url_for('event.event_detail', event_id=event_id))
 
-    event = Event.query.filter_by(id=event_id, user_id=g.user.id).first_or_404()
+    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
+    event = Event.query.filter_by(id=event_id, user_id=current_user.id).first_or_404()
+    # ▲▲▲ 変更ここまで ▲▲▲
 
     cal = Calendar()
     cal.add('prodid', '-//もとぷっぷー Event//motopuppu.app//')
@@ -261,7 +268,6 @@ def export_ics(event_id):
 
     ical_event = ICalEvent()
     ical_event.add('summary', event.title)
-    # iCalのDATETIMEはUTCである必要がある
     ical_event.add('dtstart', event.start_datetime)
     if event.end_datetime:
         ical_event.add('dtend', event.end_datetime)

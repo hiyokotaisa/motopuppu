@@ -4,25 +4,28 @@ from datetime import datetime, date, timezone, timedelta
 import requests
 
 from flask import (
-    Blueprint, flash, g, redirect, render_template, request, url_for, current_app, jsonify
+    Blueprint, flash, redirect, render_template, request, url_for, current_app, jsonify
 )
 from sqlalchemy import func
 from sqlalchemy.orm import joinedload, subqueryload
 
-from .auth import login_required_custom
+# ▼▼▼ インポート文を修正 ▼▼▼
+from flask_login import login_required, current_user
+# ▲▲▲ 変更ここまで ▲▲▲
 from ..models import db, Motorcycle, TouringLog, TouringSpot, TouringScrapbookEntry
 from ..forms import TouringLogForm
 from ..services import CryptoService
 
 touring_bp = Blueprint('touring', __name__, url_prefix='/touring')
 
-# ... (既存の list_logs, create_log, edit_log, delete_log などの関数は変更なし) ...
 def get_motorcycle_or_404(vehicle_id):
     """指定されたIDの車両を取得し、所有者でなければ404を返す"""
-    return Motorcycle.query.filter_by(id=vehicle_id, user_id=g.user.id).first_or_404()
+    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
+    return Motorcycle.query.filter_by(id=vehicle_id, user_id=current_user.id).first_or_404()
+    # ▲▲▲ 変更ここまで ▲▲▲
 
 @touring_bp.route('/<int:vehicle_id>')
-@login_required_custom
+@login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def list_logs(vehicle_id):
     """指定された車両のツーリングログ一覧を表示する"""
     motorcycle = get_motorcycle_or_404(vehicle_id)
@@ -49,7 +52,7 @@ def list_logs(vehicle_id):
 
 
 @touring_bp.route('/<int:vehicle_id>/create', methods=['GET', 'POST'])
-@login_required_custom
+@login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def create_log(vehicle_id):
     """新しいツーリングログを作成する"""
     motorcycle = get_motorcycle_or_404(vehicle_id)
@@ -57,7 +60,9 @@ def create_log(vehicle_id):
 
     if form.validate_on_submit():
         new_log = TouringLog(
-            user_id=g.user.id,
+            # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
+            user_id=current_user.id,
+            # ▲▲▲ 変更ここまで ▲▲▲
             motorcycle_id=motorcycle.id,
             title=form.title.data,
             touring_date=form.touring_date.data,
@@ -78,10 +83,12 @@ def create_log(vehicle_id):
 
 
 @touring_bp.route('/<int:log_id>/edit', methods=['GET', 'POST'])
-@login_required_custom
+@login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def edit_log(log_id):
     """ツーリングログを編集する"""
-    log = TouringLog.query.filter_by(id=log_id, user_id=g.user.id).first_or_404()
+    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
+    log = TouringLog.query.filter_by(id=log_id, user_id=current_user.id).first_or_404()
+    # ▲▲▲ 変更ここまで ▲▲▲
     motorcycle = log.motorcycle
     form = TouringLogForm(obj=log)
     
@@ -138,10 +145,12 @@ def process_spots_and_scrapbook(log, form):
 
 
 @touring_bp.route('/<int:log_id>/delete', methods=['POST'])
-@login_required_custom
+@login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def delete_log(log_id):
     """ツーリングログを削除する"""
-    log = TouringLog.query.filter_by(id=log_id, user_id=g.user.id).first_or_404()
+    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
+    log = TouringLog.query.filter_by(id=log_id, user_id=current_user.id).first_or_404()
+    # ▲▲▲ 変更ここまで ▲▲▲
     vehicle_id = log.motorcycle_id
     try:
         db.session.delete(log)
@@ -155,19 +164,21 @@ def delete_log(log_id):
 
 
 @touring_bp.route('/<int:log_id>/detail')
-@login_required_custom
+@login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def detail_log(log_id):
     """ツーリングログの詳細ページ"""
+    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
     log = TouringLog.query.options(
         subqueryload(TouringLog.spots),
         subqueryload(TouringLog.scrapbook_entries)
-    ).filter_by(id=log_id, user_id=g.user.id).first_or_404()
+    ).filter_by(id=log_id, user_id=current_user.id).first_or_404()
+    # ▲▲▲ 変更ここまで ▲▲▲
     
     return render_template('touring/detail_log.html', log=log)
 
 
 @touring_bp.route('/api/misskey_notes')
-@login_required_custom
+@login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def fetch_misskey_notes_api():
     """指定された日付のMisskeyノートを取得する内部API"""
     date_str = request.args.get('date')
@@ -179,15 +190,17 @@ def fetch_misskey_notes_api():
     except ValueError:
         return jsonify({"error": "Invalid date format"}), 400
 
-    if not g.user.encrypted_misskey_api_token:
+    # ▼▼▼ g.user を current_user に変更 ▼▼▼
+    if not current_user.encrypted_misskey_api_token:
         return jsonify({"error": "Misskey API token not found."}), 403
 
     try:
         crypto = CryptoService()
-        api_token = crypto.decrypt(g.user.encrypted_misskey_api_token)
+        api_token = crypto.decrypt(current_user.encrypted_misskey_api_token)
     except Exception as e:
-        current_app.logger.error(f"Failed to decrypt API token for user {g.user.id}: {e}")
+        current_app.logger.error(f"Failed to decrypt API token for user {current_user.id}: {e}")
         return jsonify({"error": "Failed to decrypt API token."}), 500
+    # ▲▲▲ 変更ここまで ▲▲▲
 
     jst = timezone(timedelta(hours=9))
     start_dt_local = datetime.combine(target_date, datetime.min.time(), tzinfo=jst)
@@ -202,7 +215,9 @@ def fetch_misskey_notes_api():
     headers = {'Content-Type': 'application/json'}
     payload = {
         'i': api_token,
-        'userId': g.user.misskey_user_id,
+        # ▼▼▼ g.user を current_user に変更 ▼▼▼
+        'userId': current_user.misskey_user_id,
+        # ▲▲▲ 変更ここまで ▲▲▲
         'sinceDate': since_ts,
         'untilDate': until_ts,
         'includeMyRenotes': False,
@@ -231,23 +246,24 @@ def fetch_misskey_notes_api():
         current_app.logger.error(f"An unexpected error occurred while fetching notes: {e}", exc_info=True)
         return jsonify({"error": "ノートの取得中に予期せぬエラーが発生しました。"}), 500
 
-# ▼▼▼ 以下をファイルの末尾に追記 ▼▼▼
 @touring_bp.route('/api/fetch_note_details', methods=['POST'])
-@login_required_custom
+@login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def fetch_note_details_api():
     """ノートIDのリストを受け取り、Misskeyから詳細情報を取得して返すAPI"""
     note_ids = request.json.get('note_ids')
     if not note_ids or not isinstance(note_ids, list):
         return jsonify({"error": "note_ids (list) is required"}), 400
 
-    if not g.user.encrypted_misskey_api_token:
+    # ▼▼▼ g.user を current_user に変更 ▼▼▼
+    if not current_user.encrypted_misskey_api_token:
         return jsonify({"error": "Misskey API token not found."}), 403
 
     try:
         crypto = CryptoService()
-        api_token = crypto.decrypt(g.user.encrypted_misskey_api_token)
+        api_token = crypto.decrypt(current_user.encrypted_misskey_api_token)
     except Exception:
         return jsonify({"error": "Failed to decrypt API token."}), 500
+    # ▲▲▲ 変更ここまで ▲▲▲
     
     misskey_instance_url = current_app.config.get('MISSKEY_INSTANCE_URL', 'https://misskey.io')
     api_url = f"{misskey_instance_url}/api/notes/show"
@@ -261,9 +277,8 @@ def fetch_note_details_api():
             if response.status_code == 200:
                 note_details[note_id] = response.json()
             else:
-                note_details[note_id] = None # 見つからなかったか、エラー
+                note_details[note_id] = None
         except requests.RequestException:
-            note_details[note_id] = None # 接続エラー
+            note_details[note_id] = None
 
     return jsonify(note_details)
-# ▲▲▲ 追記ここまで ▲▲▲

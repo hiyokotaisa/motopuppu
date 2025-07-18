@@ -1,6 +1,6 @@
 # motopuppu/views/main.py
 from flask import (
-    Blueprint, render_template, redirect, url_for, session, g, flash,
+    Blueprint, render_template, redirect, url_for, g, flash,
     current_app, jsonify, request
 )
 from datetime import date, timedelta, datetime
@@ -13,7 +13,9 @@ import os
 import json
 
 from .. import services
-from .auth import login_required_custom, get_current_user
+# ▼▼▼ Flask-Login関連のインポートに切り替え ▼▼▼
+from flask_login import login_required, current_user
+# ▲▲▲ 変更ここまで ▲▲▲
 
 
 main_bp = Blueprint('main', __name__)
@@ -57,8 +59,10 @@ def parse_period_from_request(req):
 # --- ルート定義 ---
 @main_bp.route('/')
 def index():
-    if hasattr(g, 'user') and g.user:
+    # ▼▼▼ g.userをcurrent_userに置き換え ▼▼▼
+    if current_user.is_authenticated:
         return redirect(url_for('main.dashboard'))
+    # ▲▲▲ 変更ここまで ▲▲▲
 
     announcements_for_modal = []
     important_notice_content = None
@@ -91,13 +95,15 @@ def index():
 
 
 @main_bp.route('/dashboard')
-@login_required_custom
+@login_required  # ▼▼▼ デコレータを@login_requiredに変更 ▼▼▼
 def dashboard():
     # 1. リクエストの解析と基本データの準備
     period, start_date, end_date = parse_period_from_request(request)
 
-    user_motorcycles_all = Motorcycle.query.filter_by(user_id=g.user.id).order_by(
+    # ▼▼▼ g.user.idをcurrent_user.idに置き換え ▼▼▼
+    user_motorcycles_all = Motorcycle.query.filter_by(user_id=current_user.id).order_by(
         Motorcycle.is_default.desc(), Motorcycle.name).all()
+    # ▲▲▲ 変更ここまで ▲▲▲
     if not user_motorcycles_all:
         flash('ようこそ！最初に利用する車両を登録してください。', 'info')
         return redirect(url_for('vehicle.add_vehicle'))
@@ -108,7 +114,9 @@ def dashboard():
     selected_stats_vehicle_id = request.args.get('stats_vehicle_id', type=int)
 
     # 2. サービスを呼び出してビジネスロジックを実行
-    upcoming_reminders = services.get_upcoming_reminders(user_motorcycles_all, g.user.id)
+    # ▼▼▼ g.user.idをcurrent_user.idに置き換え ▼▼▼
+    upcoming_reminders = services.get_upcoming_reminders(user_motorcycles_all, current_user.id)
+    # ▲▲▲ 変更ここまで ▲▲▲
 
     for m in user_motorcycles_all:
         if not m.is_racer:
@@ -165,12 +173,14 @@ def dashboard():
 
 
 @main_bp.route('/api/dashboard/events')
-@login_required_custom
+@login_required # ▼▼▼ デコレータを@login_requiredに変更 ▼▼▼
 def dashboard_events_api():
-    if not g.user:
+    # ▼▼▼ g.userをcurrent_userに置き換え ▼▼▼
+    if not current_user.is_authenticated:
         return jsonify({'error': 'User not logged in'}), 401
     
-    calendar_events = services.get_calendar_events_for_user(g.user)
+    calendar_events = services.get_calendar_events_for_user(current_user)
+    # ▲▲▲ 変更ここまで ▲▲▲
     
     return jsonify(calendar_events)
 
@@ -186,18 +196,20 @@ def privacy_policy():
 
 # ▼▼▼ 以下をファイルの末尾に追記 ▼▼▼
 @main_bp.route('/misskey_redirect/<note_id>')
-@login_required_custom
+@login_required # ▼▼▼ デコレータを@login_requiredに変更 ▼▼▼
 def misskey_redirect(note_id):
     """Misskeyのノートへリダイレクトする"""
     misskey_instance_url = current_app.config.get('MISSKEY_INSTANCE_URL', 'https://misskey.io')
     return redirect(f"{misskey_instance_url}/notes/{note_id}")
 # ▲▲▲ 追記ここまで ▲▲▲
 
-@main_bp.before_app_request
-def load_logged_in_user():
-    g.user = get_current_user()
+# ▼▼▼ 不要になったため以下の関数を削除 ▼▼▼
+# @main_bp.before_app_request
+# def load_logged_in_user():
+#     g.user = get_current_user()
 
 
-@main_bp.app_context_processor
-def inject_user():
-    return dict(g=g if hasattr(g, 'user') else None)
+# @main_bp.app_context_processor
+# def inject_user():
+#     return dict(g=g if hasattr(g, 'user') else None)
+# ▲▲▲ 変更ここまで ▲▲▲

@@ -5,47 +5,39 @@ from datetime import date, datetime
 import requests
 
 from flask import (
-    Blueprint, flash, g, redirect, render_template, request, url_for, abort, current_app, Response, jsonify
+    Blueprint, flash, redirect, render_template, request, url_for, abort, current_app, Response, jsonify
 )
 from sqlalchemy import or_, asc, desc, func
 
-from .auth import login_required_custom, get_current_user
+# ▼▼▼ インポート文を修正 ▼▼▼
+from flask_login import login_required, current_user
+# ▲▲▲ 変更ここまで ▲▲▲
 from ..models import db, Motorcycle, FuelEntry
 from ..forms import FuelForm
 from ..constants import GAS_STATION_BRANDS
-# 実績評価モジュールとイベントタイプをインポート
 from ..achievement_evaluator import check_achievements_for_event, EVENT_ADD_FUEL_LOG
-# ▼▼▼ 変更 ▼▼▼
 from .. import limiter
-# ▲▲▲ 変更 ▲▲▲
+
 
 fuel_bp = Blueprint('fuel', __name__, url_prefix='/fuel')
 
 def get_previous_fuel_entry(motorcycle_id, current_entry_date, current_entry_id=None):
     if not motorcycle_id or not current_entry_date:
         return None
-    # --- ▼▼▼ フェーズ1変更点 (関連するMotorcycleがレーサーならNoneを返すか、呼び出し元で制御) ▼▼▼
-    # Motorcycleがレーサーの場合、この関数が呼び出される前に車両選択で弾かれる想定なので、
-    # ここでは直接的な is_racer チェックは必須ではないが、念のため考慮は可能。
-    # 今回は、呼び出し元の車両選択でレーサーが除外される前提とする。
-    # --- ▲▲▲ フェーズ1変更点 ▲▲▲
     query = FuelEntry.query.filter(
         FuelEntry.motorcycle_id == motorcycle_id,
-        FuelEntry.entry_date <= current_entry_date # 同日も含むように変更
+        FuelEntry.entry_date <= current_entry_date
     )
     if current_entry_id is not None:
         query = query.filter(FuelEntry.id != current_entry_id)
 
-    # --- ▼▼▼ トリップ入力機能のためソート順をより厳密に変更 ▼▼▼
-    # 同じ日付の記録がある場合、ODOメーター値が大きい方を「後」の記録とみなす
     previous_entry = query.order_by(FuelEntry.entry_date.desc(), FuelEntry.odometer_reading.desc(), FuelEntry.id.desc()).first()
-    # --- ▲▲▲ トリップ入力機能のためソート順をより厳密に変更 ▲▲▲
     return previous_entry
 
 
 @fuel_bp.route('/search_gas_station')
-@limiter.limit("30 per minute") # ▼▼▼ 変更 ▼▼▼
-@login_required_custom
+@limiter.limit("30 per minute")
+@login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def search_gas_station():
     """フロントエンドからのリクエストでガソリンスタンドを検索するAPIエンドポイント"""
     query = request.args.get('q', type=str)
@@ -57,23 +49,21 @@ def search_gas_station():
         current_app.logger.error("GOOGLE_PLACES_API_KEY is not set in the environment.")
         return jsonify({'error': 'API key is not configured on the server.'}), 500
 
-    # Google Places API (Text Search) のエンドポイント
     endpoint_url = "https://maps.googleapis.com/maps/api/place/textsearch/json"
     
     params = {
         'query': query,
         'key': api_key,
         'language': 'ja',
-        'type': 'gas_station' # タイプをガソリンスタンドに限定
+        'type': 'gas_station'
     }
 
     try:
         response = requests.get(endpoint_url, params=params, timeout=5)
-        response.raise_for_status()  # HTTPエラーがあれば例外を発生させる
+        response.raise_for_status()
         
         data = response.json()
         
-        # 必要な情報（店名、住所）だけを抽出してリスト化
         results = [
             {'name': place.get('name'), 'address': place.get('formatted_address')}
             for place in data.get('results', [])
@@ -83,14 +73,14 @@ def search_gas_station():
 
     except requests.exceptions.RequestException as e:
         current_app.logger.error(f"Failed to call Google Places API: {e}")
-        return jsonify({'error': 'Failed to communicate with the search service.'}), 503 # Service Unavailable
+        return jsonify({'error': 'Failed to communicate with the search service.'}), 503
     except Exception as e:
         current_app.logger.error(f"An unexpected error occurred during gas station search: {e}")
         return jsonify({'error': 'An internal server error occurred.'}), 500
 
 
 @fuel_bp.route('/')
-@login_required_custom
+@login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def fuel_log():
     start_date_str = request.args.get('start_date')
     end_date_str = request.args.get('end_date')
@@ -101,22 +91,20 @@ def fuel_log():
     page = request.args.get('page', 1, type=int)
     per_page = current_app.config.get('FUEL_ENTRIES_PER_PAGE', 20)
 
-    # --- ▼▼▼ フェーズ1変更点 (車両リストからレーサーを除外) ▼▼▼
-    user_motorcycles_all = Motorcycle.query.filter_by(user_id=g.user.id).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
-    user_motorcycles_for_fuel = [m for m in user_motorcycles_all if not m.is_racer] # レーサー車両を除外
-    # --- ▲▲▲ フェーズ1変更点 ▲▲▲
+    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
+    user_motorcycles_all = Motorcycle.query.filter_by(user_id=current_user.id).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
+    # ▲▲▲ 変更ここまで ▲▲▲
+    user_motorcycles_for_fuel = [m for m in user_motorcycles_all if not m.is_racer]
 
-    if not user_motorcycles_all: # 全車両が0台の場合
+    if not user_motorcycles_all:
         flash('給油記録を閲覧・追加するには、まず車両を登録してください。', 'info')
         return redirect(url_for('vehicle.add_vehicle'))
-    if not user_motorcycles_for_fuel and user_motorcycles_all: # 登録車両はあるが、全てレーサーの場合
+    if not user_motorcycles_for_fuel and user_motorcycles_all:
         flash('登録されている車両はすべてレーサー仕様のため、給油記録の対象外です。公道走行可能な車両を登録してください。', 'info')
-        # return redirect(url_for('vehicle.vehicle_list')) # 車両一覧に戻すか、このまま表示させるか
-        # 今回は、フィルター用の選択肢が空になるが、ログ表示はそのまま試みる（該当ログなしと表示される）
 
     user_motorcycle_ids_for_fuel = [m.id for m in user_motorcycles_for_fuel]
 
-    query = db.session.query(FuelEntry).join(Motorcycle).filter(FuelEntry.motorcycle_id.in_(user_motorcycle_ids_for_fuel)) # レーサー車両の給油記録は存在しないはず
+    query = db.session.query(FuelEntry).join(Motorcycle).filter(FuelEntry.motorcycle_id.in_(user_motorcycle_ids_for_fuel))
     active_filters = {k: v for k, v in request.args.items() if k not in ['page', 'sort_by', 'order']}
 
     try:
@@ -132,13 +120,11 @@ def fuel_log():
     if vehicle_id_str:
         try:
             vehicle_id = int(vehicle_id_str)
-            # --- ▼▼▼ フェーズ1変更点 (フィルター対象IDもレーサー以外に限定) ▼▼▼
-            if vehicle_id in user_motorcycle_ids_for_fuel: # レーサー以外の車両IDのみ許可
+            if vehicle_id in user_motorcycle_ids_for_fuel:
                 query = query.filter(FuelEntry.motorcycle_id == vehicle_id)
             else:
                 flash('選択された車両は給油記録の対象外か、有効ではありません。', 'warning')
                 active_filters.pop('vehicle_id', None)
-            # --- ▲▲▲ フェーズ1変更点 ▲▲▲
         except ValueError:
             active_filters.pop('vehicle_id', None)
 
@@ -169,7 +155,6 @@ def fuel_log():
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
     fuel_entries = pagination.items
 
-    # フィルタがアクティブかどうかを判定するフラグを作成
     is_filter_active = bool(active_filters)
 
     return render_template('fuel_log.html',
@@ -177,19 +162,18 @@ def fuel_log():
                            motorcycles=user_motorcycles_for_fuel,
                            request_args=active_filters,
                            current_sort_by=current_sort_by, current_order=current_order,
-                           is_filter_active=is_filter_active) # テンプレートに変数を渡す
+                           is_filter_active=is_filter_active)
 
 
 @fuel_bp.route('/add', methods=['GET', 'POST'])
-@limiter.limit("30 per hour") # ▼▼▼ 変更 ▼▼▼
-@login_required_custom
+@limiter.limit("30 per hour")
+@login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def add_fuel():
-    # --- ▼▼▼ フェーズ1変更点 (車両リストからレーサーを除外) ▼▼▼
-    user_motorcycles_for_fuel = Motorcycle.query.filter_by(user_id=g.user.id, is_racer=False).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
-    # --- ▲▲▲ フェーズ1変更点 ▲▲▲
+    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
+    user_motorcycles_for_fuel = Motorcycle.query.filter_by(user_id=current_user.id, is_racer=False).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
     if not user_motorcycles_for_fuel:
-        # 登録車両が全てレーサーか、そもそも車両がない場合
-        all_motorcycles_count = Motorcycle.query.filter_by(user_id=g.user.id).count()
+        all_motorcycles_count = Motorcycle.query.filter_by(user_id=current_user.id).count()
+    # ▲▲▲ 変更ここまで ▲▲▲
         if all_motorcycles_count > 0:
             flash('登録されている車両はすべてレーサー仕様のため、給油記録を追加できません。公道走行可能な車両を登録してください。', 'warning')
             return redirect(url_for('vehicle.vehicle_list'))
@@ -210,29 +194,25 @@ def add_fuel():
         form.is_full_tank.data = True
 
     if form.validate_on_submit():
-        # --- ▼▼▼ フェーズ1変更点 (選択された車両がレーサーでないことを再確認) ▼▼▼
-        motorcycle = Motorcycle.query.filter_by(id=form.motorcycle_id.data, user_id=g.user.id, is_racer=False).first()
-        # --- ▲▲▲ フェーズ1変更点 ▲▲▲
+        # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
+        motorcycle = Motorcycle.query.filter_by(id=form.motorcycle_id.data, user_id=current_user.id, is_racer=False).first()
+        # ▲▲▲ 変更ここまで ▲▲▲
         if not motorcycle:
             flash('選択された車両が見つからないか、給油記録の対象外です。再度お試しください。', 'danger')
             return render_template('fuel_form.html', form_action='add', form=form, gas_station_brands=GAS_STATION_BRANDS)
 
-        # --- ▼▼▼ トグルスイッチ対応のバリデーションロジック ▼▼▼
         previous_fuel = get_previous_fuel_entry(motorcycle.id, form.entry_date.data)
 
-        if form.input_mode.data:  # トグルがON (True) の場合、トリップ入力モード
+        if form.input_mode.data:
             if form.trip_distance.data is None:
                 form.trip_distance.errors.append('トリップメーターで入力する場合、この項目は必須です。')
             elif previous_fuel:
-                # ODOを計算してフォームデータに上書き
                 form.odometer_reading.data = previous_fuel.odometer_reading + form.trip_distance.data
             else:
-                # この車両で初めての給油記録の場合
                 form.trip_distance.errors.append('この車両で初めての給油です。トリップ入力は使用できません。ODOメーター値を直接入力してください。')
-        else:  # トグルがOFF (False) の場合、ODO入力モード
+        else:
             if form.odometer_reading.data is None:
                 form.odometer_reading.errors.append('ODOメーターで入力する場合、この項目は必須です。')
-        # --- ▲▲▲ トグルスイッチ対応のバリデーションロジック ▲▲▲
 
         if form.errors:
             flash('入力内容にエラーがあります。ご確認ください。', 'danger')
@@ -266,7 +246,9 @@ def add_fuel():
             flash('給油記録を追加しました。', 'success')
 
             event_data_for_ach = {'new_fuel_log_id': new_entry.id, 'motorcycle_id': motorcycle.id}
-            check_achievements_for_event(g.user, EVENT_ADD_FUEL_LOG, event_data=event_data_for_ach)
+            # ▼▼▼ g.user を current_user に変更 ▼▼▼
+            check_achievements_for_event(current_user, EVENT_ADD_FUEL_LOG, event_data=event_data_for_ach)
+            # ▲▲▲ 変更ここまで ▲▲▲
 
             return redirect(url_for('fuel.fuel_log'))
         except Exception as e:
@@ -277,8 +259,6 @@ def add_fuel():
     elif request.method == 'POST':
         flash('入力内容にエラーがあります。ご確認ください。', 'danger')
 
-    # --- ▼▼▼ ここから修正 ▼▼▼ ---
-    # render_templateにprevious_entry_infoを渡すロジックを復活させる
     previous_entry_info = None
     if form.motorcycle_id.data and form.entry_date.data:
         previous_fuel = get_previous_fuel_entry(form.motorcycle_id.data, form.entry_date.data)
@@ -288,21 +268,23 @@ def add_fuel():
                 'odo': f"{previous_fuel.odometer_reading:,}km"
             }
     return render_template('fuel_form.html', form_action='add', form=form, gas_station_brands=GAS_STATION_BRANDS, previous_entry_info=previous_entry_info)
-    # --- ▲▲▲ ここまで修正 ▲▲▲ ---
+
 
 @fuel_bp.route('/<int:entry_id>/edit', methods=['GET', 'POST'])
-@limiter.limit("30 per hour") # ▼▼▼ 変更 ▼▼▼
-@login_required_custom
+@limiter.limit("30 per hour")
+@login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def edit_fuel(entry_id):
+    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
     entry = FuelEntry.query.join(Motorcycle).filter(
         FuelEntry.id == entry_id,
-        Motorcycle.user_id == g.user.id,
+        Motorcycle.user_id == current_user.id,
         Motorcycle.is_racer == False
     ).first_or_404()
     
     form = FuelForm(obj=entry)
 
-    user_motorcycles_for_fuel = Motorcycle.query.filter_by(user_id=g.user.id, is_racer=False).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
+    user_motorcycles_for_fuel = Motorcycle.query.filter_by(user_id=current_user.id, is_racer=False).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
+    # ▲▲▲ 変更ここまで ▲▲▲
     form.motorcycle_id.choices = [(m.id, f"{m.name} ({m.maker or 'メーカー不明'})") for m in user_motorcycles_for_fuel]
     
     if request.method == 'GET':
@@ -310,7 +292,9 @@ def edit_fuel(entry_id):
         form.input_mode.data = False 
     
     if form.validate_on_submit():
-        new_motorcycle = Motorcycle.query.filter_by(id=form.motorcycle_id.data, user_id=g.user.id, is_racer=False).first()
+        # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
+        new_motorcycle = Motorcycle.query.filter_by(id=form.motorcycle_id.data, user_id=current_user.id, is_racer=False).first()
+        # ▲▲▲ 変更ここまで ▲▲▲
         if not new_motorcycle:
             flash('選択された車両が見つからないか、給油記録の対象外です。再度お試しください。', 'danger')
             return render_template('fuel_form.html', form_action='edit', form=form, entry_id=entry.id, gas_station_brands=GAS_STATION_BRANDS)
@@ -373,8 +357,6 @@ def edit_fuel(entry_id):
     elif request.method == 'POST':
         flash('入力内容にエラーがあります。ご確認ください。', 'danger')
 
-    # --- ▼▼▼ ここから修正 ▼▼▼ ---
-    # render_templateにprevious_entry_infoを渡すロジックを復活させる
     previous_entry_info = None
     selected_motorcycle_id_for_prev = form.motorcycle_id.data if not form.motorcycle_id.errors else entry.motorcycle_id
     entry_date_for_prev = form.entry_date.data if not form.entry_date.errors else entry.entry_date
@@ -386,17 +368,19 @@ def edit_fuel(entry_id):
                 'odo': f"{previous_fuel.odometer_reading:,}km"
             }
     return render_template('fuel_form.html', form_action='edit', form=form, entry_id=entry.id, gas_station_brands=GAS_STATION_BRANDS, previous_entry_info=previous_entry_info)
-    # --- ▲▲▲ ここまで修正 ▲▲▲ ---
+
 
 @fuel_bp.route('/<int:entry_id>/delete', methods=['POST'])
-@limiter.limit("30 per hour") # ▼▼▼ 変更 ▼▼▼
-@login_required_custom
+@limiter.limit("30 per hour")
+@login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def delete_fuel(entry_id):
+    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
     entry = FuelEntry.query.join(Motorcycle).filter(
         FuelEntry.id == entry_id,
-        Motorcycle.user_id == g.user.id,
+        Motorcycle.user_id == current_user.id,
         Motorcycle.is_racer == False
     ).first_or_404()
+    # ▲▲▲ 変更ここまで ▲▲▲
     try:
         db.session.delete(entry)
         db.session.commit()
@@ -408,9 +392,11 @@ def delete_fuel(entry_id):
     return redirect(url_for('fuel.fuel_log'))
 
 @fuel_bp.route('/motorcycle/<int:motorcycle_id>/export_csv')
-@login_required_custom
+@login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def export_fuel_records_csv(motorcycle_id):
-    motorcycle = Motorcycle.query.filter_by(id=motorcycle_id, user_id=g.user.id, is_racer=False).first_or_404()
+    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
+    motorcycle = Motorcycle.query.filter_by(id=motorcycle_id, user_id=current_user.id, is_racer=False).first_or_404()
+    # ▲▲▲ 変更ここまで ▲▲▲
     fuel_records = FuelEntry.query.filter_by(motorcycle_id=motorcycle.id).order_by(FuelEntry.entry_date.asc(), FuelEntry.total_distance.asc()).all()
     if not fuel_records:
         flash(f'{motorcycle.name}にはエクスポート対象の燃費記録がありません。', 'info')
@@ -431,9 +417,11 @@ def export_fuel_records_csv(motorcycle_id):
     return Response(output.getvalue(), mimetype="text/csv", headers={"Content-Disposition": f"attachment;filename=\"{filename}\"", "Content-Type": "text/csv; charset=utf-8-sig"})
 
 @fuel_bp.route('/export_all_csv')
-@login_required_custom
+@login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def export_all_fuel_records_csv():
-    user_motorcycles_for_fuel = Motorcycle.query.filter_by(user_id=g.user.id, is_racer=False).all()
+    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
+    user_motorcycles_for_fuel = Motorcycle.query.filter_by(user_id=current_user.id, is_racer=False).all()
+    # ▲▲▲ 変更ここまで ▲▲▲
     if not user_motorcycles_for_fuel:
         flash('エクスポート対象の車両（公道車）が登録されていません。', 'info')
         return redirect(url_for('fuel.fuel_log'))
@@ -480,7 +468,7 @@ def export_all_fuel_records_csv():
     )
 
 @fuel_bp.route('/get-previous-entry', methods=['GET'])
-@login_required_custom
+@login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def get_previous_entry_api():
     motorcycle_id = request.args.get('motorcycle_id', type=int)
     entry_date_str = request.args.get('entry_date')

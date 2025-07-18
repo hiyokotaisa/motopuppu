@@ -5,7 +5,7 @@ from collections import defaultdict
 from decimal import Decimal
 
 from flask import (
-    flash, g, redirect, render_template, request, url_for, abort, current_app
+    flash, redirect, render_template, request, url_for, abort, current_app
 )
 from sqlalchemy.orm import joinedload
 from sqlalchemy import func
@@ -18,9 +18,10 @@ from ...utils.lap_time_utils import (
 )
 from ...constants import SETTING_KEY_MAP
 
-# 他に必要なインポート
-from .activity_routes import get_motorcycle_or_404 # ヘルパー関数をインポート
-from ..auth import login_required_custom
+# ▼▼▼ インポート文を修正 ▼▼▼
+from .activity_routes import get_motorcycle_or_404
+from flask_login import login_required, current_user
+# ▲▲▲ 変更ここまで ▲▲▲
 from ...models import db, ActivityLog, SessionLog
 from ...forms import SessionLogForm, LapTimeImportForm
 from ...parsers import get_parser
@@ -37,7 +38,6 @@ def _prepare_comparison_data(sessions):
     max_laps = 0
     chart_colors = ['rgb(75, 192, 192)', 'rgb(255, 99, 132)', 'rgb(54, 162, 235)', 'rgb(255, 205, 86)']
     
-    # 1a. 各セッションのタイムを秒で計算し、一時的に保存
     session_stats_raw = []
     for i, session in enumerate(sessions):
         best_str, avg_str, _ = calculate_lap_stats(session.lap_times)
@@ -51,7 +51,6 @@ def _prepare_comparison_data(sessions):
             'avg_sec': avg_sec
         })
         
-        # グラフ用データ作成
         lap_seconds = [s for s in (parse_time_to_seconds(t) for t in session.lap_times or []) if s]
         if lap_seconds:
             max_laps = max(max_laps, len(lap_seconds))
@@ -63,25 +62,21 @@ def _prepare_comparison_data(sessions):
             })
     lap_analysis['chart_data']['labels'] = [f"Lap {i+1}" for i in range(max_laps)]
 
-    # 1b. 全セッション中のベストタイムと平均タイムの最小値を見つける
     valid_best_laps = [s['best_sec'] for s in session_stats_raw if s['best_sec'] is not None]
     min_best_sec = min(valid_best_laps) if valid_best_laps else None
     
     valid_avg_laps = [s['avg_sec'] for s in session_stats_raw if s['avg_sec'] is not None]
     min_avg_sec = min(valid_avg_laps) if valid_avg_laps else None
 
-    # 1c. 最終的な統計データを作成（差分計算を含む）
     for stats in session_stats_raw:
         session_id = stats['id']
         
-        # ベストラップの差分
         best_diff_str = ''
         if min_best_sec is not None and stats['best_sec'] is not None:
             diff = stats['best_sec'] - min_best_sec
             if diff > 0:
                 best_diff_str = f"+{diff:.3f}"
 
-        # 平均ラップの差分
         avg_diff_str = ''
         if min_avg_sec is not None and stats['avg_sec'] is not None:
             diff = stats['avg_sec'] - min_avg_sec
@@ -148,7 +143,7 @@ def _prepare_comparison_data(sessions):
 
 
 @activity_bp.route('/compare', methods=['GET'])
-@login_required_custom
+@login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def compare_sessions():
     vehicle_id = request.args.get('vehicle_id', type=int)
     session_ids = request.args.getlist('session_ids', type=int)
@@ -187,7 +182,7 @@ def compare_sessions():
                            setting_key_map=SETTING_KEY_MAP)
 
 @activity_bp.route('/<int:vehicle_id>/best_settings')
-@login_required_custom
+@login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def best_settings_finder(vehicle_id):
     motorcycle = get_motorcycle_or_404(vehicle_id)
 
@@ -226,17 +221,18 @@ def best_settings_finder(vehicle_id):
 
 @activity_bp.route('/session/<int:session_id>/edit', methods=['GET', 'POST'])
 @limiter.limit("30 per hour")
-@login_required_custom
+@login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def edit_session(session_id):
+    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
     session = SessionLog.query.options(joinedload(SessionLog.activity).joinedload(ActivityLog.motorcycle))\
                                .join(ActivityLog)\
-                               .filter(SessionLog.id == session_id, ActivityLog.user_id == g.user.id)\
+                               .filter(SessionLog.id == session_id, ActivityLog.user_id == current_user.id)\
                                .first_or_404()
+    # ▲▲▲ 変更ここまで ▲▲▲
 
     motorcycle = session.activity.motorcycle
     form = SessionLogForm(obj=session)
     
-    # This needs to be imported here to avoid circular dependency at top level
     from ...models import SettingSheet
     setting_sheets = SettingSheet.query.filter_by(motorcycle_id=motorcycle.id, is_archived=False).order_by(SettingSheet.sheet_name).all()
     form.setting_sheet_id.choices = [(s.id, s.sheet_name) for s in setting_sheets]
@@ -284,9 +280,11 @@ def edit_session(session_id):
 
 @activity_bp.route('/session/<int:session_id>/delete', methods=['POST'])
 @limiter.limit("30 per hour")
-@login_required_custom
+@login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def delete_session(session_id):
-    session = SessionLog.query.join(ActivityLog).filter(SessionLog.id == session_id, ActivityLog.user_id == g.user.id).first_or_404()
+    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
+    session = SessionLog.query.join(ActivityLog).filter(SessionLog.id == session_id, ActivityLog.user_id == current_user.id).first_or_404()
+    # ▲▲▲ 変更ここまで ▲▲▲
     activity_id = session.activity_log_id
     try:
         db.session.delete(session)
@@ -301,9 +299,11 @@ def delete_session(session_id):
 
 @activity_bp.route('/session/<int:session_id>/import_laps', methods=['POST'])
 @limiter.limit("10 per hour")
-@login_required_custom
+@login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def import_laps(session_id):
-    session = SessionLog.query.join(ActivityLog).filter(SessionLog.id == session_id, ActivityLog.user_id == g.user.id).first_or_404()
+    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
+    session = SessionLog.query.join(ActivityLog).filter(SessionLog.id == session_id, ActivityLog.user_id == current_user.id).first_or_404()
+    # ▲▲▲ 変更ここまで ▲▲▲
     form = LapTimeImportForm()
 
     if form.validate_on_submit():

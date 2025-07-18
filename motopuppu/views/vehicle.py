@@ -1,65 +1,66 @@
 # motopuppu/views/vehicle.py
 from flask import (
-    Blueprint, flash, g, redirect, render_template, request, url_for, abort, current_app
+    Blueprint, flash, redirect, render_template, request, url_for, abort, current_app
 )
 from datetime import date, datetime, timezone
-from zoneinfo import ZoneInfo # Python 3.9+
+from zoneinfo import ZoneInfo
 from sqlalchemy import func
+# ▼▼▼ インポート文を修正 ▼▼▼
+from flask_login import login_required, current_user
+# ▲▲▲ 変更ここまで ▲▲▲
 from ..models import db, User, Motorcycle, MaintenanceReminder, OdoResetLog, MaintenanceEntry, ActivityLog
-from .auth import login_required_custom, get_current_user
 from ..forms import VehicleForm, OdoResetLogForm
 from ..achievement_evaluator import check_achievements_for_event, EVENT_ADD_VEHICLE, EVENT_ADD_ODO_RESET
-# ▼▼▼ servicesモジュールとlimiterをインポート ▼▼▼
 from .. import services, limiter
-# ▲▲▲ ここまで追加 ▲▲▲
+
 
 vehicle_bp = Blueprint('vehicle', __name__, url_prefix='/vehicles')
 
 # --- ルート定義 ---
 @vehicle_bp.route('/')
-@login_required_custom
+@login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def vehicle_list():
     activity_counts_subquery = db.session.query(
         ActivityLog.motorcycle_id,
         func.count(ActivityLog.id).label('activity_log_count')
     ).group_by(ActivityLog.motorcycle_id).subquery()
 
+    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
     motorcycles_with_counts = db.session.query(
         Motorcycle,
         activity_counts_subquery.c.activity_log_count
     ).outerjoin(
         activity_counts_subquery, Motorcycle.id == activity_counts_subquery.c.motorcycle_id
     ).filter(
-        Motorcycle.user_id == g.user.id
+        Motorcycle.user_id == current_user.id
     ).order_by(
         Motorcycle.is_default.desc(), Motorcycle.name
     ).all()
+    # ▲▲▲ 変更ここまで ▲▲▲
 
     user_motorcycles = []
     for motorcycle, count in motorcycles_with_counts:
         motorcycle.activity_log_count = count or 0
-        # ▼▼▼ ここで事前に平均燃費を計算してオブジェクトにセットする ▼▼▼
         if not motorcycle.is_racer:
             motorcycle.avg_kpl = services.calculate_average_kpl(motorcycle)
         else:
-            motorcycle.avg_kpl = None # レーサーの場合はNoneをセット
-        # ▲▲▲ ここまで修正 ▲▲▲
+            motorcycle.avg_kpl = None
         user_motorcycles.append(motorcycle)
 
     return render_template('vehicles.html', motorcycles=user_motorcycles)
 
-# (以降の add_vehicle, edit_vehicle などの関数は変更ありません)
-# ... add_vehicle 以降のコードは元のまま ...
 @vehicle_bp.route('/add', methods=['GET', 'POST'])
 @limiter.limit("30 per hour")
-@login_required_custom
+@login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def add_vehicle():
     form = VehicleForm()
     current_year_for_validation = datetime.now(timezone.utc).year
 
     if form.validate_on_submit():
         MAX_VEHICLES = 100
-        vehicle_count_before_add = Motorcycle.query.filter_by(user_id=g.user.id).count()
+        # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
+        vehicle_count_before_add = Motorcycle.query.filter_by(user_id=current_user.id).count()
+        # ▲▲▲ 変更ここまで ▲▲▲
 
         if vehicle_count_before_add >= MAX_VEHICLES:
             flash(f'登録できる車両の上限 ({MAX_VEHICLES}台) に達しました。新しい車両を追加できません。', 'warning')
@@ -69,7 +70,9 @@ def add_vehicle():
         total_hours_data = form.total_operating_hours.data
 
         new_motorcycle = Motorcycle(
-            user_id=g.user.id,
+            # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
+            user_id=current_user.id,
+            # ▲▲▲ 変更ここまで ▲▲▲
             maker=form.maker.data.strip() if form.maker.data else None,
             name=form.name.data.strip(),
             year=form.year.data,
@@ -111,7 +114,9 @@ def add_vehicle():
 
             racer_vehicle_count_after_add = 0
             if new_motorcycle.is_racer:
-                    racer_vehicle_count_after_add = Motorcycle.query.filter_by(user_id=g.user.id, is_racer=True).count()
+                    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
+                    racer_vehicle_count_after_add = Motorcycle.query.filter_by(user_id=current_user.id, is_racer=True).count()
+                    # ▲▲▲ 変更ここまで ▲▲▲
 
             event_data_for_ach = {
                 'new_vehicle_id': new_motorcycle.id,
@@ -119,13 +124,17 @@ def add_vehicle():
                 'is_racer': new_motorcycle.is_racer,
                 'racer_vehicle_count_after_add': racer_vehicle_count_after_add
             }
-            check_achievements_for_event(g.user, EVENT_ADD_VEHICLE, event_data=event_data_for_ach)
+            # ▼▼▼ g.user を current_user に変更 ▼▼▼
+            check_achievements_for_event(current_user, EVENT_ADD_VEHICLE, event_data=event_data_for_ach)
+            # ▲▲▲ 変更ここまで ▲▲▲
             
             return redirect(url_for('vehicle.vehicle_list'))
         except Exception as e:
             db.session.rollback()
             flash(f'車両の登録中にエラーが発生しました。詳細は管理者にお問い合わせください。', 'error')
-            current_app.logger.error(f"Error adding vehicle for user {g.user.id}: {e}", exc_info=True)
+            # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
+            current_app.logger.error(f"Error adding vehicle for user {current_user.id}: {e}", exc_info=True)
+            # ▲▲▲ 変更ここまで ▲▲▲
 
     elif request.method == 'POST':
         flash('入力内容にエラーがあります。ご確認ください。', 'danger')
@@ -138,9 +147,11 @@ def add_vehicle():
 
 @vehicle_bp.route('/<int:vehicle_id>/edit', methods=['GET', 'POST'])
 @limiter.limit("30 per hour")
-@login_required_custom
+@login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def edit_vehicle(vehicle_id):
-    motorcycle = Motorcycle.query.filter_by(id=vehicle_id, user_id=g.user.id).first_or_404()
+    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
+    motorcycle = Motorcycle.query.filter_by(id=vehicle_id, user_id=current_user.id).first_or_404()
+    # ▲▲▲ 変更ここまで ▲▲▲
     original_is_racer = motorcycle.is_racer
     form = VehicleForm(obj=motorcycle)
     odo_form = OdoResetLogForm()
@@ -196,9 +207,11 @@ def edit_vehicle(vehicle_id):
 
 @vehicle_bp.route('/<int:vehicle_id>/delete', methods=['POST'])
 @limiter.limit("30 per hour")
-@login_required_custom
+@login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def delete_vehicle(vehicle_id):
-    motorcycle = Motorcycle.query.filter_by(id=vehicle_id, user_id=g.user.id).first_or_404()
+    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
+    motorcycle = Motorcycle.query.filter_by(id=vehicle_id, user_id=current_user.id).first_or_404()
+    # ▲▲▲ 変更ここまで ▲▲▲
     try:
         was_default = motorcycle.is_default
         vehicle_name = motorcycle.name
@@ -206,7 +219,9 @@ def delete_vehicle(vehicle_id):
         OdoResetLog.query.filter_by(motorcycle_id=motorcycle.id).delete(synchronize_session=False)
         db.session.delete(motorcycle)
         if was_default:
-                other_vehicle = Motorcycle.query.filter(Motorcycle.user_id == g.user.id).order_by(Motorcycle.id).first()
+                # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
+                other_vehicle = Motorcycle.query.filter(Motorcycle.user_id == current_user.id).order_by(Motorcycle.id).first()
+                # ▲▲▲ 変更ここまで ▲▲▲
                 if other_vehicle:
                     other_vehicle.is_default = True
         db.session.commit()
@@ -219,11 +234,12 @@ def delete_vehicle(vehicle_id):
 
 @vehicle_bp.route('/<int:vehicle_id>/set_default', methods=['POST'])
 @limiter.limit("30 per hour")
-@login_required_custom
+@login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def set_default_vehicle(vehicle_id):
-    target_vehicle = Motorcycle.query.filter_by(id=vehicle_id, user_id=g.user.id).first_or_404()
+    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
+    target_vehicle = Motorcycle.query.filter_by(id=vehicle_id, user_id=current_user.id).first_or_404()
     try:
-        Motorcycle.query.filter(Motorcycle.user_id == g.user.id, Motorcycle.id != vehicle_id).update({'is_default': False}, synchronize_session='fetch')
+        Motorcycle.query.filter(Motorcycle.user_id == current_user.id, Motorcycle.id != vehicle_id).update({'is_default': False}, synchronize_session='fetch')
         target_vehicle.is_default = True
         db.session.commit()
         flash(f'車両「{target_vehicle.name}」をデフォルトに設定しました。', 'success')
@@ -231,13 +247,16 @@ def set_default_vehicle(vehicle_id):
         db.session.rollback()
         flash(f'デフォルト車両の設定中にエラーが発生しました: {e}', 'danger')
         current_app.logger.error(f"Error setting default vehicle ID {vehicle_id}: {e}", exc_info=True)
+    # ▲▲▲ 変更ここまで ▲▲▲
     return redirect(url_for('vehicle.vehicle_list'))
 
 @vehicle_bp.route('/<int:vehicle_id>/odo_reset_log/add', methods=['GET', 'POST'])
 @limiter.limit("30 per hour")
-@login_required_custom
+@login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def add_odo_reset_log(vehicle_id):
-    motorcycle = Motorcycle.query.filter_by(id=vehicle_id, user_id=g.user.id).first_or_404()
+    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
+    motorcycle = Motorcycle.query.filter_by(id=vehicle_id, user_id=current_user.id).first_or_404()
+    # ▲▲▲ 変更ここまで ▲▲▲
     if motorcycle.is_racer:
         flash('レーサー車両にはODOメーターリセット機能はご利用いただけません。', 'warning')
         return redirect(url_for('vehicle.edit_vehicle', vehicle_id=motorcycle.id))
@@ -266,7 +285,9 @@ def add_odo_reset_log(vehicle_id):
             db.session.commit()
             flash(f'{new_odo_log.reset_date.strftime("%Y年%m月%d日")}の過去のリセット履歴を追加しました (オフセット増分: {offset_increment_this_time:,} km)。現在の累積オフセット: {motorcycle.odometer_offset:,} km。', 'success')
             event_data_for_ach = {'new_odo_log_id': new_odo_log.id, 'motorcycle_id': motorcycle.id}
-            check_achievements_for_event(g.user, EVENT_ADD_ODO_RESET, event_data=event_data_for_ach)
+            # ▼▼▼ g.user を current_user に変更 ▼▼▼
+            check_achievements_for_event(current_user, EVENT_ADD_ODO_RESET, event_data=event_data_for_ach)
+            # ▲▲▲ 変更ここまで ▲▲▲
             return redirect(url_for('vehicle.edit_vehicle', vehicle_id=motorcycle.id))
         except Exception as e:
                 db.session.rollback()
@@ -289,12 +310,14 @@ def add_odo_reset_log(vehicle_id):
 
 @vehicle_bp.route('/odo_reset_log/<int:log_id>/delete', methods=['POST'])
 @limiter.limit("30 per hour")
-@login_required_custom
+@login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def delete_odo_reset_log(log_id):
+    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
     log_to_delete = db.session.query(OdoResetLog).join(Motorcycle).filter(
         OdoResetLog.id == log_id,
-        Motorcycle.user_id == g.user.id
+        Motorcycle.user_id == current_user.id
     ).first_or_404()
+    # ▲▲▲ 変更ここまで ▲▲▲
     motorcycle = log_to_delete.motorcycle
     if motorcycle.is_racer:
         flash('不正な操作です。レーサー車両にODOリセットログは存在しません。', 'danger')
@@ -315,12 +338,14 @@ def delete_odo_reset_log(log_id):
 
 @vehicle_bp.route('/odo_reset_log/<int:log_id>/edit', methods=['GET', 'POST'])
 @limiter.limit("30 per hour")
-@login_required_custom
+@login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def edit_odo_reset_log(log_id):
+    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
     log_to_edit = db.session.query(OdoResetLog).join(Motorcycle).filter(
         OdoResetLog.id == log_id,
-        Motorcycle.user_id == g.user.id
+        Motorcycle.user_id == current_user.id
     ).first_or_404()
+    # ▲▲▲ 変更ここまで ▲▲▲
     motorcycle = log_to_edit.motorcycle
     if motorcycle.is_racer:
         flash('不正な操作です。レーサー車両のODOリセットログは編集できません。', 'danger')

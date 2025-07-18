@@ -61,9 +61,9 @@
 {% block content %}
 {# --- ヘッダー --- #}
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-    {# --- ▼▼▼ ここを変更 ▼▼▼ --- #}
-    <h1 class="h2">{% if g.user %}ようこそ、{{ g.user.display_name or g.user.misskey_username }}さん{% else %}ダッシュボード{% endif %}</h1>
-    {# --- ▲▲▲ ここまで変更 ▲▲▲ --- #}
+    {# ▼▼▼ g.user を current_user に変更 ▼▼▼ #}
+    <h1 class="h2">{% if current_user.is_authenticated %}ようこそ、{{ current_user.display_name or current_user.misskey_username }}さん{% else %}ダッシュボード{% endif %}</h1>
+    {# ▲▲▲ 変更ここまで ▲▲▲ #}
     <div class="btn-toolbar mb-2 mb-md-0">
         <div class="btn-group me-2">
             <a href="{{ url_for('fuel.add_fuel') }}" class="btn btn-sm btn-success"><i class="fas fa-gas-pump me-1"></i> 給油記録を追加</a>
@@ -107,9 +107,7 @@
                         <div class="text-end small">
                             <div class="text-muted">目安: {{ reminder.due_info if reminder.due_info else '未設定' }}</div>
                             <div class="text-muted mb-1">最終実施: {{ reminder.last_done }}</div>
-                            {# --- ▼▼▼ ここを修正 ▼▼▼ --- #}
                             <a href="{{ url_for('reminder.edit_reminder', reminder_id=reminder['reminder_id']) }}" class="btn btn-sm btn-outline-secondary py-0 px-1 me-1" title="リマインダー設定を編集"><i class="fas fa-cog fa-xs"></i> 設定</a>
-                            {# --- ▲▲▲ ここまで修正 ▲▲▲ --- #}
                             {% if not reminder.is_racer %}
                                 <a href="{{ url_for('maintenance.add_maintenance', motorcycle_id=reminder.motorcycle_id) }}" class="btn btn-sm btn-outline-success py-0 px-1" title="この車両の整備記録を追加"><i class="fas fa-tools fa-xs"></i> 記録追加</a>
                             {% else %}
@@ -124,7 +122,7 @@
 </div>
 {% endif %}
 
-{# --- 統計情報セクション (以下、変更なし) --- #}
+{# --- 統計情報セクション (変更なし) --- #}
 {% if dashboard_stats %}
 <div class="card mb-4">
     <div class="card-header">
@@ -258,9 +256,7 @@
                                 {% endif %}
                             </span>
                             <div class="btn-group btn-group-sm">
-                                {# --- ▼▼▼ ここにボタンを追加 ▼▼▼ --- #}
                                 <a href="{{ url_for('activity.list_activities', vehicle_id=motorcycle_item.id) }}" class="btn btn-outline-info" title="この車両の活動ログを閲覧"><i class="fas fa-flag-checkered"></i></a>
-                                {# --- ▲▲▲ 追加はここまで ▲▲▲ --- #}
                                 {% if not motorcycle_item.is_racer %}
                                     <a href="{{ url_for('fuel.add_fuel', motorcycle_id=motorcycle_item.id) }}" class="btn btn-outline-success" title="この車両の給油記録を追加"><i class="fas fa-gas-pump"></i></a>
                                     <a href="{{ url_for('maintenance.add_maintenance', motorcycle_id=motorcycle_item.id) }}" class="btn btn-outline-warning" title="この車両の整備記録を追加"><i class="fas fa-tools"></i></a>
@@ -507,7 +503,6 @@ document.addEventListener('DOMContentLoaded', function() {
                             (props.location ? `<dt>場所:</dt><dd>${escapeHtml(props.location)}</dd>` : '') +
                             (props.notes ? `<dt>メモ:</dt><dd style="white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(props.notes)}</dd>` : '') +
                             `</dl>`;
-                    // --- ▼▼▼ ここから変更 ▼▼▼ ---
                     } else if (props.type === 'activity') {
                         let racerBadge = props.isRacer ? ' <span class="badge bg-info text-dark small">レーサー</span>' : '';
                         popoverTitle = `🏁 ${escapeHtml(props.activityTitle)} (${escapeHtml(props.motorcycleName || '車両不明')}${racerBadge})`;
@@ -518,7 +513,6 @@ document.addEventListener('DOMContentLoaded', function() {
                             (props.temperature ? `<dt>気温:</dt><dd>${escapeHtml(props.temperature)}</dd>` : '') +
                             (props.notes ? `<dt>メモ:</dt><dd style="white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(props.notes)}</dd>` : '') +
                             `</dl>`;
-                    // --- ▲▲▲ ここまで変更 ▲▲▲ ---
                     } else if (props.type === 'note') {
                         let noteTitle = props.title || '(無題のノート)';
                         let racerBadge = props.isRacer ? ' <span class="badge bg-info text-dark small">レーサー</span>' : '';
