@@ -6,14 +6,12 @@ from wtforms.validators import DataRequired, Optional, NumberRange, Length, Vali
 from datetime import date, datetime
 from wtforms_sqlalchemy.fields import QuerySelectField
 
-# ▼▼▼ 定義を削除し、constantsモジュールからインポートする ▼▼▼
 from .constants import (
     FUEL_TYPE_CHOICES,
     NOTE_CATEGORIES,
     MAX_TODO_ITEMS,
     JAPANESE_CIRCUITS
 )
-# ▲▲▲ ここまで変更 ▲▲▲
 
 
 class FuelForm(FlaskForm):
@@ -79,7 +77,6 @@ class FuelForm(FlaskForm):
     )
     fuel_type = SelectField(
         '油種',
-        # ▼▼▼ choicesの直接参照をやめる（__init__で設定）▼▼▼
         validators=[Optional()]
     )
     is_full_tank = BooleanField(
@@ -100,19 +97,13 @@ class FuelForm(FlaskForm):
     def __init__(self, *args, **kwargs):
         super(FuelForm, self).__init__(*args, **kwargs)
         
-        # ▼▼▼ インポートした定数からchoicesを設定する ▼▼▼
         self.fuel_type.choices = list(FUEL_TYPE_CHOICES)
 
-        # フォームにDBオブジェクトが渡された場合 (編集時) の処理
         entry_obj = kwargs.get('obj')
         if entry_obj and entry_obj.fuel_type:
             existing_fuel_type = entry_obj.fuel_type
-            # 現在の選択肢の値のリストを取得
             choice_values = [choice[0] for choice in self.fuel_type.choices]
-            # DBに保存されている値が現在の選択肢にない場合
             if existing_fuel_type not in choice_values:
-                # 既存の選択肢の先頭から2番目（'--- 選択してください ---'の後）に、
-                # DBの値を(値, ラベル)のタプル形式で追加する
                 self.fuel_type.choices.insert(1, (existing_fuel_type, existing_fuel_type))
 
 
@@ -134,7 +125,7 @@ class MaintenanceForm(FlaskForm):
     odometer_reading_at_maintenance = IntegerField(
         '整備時のODOメーター値 (km)',
         validators=[
-            Optional(), # DataRequiredから変更
+            Optional(),
             NumberRange(min=0, message='ODOメーター値は0以上で入力してください。')
         ],
         render_kw={"placeholder": "例: 20000"}
@@ -225,10 +216,10 @@ class VehicleForm(FlaskForm):
     )
     total_operating_hours = DecimalField(
         '現在の総稼働時間 (時間)',
-        places=2, # 小数点以下2桁
+        places=2,
         validators=[Optional(), NumberRange(min=0, message='総稼働時間は0以上で入力してください。')],
         render_kw={"placeholder": "例: 123.50"},
-        default=0.00 # フォーム表示時のデフォルト値
+        default=0.00
     )
     submit = SubmitField('登録する')
 
@@ -482,7 +473,6 @@ class ActivityLogForm(FlaskForm):
     )
     circuit_name = SelectField(
         'サーキット名',
-        # ▼▼▼ インポートした定数を使用する ▼▼▼
         choices=[('', '--- サーキットを選択 ---')] + [(c, c) for c in JAPANESE_CIRCUITS],
         validators=[Optional()]
     )
@@ -553,7 +543,6 @@ class SessionLogForm(FlaskForm):
     
     submit = SubmitField('セッションを記録')
 
-# ▼▼▼ 新しいフォームクラスを追記 ▼▼▼
 class TouringLogForm(FlaskForm):
     """ツーリングログ用のフォーム"""
     title = StringField('ツーリング名', validators=[DataRequired(), Length(max=200)])
@@ -565,7 +554,6 @@ class TouringLogForm(FlaskForm):
     scrapbook_note_ids = HiddenField('Scrapbook Note IDs JSON', validators=[Optional()])
 
     submit = SubmitField('保存する')
-# ▲▲▲ 追記ここまで ▲▲▲
 
 # --- イベント機能 (ここから) ---
 
@@ -638,3 +626,19 @@ class ParticipantForm(FlaskForm):
         default='attending'
     )
     submit = SubmitField('出欠を登録・更新する')
+
+# ▼▼▼ 以下をファイルの末尾に追記 ▼▼▼
+class MaintenanceSpecSheetForm(FlaskForm):
+    """整備情報シート用のフォーム"""
+    sheet_name = StringField(
+        'シート名',
+        validators=[
+            DataRequired(message='シート名は必須です。'),
+            Length(max=100, message='シート名は100文字以内で入力してください。')
+        ],
+        render_kw={"placeholder": "例: 標準スペック、サーキット用セット"}
+    )
+    # フロントエンドからJSON文字列を受け取るための隠しフィールド
+    spec_data = HiddenField('Spec Data JSON', validators=[Optional()])
+    submit = SubmitField('保存する')
+# ▲▲▲ 追記ここまで ▲▲▲

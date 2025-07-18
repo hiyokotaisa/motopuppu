@@ -66,7 +66,6 @@
                     {% if not motorcycle.is_racer %}
                     <li class="list-group-item d-flex justify-content-between align-items-center">
                         <span class="text-muted">平均燃費</span>
-                        {# ▼▼▼ motorcycle.get_display_average_kpl() を motorcycle.avg_kpl に変更 ▼▼▼ #}
                         {% set avg_kpl = motorcycle.avg_kpl %}
                         {% if avg_kpl is not none and avg_kpl > 0 %}
                             <strong>{{ "%.2f"|format(avg_kpl) }} km/L</strong>
@@ -106,6 +105,9 @@
                         <a href="{{ url_for('fuel.add_fuel', motorcycle_id=motorcycle.id) }}" class="btn btn-sm btn-outline-primary" title="給油記録を追加"><i class="fas fa-gas-pump"></i></a>
                         {% endif %}
                         <a href="{{ url_for('maintenance.add_maintenance', motorcycle_id=motorcycle.id) }}" class="btn btn-sm btn-outline-warning" title="整備記録を追加"><i class="fas fa-tools"></i></a>
+                        {# ▼▼▼ 以下を追記 ▼▼▼ #}
+                        <a href="{{ url_for('spec_sheet.list_sheets', vehicle_id=motorcycle.id) }}" class="btn btn-sm btn-outline-secondary" title="整備情報シート"><i class="fas fa-clipboard-list"></i></a>
+                        {# ▲▲▲ 追記ここまで ▲▲▲ #}
                         <a href="{{ url_for('notes.add_note', motorcycle_id=motorcycle.id) }}" class="btn btn-sm btn-outline-info" title="ノートを追加"><i class="fas fa-book"></i></a>
                         <a href="{{ url_for('activity.list_activities', vehicle_id=motorcycle.id) }}" class="btn btn-sm btn-outline-success" title="活動ログを閲覧・追加"><i class="fas fa-flag-checkered"></i></a>
                     </div>

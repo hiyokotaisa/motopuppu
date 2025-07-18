@@ -1,0 +1,200 @@
+{# motopuppu/templates/spec_sheet/sheet_form.html #}
+{% extends "base.html" %}
+
+{% set page_title = "新しい整備情報シートの作成" if form_action == 'create' else "整備情報シートの編集" %}
+{% block title %}{{ page_title }} ({{ motorcycle.name }}) - もとぷっぷー{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center mb-3">
+    <a href="{{ url_for('spec_sheet.list_sheets', vehicle_id=motorcycle.id) }}" class="btn btn-sm btn-outline-secondary me-3" title="シート一覧へ戻る">
+        <i class="fas fa-arrow-left"></i>
+    </a>
+    <div>
+        <h2 class="mb-0">{{ page_title }}</h2>
+        <p class="text-muted mb-0">{{ motorcycle.name }}</p>
+    </div>
+</div>
+
+<form method="POST" id="spec-sheet-form">
+    {{ form.hidden_tag() }} {# CSRFトークンとspec_data隠しフィールド #}
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="mb-3">
+                {{ form.sheet_name.label(class="form-label") }}
+                {{ form.sheet_name(class="form-control" + (" is-invalid" if form.sheet_name.errors else ""), placeholder="例: 標準スペック、サーキット用セット") }}
+                {% if form.sheet_name.errors %}
+                    <div class="invalid-feedback">{{ form.sheet_name.errors[0] }}</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="accordion" id="spec-categories-accordion">
+        {# JavaScriptで定義されたカテゴリがここに挿入される #}
+    </div>
+
+    <div class="mt-4">
+        <button type="submit" class="btn btn-primary">{{ form.submit.label.text }}</button>
+        <a href="{{ url_for('spec_sheet.list_sheets', vehicle_id=motorcycle.id) }}" class="btn btn-secondary">キャンセル</a>
+    </div>
+</form>
+
+{# --- カテゴリのアコーディオン項目のテンプレート --- #}
+<template id="category-template">
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="heading-{categoryId}">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{categoryId}" aria-expanded="false" aria-controls="collapse-{categoryId}">
+                <i class="fas {iconClass} fa-fw me-2"></i>{categoryTitle}
+            </button>
+        </h2>
+        <div id="collapse-{categoryId}" class="accordion-collapse collapse" aria-labelledby="heading-{categoryId}" data-bs-parent="#spec-categories-accordion">
+            <div class="accordion-body">
+                <div class="groups-container">
+                    {# ここにサブカテゴリのグループが追加される #}
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-secondary mt-2 add-group-btn">
+                    <i class="fas fa-plus me-1"></i> グループを追加
+                </button>
+            </div>
+        </div>
+    </div>
+</template>
+
+{# --- サブカテゴリ（グループ）のテンプレート --- #}
+<template id="group-template">
+    <div class="border rounded p-3 mb-3 spec-group">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <input type="text" class="form-control form-control-sm w-50 group-name" placeholder="グループ名 (例: エンジン)">
+            <button type="button" class="btn-close remove-group-btn" aria-label="このグループを削除"></button>
+        </div>
+        <div class="items-container ps-3">
+            {# ここにスペック項目が追加される #}
+        </div>
+        <button type="button" class="btn btn-sm btn-outline-success mt-2 ms-3 add-item-btn">
+            <i class="fas fa-plus me-1"></i> 項目を追加
+        </button>
+    </div>
+</template>
+
+{# --- スペック項目の入力欄テンプレート --- #}
+<template id="spec-item-template">
+    <div class="row g-2 mb-2 spec-item align-items-center">
+        <div class="col-5">
+            <input type="text" class="form-control form-control-sm item-key" placeholder="項目名 (例: ドレンボルト)">
+        </div>
+        <div class="col-5">
+            <input type="text" class="form-control form-control-sm item-value" placeholder="値 (例: 20 N・m)">
+        </div>
+        <div class="col-2 text-end">
+            <button type="button" class="btn btn-sm btn-outline-danger remove-item-btn" title="この項目を削除">
+                <i class="fas fa-trash"></i>
+            </button>
+        </div>
+    </div>
+</template>
+{% endblock %}
+
+
+{% block scripts %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const categories = [
+        { id: 'torque', title: '締め付けトルク', icon: 'fa-wrench' },
+        { id: 'fluids', title: '油脂類・液量', icon: 'fa-tint' },
+        { id: 'tires', title: 'タイヤ', icon: 'fa-dot-circle' },
+        { id: 'parts', title: '消耗品・品番', icon: 'fa-cogs' },
+        { id: 'suspension', title: 'サスペンション', icon: 'fa-sliders-h' },
+        { id: 'other', title: 'その他', icon: 'fa-info-circle' }
+    ];
+
+    const accordionContainer = document.getElementById('spec-categories-accordion');
+    const categoryTemplate = document.getElementById('category-template');
+    const groupTemplate = document.getElementById('group-template');
+    const specItemTemplate = document.getElementById('spec-item-template');
+    const specDataInput = document.getElementById('spec_data');
+    const form = document.getElementById('spec-sheet-form');
+
+    let initialData = {};
+    try {
+        initialData = JSON.parse(specDataInput.value || '{}');
+    } catch (e) {
+        console.error("Failed to parse initial spec data:", e);
+    }
+
+    function addSpecItem(container, key = '', value = '') {
+        const itemClone = specItemTemplate.content.cloneNode(true);
+        itemClone.querySelector('.item-key').value = key;
+        itemClone.querySelector('.item-value').value = value;
+        container.appendChild(itemClone);
+    }
+
+    function addGroup(container, groupName = '', items = []) {
+        const groupClone = groupTemplate.content.cloneNode(true);
+        groupClone.querySelector('.group-name').value = groupName;
+        const itemsContainer = groupClone.querySelector('.items-container');
+        items.forEach(item => addSpecItem(itemsContainer, item.key, item.value));
+        container.appendChild(groupClone);
+    }
+
+    categories.forEach(cat => {
+        let templateHtml = categoryTemplate.innerHTML.replace(/{categoryId}/g, cat.id)
+                                   .replace('{categoryTitle}', cat.title)
+                                   .replace('{iconClass}', cat.icon);
+        accordionContainer.insertAdjacentHTML('beforeend', templateHtml);
+
+        const groupsContainer = accordionContainer.querySelector(`#collapse-${cat.id} .groups-container`);
+        if (initialData[cat.id] && Array.isArray(initialData[cat.id])) {
+            initialData[cat.id].forEach(group => {
+                addGroup(groupsContainer, group.group_name, group.items);
+            });
+        }
+    });
+
+    accordionContainer.addEventListener('click', function(e) {
+        const target = e.target;
+        if (target.classList.contains('add-group-btn')) {
+            const groupsContainer = target.previousElementSibling;
+            addGroup(groupsContainer);
+        }
+        if (target.closest('.remove-group-btn')) {
+            target.closest('.spec-group').remove();
+        }
+        if (target.classList.contains('add-item-btn')) {
+            const itemsContainer = target.previousElementSibling;
+            addSpecItem(itemsContainer);
+        }
+        if (target.closest('.remove-item-btn')) {
+            target.closest('.spec-item').remove();
+        }
+    });
+
+    form.addEventListener('submit', function(e) {
+        const finalData = {};
+        categories.forEach(cat => {
+            const groups = [];
+            const groupsContainer = accordionContainer.querySelector(`#collapse-${cat.id} .groups-container`);
+            groupsContainer.querySelectorAll('.spec-group').forEach(groupEl => {
+                const groupName = groupEl.querySelector('.group-name').value.trim();
+                const items = [];
+                groupEl.querySelectorAll('.spec-item').forEach(itemEl => {
+                    const key = itemEl.querySelector('.item-key').value.trim();
+                    const value = itemEl.querySelector('.item-value').value.trim();
+                    if (key) {
+                        items.push({ key, value });
+                    }
+                });
+                if (groupName || items.length > 0) {
+                    groups.push({ group_name: groupName, items: items });
+                }
+            });
+            if (groups.length > 0) {
+                finalData[cat.id] = groups;
+            }
+        });
+        specDataInput.value = JSON.stringify(finalData);
+    });
+});
+</script>
+{% endblock %}

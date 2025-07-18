@@ -52,6 +52,10 @@ class Motorcycle(db.Model):
     setting_sheets = db.relationship('SettingSheet', backref='motorcycle', lazy='dynamic', cascade="all, delete-orphan")
     activity_logs = db.relationship('ActivityLog', backref='motorcycle', lazy='dynamic', order_by="desc(ActivityLog.activity_date)", cascade="all, delete-orphan")
 
+    # ▼▼▼ 以下を追記 ▼▼▼
+    maintenance_spec_sheets = db.relationship('MaintenanceSpecSheet', backref='motorcycle', lazy='dynamic', order_by="desc(MaintenanceSpecSheet.updated_at)", cascade="all, delete-orphan")
+    # ▲▲▲ 追記ここまで ▲▲▲
+
     def calculate_cumulative_offset_from_logs(self, target_date=None):
         if self.is_racer:
             return 0
@@ -68,6 +72,8 @@ class Motorcycle(db.Model):
 
     def __repr__(self):
         return f'<Motorcycle id={self.id} name={self.name}>'
+
+# ... (FuelEntry から TouringScrapbookEntry までは変更なし) ...
 
 class FuelEntry(db.Model):
     __tablename__ = 'fuel_entries'
@@ -364,10 +370,8 @@ class TouringLog(db.Model):
     # リレーションシップ
     owner = db.relationship('User', backref=db.backref('touring_logs', lazy='dynamic'))
     motorcycle = db.relationship('Motorcycle', backref=db.backref('touring_logs', lazy='dynamic'))
-    # ▼▼▼ lazy='dynamic' を削除 ▼▼▼
     spots = db.relationship('TouringSpot', backref='touring_log', cascade="all, delete-orphan", order_by="TouringSpot.order")
     scrapbook_entries = db.relationship('TouringScrapbookEntry', backref='touring_log', cascade="all, delete-orphan")
-    # ▲▲▲ 変更ここまで ▲▲▲
 
     def __repr__(self):
         return f'<TouringLog id={self.id} title="{self.title}">'
@@ -382,6 +386,9 @@ class TouringSpot(db.Model):
     memo = db.Column(db.Text, nullable=True)
     order = db.Column(db.Integer, nullable=False, default=0, comment="スポットの順序")
     photo_link_url = db.Column(db.String(2048), nullable=True, comment="外部の写真URL")
+    latitude = db.Column(db.Float, nullable=True, comment="緯度")
+    longitude = db.Column(db.Float, nullable=True, comment="経度")
+    google_place_id = db.Column(db.String(255), nullable=True, comment="Google Place ID")
 
     def __repr__(self):
         return f'<TouringSpot id={self.id} name="{self.spot_name}">'
@@ -398,3 +405,23 @@ class TouringScrapbookEntry(db.Model):
 
     def __repr__(self):
         return f'<TouringScrapbookEntry log_id={self.touring_log_id} note_id="{self.misskey_note_id}">'
+
+# ▼▼▼ 以下をファイルの末尾に追記 ▼▼▼
+class MaintenanceSpecSheet(db.Model):
+    __tablename__ = 'maintenance_spec_sheets'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    motorcycle_id = db.Column(db.Integer, db.ForeignKey('motorcycles.id', ondelete='CASCADE'), nullable=False)
+    sheet_name = db.Column(db.String(100), nullable=False, index=True)
+    spec_data = db.Column(JSONB, nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
+    updated_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now(), onupdate=db.func.now())
+
+    __table_args__ = (
+        Index('ix_maintenance_spec_sheets_user_id', 'user_id'),
+        Index('ix_maintenance_spec_sheets_motorcycle_id', 'motorcycle_id'),
+    )
+
+    def __repr__(self):
+        return f'<MaintenanceSpecSheet id={self.id} name="{self.sheet_name}">'
+# ▲▲▲ 追記ここまで ▲▲▲

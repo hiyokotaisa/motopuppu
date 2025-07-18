@@ -78,7 +78,7 @@
 6.  **現在のプロジェクトディレクトリ:**
 
     ```
-kyagisaw@hiyoko-pc:/mnt/c/Users/hiyoko/Dev/motopuppu$ tree
+kyagisaw@kyagisaw-mac motopuppu % tree
 .
 ├── announcements.json
 ├── compose.yml
@@ -116,18 +116,19 @@ kyagisaw@hiyoko-pc:/mnt/c/Users/hiyoko/Dev/motopuppu$ tree
 │       ├── cd7db2474a21_check_sync_after_fixing_relationship.py
 │       ├── d5b35174a1cb_add_display_name_to_user_model.py
 │       ├── df2ec8ec945c_add_last_done_odo_to_maintenancereminder.py
-│       └── f0c7fc2c92ad_add_auto_update_from_category_to_.py
+│       ├── f0c7fc2c92ad_add_auto_update_from_category_to_.py
+│       └── f2a7668dac26_add_maintenance_spec_sheet_table.py
 ├── motopuppu
+│   ├── __init__.py
 │   ├── achievement_evaluator.py
 │   ├── achievements_utils.py
 │   ├── constants.py
 │   ├── forms.py
-│   ├── __init__.py
 │   ├── manage_commands.py
 │   ├── models.py
 │   ├── parsers
-│   │   ├── base_parser.py
 │   │   ├── __init__.py
+│   │   ├── base_parser.py
 │   │   ├── mylaps_parser.py
 │   │   ├── simple_csv_parser.py
 │   │   └── ziix_parser.py
@@ -191,10 +192,14 @@ kyagisaw@hiyoko-pc:/mnt/c/Users/hiyoko/Dev/motopuppu$ tree
 │   │   ├── reminder
 │   │   │   ├── list_reminders.html
 │   │   │   └── reminder_form.html
+│   │   ├── spec_sheet
+│   │   │   ├── list_sheets.html
+│   │   │   ├── sheet_form.html
+│   │   │   └── view_sheet.html
 │   │   ├── touring
+│   │   │   ├── _misskey_note_card.html
 │   │   │   ├── detail_log.html
 │   │   │   ├── list_logs.html
-│   │   │   ├── _misskey_note_card.html
 │   │   │   └── touring_log_form.html
 │   │   ├── vehicle_form.html
 │   │   └── vehicles.html
@@ -204,8 +209,8 @@ kyagisaw@hiyoko-pc:/mnt/c/Users/hiyoko/Dev/motopuppu$ tree
 │   └── views
 │       ├── achievements.py
 │       ├── activity
-│       │   ├── activity_routes.py
 │       │   ├── __init__.py
+│       │   ├── activity_routes.py
 │       │   ├── session_routes.py
 │       │   └── setting_routes.py
 │       ├── auth.py
@@ -218,12 +223,14 @@ kyagisaw@hiyoko-pc:/mnt/c/Users/hiyoko/Dev/motopuppu$ tree
 │       ├── notes.py
 │       ├── profile.py
 │       ├── reminder.py
+│       ├── spec_sheet.py
 │       ├── touring.py
 │       └── vehicle.py
 ├── README.md
-└── requirements.txt
+├── requirements.txt
+└── tests
 
-25 directories, 118 files
+27 directories, 123 files
     ```
 
 7.  **今回のセッションでの目標 [毎回更新]:**

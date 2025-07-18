@@ -9,10 +9,8 @@ from flask_migrate import Migrate
 from flask_wtf.csrf import CSRFProtect
 import logging
 import subprocess
-# ▼▼▼ 変更 ▼▼▼
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-# ▲▲▲ 変更 ▲▲▲
 
 dotenv_path = os.path.join(os.path.dirname(__file__), '..', '.env')
 if os.path.exists(dotenv_path):
@@ -25,16 +23,12 @@ db = SQLAlchemy()
 migrate = Migrate()
 csrf = CSRFProtect()
 
-# ▼▼▼ 変更 ▼▼▼
-# ログインユーザーがいればユーザーIDを、いなければIPアドレスをキーにする関数
 def user_or_ip_key():
     if hasattr(g, 'user') and g.user is not None:
         return str(g.user.id)
     return get_remote_address()
 
-# Limiterのインスタンスを作成
 limiter = Limiter(key_func=user_or_ip_key)
-# ▲▲▲ 変更 ▲▲▲
 
 def create_app(config_name=None):
     """Flaskアプリケーションインスタンスを作成するファクトリ関数"""
@@ -42,9 +36,7 @@ def create_app(config_name=None):
 
     app.config.from_mapping(
         SECRET_KEY=os.environ.get('SECRET_KEY', 'dev-secret-key-replace-me'),
-        # ▼▼▼ 暗号化キーの読み込み設定を追記 ▼▼▼
         SECRET_CRYPTO_KEY=os.environ.get('SECRET_CRYPTO_KEY'),
-        # ▲▲▲ 追記ここまで ▲▲▲
         SQLALCHEMY_DATABASE_URI=os.environ.get('DATABASE_URI', f"sqlite:///{os.path.join(app.instance_path, 'app.db')}"),
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
         MAX_CONTENT_LENGTH = int(os.environ.get('MAX_CONTENT_LENGTH', 16)) * 1024 * 1024,
@@ -57,22 +49,17 @@ def create_app(config_name=None):
         MAINTENANCE_ENTRIES_PER_PAGE = int(os.environ.get('MAINTENANCE_ENTRIES_PER_PAGE', 20)),
         NOTES_PER_PAGE = int(os.environ.get('NOTES_PER_PAGE', 20)),
         ACTIVITIES_PER_PAGE = 10,
-        # ▼▼▼▼▼ ここから修正 ▼▼▼▼▼
-        # Google Places APIキーをFlaskのconfigに追加
         GOOGLE_PLACES_API_KEY=os.environ.get('GOOGLE_PLACES_API_KEY'),
-        # ▲▲▲▲▲ ここまで修正 ▲▲▲▲▲
     )
     if app.config['SECRET_KEY'] == 'dev-secret-key-replace-me' and app.config['ENV'] != 'development':
         app.logger.warning("CRITICAL: SECRET_KEY is set to the default development value in a non-development environment. This is a security risk!")
     elif app.config['SECRET_KEY'] == 'dev-secret-key-replace-me':
         print("Warning: SECRET_KEY is set to the default development value. Set it in .env for production!")
 
-    # ▼▼▼ 暗号化キーの存在チェックを追加 ▼▼▼
     if not app.config['SECRET_CRYPTO_KEY'] and app.config['ENV'] != 'development':
         app.logger.warning("CRITICAL: SECRET_CRYPTO_KEY is not set in a non-development environment. This is required for data encryption.")
     elif not app.config['SECRET_CRYPTO_KEY']:
         print("Warning: SECRET_CRYPTO_KEY is not set. Set it in .env for production!")
-    # ▲▲▲ 追記ここまで ▲▲▲
 
     log_level_name = os.environ.get('LOG_LEVEL', 'INFO').upper()
     log_level = getattr(logging, log_level_name, logging.INFO)
@@ -87,7 +74,7 @@ def create_app(config_name=None):
     db.init_app(app)
     migrate.init_app(app, db)
     csrf.init_app(app)
-    limiter.init_app(app) # ▼▼▼ 変更 ▼▼▼
+    limiter.init_app(app)
 
     from .utils.datetime_helpers import format_utc_to_jst_string
     app.jinja_env.filters['to_jst'] = format_utc_to_jst_string
@@ -103,11 +90,12 @@ def create_app(config_name=None):
             g.user_motorcycles = Motorcycle.query.filter_by(user_id=g.user.id).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
 
     try:
-        # ▼▼▼ touring をインポートリストに追加 ▼▼▼
         from .views import auth, main, vehicle, fuel, maintenance, notes, dev_auth, leaderboard, profile, reminder, event, touring
+        # ▼▼▼ 以下を追記 ▼▼▼
+        from .views import spec_sheet
+        # ▲▲▲ 追記ここまで ▲▲▲
         from .views import achievements as achievements_view
         from .views.activity import activity_bp
-        # ▲▲▲ 変更ここまで ▲▲▲
 
         app.register_blueprint(auth.auth_bp)
         app.register_blueprint(main.main_bp)
@@ -121,10 +109,11 @@ def create_app(config_name=None):
         app.register_blueprint(profile.profile_bp)
         app.register_blueprint(event.event_bp)
         app.register_blueprint(activity_bp)
-        
-        # ▼▼▼ 新しい touring_bp を登録 ▼▼▼
         app.register_blueprint(touring.touring_bp)
-        # ▲▲▲ 登録ここまで ▲▲▲
+        
+        # ▼▼▼ 以下を追記 ▼▼▼
+        app.register_blueprint(spec_sheet.spec_sheet_bp)
+        # ▲▲▲ 追記ここまで ▲▲▲
 
         if app.config['ENV'] == 'development' or app.debug: 
             app.register_blueprint(dev_auth.dev_auth_bp)
@@ -162,7 +151,7 @@ def create_app(config_name=None):
     def make_shell_context():
         # ▼▼▼ 新しいモデルをインポートリストと辞書に追加 ▼▼▼
         from .models import db, User, Motorcycle, FuelEntry, MaintenanceEntry, MaintenanceReminder, GeneralNote, OdoResetLog, AchievementDefinition, UserAchievement
-        from .models import SettingSheet, ActivityLog, SessionLog, Event, EventParticipant, TouringLog, TouringSpot, TouringScrapbookEntry
+        from .models import SettingSheet, ActivityLog, SessionLog, Event, EventParticipant, TouringLog, TouringSpot, TouringScrapbookEntry, MaintenanceSpecSheet
         return {
             'db': db, 'User': User, 'Motorcycle': Motorcycle, 'FuelEntry': FuelEntry,
             'MaintenanceEntry': MaintenanceEntry, 'MaintenanceReminder': MaintenanceReminder,
@@ -170,7 +159,8 @@ def create_app(config_name=None):
             'AchievementDefinition': AchievementDefinition, 'UserAchievement': UserAchievement,
             'SettingSheet': SettingSheet, 'ActivityLog': ActivityLog, 'SessionLog': SessionLog,
             'Event': Event, 'EventParticipant': EventParticipant,
-            'TouringLog': TouringLog, 'TouringSpot': TouringSpot, 'TouringScrapbookEntry': TouringScrapbookEntry
+            'TouringLog': TouringLog, 'TouringSpot': TouringSpot, 'TouringScrapbookEntry': TouringScrapbookEntry,
+            'MaintenanceSpecSheet': MaintenanceSpecSheet
         }
         # ▲▲▲ 変更ここまで ▲▲▲
 

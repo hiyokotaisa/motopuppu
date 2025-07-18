@@ -1,0 +1,110 @@
+{# motopuppu/templates/spec_sheet/list_sheets.html #}
+{% extends "base.html" %}
+
+{% block title %}整備情報シート ({{ motorcycle.name }}) - もとぷっぷー{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center mb-3">
+    <a href="{{ url_for('vehicle.vehicle_list') }}" class="btn btn-sm btn-outline-secondary me-3" title="車両管理へ戻る">
+        <i class="fas fa-arrow-left"></i>
+    </a>
+    <div>
+        <h2 class="mb-0">整備情報シート</h2>
+        <p class="text-muted mb-0">{{ motorcycle.name }}</p>
+    </div>
+</div>
+
+<p>この車両の整備に必要な技術情報（規定トルク、油脂類の量、純正部品品番など）を管理します。</p>
+
+{# --- フラッシュメッセージ表示 --- #}
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+            <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show" role="alert">
+                {{ message | safe }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
+
+<div class="mb-4">
+    <a href="{{ url_for('spec_sheet.create_sheet', vehicle_id=motorcycle.id) }}" class="btn btn-primary">
+        <i class="fas fa-plus me-1"></i> 新しいシートを作成
+    </a>
+</div>
+
+{% if sheets %}
+<div class="table-responsive">
+    <table class="table table-hover align-middle">
+        <thead class="table-light">
+            <tr>
+                <th>シート名</th>
+                <th>最終更新日時</th>
+                <th class="text-end">操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for sheet in sheets %}
+            <tr>
+                <td>
+                    {# ▼▼▼ リンク先を編集画面から閲覧画面に変更 ▼▼▼ #}
+                    <a href="{{ url_for('spec_sheet.view_sheet', sheet_id=sheet.id) }}">
+                        <strong>{{ sheet.sheet_name }}</strong>
+                    </a>
+                    {# ▲▲▲ 変更ここまで ▲▲▲ #}
+                </td>
+                <td>
+                    <span class="text-muted">{{ sheet.updated_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                </td>
+                <td class="text-end">
+                    <div class="btn-group">
+                        <form action="{{ url_for('spec_sheet.duplicate_sheet', sheet_id=sheet.id) }}" method="POST" class="d-inline">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-sm btn-outline-secondary" title="複製">
+                                <i class="far fa-copy"></i> 複製
+                            </button>
+                        </form>
+                        <a href="{{ url_for('spec_sheet.edit_sheet', sheet_id=sheet.id) }}" class="btn btn-sm btn-primary" title="編集">
+                            <i class="fas fa-edit"></i> 編集
+                        </a>
+                        <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal-{{ sheet.id }}" title="削除">
+                            <i class="fas fa-trash"></i> 削除
+                        </button>
+                    </div>
+                </td>
+            </tr>
+            
+            <div class="modal fade" id="deleteModal-{{ sheet.id }}" tabindex="-1" aria-labelledby="deleteModalLabel-{{ sheet.id }}" aria-hidden="true">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="deleteModalLabel-{{ sheet.id }}">削除の確認</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            整備情報シート「{{ sheet.sheet_name }}」を本当に削除しますか？<br>
+                            この操作は元に戻せません。
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                            <form action="{{ url_for('spec_sheet.delete_sheet', sheet_id=sheet.id) }}" method="POST" class="d-inline">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-danger">削除する</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="text-center p-4 border rounded bg-light">
+    <p class="mb-2">まだ整備情報シートがありません。</p>
+    <p class="mb-0">「新しいシートを作成」ボタンから最初のシートを登録しましょう。</p>
+</div>
+{% endif %}
+
+{% endblock %}
