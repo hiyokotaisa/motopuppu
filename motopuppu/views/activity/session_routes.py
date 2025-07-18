@@ -24,6 +24,7 @@ from ..auth import login_required_custom
 from ...models import db, ActivityLog, SessionLog
 from ...forms import SessionLogForm, LapTimeImportForm
 from ...parsers import get_parser
+from ... import limiter
 
 
 def _prepare_comparison_data(sessions):
@@ -224,12 +225,13 @@ def best_settings_finder(vehicle_id):
                            format_seconds_to_time=format_seconds_to_time)
 
 @activity_bp.route('/session/<int:session_id>/edit', methods=['GET', 'POST'])
+@limiter.limit("30 per hour")
 @login_required_custom
 def edit_session(session_id):
     session = SessionLog.query.options(joinedload(SessionLog.activity).joinedload(ActivityLog.motorcycle))\
-                                .join(ActivityLog)\
-                                .filter(SessionLog.id == session_id, ActivityLog.user_id == g.user.id)\
-                                .first_or_404()
+                               .join(ActivityLog)\
+                               .filter(SessionLog.id == session_id, ActivityLog.user_id == g.user.id)\
+                               .first_or_404()
 
     motorcycle = session.activity.motorcycle
     form = SessionLogForm(obj=session)
@@ -281,6 +283,7 @@ def edit_session(session_id):
 
 
 @activity_bp.route('/session/<int:session_id>/delete', methods=['POST'])
+@limiter.limit("30 per hour")
 @login_required_custom
 def delete_session(session_id):
     session = SessionLog.query.join(ActivityLog).filter(SessionLog.id == session_id, ActivityLog.user_id == g.user.id).first_or_404()
@@ -297,6 +300,7 @@ def delete_session(session_id):
 
 
 @activity_bp.route('/session/<int:session_id>/import_laps', methods=['POST'])
+@limiter.limit("10 per hour")
 @login_required_custom
 def import_laps(session_id):
     session = SessionLog.query.join(ActivityLog).filter(SessionLog.id == session_id, ActivityLog.user_id == g.user.id).first_or_404()

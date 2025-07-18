@@ -9,6 +9,7 @@ from .auth import login_required_custom
 from ..models import db, Event, EventParticipant, Motorcycle, ParticipationStatus
 from ..forms import EventForm, ParticipantForm
 from ..utils.datetime_helpers import JST
+from .. import limiter
 
 # iCalenderライブラリのインポート
 try:
@@ -32,6 +33,7 @@ def list_events():
 
 
 @event_bp.route('/add', methods=['GET', 'POST'])
+@limiter.limit("20 per hour")
 @login_required_custom
 def add_event():
     """新しいイベントを作成する"""
@@ -68,6 +70,7 @@ def add_event():
 
 
 @event_bp.route('/<int:event_id>/edit', methods=['GET', 'POST'])
+@limiter.limit("30 per hour")
 @login_required_custom
 def edit_event(event_id):
     """イベントを編集する"""
@@ -118,6 +121,7 @@ def edit_event(event_id):
 
 
 @event_bp.route('/<int:event_id>/delete', methods=['POST'])
+@limiter.limit("30 per hour")
 @login_required_custom
 def delete_event(event_id):
     """イベントを削除する"""
@@ -154,6 +158,7 @@ def event_detail(event_id):
 
 
 @event_bp.route('/public/<public_id>', methods=['GET', 'POST'])
+@limiter.limit("15 per minute", methods=["POST"])
 def public_event_view(public_id):
     """公開イベントページ（ログイン不要）"""
     event = Event.query.filter_by(public_id=public_id).first_or_404()
@@ -217,6 +222,7 @@ def public_event_view(public_id):
 
 
 @event_bp.route('/participant/<int:participant_id>/delete', methods=['POST'])
+@limiter.limit("30 per hour")
 @login_required_custom
 def delete_participant(participant_id):
     """主催者が参加者を削除する"""

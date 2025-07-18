@@ -14,6 +14,9 @@ from ..forms import MaintenanceForm
 from ..constants import MAINTENANCE_CATEGORIES
 # 実績評価モジュールとイベントタイプをインポート
 from ..achievement_evaluator import check_achievements_for_event, EVENT_ADD_MAINTENANCE_LOG
+# ▼▼▼ 変更 ▼▼▼
+from .. import limiter
+# ▲▲▲ 変更 ▲▲▲
 
 maintenance_bp = Blueprint('maintenance', __name__, url_prefix='/maintenance')
 
@@ -72,8 +75,8 @@ def _update_reminder_if_applicable(maintenance_entry: MaintenanceEntry):
             elif maintenance_entry.maintenance_date > reminder.last_done_date:
                 is_newer = True
             elif (maintenance_entry.maintenance_date == reminder.last_done_date and
-                  not reminder.motorcycle.is_racer and
-                  (maintenance_entry.total_distance_at_maintenance or 0) >= (reminder.last_done_km or 0)):
+                    not reminder.motorcycle.is_racer and
+                    (maintenance_entry.total_distance_at_maintenance or 0) >= (reminder.last_done_km or 0)):
                 is_newer = True
 
             if is_newer:
@@ -171,6 +174,7 @@ def maintenance_log():
                            is_filter_active=is_filter_active)
 
 @maintenance_bp.route('/add', methods=['GET', 'POST'])
+@limiter.limit("30 per hour")
 @login_required_custom
 def add_maintenance():
     user_motorcycles_for_maintenance = Motorcycle.query.filter_by(user_id=g.user.id, is_racer=False).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
@@ -255,6 +259,7 @@ def add_maintenance():
     return render_template('maintenance_form.html', form_action='add', form=form, category_options=MAINTENANCE_CATEGORIES)
 
 @maintenance_bp.route('/<int:entry_id>/edit', methods=['GET', 'POST'])
+@limiter.limit("30 per hour")
 @login_required_custom
 def edit_maintenance(entry_id):
     entry = MaintenanceEntry.query.join(Motorcycle).filter(
@@ -326,6 +331,7 @@ def edit_maintenance(entry_id):
 
 
 @maintenance_bp.route('/<int:entry_id>/delete', methods=['POST'])
+@limiter.limit("30 per hour")
 @login_required_custom
 def delete_maintenance(entry_id):
     entry = MaintenanceEntry.query.join(Motorcycle).filter(
@@ -376,8 +382,8 @@ def export_all_maintenance_logs_csv():
 
     user_motorcycle_ids_for_maintenance = [m.id for m in user_motorcycles_for_maintenance]
     all_maintenance_logs = MaintenanceEntry.query.filter(MaintenanceEntry.motorcycle_id.in_(user_motorcycle_ids_for_maintenance))\
-                                                   .options(db.joinedload(MaintenanceEntry.motorcycle))\
-                                                   .order_by(MaintenanceEntry.motorcycle_id, MaintenanceEntry.maintenance_date.asc(), MaintenanceEntry.total_distance_at_maintenance.asc()).all()
+                                                 .options(db.joinedload(MaintenanceEntry.motorcycle))\
+                                                 .order_by(MaintenanceEntry.motorcycle_id, MaintenanceEntry.maintenance_date.asc(), MaintenanceEntry.total_distance_at_maintenance.asc()).all()
     if not all_maintenance_logs:
         flash('エクスポート対象の整備記録がありません。', 'info')
         return redirect(url_for('maintenance.maintenance_log'))
@@ -412,6 +418,7 @@ def export_all_maintenance_logs_csv():
     )
 
 @maintenance_bp.route('/get-previous-entry', methods=['GET'])
+@limiter.limit("60 per minute")
 @login_required_custom
 def get_previous_maintenance_api():
     motorcycle_id = request.args.get('motorcycle_id', type=int)

@@ -13,6 +13,9 @@ from ..forms import NoteForm
 from ..constants import NOTE_CATEGORIES, MAX_TODO_ITEMS
 # ▲▲▲ ここまで修正 ▲▲▲
 from ..achievement_evaluator import check_achievements_for_event, EVENT_ADD_NOTE
+# ▼▼▼ 変更 ▼▼▼
+from .. import limiter
+# ▲▲▲ 変更 ▲▲▲
 
 notes_bp = Blueprint('notes', __name__, url_prefix='/notes')
 
@@ -74,6 +77,7 @@ def notes_log():
                            is_filter_active=is_filter_active)
 
 @notes_bp.route('/add', methods=['GET', 'POST'])
+@limiter.limit("30 per hour")
 @login_required_custom
 def add_note():
     user_motorcycles = Motorcycle.query.filter_by(user_id=g.user.id).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
@@ -141,6 +145,7 @@ def add_note():
                            )
 
 @notes_bp.route('/<int:note_id>/edit', methods=['GET', 'POST'])
+@limiter.limit("30 per hour")
 @login_required_custom
 def edit_note(note_id):
     note = GeneralNote.query.filter_by(id=note_id, user_id=g.user.id).first_or_404()
@@ -213,6 +218,7 @@ def edit_note(note_id):
                            )
 
 @notes_bp.route('/<int:note_id>/delete', methods=['POST'])
+@limiter.limit("30 per hour")
 @login_required_custom
 def delete_note(note_id):
     note = GeneralNote.query.filter_by(id=note_id, user_id=g.user.id).first_or_404()

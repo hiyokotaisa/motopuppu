@@ -8,6 +8,7 @@ from sqlalchemy import func
 from ..models import db, Motorcycle, MaintenanceReminder, MaintenanceEntry
 from .auth import login_required_custom
 from ..forms import ReminderForm
+from .. import limiter
 
 reminder_bp = Blueprint('reminder', __name__, url_prefix='/reminders')
 
@@ -23,6 +24,7 @@ def list_reminders(vehicle_id):
                            reminders=reminders)
 
 @reminder_bp.route('/add/for/<int:vehicle_id>', methods=['GET', 'POST'])
+@limiter.limit("30 per hour")
 @login_required_custom
 def add_reminder(vehicle_id):
     """リマインダー追加ページ"""
@@ -95,6 +97,7 @@ def add_reminder(vehicle_id):
                            maintenance_entries_for_js=maintenance_entries_for_js)
 
 @reminder_bp.route('/<int:reminder_id>/edit', methods=['GET', 'POST'])
+@limiter.limit("30 per hour")
 @login_required_custom
 def edit_reminder(reminder_id):
     """リマインダー編集ページ"""
@@ -176,6 +179,7 @@ def edit_reminder(reminder_id):
                            maintenance_entries_for_js=maintenance_entries_for_js)
 
 @reminder_bp.route('/<int:reminder_id>/delete', methods=['POST'])
+@limiter.limit("30 per hour")
 @login_required_custom
 def delete_reminder(reminder_id):
     """リマインダー削除処理"""

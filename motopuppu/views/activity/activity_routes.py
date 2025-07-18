@@ -18,6 +18,7 @@ from ...constants import SETTING_KEY_MAP
 from ..auth import login_required_custom
 from ...models import db, Motorcycle, ActivityLog, SessionLog, SettingSheet
 from ...forms import ActivityLogForm, SessionLogForm, LapTimeImportForm
+from ... import limiter
 
 
 def get_motorcycle_or_404(vehicle_id):
@@ -65,6 +66,7 @@ def list_activities(vehicle_id):
                            pagination=pagination)
 
 @activity_bp.route('/<int:vehicle_id>/add', methods=['GET', 'POST'])
+@limiter.limit("30 per hour")
 @login_required_custom
 def add_activity(vehicle_id):
     """新しい活動ログを作成する"""
@@ -121,6 +123,7 @@ def add_activity(vehicle_id):
                            form_action='add')
 
 @activity_bp.route('/<int:activity_id>/edit', methods=['GET', 'POST'])
+@limiter.limit("30 per hour")
 @login_required_custom
 def edit_activity(activity_id):
     """活動ログを編集する"""
@@ -158,6 +161,7 @@ def edit_activity(activity_id):
                            form_action='edit')
 
 @activity_bp.route('/<int:activity_id>/delete', methods=['POST'])
+@limiter.limit("30 per hour")
 @login_required_custom
 def delete_activity(activity_id):
     """活動ログを削除する"""
@@ -175,12 +179,13 @@ def delete_activity(activity_id):
 
 
 @activity_bp.route('/<int:activity_id>/detail', methods=['GET', 'POST'])
+@limiter.limit("30 per hour", methods=["POST"])
 @login_required_custom
 def detail_activity(activity_id):
     """活動ログの詳細とセッションの追加/一覧表示"""
     activity = ActivityLog.query.options(joinedload(ActivityLog.motorcycle))\
-                                 .filter_by(id=activity_id)\
-                                 .first_or_404()
+                               .filter_by(id=activity_id)\
+                               .first_or_404()
     if activity.user_id != g.user.id:
         abort(403)
         

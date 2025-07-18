@@ -9,8 +9,8 @@ from ..models import db, User, Motorcycle, MaintenanceReminder, OdoResetLog, Mai
 from .auth import login_required_custom, get_current_user
 from ..forms import VehicleForm, OdoResetLogForm
 from ..achievement_evaluator import check_achievements_for_event, EVENT_ADD_VEHICLE, EVENT_ADD_ODO_RESET
-# ▼▼▼ servicesモジュールをインポート ▼▼▼
-from .. import services
+# ▼▼▼ servicesモジュールとlimiterをインポート ▼▼▼
+from .. import services, limiter
 # ▲▲▲ ここまで追加 ▲▲▲
 
 vehicle_bp = Blueprint('vehicle', __name__, url_prefix='/vehicles')
@@ -51,6 +51,7 @@ def vehicle_list():
 # (以降の add_vehicle, edit_vehicle などの関数は変更ありません)
 # ... add_vehicle 以降のコードは元のまま ...
 @vehicle_bp.route('/add', methods=['GET', 'POST'])
+@limiter.limit("30 per hour")
 @login_required_custom
 def add_vehicle():
     form = VehicleForm()
@@ -136,6 +137,7 @@ def add_vehicle():
 
 
 @vehicle_bp.route('/<int:vehicle_id>/edit', methods=['GET', 'POST'])
+@limiter.limit("30 per hour")
 @login_required_custom
 def edit_vehicle(vehicle_id):
     motorcycle = Motorcycle.query.filter_by(id=vehicle_id, user_id=g.user.id).first_or_404()
@@ -193,6 +195,7 @@ def edit_vehicle(vehicle_id):
                            is_racer_vehicle=motorcycle.is_racer)
 
 @vehicle_bp.route('/<int:vehicle_id>/delete', methods=['POST'])
+@limiter.limit("30 per hour")
 @login_required_custom
 def delete_vehicle(vehicle_id):
     motorcycle = Motorcycle.query.filter_by(id=vehicle_id, user_id=g.user.id).first_or_404()
@@ -215,6 +218,7 @@ def delete_vehicle(vehicle_id):
     return redirect(url_for('vehicle.vehicle_list'))
 
 @vehicle_bp.route('/<int:vehicle_id>/set_default', methods=['POST'])
+@limiter.limit("30 per hour")
 @login_required_custom
 def set_default_vehicle(vehicle_id):
     target_vehicle = Motorcycle.query.filter_by(id=vehicle_id, user_id=g.user.id).first_or_404()
@@ -230,6 +234,7 @@ def set_default_vehicle(vehicle_id):
     return redirect(url_for('vehicle.vehicle_list'))
 
 @vehicle_bp.route('/<int:vehicle_id>/odo_reset_log/add', methods=['GET', 'POST'])
+@limiter.limit("30 per hour")
 @login_required_custom
 def add_odo_reset_log(vehicle_id):
     motorcycle = Motorcycle.query.filter_by(id=vehicle_id, user_id=g.user.id).first_or_404()
@@ -283,6 +288,7 @@ def add_odo_reset_log(vehicle_id):
 
 
 @vehicle_bp.route('/odo_reset_log/<int:log_id>/delete', methods=['POST'])
+@limiter.limit("30 per hour")
 @login_required_custom
 def delete_odo_reset_log(log_id):
     log_to_delete = db.session.query(OdoResetLog).join(Motorcycle).filter(
@@ -308,6 +314,7 @@ def delete_odo_reset_log(log_id):
 
 
 @vehicle_bp.route('/odo_reset_log/<int:log_id>/edit', methods=['GET', 'POST'])
+@limiter.limit("30 per hour")
 @login_required_custom
 def edit_odo_reset_log(log_id):
     log_to_edit = db.session.query(OdoResetLog).join(Motorcycle).filter(

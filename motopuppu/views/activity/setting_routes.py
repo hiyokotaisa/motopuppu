@@ -13,6 +13,7 @@ from .activity_routes import get_motorcycle_or_404 # ヘルパー関数をイン
 from ..auth import login_required_custom
 from ...models import db, SettingSheet
 from ...forms import SettingSheetForm
+from ... import limiter
 
 
 @activity_bp.route('/<int:vehicle_id>/settings')
@@ -25,6 +26,7 @@ def list_settings(vehicle_id):
                            settings=settings)
 
 @activity_bp.route('/<int:vehicle_id>/settings/add', methods=['GET', 'POST'])
+@limiter.limit("30 per hour")
 @login_required_custom
 def add_setting(vehicle_id):
     motorcycle = get_motorcycle_or_404(vehicle_id)
@@ -66,6 +68,7 @@ def add_setting(vehicle_id):
                            details_json='{}')
 
 @activity_bp.route('/settings/<int:setting_id>/edit', methods=['GET', 'POST'])
+@limiter.limit("30 per hour")
 @login_required_custom
 def edit_setting(setting_id):
     setting = SettingSheet.query.filter_by(id=setting_id, user_id=g.user.id).first_or_404()
@@ -103,6 +106,7 @@ def edit_setting(setting_id):
                            details_json=details_json_for_template)
 
 @activity_bp.route('/settings/<int:setting_id>/toggle_archive', methods=['POST'])
+@limiter.limit("30 per hour")
 @login_required_custom
 def toggle_archive_setting(setting_id):
     setting = SettingSheet.query.filter_by(id=setting_id, user_id=g.user.id).first_or_404()
@@ -118,6 +122,7 @@ def toggle_archive_setting(setting_id):
     return redirect(url_for('activity.list_settings', vehicle_id=setting.motorcycle_id))
 
 @activity_bp.route('/settings/<int:setting_id>/delete', methods=['POST'])
+@limiter.limit("30 per hour")
 @login_required_custom
 def delete_setting(setting_id):
     setting = SettingSheet.query.filter_by(id=setting_id, user_id=g.user.id).first_or_404()

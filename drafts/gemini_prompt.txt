@@ -145,6 +145,7 @@ kyagisaw@hiyoko-pc:/mnt/c/Users/hiyoko/Dev/motopuppu$ tree
 │   │   ├── images
 │   │   │   └── blobcat_8bit.webp
 │   │   ├── js
+│   │   │   ├── gas_station_search.js
 │   │   │   ├── lap_time_manager.js
 │   │   │   ├── misskey_share.js
 │   │   │   └── odo_toggle.js
@@ -222,7 +223,7 @@ kyagisaw@hiyoko-pc:/mnt/c/Users/hiyoko/Dev/motopuppu$ tree
 ├── README.md
 └── requirements.txt
 
-25 directories, 117 files
+25 directories, 118 files
     ```
 
 7.  **今回のセッションでの目標 [毎回更新]:**
