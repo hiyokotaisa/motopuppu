@@ -26,3 +26,23 @@ def format_utc_to_jst_string(utc_dt, format_str='%Y年%m月%d日 %H:%M'):
     jst_dt = utc_dt.astimezone(JST)
     
     return jst_dt.strftime(format_str)
+
+# ▼▼▼ テンプレートエラー解決のために新しい関数を追記 ▼▼▼
+def to_user_localtime(utc_dt):
+    """
+    UTCのdatetimeオブジェクトをJST（日本標準時）のdatetimeオブジェクトに変換する。
+    Jinja2フィルターとして、テンプレート側でstrftimeを使えるようにする。
+    
+    :param utc_dt: タイムゾーン情報を持つか持たないUTCのdatetimeオブジェクト
+    :return: JSTのdatetimeオブジェクト。utc_dtがNoneの場合はNoneを返す。
+    """
+    if not utc_dt or not isinstance(utc_dt, datetime.datetime):
+        return None
+    
+    # datetimeオブジェクトがnaive（タイムゾーン情報なし）の場合、UTCとして扱う
+    if utc_dt.tzinfo is None:
+        utc_dt = utc_dt.replace(tzinfo=UTC)
+        
+    # JSTに変換してdatetimeオブジェクトのまま返す
+    return utc_dt.astimezone(JST)
+# ▲▲▲ 追記ここまで ▲▲▲

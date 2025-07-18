@@ -88,7 +88,19 @@
                         {% endif %}
                     </div>
 
-                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                    <div class="mb-3 form-check">
+                        {{ form.is_public(class="form-check-input" + (" is-invalid" if form.is_public.errors else "")) }}
+                        {{ form.is_public.label(class="form-check-label") }}
+                        <div class="form-text mt-1">
+                            チェックを入れると、公開イベント一覧にこのイベントが表示されます。
+                        </div>
+                        {% if form.is_public.errors %}
+                        <div class="invalid-feedback">
+                            {% for error in form.is_public.errors %}{{ error }}{% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
                         <a href="{{ url_for('event.list_events') }}" class="btn btn-secondary">キャンセル</a>
                         {{ form.submit(class="btn btn-primary") }}
                     </div>

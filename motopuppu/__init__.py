@@ -94,8 +94,11 @@ def create_app(config_name=None):
     limiter.init_app(app)
     # ▲▲▲ 変更ここまで ▲▲▲
 
-    from .utils.datetime_helpers import format_utc_to_jst_string
+    # ▼▼▼ 変更箇所 ▼▼▼
+    from .utils.datetime_helpers import format_utc_to_jst_string, to_user_localtime
     app.jinja_env.filters['to_jst'] = format_utc_to_jst_string
+    app.jinja_env.filters['user_localtime'] = to_user_localtime # エラー解決のためにこの行を追加
+    # ▲▲▲ 変更ここまで ▲▲▲
     
     # ▼▼▼ user_loader関数を定義 ▼▼▼
     from .models import User

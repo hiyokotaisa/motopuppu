@@ -23,6 +23,22 @@ except ImportError:
 
 event_bp = Blueprint('event', __name__, url_prefix='/event')
 
+# ▼▼▼ 変更点 1: 新しい公開イベント一覧ルートを追加 ▼▼▼
+@event_bp.route('/list')
+def public_events_list():
+    """公開設定された、開催予定のイベント一覧を誰でも閲覧できるように表示する"""
+    now_utc = datetime.now(timezone.utc)
+    page = request.args.get('page', 1, type=int)
+    
+    events_pagination = Event.query.filter(
+        Event.is_public == True,
+        Event.start_datetime >= now_utc
+    ).order_by(Event.start_datetime.asc()).paginate(page=page, per_page=15, error_out=False)
+    
+    return render_template('event/public_list_events.html', events_pagination=events_pagination)
+# ▲▲▲ 変更ここまで ▲▲▲
+
+
 @event_bp.route('/')
 @login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def list_events():
@@ -59,7 +75,10 @@ def add_event():
             description=form.description.data,
             location=form.location.data,
             start_datetime=start_dt_utc,
-            end_datetime=end_dt_utc
+            end_datetime=end_dt_utc,
+            # ▼▼▼ 変更点 2: is_publicの値をフォームから取得 ▼▼▼
+            is_public=form.is_public.data
+            # ▲▲▲ 変更ここまで ▲▲▲
         )
         try:
             db.session.add(new_event)
@@ -99,6 +118,9 @@ def edit_event(event_id):
         event.location = form.location.data
         event.start_datetime = start_dt_utc
         event.end_datetime = end_dt_utc
+        # ▼▼▼ 変更点 3: is_publicの値をフォームから取得して更新 ▼▼▼
+        event.is_public = form.is_public.data
+        # ▲▲▲ 変更ここまで ▲▲▲
         try:
             db.session.commit()
             flash('イベント情報を更新しました。', 'success')
@@ -116,6 +138,9 @@ def edit_event(event_id):
         form.start_datetime.data = event.start_datetime.astimezone(JST)
         if event.end_datetime:
             form.end_datetime.data = event.end_datetime.astimezone(JST)
+        # ▼▼▼ 変更点 4: 既存のis_publicの値をフォームにセット ▼▼▼
+        form.is_public.data = event.is_public
+        # ▲▲▲ 変更ここまで ▲▲▲
     
     return render_template('event/event_form.html', form=form, mode='edit', event=event)
 

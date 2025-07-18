@@ -325,6 +325,11 @@ class Event(db.Model):
     location = db.Column(db.String(200), nullable=True, comment="開催場所")
     start_datetime = db.Column(db.DateTime, nullable=False, comment="開始日時 (UTC)")
     end_datetime = db.Column(db.DateTime, nullable=True, comment="終了日時 (UTC)")
+    
+    # ▼▼▼ 変更点 ▼▼▼
+    is_public = db.Column(db.Boolean, nullable=False, default=True, server_default='true', index=True, comment="イベント一覧に公開するか")
+    # ▲▲▲ 変更ここまで ▲▲▲
+
     created_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
     updated_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now(), onupdate=db.func.now())
     owner = db.relationship('User', backref=db.backref('events', lazy='dynamic'))

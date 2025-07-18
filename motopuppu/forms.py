@@ -592,6 +592,14 @@ class EventForm(FlaskForm):
         validators=[Optional()],
         format='%Y-%m-%dT%H:%M'
     )
+
+    # ▼▼▼ 変更点 ▼▼▼
+    is_public = BooleanField(
+        'イベント一覧に公開する',
+        default=True
+    )
+    # ▲▲▲ 変更ここまで ▲▲▲
+    
     submit = SubmitField('イベントを保存')
     
     def validate_end_datetime(self, field):

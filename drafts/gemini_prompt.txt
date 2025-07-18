@@ -84,153 +84,154 @@ kyagisaw@kyagisaw-mac motopuppu % tree
 ├── compose.yml
 ├── Dockerfile
 ├── drafts
-│   ├── gemini_prompt.txt
-│   └── racer_draft.md
+│   ├── gemini_prompt.txt
+│   └── racer_draft.md
 ├── instance
 ├── LICENSE
 ├── migrations
-│   ├── alembic.ini
-│   ├── env.py
-│   ├── README
-│   ├── script.py.mako
-│   └── versions
-│       ├── 03b74d3f953e_add_criteria_column_to_.py
-│       ├── 2611ecc6c187_add_avatar_url_to_user_model.py
-│       ├── 3c3d01d7c4c9_add_exclude_from_average_to_fuel_entries.py
-│       ├── 3f7f9b1139eb_add_activity_log_models.py
-│       ├── 3f8fa3c5156e_add_maintenance_record_link_to_reminders.py
-│       ├── 414794921235_add_achievement_and_userachievement_.py
-│       ├── 48c543b24155_add_activity_log_models.py
-│       ├── 4bc80d3366bf_add_activity_log_models.py
-│       ├── 4ec29611c9b5_add_trigger_event_type_to_.py
-│       ├── 5d18f0a4938e_allow_null_for_content_in_general_notes.py
-│       ├── 6a92e8863546_link_activity_log_to_event.py
-│       ├── 6dadc8ff0649_add_racer_fields_to_motorcycle.py
-│       ├── 760969e7b61d_populate_new_achievement_definitions_.py
-│       ├── 896791ff77ea_add_odo_reset_log_table_and_data_.py
-│       ├── 9516bc768302_add_event_and_event_participant_models.py
-│       ├── aa6d3aff4f5c_add_encrypted_misskey_api_token_to_user_.py
-│       ├── c9271122696a_add_passcode_hash_to_event_participants.py
-│       ├── cb61b6485ca8_add_missing_general_notes_and_odo_reset_.py
-│       ├── cbc2495d2f76_initial_migration.py
-│       ├── cd7db2474a21_check_sync_after_fixing_relationship.py
-│       ├── d5b35174a1cb_add_display_name_to_user_model.py
-│       ├── df2ec8ec945c_add_last_done_odo_to_maintenancereminder.py
-│       ├── f0c7fc2c92ad_add_auto_update_from_category_to_.py
-│       └── f2a7668dac26_add_maintenance_spec_sheet_table.py
+│   ├── alembic.ini
+│   ├── env.py
+│   ├── README
+│   ├── script.py.mako
+│   └── versions
+│       ├── 03b74d3f953e_add_criteria_column_to_.py
+│       ├── 2611ecc6c187_add_avatar_url_to_user_model.py
+│       ├── 3c3d01d7c4c9_add_exclude_from_average_to_fuel_entries.py
+│       ├── 3f7f9b1139eb_add_activity_log_models.py
+│       ├── 3f8fa3c5156e_add_maintenance_record_link_to_reminders.py
+│       ├── 414794921235_add_achievement_and_userachievement_.py
+│       ├── 48c543b24155_add_activity_log_models.py
+│       ├── 4bc80d3366bf_add_activity_log_models.py
+│       ├── 4ec29611c9b5_add_trigger_event_type_to_.py
+│       ├── 5d18f0a4938e_allow_null_for_content_in_general_notes.py
+│       ├── 6a92e8863546_link_activity_log_to_event.py
+│       ├── 6dadc8ff0649_add_racer_fields_to_motorcycle.py
+│       ├── 760969e7b61d_populate_new_achievement_definitions_.py
+│       ├── 896791ff77ea_add_odo_reset_log_table_and_data_.py
+│       ├── 9516bc768302_add_event_and_event_participant_models.py
+│       ├── aa6d3aff4f5c_add_encrypted_misskey_api_token_to_user_.py
+│       ├── c9271122696a_add_passcode_hash_to_event_participants.py
+│       ├── cb61b6485ca8_add_missing_general_notes_and_odo_reset_.py
+│       ├── cbc2495d2f76_initial_migration.py
+│       ├── cd7db2474a21_check_sync_after_fixing_relationship.py
+│       ├── d5b35174a1cb_add_display_name_to_user_model.py
+│       ├── df2ec8ec945c_add_last_done_odo_to_maintenancereminder.py
+│       ├── f0c7fc2c92ad_add_auto_update_from_category_to_.py
+│       └── f2a7668dac26_add_maintenance_spec_sheet_table.py
 ├── motopuppu
-│   ├── __init__.py
-│   ├── achievement_evaluator.py
-│   ├── achievements_utils.py
-│   ├── constants.py
-│   ├── forms.py
-│   ├── manage_commands.py
-│   ├── models.py
-│   ├── parsers
-│   │   ├── __init__.py
-│   │   ├── base_parser.py
-│   │   ├── mylaps_parser.py
-│   │   ├── simple_csv_parser.py
-│   │   └── ziix_parser.py
-│   ├── services.py
-│   ├── static
-│   │   ├── css
-│   │   │   └── style.css
-│   │   ├── favicons
-│   │   │   ├── apple-touch-icon.png
-│   │   │   ├── favicon-96x96.png
-│   │   │   ├── favicon.ico
-│   │   │   ├── favicon.svg
-│   │   │   ├── web-app-manifest-192x192.png
-│   │   │   └── web-app-manifest-512x512.png
-│   │   ├── images
-│   │   │   └── blobcat_8bit.webp
-│   │   ├── js
-│   │   │   ├── gas_station_search.js
-│   │   │   ├── lap_time_manager.js
-│   │   │   ├── misskey_share.js
-│   │   │   └── odo_toggle.js
-│   │   └── manifest.json
-│   ├── templates
-│   │   ├── achievements
-│   │   │   └── unlocked_list.html
-│   │   ├── activity
-│   │   │   ├── activity_form.html
-│   │   │   ├── best_settings.html
-│   │   │   ├── compare_sessions.html
-│   │   │   ├── detail_activity.html
-│   │   │   ├── list_activities.html
-│   │   │   ├── list_settings.html
-│   │   │   ├── session_form.html
-│   │   │   └── setting_form.html
-│   │   ├── auth
-│   │   │   └── delete_account_complete.html
-│   │   ├── base.html
-│   │   ├── dashboard.html
-│   │   ├── event
-│   │   │   ├── event_detail.html
-│   │   │   ├── event_form.html
-│   │   │   ├── list_events.html
-│   │   │   └── public_event_view.html
-│   │   ├── fuel_form.html
-│   │   ├── fuel_log.html
-│   │   ├── index.html
-│   │   ├── leaderboard
-│   │   │   ├── index.html
-│   │   │   └── ranking.html
-│   │   ├── legal
-│   │   │   ├── privacy_policy.html
-│   │   │   └── terms_of_service.html
-│   │   ├── maintenance_form.html
-│   │   ├── maintenance_log.html
-│   │   ├── navigation.html
-│   │   ├── note_form.html
-│   │   ├── notes_log.html
-│   │   ├── odo_reset_log_form.html
-│   │   ├── profile
-│   │   │   └── settings.html
-│   │   ├── reminder
-│   │   │   ├── list_reminders.html
-│   │   │   └── reminder_form.html
-│   │   ├── spec_sheet
-│   │   │   ├── list_sheets.html
-│   │   │   ├── sheet_form.html
-│   │   │   └── view_sheet.html
-│   │   ├── touring
-│   │   │   ├── _misskey_note_card.html
-│   │   │   ├── detail_log.html
-│   │   │   ├── list_logs.html
-│   │   │   └── touring_log_form.html
-│   │   ├── vehicle_form.html
-│   │   └── vehicles.html
-│   ├── utils
-│   │   ├── datetime_helpers.py
-│   │   └── lap_time_utils.py
-│   └── views
-│       ├── achievements.py
-│       ├── activity
-│       │   ├── __init__.py
-│       │   ├── activity_routes.py
-│       │   ├── session_routes.py
-│       │   └── setting_routes.py
-│       ├── auth.py
-│       ├── dev_auth.py
-│       ├── event.py
-│       ├── fuel.py
-│       ├── leaderboard.py
-│       ├── main.py
-│       ├── maintenance.py
-│       ├── notes.py
-│       ├── profile.py
-│       ├── reminder.py
-│       ├── spec_sheet.py
-│       ├── touring.py
-│       └── vehicle.py
+│   ├── __init__.py
+│   ├── achievement_evaluator.py
+│   ├── achievements_utils.py
+│   ├── constants.py
+│   ├── forms.py
+│   ├── manage_commands.py
+│   ├── models.py
+│   ├── parsers
+│   │   ├── __init__.py
+│   │   ├── base_parser.py
+│   │   ├── mylaps_parser.py
+│   │   ├── simple_csv_parser.py
+│   │   └── ziix_parser.py
+│   ├── services.py
+│   ├── static
+│   │   ├── css
+│   │   │   └── style.css
+│   │   ├── favicons
+│   │   │   ├── apple-touch-icon.png
+│   │   │   ├── favicon-96x96.png
+│   │   │   ├── favicon.ico
+│   │   │   ├── favicon.svg
+│   │   │   ├── web-app-manifest-192x192.png
+│   │   │   └── web-app-manifest-512x512.png
+│   │   ├── images
+│   │   │   └── blobcat_8bit.webp
+│   │   ├── js
+│   │   │   ├── gas_station_search.js
+│   │   │   ├── lap_time_manager.js
+│   │   │   ├── misskey_share.js
+│   │   │   └── odo_toggle.js
+│   │   └── manifest.json
+│   ├── templates
+│   │   ├── achievements
+│   │   │   └── unlocked_list.html
+│   │   ├── activity
+│   │   │   ├── activity_form.html
+│   │   │   ├── best_settings.html
+│   │   │   ├── compare_sessions.html
+│   │   │   ├── detail_activity.html
+│   │   │   ├── list_activities.html
+│   │   │   ├── list_settings.html
+│   │   │   ├── session_form.html
+│   │   │   └── setting_form.html
+│   │   ├── auth
+│   │   │   └── delete_account_complete.html
+│   │   ├── base.html
+│   │   ├── dashboard.html
+│   │   ├── event
+│   │   │   ├── event_detail.html
+│   │   │   ├── event_form.html
+│   │   │   ├── list_events.html
+│   │   │   ├── public_event_view.html
+│   │   │   └── public_list_events.html
+│   │   ├── fuel_form.html
+│   │   ├── fuel_log.html
+│   │   ├── index.html
+│   │   ├── leaderboard
+│   │   │   ├── index.html
+│   │   │   └── ranking.html
+│   │   ├── legal
+│   │   │   ├── privacy_policy.html
+│   │   │   └── terms_of_service.html
+│   │   ├── maintenance_form.html
+│   │   ├── maintenance_log.html
+│   │   ├── navigation.html
+│   │   ├── note_form.html
+│   │   ├── notes_log.html
+│   │   ├── odo_reset_log_form.html
+│   │   ├── profile
+│   │   │   └── settings.html
+│   │   ├── reminder
+│   │   │   ├── list_reminders.html
+│   │   │   └── reminder_form.html
+│   │   ├── spec_sheet
+│   │   │   ├── list_sheets.html
+│   │   │   ├── sheet_form.html
+│   │   │   └── view_sheet.html
+│   │   ├── touring
+│   │   │   ├── _misskey_note_card.html
+│   │   │   ├── detail_log.html
+│   │   │   ├── list_logs.html
+│   │   │   └── touring_log_form.html
+│   │   ├── vehicle_form.html
+│   │   └── vehicles.html
+│   ├── utils
+│   │   ├── datetime_helpers.py
+│   │   └── lap_time_utils.py
+│   └── views
+│       ├── achievements.py
+│       ├── activity
+│       │   ├── __init__.py
+│       │   ├── activity_routes.py
+│       │   ├── session_routes.py
+│       │   └── setting_routes.py
+│       ├── auth.py
+│       ├── dev_auth.py
+│       ├── event.py
+│       ├── fuel.py
+│       ├── leaderboard.py
+│       ├── main.py
+│       ├── maintenance.py
+│       ├── notes.py
+│       ├── profile.py
+│       ├── reminder.py
+│       ├── spec_sheet.py
+│       ├── touring.py
+│       └── vehicle.py
 ├── README.md
 ├── requirements.txt
 └── tests
 
-27 directories, 123 files
+27 directories, 124 files
     ```
 
 7.  **今回のセッションでの目標 [毎回更新]:**
