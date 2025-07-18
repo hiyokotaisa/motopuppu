@@ -12,6 +12,7 @@ Flask-WTF
 wtforms-sqlalchemy
 icalendar
 cryptography
+Flask-Limiter
 
 # Flask-Login>=0.6 # ログイン管理の補助に (Authlibや自前でも可) (任意)
 # Flask-Uploads-Fork # ファイルアップロード処理に (代替ライブラリも検討可) (任意)

@@ -9,6 +9,10 @@ from flask_migrate import Migrate
 from flask_wtf.csrf import CSRFProtect
 import logging
 import subprocess
+# ▼▼▼ 変更 ▼▼▼
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+# ▲▲▲ 変更 ▲▲▲
 
 dotenv_path = os.path.join(os.path.dirname(__file__), '..', '.env')
 if os.path.exists(dotenv_path):
@@ -20,6 +24,17 @@ else:
 db = SQLAlchemy()
 migrate = Migrate()
 csrf = CSRFProtect()
+
+# ▼▼▼ 変更 ▼▼▼
+# ログインユーザーがいればユーザーIDを、いなければIPアドレスをキーにする関数
+def user_or_ip_key():
+    if hasattr(g, 'user') and g.user is not None:
+        return str(g.user.id)
+    return get_remote_address()
+
+# Limiterのインスタンスを作成
+limiter = Limiter(key_func=user_or_ip_key)
+# ▲▲▲ 変更 ▲▲▲
 
 def create_app(config_name=None):
     """Flaskアプリケーションインスタンスを作成するファクトリ関数"""
@@ -72,6 +87,7 @@ def create_app(config_name=None):
     db.init_app(app)
     migrate.init_app(app, db)
     csrf.init_app(app)
+    limiter.init_app(app) # ▼▼▼ 変更 ▼▼▼
 
     from .utils.datetime_helpers import format_utc_to_jst_string
     app.jinja_env.filters['to_jst'] = format_utc_to_jst_string

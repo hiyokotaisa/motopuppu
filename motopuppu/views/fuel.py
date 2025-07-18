@@ -2,7 +2,7 @@
 import csv
 import io
 from datetime import date, datetime
-import requests # ▼▼▼ 追加 ▼▼▼
+import requests
 
 from flask import (
     Blueprint, flash, g, redirect, render_template, request, url_for, abort, current_app, Response, jsonify
@@ -15,6 +15,9 @@ from ..forms import FuelForm
 from ..constants import GAS_STATION_BRANDS
 # 実績評価モジュールとイベントタイプをインポート
 from ..achievement_evaluator import check_achievements_for_event, EVENT_ADD_FUEL_LOG
+# ▼▼▼ 変更 ▼▼▼
+from .. import limiter
+# ▲▲▲ 変更 ▲▲▲
 
 fuel_bp = Blueprint('fuel', __name__, url_prefix='/fuel')
 
@@ -39,8 +42,9 @@ def get_previous_fuel_entry(motorcycle_id, current_entry_date, current_entry_id=
     # --- ▲▲▲ トリップ入力機能のためソート順をより厳密に変更 ▲▲▲
     return previous_entry
 
-# ▼▼▼▼▼ ここから追加 ▼▼▼▼▼
+
 @fuel_bp.route('/search_gas_station')
+@limiter.limit("30 per minute") # ▼▼▼ 変更 ▼▼▼
 @login_required_custom
 def search_gas_station():
     """フロントエンドからのリクエストでガソリンスタンドを検索するAPIエンドポイント"""
@@ -83,7 +87,7 @@ def search_gas_station():
     except Exception as e:
         current_app.logger.error(f"An unexpected error occurred during gas station search: {e}")
         return jsonify({'error': 'An internal server error occurred.'}), 500
-# ▲▲▲▲▲ ここまで追加 ▲▲▲▲▲
+
 
 @fuel_bp.route('/')
 @login_required_custom
@@ -177,6 +181,7 @@ def fuel_log():
 
 
 @fuel_bp.route('/add', methods=['GET', 'POST'])
+@limiter.limit("30 per hour") # ▼▼▼ 変更 ▼▼▼
 @login_required_custom
 def add_fuel():
     # --- ▼▼▼ フェーズ1変更点 (車両リストからレーサーを除外) ▼▼▼
@@ -286,6 +291,7 @@ def add_fuel():
     # --- ▲▲▲ ここまで修正 ▲▲▲ ---
 
 @fuel_bp.route('/<int:entry_id>/edit', methods=['GET', 'POST'])
+@limiter.limit("30 per hour") # ▼▼▼ 変更 ▼▼▼
 @login_required_custom
 def edit_fuel(entry_id):
     entry = FuelEntry.query.join(Motorcycle).filter(
@@ -383,6 +389,7 @@ def edit_fuel(entry_id):
     # --- ▲▲▲ ここまで修正 ▲▲▲ ---
 
 @fuel_bp.route('/<int:entry_id>/delete', methods=['POST'])
+@limiter.limit("30 per hour") # ▼▼▼ 変更 ▼▼▼
 @login_required_custom
 def delete_fuel(entry_id):
     entry = FuelEntry.query.join(Motorcycle).filter(
