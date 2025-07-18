@@ -42,6 +42,10 @@ def create_app(config_name=None):
         MAINTENANCE_ENTRIES_PER_PAGE = int(os.environ.get('MAINTENANCE_ENTRIES_PER_PAGE', 20)),
         NOTES_PER_PAGE = int(os.environ.get('NOTES_PER_PAGE', 20)),
         ACTIVITIES_PER_PAGE = 10,
+        # ▼▼▼▼▼ ここから修正 ▼▼▼▼▼
+        # Google Places APIキーをFlaskのconfigに追加
+        GOOGLE_PLACES_API_KEY=os.environ.get('GOOGLE_PLACES_API_KEY'),
+        # ▲▲▲▲▲ ここまで修正 ▲▲▲▲▲
     )
     if app.config['SECRET_KEY'] == 'dev-secret-key-replace-me' and app.config['ENV'] != 'development':
         app.logger.warning("CRITICAL: SECRET_KEY is set to the default development value in a non-development environment. This is a security risk!")

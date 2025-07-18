@@ -148,7 +148,16 @@
         <label for="{{ form.station_name.id }}" class="form-label">
             <i class="bi bi-building me-2"></i>{{ form.station_name.label.text }}
         </label>
-        {{ form.station_name(class="form-control" + (" is-invalid" if form.station_name.errors else ""), list="station-brands-list", placeholder=(form.station_name.render_kw.get("placeholder", "") if form.station_name.render_kw else "")) }}
+        
+        {# ▼▼▼▼▼ ここから変更 ▼▼▼▼▼ #}
+        <div class="input-group">
+            {{ form.station_name(class="form-control" + (" is-invalid" if form.station_name.errors else ""), list="station-brands-list", placeholder=(form.station_name.render_kw.get("placeholder", "") if form.station_name.render_kw else "")) }}
+            <button class="btn btn-outline-secondary" type="button" id="search-gas-station-btn">
+                <i class="bi bi-search"></i> 検索
+            </button>
+        </div>
+        {# ▲▲▲▲▲ ここまで変更 ▲▲▲▲▲ #}
+
         <datalist id="station-brands-list">
             {% for brand in gas_station_brands %}
             <option value="{{ brand }}">
@@ -159,6 +168,10 @@
                 {% for error in form.station_name.errors %}<span>{{ error }}</span><br>{% endfor %}
             </div>
         {% endif %}
+        
+        {# ▼▼▼▼▼ ここから追加 ▼▼▼▼▼ #}
+        <div id="gas-station-results" class="list-group mt-2"></div>
+        {# ▲▲▲▲▲ ここまで追加 ▲▲▲▲▲ #}
     </div>
 
     {# 油種 #}
@@ -227,6 +240,11 @@
 
 {% block scripts %}
 {{ super() }}
+
+{# ▼▼▼▼▼ ここから追加 ▼▼▼▼▼ #}
+<script src="{{ url_for('static', filename='js/gas_station_search.js') }}"></script>
+{# ▲▲▲▲▲ ここまで追加 ▲▲▲▲▲ #}
+
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         const volumeInput = document.getElementById('fuel_volume');

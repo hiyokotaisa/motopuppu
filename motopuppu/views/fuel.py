@@ -2,6 +2,7 @@
 import csv
 import io
 from datetime import date, datetime
+import requests # ▼▼▼ 追加 ▼▼▼
 
 from flask import (
     Blueprint, flash, g, redirect, render_template, request, url_for, abort, current_app, Response, jsonify
@@ -37,6 +38,52 @@ def get_previous_fuel_entry(motorcycle_id, current_entry_date, current_entry_id=
     previous_entry = query.order_by(FuelEntry.entry_date.desc(), FuelEntry.odometer_reading.desc(), FuelEntry.id.desc()).first()
     # --- ▲▲▲ トリップ入力機能のためソート順をより厳密に変更 ▲▲▲
     return previous_entry
+
+# ▼▼▼▼▼ ここから追加 ▼▼▼▼▼
+@fuel_bp.route('/search_gas_station')
+@login_required_custom
+def search_gas_station():
+    """フロントエンドからのリクエストでガソリンスタンドを検索するAPIエンドポイント"""
+    query = request.args.get('q', type=str)
+    if not query:
+        return jsonify({'error': 'Query parameter is missing'}), 400
+
+    api_key = current_app.config.get('GOOGLE_PLACES_API_KEY')
+    if not api_key:
+        current_app.logger.error("GOOGLE_PLACES_API_KEY is not set in the environment.")
+        return jsonify({'error': 'API key is not configured on the server.'}), 500
+
+    # Google Places API (Text Search) のエンドポイント
+    endpoint_url = "https://maps.googleapis.com/maps/api/place/textsearch/json"
+    
+    params = {
+        'query': query,
+        'key': api_key,
+        'language': 'ja',
+        'type': 'gas_station' # タイプをガソリンスタンドに限定
+    }
+
+    try:
+        response = requests.get(endpoint_url, params=params, timeout=5)
+        response.raise_for_status()  # HTTPエラーがあれば例外を発生させる
+        
+        data = response.json()
+        
+        # 必要な情報（店名、住所）だけを抽出してリスト化
+        results = [
+            {'name': place.get('name'), 'address': place.get('formatted_address')}
+            for place in data.get('results', [])
+        ]
+        
+        return jsonify({'results': results})
+
+    except requests.exceptions.RequestException as e:
+        current_app.logger.error(f"Failed to call Google Places API: {e}")
+        return jsonify({'error': 'Failed to communicate with the search service.'}), 503 # Service Unavailable
+    except Exception as e:
+        current_app.logger.error(f"An unexpected error occurred during gas station search: {e}")
+        return jsonify({'error': 'An internal server error occurred.'}), 500
+# ▲▲▲▲▲ ここまで追加 ▲▲▲▲▲
 
 @fuel_bp.route('/')
 @login_required_custom
