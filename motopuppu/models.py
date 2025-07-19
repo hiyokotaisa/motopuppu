@@ -1,4 +1,3 @@
-# motopuppu/models.py
 from . import db
 from datetime import datetime, date
 from sqlalchemy.dialects.postgresql import JSONB
@@ -94,27 +93,43 @@ class FuelEntry(db.Model):
     is_full_tank = db.Column(db.Boolean, nullable=False, server_default='true')
     exclude_from_average = db.Column(db.Boolean, nullable=False, default=False, server_default='false')
     __table_args__ = (Index('ix_fuel_entries_entry_date', 'entry_date'),)
+
     @property
     def km_per_liter(self):
         if self.motorcycle and self.motorcycle.is_racer:
             return None
-        if not self.is_full_tank: return None
+        # 燃費計算は「満タン給油」の記録でのみ行う
+        if not self.is_full_tank:
+            return None
+        
+        # この記録より前の、直近の「満タン給油」記録を取得
         prev_full_entry = FuelEntry.query.filter(
-            FuelEntry.motorcycle_id == self.motorcycle_id, FuelEntry.is_full_tank == True,
+            FuelEntry.motorcycle_id == self.motorcycle_id,
+            FuelEntry.is_full_tank == True,
             FuelEntry.total_distance < self.total_distance
         ).order_by(FuelEntry.total_distance.desc()).first()
-        if not prev_full_entry: return None
+
+        # 前回の満タン記録がなければ計算不可
+        if not prev_full_entry:
+            return None
+
+        # 走行距離を計算
         distance_diff = self.total_distance - prev_full_entry.total_distance
-        entries_in_interval = FuelEntry.query.filter(
-            FuelEntry.motorcycle_id == self.motorcycle_id,
-            FuelEntry.total_distance > prev_full_entry.total_distance,
-            FuelEntry.total_distance <= self.total_distance
-        ).all()
-        fuel_consumed = sum(float(entry.fuel_volume) for entry in entries_in_interval if entry.fuel_volume is not None)
-        if fuel_consumed > 0 and distance_diff > 0:
-            try: return round(float(distance_diff) / fuel_consumed, 2)
-            except (ZeroDivisionError, TypeError): return None
+
+        # ▼▼▼▼▼ ここから修正 ▼▼▼▼▼
+        # 消費燃料は、現在の記録（満タンにした）の給油量とする
+        fuel_consumed = self.fuel_volume
+        # ▲▲▲▲▲ ここまで修正 ▲▲▲▲▲
+
+        if fuel_consumed is not None and fuel_consumed > 0 and distance_diff > 0:
+            try:
+                # 走行距離 ÷ 消費燃料 で燃費を計算
+                return round(float(distance_diff) / float(fuel_consumed), 2)
+            except (ZeroDivisionError, TypeError):
+                return None
+                
         return None
+
     def __repr__(self):
         return f'<FuelEntry id={self.id} date={self.entry_date}>'
 
