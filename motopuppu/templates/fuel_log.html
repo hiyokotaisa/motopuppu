@@ -173,12 +173,14 @@
                     </td>
                     <td>{{ entry.station_name if entry.station_name else '-' }}</td>
                     <td class="text-end">
-                        {% if entry.exclude_from_average %}
-                            <span class="text-muted" data-bs-toggle="tooltip" title="平均燃費の計算から除外されています">-</span>
-                        {% elif entry.km_per_liter is not none %}
+                        {% if entry.km_per_liter is not none %}
                             {{ "%.2f"|format(entry.km_per_liter) }}
+                            {% if entry.exclude_from_average %}
+                                {# アイコンで平均計算から除外されていることを示す #}
+                                <i class="bi bi-calculator ms-1 text-muted" data-bs-toggle="tooltip" title="平均燃費の計算から除外されています"></i>
+                            {% endif %}
                         {% else %}
-                            -
+                        -
                         {% endif %}
                     </td>
                     <td class="text-nowrap">
