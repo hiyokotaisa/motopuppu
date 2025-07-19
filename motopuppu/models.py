@@ -114,11 +114,23 @@ class FuelEntry(db.Model):
         if not prev_entry:
             return None
 
-        # ★★★ ここからが新しいロジックの核心 ★★★
         # 直前の記録も「満タン給油」でなければ、正確な区間燃費は計算できない
         if not prev_entry.is_full_tank:
             return None
         
+        # ★★★ ここからが追加ロジック ★★★
+        # この記録と直前の満タン記録の間にODOリセットがないか確認する
+        reset_log_exists = db.session.query(OdoResetLog.id).filter(
+            OdoResetLog.motorcycle_id == self.motorcycle_id,
+            OdoResetLog.reset_date > prev_entry.entry_date,
+            OdoResetLog.reset_date <= self.entry_date
+        ).first()
+
+        # リセット記録が存在する場合、その区間の燃費は計算しない
+        if reset_log_exists:
+            return None
+        # ★★★ 追加ロジックここまで ★★★
+
         # 直前も満タンの場合、その記録を燃費計算の起点とする
         distance_diff = self.total_distance - prev_entry.total_distance
         fuel_consumed = self.fuel_volume
