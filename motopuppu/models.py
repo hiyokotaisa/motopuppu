@@ -1,3 +1,5 @@
+# motopuppu/models.py
+
 from . import db
 from datetime import datetime, date
 from sqlalchemy.dialects.postgresql import JSONB
@@ -94,32 +96,32 @@ class FuelEntry(db.Model):
     exclude_from_average = db.Column(db.Boolean, nullable=False, default=False, server_default='false')
     __table_args__ = (Index('ix_fuel_entries_entry_date', 'entry_date'),)
 
+    # ▼▼▼▼▼ ここからが修正箇所です ▼▼▼▼▼
     @property
     def km_per_liter(self):
-        if self.motorcycle and self.motorcycle.is_racer:
-            return None
         # 燃費計算は「満タン給油」の記録でのみ行う
         if not self.is_full_tank:
             return None
         
-        # この記録より前の、直近の「満タン給油」記録を取得
-        prev_full_entry = FuelEntry.query.filter(
+        # この記録の「直前」の給油記録を取得する（満タンかどうかは問わない）
+        # total_distanceでソートすることで、日付が前後しても正確な直前の記録を取得
+        prev_entry = FuelEntry.query.filter(
             FuelEntry.motorcycle_id == self.motorcycle_id,
-            FuelEntry.is_full_tank == True,
             FuelEntry.total_distance < self.total_distance
         ).order_by(FuelEntry.total_distance.desc()).first()
 
-        # 前回の満タン記録がなければ計算不可
-        if not prev_full_entry:
+        # 直前の記録が存在しない場合は計算不可
+        if not prev_entry:
             return None
 
-        # 走行距離を計算
-        distance_diff = self.total_distance - prev_full_entry.total_distance
-
-        # ▼▼▼▼▼ ここから修正 ▼▼▼▼▼
-        # 消費燃料は、現在の記録（満タンにした）の給油量とする
+        # ★★★ ここからが新しいロジックの核心 ★★★
+        # 直前の記録も「満タン給油」でなければ、正確な区間燃費は計算できない
+        if not prev_entry.is_full_tank:
+            return None
+        
+        # 直前も満タンの場合、その記録を燃費計算の起点とする
+        distance_diff = self.total_distance - prev_entry.total_distance
         fuel_consumed = self.fuel_volume
-        # ▲▲▲▲▲ ここまで修正 ▲▲▲▲▲
 
         if fuel_consumed is not None and fuel_consumed > 0 and distance_diff > 0:
             try:
@@ -129,6 +131,7 @@ class FuelEntry(db.Model):
                 return None
                 
         return None
+    # ▲▲▲▲▲ ここまでが修正箇所です ▲▲▲▲▲
 
     def __repr__(self):
         return f'<FuelEntry id={self.id} date={self.entry_date}>'
