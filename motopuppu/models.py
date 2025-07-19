@@ -7,15 +7,12 @@ from sqlalchemy import Index, func
 import uuid
 from enum import Enum as PyEnum
 from werkzeug.security import generate_password_hash, check_password_hash
-# ▼▼▼ UserMixinをインポート ▼▼▼
 from flask_login import UserMixin
-# ▲▲▲ 変更ここまで ▲▲▲
 
 # --- データベースモデル定義 ---
 
-# ▼▼▼ UserクラスにUserMixinを継承させる ▼▼▼
 class User(UserMixin, db.Model):
-# ▲▲▲ 変更ここまで ▲▲▲
+    # ... (変更なし) ...
     __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
     misskey_user_id = db.Column(db.String(100), unique=True, nullable=False)
@@ -23,9 +20,7 @@ class User(UserMixin, db.Model):
     display_name = db.Column(db.String(100), nullable=True, comment="ユーザーが設定する表示名")
     avatar_url = db.Column(db.String(2048), nullable=True, comment="MisskeyのアバターURL")
     is_admin = db.Column(db.Boolean, default=False, nullable=False)
-    
     encrypted_misskey_api_token = db.Column(db.Text, nullable=True, comment="暗号化されたMisskey APIトークン")
-
     motorcycles = db.relationship('Motorcycle', backref='owner', lazy=True, cascade="all, delete-orphan")
     general_notes = db.relationship('GeneralNote', backref='owner', lazy=True, cascade="all, delete-orphan")
     achievements = db.relationship('UserAchievement', backref='user', lazy='dynamic', cascade="all, delete-orphan")
@@ -34,8 +29,8 @@ class User(UserMixin, db.Model):
     def __repr__(self):
         return f'<User id={self.id} username={self.misskey_username}>'
 
-
 class Motorcycle(db.Model):
+    # ... (変更なし) ...
     __tablename__ = 'motorcycles'
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
@@ -51,17 +46,10 @@ class Motorcycle(db.Model):
     consumable_logs = db.relationship('ConsumableLog', backref='motorcycle', lazy='dynamic', order_by="desc(ConsumableLog.change_date)", cascade="all, delete-orphan")
     maintenance_reminders = db.relationship('MaintenanceReminder', backref='motorcycle', lazy=True, cascade="all, delete-orphan")
     general_notes = db.relationship('GeneralNote', backref='motorcycle', lazy=True)
-    odo_reset_logs = db.relationship(
-        'OdoResetLog', backref='motorcycle', lazy='dynamic',
-        order_by="desc(OdoResetLog.reset_date)", cascade="all, delete-orphan"
-    )
+    odo_reset_logs = db.relationship('OdoResetLog', backref='motorcycle', lazy='dynamic', order_by="desc(OdoResetLog.reset_date)", cascade="all, delete-orphan")
     setting_sheets = db.relationship('SettingSheet', backref='motorcycle', lazy='dynamic', cascade="all, delete-orphan")
     activity_logs = db.relationship('ActivityLog', backref='motorcycle', lazy='dynamic', order_by="desc(ActivityLog.activity_date)", cascade="all, delete-orphan")
-
-    # ▼▼▼ 以下を追記 ▼▼▼
     maintenance_spec_sheets = db.relationship('MaintenanceSpecSheet', backref='motorcycle', lazy='dynamic', order_by="desc(MaintenanceSpecSheet.updated_at)", cascade="all, delete-orphan")
-    # ▲▲▲ 追記ここまで ▲▲▲
-
     def calculate_cumulative_offset_from_logs(self, target_date=None):
         if self.is_racer:
             return 0
@@ -69,13 +57,11 @@ class Motorcycle(db.Model):
         if target_date: query = query.filter(OdoResetLog.reset_date <= target_date)
         result = query.scalar()
         return result if result is not None else 0
-
     def get_display_total_mileage(self):
         latest_fuel_dist = db.session.query(func.max(FuelEntry.total_distance)).filter(FuelEntry.motorcycle_id == self.id).scalar() or 0
         latest_maint_dist = db.session.query(func.max(MaintenanceEntry.total_distance_at_maintenance)).filter(MaintenanceEntry.motorcycle_id == self.id).scalar() or 0
         current_offset = self.odometer_offset if self.odometer_offset is not None else 0
         return max(latest_fuel_dist, latest_maint_dist, current_offset)
-
     def __repr__(self):
         return f'<Motorcycle id={self.id} name={self.name}>'
 
@@ -96,59 +82,51 @@ class FuelEntry(db.Model):
     exclude_from_average = db.Column(db.Boolean, nullable=False, default=False, server_default='false')
     __table_args__ = (Index('ix_fuel_entries_entry_date', 'entry_date'),)
 
-    # ▼▼▼▼▼ ここからが修正箇所です ▼▼▼▼▼
     @property
     def km_per_liter(self):
         # 燃費計算は「満タン給油」の記録でのみ行う
         if not self.is_full_tank:
             return None
         
-        # この記録の「直前」の給油記録を取得する（満タンかどうかは問わない）
-        # total_distanceでソートすることで、日付が前後しても正確な直前の記録を取得
+        # この記録の「直前」の給油記録を取得
         prev_entry = FuelEntry.query.filter(
             FuelEntry.motorcycle_id == self.motorcycle_id,
             FuelEntry.total_distance < self.total_distance
         ).order_by(FuelEntry.total_distance.desc()).first()
 
-        # 直前の記録が存在しない場合は計算不可
         if not prev_entry:
             return None
 
-        # 直前の記録も「満タン給油」でなければ、正確な区間燃費は計算できない
+        # 直前の記録も「満タン給油」でなければ計算できない
         if not prev_entry.is_full_tank:
             return None
         
-        # ★★★ ここからが追加ロジック ★★★
-        # この記録と直前の満タン記録の間にODOリセットがないか確認する
-        reset_log_exists = db.session.query(OdoResetLog.id).filter(
-            OdoResetLog.motorcycle_id == self.motorcycle_id,
-            OdoResetLog.reset_date > prev_entry.entry_date,
-            OdoResetLog.reset_date <= self.entry_date
-        ).first()
+        # ★★★ ここからが最終ロジック ★★★
+        # 各記録に適用されているオフセット値を計算
+        current_offset = self.total_distance - self.odometer_reading
+        previous_offset = prev_entry.total_distance - prev_entry.odometer_reading
 
-        # リセット記録が存在する場合、その区間の燃費は計算しない
-        if reset_log_exists:
+        # オフセット値が変動している場合、リセットを跨いでいると判断し計算しない
+        if current_offset != previous_offset:
             return None
-        # ★★★ 追加ロジックここまで ★★★
+        # ★★★ 最終ロジックここまで ★★★
 
-        # 直前も満タンの場合、その記録を燃費計算の起点とする
+        # 走行距離と消費燃料を計算
         distance_diff = self.total_distance - prev_entry.total_distance
         fuel_consumed = self.fuel_volume
 
-        if fuel_consumed is not None and fuel_consumed > 0 and distance_diff > 0:
+        if fuel_consumed > 0 and distance_diff > 0:
             try:
-                # 走行距離 ÷ 消費燃料 で燃費を計算
                 return round(float(distance_diff) / float(fuel_consumed), 2)
             except (ZeroDivisionError, TypeError):
                 return None
                 
         return None
-    # ▲▲▲▲▲ ここまでが修正箇所です ▲▲▲▲▲
 
     def __repr__(self):
         return f'<FuelEntry id={self.id} date={self.entry_date}>'
-
-
+        
+# ... (以降のモデル定義は変更なし) ...
 class MaintenanceEntry(db.Model):
     __tablename__ = 'maintenance_entries'
     id = db.Column(db.Integer, primary_key=True)
@@ -169,13 +147,11 @@ class MaintenanceEntry(db.Model):
         cost_parts = self.parts_cost if self.parts_cost is not None else 0.0
         cost_labor = self.labor_cost if self.labor_cost is not None else 0.0
         return cost_parts + cost_labor
-
     @property
     def maintenance_summary_for_select(self):
         odo_text = f"({self.odometer_reading_at_maintenance:,}km)" if self.odometer_reading_at_maintenance is not None else ""
         desc_text = f"{self.description[:25]}..." if len(self.description) > 25 else self.description
         return f"{self.maintenance_date.strftime('%Y-%m-%d')} / {desc_text} {odo_text}"
-
     def __repr__(self):
         return f'<MaintenanceEntry id={self.id} date={self.maintenance_date}>'
 
@@ -202,12 +178,7 @@ class MaintenanceReminder(db.Model):
     last_done_odo = db.Column(db.Integer, nullable=True, comment="最終実施時の『メーターODO値』(手動入力用)") 
     last_maintenance_entry_id = db.Column(db.Integer, db.ForeignKey('maintenance_entries.id', ondelete='SET NULL'), nullable=True)
     auto_update_from_category = db.Column(db.Boolean, nullable=False, default=True, server_default='true', comment="カテゴリ名が一致した整備記録で自動更新するか")
-    last_maintenance_entry = db.relationship(
-        'MaintenanceEntry', 
-        foreign_keys=[last_maintenance_entry_id],
-        backref=db.backref('reminders_as_last', lazy='dynamic'), 
-        lazy='joined' 
-    )
+    last_maintenance_entry = db.relationship('MaintenanceEntry', foreign_keys=[last_maintenance_entry_id], backref=db.backref('reminders_as_last', lazy='dynamic'), lazy='joined' )
     def __repr__(self): return f'<MaintenanceReminder id={self.id} task={self.task_description}>'
 
 class Attachment(db.Model):
@@ -355,11 +326,7 @@ class Event(db.Model):
     location = db.Column(db.String(200), nullable=True, comment="開催場所")
     start_datetime = db.Column(db.DateTime, nullable=False, comment="開始日時 (UTC)")
     end_datetime = db.Column(db.DateTime, nullable=True, comment="終了日時 (UTC)")
-    
-    # ▼▼▼ 変更点 ▼▼▼
     is_public = db.Column(db.Boolean, nullable=False, default=True, server_default='true', index=True, comment="イベント一覧に公開するか")
-    # ▲▲▲ 変更ここまで ▲▲▲
-
     created_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
     updated_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now(), onupdate=db.func.now())
     owner = db.relationship('User', backref=db.backref('events', lazy='dynamic'))
@@ -397,29 +364,22 @@ class TouringLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
     motorcycle_id = db.Column(db.Integer, db.ForeignKey('motorcycles.id', ondelete='CASCADE'), nullable=False, index=True)
-    
     title = db.Column(db.String(200), nullable=False)
     touring_date = db.Column(db.Date, nullable=False, index=True)
     memo = db.Column(db.Text, nullable=True)
-    
     created_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
     updated_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now(), onupdate=db.func.now())
-
-    # リレーションシップ
     owner = db.relationship('User', backref=db.backref('touring_logs', lazy='dynamic'))
     motorcycle = db.relationship('Motorcycle', backref=db.backref('touring_logs', lazy='dynamic'))
     spots = db.relationship('TouringSpot', backref='touring_log', cascade="all, delete-orphan", order_by="TouringSpot.order")
     scrapbook_entries = db.relationship('TouringScrapbookEntry', backref='touring_log', cascade="all, delete-orphan")
-
     def __repr__(self):
         return f'<TouringLog id={self.id} title="{self.title}">'
-
 
 class TouringSpot(db.Model):
     __tablename__ = 'touring_spots'
     id = db.Column(db.Integer, primary_key=True)
     touring_log_id = db.Column(db.Integer, db.ForeignKey('touring_logs.id', ondelete='CASCADE'), nullable=False, index=True)
-    
     spot_name = db.Column(db.String(150), nullable=False)
     memo = db.Column(db.Text, nullable=True)
     order = db.Column(db.Integer, nullable=False, default=0, comment="スポットの順序")
@@ -427,24 +387,18 @@ class TouringSpot(db.Model):
     latitude = db.Column(db.Float, nullable=True, comment="緯度")
     longitude = db.Column(db.Float, nullable=True, comment="経度")
     google_place_id = db.Column(db.String(255), nullable=True, comment="Google Place ID")
-
     def __repr__(self):
         return f'<TouringSpot id={self.id} name="{self.spot_name}">'
-
 
 class TouringScrapbookEntry(db.Model):
     __tablename__ = 'touring_scrapbook_entries'
     id = db.Column(db.Integer, primary_key=True)
     touring_log_id = db.Column(db.Integer, db.ForeignKey('touring_logs.id', ondelete='CASCADE'), nullable=False)
     misskey_note_id = db.Column(db.String(32), nullable=False, index=True)
-
-    # 同じログに同じノートが重複して登録されないように制約を設ける
     __table_args__ = (db.UniqueConstraint('touring_log_id', 'misskey_note_id', name='uq_touring_log_note'),)
-
     def __repr__(self):
         return f'<TouringScrapbookEntry log_id={self.touring_log_id} note_id="{self.misskey_note_id}">'
 
-# ▼▼▼ 以下をファイルの末尾に追記 ▼▼▼
 class MaintenanceSpecSheet(db.Model):
     __tablename__ = 'maintenance_spec_sheets'
     id = db.Column(db.Integer, primary_key=True)
@@ -454,12 +408,6 @@ class MaintenanceSpecSheet(db.Model):
     spec_data = db.Column(JSONB, nullable=False)
     created_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
     updated_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now(), onupdate=db.func.now())
-
-    __table_args__ = (
-        Index('ix_maintenance_spec_sheets_user_id', 'user_id'),
-        Index('ix_maintenance_spec_sheets_motorcycle_id', 'motorcycle_id'),
-    )
-
+    __table_args__ = (Index('ix_maintenance_spec_sheets_user_id', 'user_id'), Index('ix_maintenance_spec_sheets_motorcycle_id', 'motorcycle_id'),)
     def __repr__(self):
         return f'<MaintenanceSpecSheet id={self.id} name="{self.sheet_name}">'
-# ▲▲▲ 追記ここまで ▲▲▲
