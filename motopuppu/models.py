@@ -108,31 +108,23 @@ class FuelEntry(db.Model):
             return None
         
         # この記録の「直前」の給油記録を取得
+        # is_full_tank == True の条件も追加し、満タン給油間の燃費を正しく計算する
         prev_entry = FuelEntry.query.filter(
             FuelEntry.motorcycle_id == self.motorcycle_id,
-            FuelEntry.total_distance < self.total_distance
+            FuelEntry.total_distance < self.total_distance,
+            FuelEntry.is_full_tank == True
         ).order_by(FuelEntry.total_distance.desc()).first()
 
-        # 直前の記録が存在しない場合は計算不可
+        # 直前の満タン給油記録が存在しない場合は計算不可
         if not prev_entry:
             return None
 
-        # 直前の記録も「満タン給油」でなければ計算できない
-        if not prev_entry.is_full_tank:
-            return None
-        
-        # ★★★ ここからが最終ロジック ★★★
-        # 各記録に適用されているオフセット値を計算
-        current_offset = self.total_distance - self.odometer_reading
-        previous_offset = prev_entry.total_distance - prev_entry.odometer_reading
-
-        # オフセット値が変動している場合、リセットを跨いでいると判断し計算しない
-        if current_offset != previous_offset:
-            return None
-        # ★★★ 最終ロジックここまで ★★★
-
-        # 走行距離と消費燃料を計算
+        # 走行距離を計算します。
+        # total_distanceにはODOリセット分が補正された「仮想的な総走行距離」が保存されているため、
+        # この差分を取るだけでリセットを跨いだ走行距離が正しく計算できます。
         distance_diff = self.total_distance - prev_entry.total_distance
+        
+        # 消費燃料は今回の給油量
         fuel_consumed = self.fuel_volume
 
         if fuel_consumed is not None and fuel_consumed > 0 and distance_diff > 0:
