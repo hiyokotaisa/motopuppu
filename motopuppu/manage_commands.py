@@ -273,7 +273,6 @@ def recalculate_total_distance_command(motorcycle_id, dry_run):
 
 # ▲▲▲▲▲ `recalculate-total-distance` コマンドの修正ここまで ▲▲▲▲▲
 
-
 @click.command('check-abnormal-mileage')
 @with_appcontext
 @click.option('--threshold', default=100.0, type=float, help='異常と判定する燃費の閾値 (km/L)。')
@@ -339,7 +338,9 @@ def check_abnormal_mileage_command(threshold, user_id):
                 distance_diff = entry.total_distance - prev_entry.total_distance
                 click.echo(click.style("  [計算に使われた前回の給油記録]", fg='yellow'))
                 click.echo(f"    - 給油記録ID    : {prev_entry.id}")
-                click.echo(f"    - 日付          : {prev_entry.date}")
+                # ▼▼▼ ここを修正しました ▼▼▼
+                click.echo(f"    - 日付          : {prev_entry.entry_date}")
+                # ▲▲▲ 修正ここまで ▲▲▲
                 click.echo(f"    - ODOメーター   : {prev_entry.odometer_reading:,} km")
                 click.echo(f"    - total_distance: {click.style(str(prev_entry.total_distance), fg='magenta')}")
                 click.echo(f"  計算された走行距離: {click.style(f'{distance_diff:,} km', fg='magenta', bold=True)} ({entry.total_distance} - {prev_entry.total_distance})")
