@@ -4,8 +4,13 @@ from flask.cli import with_appcontext
 from decimal import Decimal
 
 from . import db
-from .models import User, AchievementDefinition, UserAchievement, ActivityLog, SessionLog
-from .achievement_evaluator import evaluate_achievement_condition_for_backfill
+# ▼▼▼ モデルのインポートを修正 ▼▼▼
+from .models import (
+    User, AchievementDefinition, UserAchievement, ActivityLog, SessionLog,
+    Motorcycle, FuelEntry, OdoResetLog
+)
+from sqlalchemy import asc
+# ▲▲▲ 修正ここまで ▲▲▲
 from sqlalchemy.exc import IntegrityError
 from flask import current_app
 # ▼▼▼ forms.py からサーキットリストをインポート
@@ -137,8 +142,74 @@ def migrate_activity_data_command():
         click.echo(f"エラー: データ移行中に問題が発生しました。{e}")
 
 
+# ▼▼▼ 新しいコマンドをここに追加 ▼▼▼
+@click.command('recalculate-total-distance')
+@with_appcontext
+@click.option('--motorcycle-id', required=True, type=int, help='Total distanceを再計算する車両のID。')
+@click.option('--dry-run', is_flag=True, help='実際にはDBを更新せず、実行結果のプレビューのみ表示します。')
+def recalculate_total_distance_command(motorcycle_id, dry_run):
+    """
+    指定された車両の全給油記録について、ODOリセットログを元にtotal_distanceを再計算します。
+    """
+    motorcycle = Motorcycle.query.get(motorcycle_id)
+    if not motorcycle:
+        click.echo(f"エラー: ID={motorcycle_id} の車両が見つかりません。")
+        return
+
+    click.echo(f"車両 '{motorcycle.name}' (ID: {motorcycle_id}) の total_distance を再計算します。")
+    if dry_run:
+        click.echo(click.style("--- ドライランモードで実行中（DBは更新されません）---", fg='yellow'))
+
+    # 全給油記録と全ODOリセットログを日付順で取得
+    fuel_entries = FuelEntry.query.filter_by(motorcycle_id=motorcycle_id).order_by(asc(FuelEntry.entry_date), asc(FuelEntry.id)).all()
+    odo_resets = OdoResetLog.query.filter_by(motorcycle_id=motorcycle_id).order_by(asc(OdoResetLog.reset_date)).all()
+    
+    if not fuel_entries:
+        click.echo("この車両には給油記録がありません。")
+        return
+
+    cumulative_offset = 0
+    reset_idx = 0
+
+    for entry in fuel_entries:
+        # この給油記録の日付までに発生したODOリセットのオフセットをすべて加算
+        while reset_idx < len(odo_resets) and odo_resets[reset_idx].reset_date <= entry.entry_date:
+            cumulative_offset += odo_resets[reset_idx].offset_increment
+            reset_idx += 1
+            
+        new_total_distance = entry.odometer_reading + cumulative_offset
+        
+        if entry.total_distance != new_total_distance:
+            click.echo(
+                f"ID: {entry.id}, 日付: {entry.entry_date}, "
+                f"ODO: {entry.odometer_reading}, "
+                f"旧 total_distance: {click.style(str(entry.total_distance), fg='red')}, "
+                f"新 total_distance: {click.style(str(new_total_distance), fg='green')}"
+            )
+            if not dry_run:
+                entry.total_distance = new_total_distance
+        else:
+            click.echo(
+                 f"ID: {entry.id}, 日付: {entry.entry_date} - total_distanceは正常です ({entry.total_distance})。"
+            )
+
+    if not dry_run:
+        try:
+            db.session.commit()
+            click.echo(click.style("データベースの更新が完了しました。", fg='green'))
+        except Exception as e:
+            db.session.rollback()
+            click.echo(click.style(f"エラーが発生しました: {e}", fg='red'))
+    else:
+        click.echo(click.style("--- ドライランが終了しました ---", fg='yellow'))
+# ▲▲▲ 追加ここまで ▲▲▲
+
+
 # --- アプリケーションへのコマンド登録 ---
 def register_commands(app):
     """FlaskアプリケーションインスタンスにCLIコマンドを登録する"""
     app.cli.add_command(backfill_achievements_command)
     app.cli.add_command(migrate_activity_data_command)
+    # ▼▼▼ 新しいコマンドを登録 ▼▼▼
+    app.cli.add_command(recalculate_total_distance_command)
+    # ▲▲▲ 登録ここまで ▲▲▲
