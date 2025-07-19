@@ -2,21 +2,16 @@
 import click
 from flask.cli import with_appcontext
 from decimal import Decimal
-# ▼▼▼ SQLAlchemyのjoinedloadをインポート ▼▼▼
 from sqlalchemy.orm import joinedload
-# ▲▲▲ インポートここまで ▲▲▲
 
 from . import db
-# ▼▼▼ モデルのインポートを修正 ▼▼▼
 from .models import (
     User, AchievementDefinition, UserAchievement, ActivityLog, SessionLog,
     Motorcycle, FuelEntry, OdoResetLog
 )
 from sqlalchemy import asc
-# ▲▲▲ 修正ここまで ▲▲▲
 from sqlalchemy.exc import IntegrityError
 from flask import current_app
-# ▼▼▼ forms.py からサーキットリストをインポート
 from .forms import JAPANESE_CIRCUITS
 
 
@@ -146,14 +141,41 @@ def migrate_activity_data_command():
         click.echo(f"エラー: データ移行中に問題が発生しました。{e}")
 
 
-# ▼▼▼ 既存のコマンド ▼▼▼
+# ▼▼▼▼▼ ここから `recalculate-total-distance` コマンドを修正 ▼▼▼▼▼
+
+def _calculate_kpl_from_simulated_data(target_entry_sim, all_entries_sim):
+    """メモリ上のシミュレーションデータから燃費を計算するヘルパー関数"""
+    if not target_entry_sim['is_full_tank']:
+        return None
+
+    # target_entryより前の、満タン給油記録をシミュレーションデータから探す
+    prev_entry_sim = None
+    for entry_sim in sorted(all_entries_sim, key=lambda x: x['total_distance'], reverse=True):
+        if entry_sim['total_distance'] < target_entry_sim['total_distance'] and entry_sim['is_full_tank']:
+            prev_entry_sim = entry_sim
+            break
+
+    if not prev_entry_sim:
+        return None
+
+    distance_diff = target_entry_sim['total_distance'] - prev_entry_sim['total_distance']
+    fuel_consumed = target_entry_sim['fuel_volume']
+
+    if fuel_consumed is not None and fuel_consumed > 0 and distance_diff > 0:
+        try:
+            return round(float(distance_diff) / float(fuel_consumed), 2)
+        except (ZeroDivisionError, TypeError):
+            return None
+    return None
+
 @click.command('recalculate-total-distance')
 @with_appcontext
 @click.option('--motorcycle-id', required=True, type=int, help='Total distanceを再計算する車両のID。')
 @click.option('--dry-run', is_flag=True, help='実際にはDBを更新せず、実行結果のプレビューのみ表示します。')
 def recalculate_total_distance_command(motorcycle_id, dry_run):
     """
-    指定された車両の全給油記録について、ODOリセットログを元にtotal_distanceを再計算します。
+    指定された車両の全給油記録についてtotal_distanceを再計算し、
+    修正前後の燃費の変化を表示します。
     """
     motorcycle = Motorcycle.query.get(motorcycle_id)
     if not motorcycle:
@@ -164,7 +186,6 @@ def recalculate_total_distance_command(motorcycle_id, dry_run):
     if dry_run:
         click.echo(click.style("--- ドライランモードで実行中（DBは更新されません）---", fg='yellow'))
 
-    # 全給油記録と全ODOリセットログを日付順で取得
     fuel_entries = FuelEntry.query.filter_by(motorcycle_id=motorcycle_id).order_by(asc(FuelEntry.entry_date), asc(FuelEntry.id)).all()
     odo_resets = OdoResetLog.query.filter_by(motorcycle_id=motorcycle_id).order_by(asc(OdoResetLog.reset_date)).all()
 
@@ -172,44 +193,87 @@ def recalculate_total_distance_command(motorcycle_id, dry_run):
         click.echo("この車両には給油記録がありません。")
         return
 
+    # 1. 修正前の燃費(kpl)を計算して保存
+    original_kpls = {entry.id: entry.km_per_liter for entry in fuel_entries}
+
+    # 2. メモリ上で新しいtotal_distanceをシミュレーション
+    simulated_entries = []
     cumulative_offset = 0
     reset_idx = 0
-
     for entry in fuel_entries:
-        # この給油記録の日付までに発生したODOリセットのオフセットをすべて加算
         while reset_idx < len(odo_resets) and odo_resets[reset_idx].reset_date <= entry.entry_date:
             cumulative_offset += odo_resets[reset_idx].offset_increment
             reset_idx += 1
-
+        
         new_total_distance = entry.odometer_reading + cumulative_offset
+        simulated_entries.append({
+            'id': entry.id,
+            'entry_date': entry.entry_date,
+            'odometer_reading': entry.odometer_reading,
+            'original_total_distance': entry.total_distance,
+            'total_distance': new_total_distance, # これが新しい値
+            'fuel_volume': entry.fuel_volume,
+            'is_full_tank': entry.is_full_tank
+        })
 
-        if entry.total_distance != new_total_distance:
+    # 3. シミュレーションデータを使って、修正後の燃費を計算
+    new_kpls = {}
+    for sim_entry in simulated_entries:
+        new_kpls[sim_entry['id']] = _calculate_kpl_from_simulated_data(sim_entry, simulated_entries)
+
+    # 4. 結果を表示し、必要であればDBを更新
+    click.echo("-" * 60)
+    for i, entry in enumerate(fuel_entries):
+        sim_data = simulated_entries[i]
+        original_kpl = original_kpls.get(entry.id)
+        new_kpl = new_kpls.get(entry.id)
+
+        original_kpl_str = f"{original_kpl:.2f}" if original_kpl is not None else "N/A"
+        new_kpl_str = f"{new_kpl:.2f}" if new_kpl is not None else "N/A"
+
+        click.echo(f"ID: {entry.id}, 日付: {entry.entry_date}, ODO: {entry.odometer_reading}")
+
+        # total_distance の変更を表示
+        if sim_data['original_total_distance'] != sim_data['total_distance']:
             click.echo(
-                f"ID: {entry.id}, 日付: {entry.entry_date}, "
-                f"ODO: {entry.odometer_reading}, "
-                f"旧 total_distance: {click.style(str(entry.total_distance), fg='red')}, "
-                f"新 total_distance: {click.style(str(new_total_distance), fg='green')}"
+                f"  total_distance: "
+                f"{click.style(str(sim_data['original_total_distance']), fg='red')} -> "
+                f"{click.style(str(sim_data['total_distance']), fg='green')}"
             )
-            if not dry_run:
-                entry.total_distance = new_total_distance
         else:
-            click.echo(
-                 f"ID: {entry.id}, 日付: {entry.entry_date} - total_distanceは正常です ({entry.total_distance})。"
+            click.echo(f"  total_distance: {sim_data['total_distance']} (変更なし)")
+
+        # 燃費の変更を表示
+        if original_kpl_str != new_kpl_str:
+             click.echo(
+                f"  燃費 (km/L)   : "
+                f"{click.style(original_kpl_str, fg='red')} -> "
+                f"{click.style(new_kpl_str, fg='green')}"
             )
+        else:
+             click.echo(f"  燃費 (km/L)   : {new_kpl_str} (変更なし)")
+        
+        click.echo("-" * 20)
+
+
+        # DB更新（ドライランでない場合）
+        if not dry_run:
+            entry.total_distance = sim_data['total_distance']
 
     if not dry_run:
         try:
             db.session.commit()
-            click.echo(click.style("データベースの更新が完了しました。", fg='green'))
+            click.echo(click.style("\nデータベースの更新が完了しました。", fg='green', bold=True))
         except Exception as e:
             db.session.rollback()
-            click.echo(click.style(f"エラーが発生しました: {e}", fg='red'))
+            click.echo(click.style(f"\nエラーが発生しました: {e}", fg='red'))
     else:
-        click.echo(click.style("--- ドライランが終了しました ---", fg='yellow'))
-# ▲▲▲ 既存のコマンドここまで ▲▲▲
+        click.echo(click.style("\n--- ドライランが終了しました ---", fg='yellow', bold=True))
 
 
-# ▼▼▼▼▼ この新しいコマンドを、既存のコマンド定義の後に追加してください ▼▼▼▼▼
+# ▲▲▲▲▲ `recalculate-total-distance` コマンドの修正ここまで ▲▲▲▲▲
+
+
 @click.command('check-abnormal-mileage')
 @with_appcontext
 @click.option('--threshold', default=100.0, type=float, help='異常と判定する燃費の閾値 (km/L)。')
@@ -275,7 +339,7 @@ def check_abnormal_mileage_command(threshold, user_id):
                 distance_diff = entry.total_distance - prev_entry.total_distance
                 click.echo(click.style("  [計算に使われた前回の給油記録]", fg='yellow'))
                 click.echo(f"    - 給油記録ID    : {prev_entry.id}")
-                click.echo(f"    - 日付          : {prev_entry.entry_date}")
+                click.echo(f"    - 日付          : {prev_entry.date}")
                 click.echo(f"    - ODOメーター   : {prev_entry.odometer_reading:,} km")
                 click.echo(f"    - total_distance: {click.style(str(prev_entry.total_distance), fg='magenta')}")
                 click.echo(f"  計算された走行距離: {click.style(f'{distance_diff:,} km', fg='magenta', bold=True)} ({entry.total_distance} - {prev_entry.total_distance})")
@@ -302,17 +366,11 @@ def check_abnormal_mileage_command(threshold, user_id):
         click.echo(click.style(f"\n--- チェック完了: 合計 {abnormal_count} 件の異常な記録を検出しました ---", fg='yellow', bold=True))
         click.echo("これらの記録は、`recalculate-total-distance --motorcycle-id [ID]` コマンドで total_distance を修正することで、正常な燃費に再計算される可能性があります。")
 
-# ▲▲▲▲▲ ここまで追加 ▲▲▲▲▲
-
 
 # --- アプリケーションへのコマンド登録 ---
 def register_commands(app):
     """FlaskアプリケーションインスタンスにCLIコマンドを登録する"""
     app.cli.add_command(backfill_achievements_command)
     app.cli.add_command(migrate_activity_data_command)
-    # ▼▼▼ 既存のコマンド登録を修正 ▼▼▼
     app.cli.add_command(recalculate_total_distance_command)
-    # ▲▲▲ 登録ここまで ▲▲▲
-    # ▼▼▼ 新しいコマンドを登録 ▼▼▼
     app.cli.add_command(check_abnormal_mileage_command)
-    # ▲▲▲ 登録ここまで ▲▲▲
