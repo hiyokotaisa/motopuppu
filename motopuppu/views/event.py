@@ -5,10 +5,11 @@ from flask import (
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime, timezone, date
 
-# ▼▼▼ インポート文を修正 ▼▼▼
+# ▼▼▼ 変更ここから ▼▼▼
+from sqlalchemy import func
 from flask_login import login_required, current_user
+from ..models import db, Event, EventParticipant, Motorcycle, ParticipationStatus, User
 # ▲▲▲ 変更ここまで ▲▲▲
-from ..models import db, Event, EventParticipant, Motorcycle, ParticipationStatus
 from ..forms import EventForm, ParticipantForm
 from ..utils.datetime_helpers import JST
 from .. import limiter
@@ -29,13 +30,34 @@ def public_events_list():
     now_utc = datetime.now(timezone.utc)
     page = request.args.get('page', 1, type=int)
     
-    # ▼▼▼ 変更点: joinedload を使ってユーザー情報を事前に読み込む ▼▼▼
-    events_pagination = Event.query.options(
-        db.joinedload(Event.owner)
+    # ▼▼▼ 変更ここから ▼▼▼
+    # 参加者数をステータス別にカウントする相関サブクエリを作成
+    attending_count_subquery = db.session.query(
+        func.count(EventParticipant.id)
+    ).filter(
+        EventParticipant.event_id == Event.id,
+        EventParticipant.status == ParticipationStatus.ATTENDING
+    ).correlate(Event).as_scalar()
+
+    tentative_count_subquery = db.session.query(
+        func.count(EventParticipant.id)
+    ).filter(
+        EventParticipant.event_id == Event.id,
+        EventParticipant.status == ParticipationStatus.TENTATIVE
+    ).correlate(Event).as_scalar()
+
+    # メインクエリにサブクエリをカラムとして追加し、イベント情報と参加者数を一括で取得
+    events_query = Event.query.options(
+        db.joinedload(Event.owner).load_only(User.display_name, User.misskey_username, User.avatar_url) # 主催者情報も効率的に読み込む
+    ).add_columns(
+        attending_count_subquery.label('attending_count'),
+        tentative_count_subquery.label('tentative_count')
     ).filter(
         Event.is_public == True,
         Event.start_datetime >= now_utc
-    ).order_by(Event.start_datetime.asc()).paginate(page=page, per_page=15, error_out=False)
+    ).order_by(Event.start_datetime.asc())
+    
+    events_pagination = events_query.paginate(page=page, per_page=15, error_out=False)
     # ▲▲▲ 変更ここまで ▲▲▲
     
     return render_template('event/public_list_events.html', events_pagination=events_pagination)

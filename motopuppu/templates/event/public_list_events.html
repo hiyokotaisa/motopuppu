@@ -14,40 +14,53 @@
 
         {% if events_pagination.items %}
             <div class="list-group">
-                {% for event in events_pagination.items %}
-                    <a href="{{ url_for('event.public_event_view', public_id=event.public_id) }}" class="list-group-item list-group-item-action p-3">
-                        <div class="d-flex w-100 justify-content-between">
-                            <h5 class="mb-1">{{ event.title }}</h5>
-                            <small class="text-muted">{{ (event.start_datetime | user_localtime).strftime('%Y年%m月%d日(%a)') }}</small>
-                        </div>
-                        <p class="mb-1">
-                            <i class="fas fa-clock fa-fw me-1 text-muted"></i>
-                            {{ (event.start_datetime | user_localtime).strftime('%H:%M') }}
-                            {% if event.end_datetime %}
-                                〜 {{ (event.end_datetime | user_localtime).strftime('%H:%M') }}
-                            {% endif %}
-                        </p>
-                        {% if event.location %}
-                        <p class="mb-1">
-                            <i class="fas fa-map-marker-alt fa-fw me-1 text-muted"></i>
-                            {{ event.location }}
-                        </p>
+                {# ▼▼▼ 変更ここから ▼▼▼ #}
+                {% for event, attending_count, tentative_count in events_pagination.items %}
+                <a href="{{ url_for('event.public_event_view', public_id=event.public_id) }}" class="list-group-item list-group-item-action p-3">
+                    <div class="d-flex w-100 justify-content-between">
+                        <h5 class="mb-1">{{ event.title }}</h5>
+                        <small class="text-muted">{{ (event.start_datetime | user_localtime).strftime('%Y年%m月%d日(%a)') }}</small>
+                    </div>
+                    <p class="mb-1">
+                        <i class="fas fa-clock fa-fw me-1 text-muted"></i>
+                        {{ (event.start_datetime | user_localtime).strftime('%H:%M') }}
+                        {% if event.end_datetime %}
+                            〜 {{ (event.end_datetime | user_localtime).strftime('%H:%M') }}
                         {% endif %}
+                    </p>
+                    {% if event.location %}
+                    <p class="mb-1">
+                        <i class="fas fa-map-marker-alt fa-fw me-1 text-muted"></i>
+                        {{ event.location }}
+                    </p>
+                    {% endif %}
 
-                        {# ▼▼▼ 変更点: 主催者情報を表示するブロックを追加 ▼▼▼ #}
-                        {% if event.owner %}
-                        <div class="d-flex align-items-center mt-2 pt-2 border-top">
-                            {% if event.owner.avatar_url %}
+                    {# --- 主催者と参加者数の表示 --- #}
+                    <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top small text-muted">
+                        {# 主催者情報 #}
+                        <div class="d-flex align-items-center">
+                            {% if event.owner and event.owner.avatar_url %}
                                 <img src="{{ event.owner.avatar_url }}" alt="{{ event.owner.display_name or event.owner.misskey_username }}" class="rounded-circle me-2" style="width: 24px; height: 24px; object-fit: cover;">
                             {% else %}
                                 <i class="fas fa-user-circle fa-lg me-2 text-secondary"></i>
                             {% endif %}
-                            <span class="small text-muted">主催者: {{ event.owner.display_name or event.owner.misskey_username }}</span>
+                            <span>主催者: {{ event.owner.display_name or event.owner.misskey_username }}</span>
                         </div>
-                        {% endif %}
-                        {# ▲▲▲ 変更ここまで ▲▲▲ #}
-                    </a>
+                        {# 参加者数・保留者数 #}
+                        <div class="d-flex align-items-center">
+                            <span class="me-3" title="参加者">
+                                <i class="fas fa-check-circle text-success me-1"></i>
+                                <span class="fw-bold">{{ attending_count }}</span> 名
+                            </span>
+                            <span title="保留者">
+                                <i class="fas fa-question-circle text-warning me-1"></i>
+                                <span class="fw-bold">{{ tentative_count }}</span> 名
+                            </span>
+                        </div>
+                    </div>
+                </a>
                 {% endfor %}
+                {# ▲▲▲ 変更ここまで ▲▲▲ #}
             </div>
 
             {# --- ページネーション (既存実装に合わせた修正版) --- #}
