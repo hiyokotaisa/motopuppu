@@ -204,7 +204,7 @@ def recalculate_total_distance_command(motorcycle_id, dry_run):
         while reset_idx < len(odo_resets) and odo_resets[reset_idx].reset_date <= entry.entry_date:
             cumulative_offset += odo_resets[reset_idx].offset_increment
             reset_idx += 1
-        
+
         new_total_distance = entry.odometer_reading + cumulative_offset
         simulated_entries.append({
             'id': entry.id,
@@ -252,7 +252,7 @@ def recalculate_total_distance_command(motorcycle_id, dry_run):
             )
         else:
              click.echo(f"  燃費 (km/L)   : {new_kpl_str} (変更なし)")
-        
+
         click.echo("-" * 20)
 
 
@@ -367,6 +367,74 @@ def check_abnormal_mileage_command(threshold, user_id):
         click.echo(click.style(f"\n--- チェック完了: 合計 {abnormal_count} 件の異常な記録を検出しました ---", fg='yellow', bold=True))
         click.echo("これらの記録は、`recalculate-total-distance --motorcycle-id [ID]` コマンドで total_distance を修正することで、正常な燃費に再計算される可能性があります。")
 
+# ▼▼▼▼▼ 新しいコマンドをここに追加 ▼▼▼▼▼
+@click.command('dump-user-fuel-data')
+@with_appcontext
+@click.option('--user-id', required=True, type=int, help='データをダンプするユーザーのID。')
+def dump_user_fuel_data_command(user_id):
+    """
+    指定されたユーザーの全給油関連データ（車両、ODOリセット、給油記録）を
+    デバッグ目的で時系列に表示します。
+    """
+    user = User.query.get(user_id)
+    if not user:
+        click.echo(click.style(f"エラー: ユーザーID {user_id} が見つかりません。", fg='red'))
+        return
+
+    click.echo("=" * 60)
+    click.echo(click.style(f"ユーザー: {user.misskey_username} (ID: {user.id}) の給油データをダンプします。", fg='cyan', bold=True))
+    click.echo("=" * 60)
+
+    # 燃費記録の対象となる公道車のみを取得
+    motorcycles = Motorcycle.query.filter_by(user_id=user.id, is_racer=False).all()
+
+    if not motorcycles:
+        click.echo(click.style("対象となる車両（公道車）が見つかりません。", fg='yellow'))
+        return
+
+    for motorcycle in motorcycles:
+        click.echo(f"\n" + "-" * 60)
+        click.echo(click.style(f"🏍️ 車両: {motorcycle.name} (ID: {motorcycle.id})", fg='green', bold=True))
+        click.echo("-" * 60)
+
+        # 1. ODOリセット履歴を表示
+        click.echo(click.style("\n[ODOリセット履歴]", fg='yellow'))
+        odo_resets = OdoResetLog.query.filter_by(motorcycle_id=motorcycle.id).order_by(OdoResetLog.reset_date.asc()).all()
+        if odo_resets:
+            for log in odo_resets:
+                click.echo(
+                    f"  - {log.reset_date}: ODO {log.display_odo_before_reset} -> {log.display_odo_after_reset} "
+                    f"(オフセット増加: +{log.offset_increment})"
+                )
+        else:
+            click.echo("  - 履歴なし")
+
+        # 2. 給油記録を時系列で表示
+        click.echo(click.style("\n[給油記録]", fg='yellow'))
+        fuel_entries = FuelEntry.query.filter_by(motorcycle_id=motorcycle.id).order_by(FuelEntry.entry_date.asc(), FuelEntry.id.asc()).all()
+        if fuel_entries:
+            click.echo("  ID   | 日付       | ODO      | total_distance | 燃費 (km/L)")
+            click.echo("  -----|------------|----------|----------------|-------------")
+            for entry in fuel_entries:
+                kpl = entry.km_per_liter
+                kpl_str = f"{kpl:.2f}" if kpl is not None else "N/A"
+
+                # 異常な燃費をハイライト
+                kpl_styled_str = kpl_str
+                if kpl is not None and (kpl > 100 or kpl <= 0):
+                    kpl_styled_str = click.style(kpl_str, fg='red', bold=True)
+
+                click.echo(
+                    f"  {entry.id:<4} | {entry.entry_date} | {entry.odometer_reading:<8} | "
+                    f"{entry.total_distance:<14} | {kpl_styled_str}"
+                )
+        else:
+            click.echo("  - 記録なし")
+
+    click.echo("\n" + "=" * 60)
+    click.echo(click.style("ダンプが完了しました。", fg='cyan', bold=True))
+    click.echo("=" * 60)
+# ▲▲▲▲▲ 追加ここまで ▲▲▲▲▲
 
 # --- アプリケーションへのコマンド登録 ---
 def register_commands(app):
@@ -375,3 +443,6 @@ def register_commands(app):
     app.cli.add_command(migrate_activity_data_command)
     app.cli.add_command(recalculate_total_distance_command)
     app.cli.add_command(check_abnormal_mileage_command)
+    # ▼▼▼ 新しいコマンドを登録 ▼▼▼
+    app.cli.add_command(dump_user_fuel_data_command)
+    # ▲▲▲ 登録ここまで ▲▲▲
