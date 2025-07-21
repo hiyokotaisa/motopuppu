@@ -11,10 +11,6 @@ from ..constants import TARGET_CIRCUITS
 # リーダーボード機能のBlueprintを作成
 leaderboard_bp = Blueprint('leaderboard', __name__, url_prefix='/leaderboard')
 
-# ▼▼▼ 定義を削除（constants.pyからインポートするため）▼▼▼
-# TARGET_CIRCUITS = [ ... ]
-# ▲▲▲ ここまで削除 ▲▲▲
-
 def format_seconds_to_time(total_seconds):
     """ 秒(Decimal)を "M:SS.fff" 形式の文字列に変換するヘルパー関数 """
     if total_seconds is None or not isinstance(total_seconds, decimal.Decimal):
@@ -40,8 +36,8 @@ def ranking(circuit_name):
     if circuit_name not in TARGET_CIRCUITS:
         return redirect(url_for('leaderboard.index'))
 
-    # 各ユーザーのベストラップを特定するためのサブクエリ
-    # ウィンドウ関数を使い、ユーザーごとにベストラップ秒でランク付けする
+    # 各ユーザーの各車両ごとのベストラップを特定するためのサブクエリ
+    # ウィンドウ関数を使い、ユーザーと車両の組み合わせごとにベストラップ秒でランク付けする
     subquery = db.session.query(
         SessionLog.id.label('session_id'),
         ActivityLog.user_id,
@@ -49,7 +45,9 @@ def ranking(circuit_name):
         ActivityLog.activity_date,
         SessionLog.best_lap_seconds,
         func.row_number().over(
-            partition_by=ActivityLog.user_id,
+            # ▼▼▼ ここから変更 ▼▼▼
+            partition_by=(ActivityLog.user_id, ActivityLog.motorcycle_id),
+            # ▲▲▲ ここまで変更 ▲▲▲
             order_by=SessionLog.best_lap_seconds.asc()
         ).label('rn')
     ).join(ActivityLog, SessionLog.activity_log_id == ActivityLog.id)\
