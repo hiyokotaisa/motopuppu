@@ -166,7 +166,7 @@ def fuel_log():
 
 
 @fuel_bp.route('/add', methods=['GET', 'POST'])
-@limiter.limit("30 per hour")
+@limiter.limit("60 per hour")
 @login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def add_fuel():
     # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
@@ -271,7 +271,7 @@ def add_fuel():
 
 
 @fuel_bp.route('/<int:entry_id>/edit', methods=['GET', 'POST'])
-@limiter.limit("30 per hour")
+@limiter.limit("60 per hour")
 @login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def edit_fuel(entry_id):
     # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
@@ -371,7 +371,7 @@ def edit_fuel(entry_id):
 
 
 @fuel_bp.route('/<int:entry_id>/delete', methods=['POST'])
-@limiter.limit("30 per hour")
+@limiter.limit("60 per hour")
 @login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def delete_fuel(entry_id):
     # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
