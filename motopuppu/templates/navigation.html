@@ -117,7 +117,7 @@
 
             <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
                 <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle d-flex align-items-center {% if request.endpoint.startswith('achievements.') or request.endpoint.startswith('profile.') %}active{% endif %}" href="#" id="navbarUserDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <a class="nav-link dropdown-toggle d-flex align-items-center {% if request.endpoint.startswith(('achievements.', 'profile.', 'help.')) %}active{% endif %}" href="#" id="navbarUserDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                         {# ▼▼▼ g.user を current_user に変更 ▼▼▼ #}
                         {% if current_user.avatar_url %}
                             <img src="{{ current_user.avatar_url }}" alt="{{ current_user.display_name or current_user.misskey_username }}" class="rounded-circle me-2" style="width: 24px; height: 24px; object-fit: cover;">
@@ -136,6 +136,11 @@
                         <li>
                             <a class="dropdown-item {% if request.endpoint == 'profile.settings' %}active{% endif %}" href="{{ url_for('profile.settings') }}">
                                 <i class="fas fa-user-cog fa-fw me-2"></i>プロフィール設定
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item {% if request.endpoint.startswith('help.') %}active{% endif %}" href="{{ url_for('help.index') }}">
+                                <i class="fas fa-question-circle fa-fw me-2"></i>ヘルプ
                             </a>
                         </li>
                         <li><hr class="dropdown-divider"></li>

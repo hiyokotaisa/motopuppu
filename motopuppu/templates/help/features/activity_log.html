@@ -1,0 +1,127 @@
+{# motopuppu/templates/help/features/activity_log.html #}
+{% extends "help/layout.html" %}
+
+{% block help_content %}
+<p class="lead">サーキット走行やツーリングなど、特定の「活動」における車両のセッティングとパフォーマンスを記録・管理するための強力な機能です。公道・レーサーを問わず、すべての車両で利用できます。</p>
+
+<h3 class="mt-4 border-bottom pb-2">機能の全体像</h3>
+<p>この機能は、大きく分けて3つの要素で構成されています。これらの関係性を理解することが、効果的に活用する鍵となります。</p>
+
+<div class="row text-center mt-4">
+    <div class="col-md-4">
+        <div class="card h-100 shadow-sm">
+            <div class="card-header bg-primary text-white"><strong>1. 活動ログ (Activity Log)</strong></div>
+            <div class="card-body">
+                <i class="fas fa-calendar-day fa-3x text-primary mb-3"></i>
+                <p class="card-text"><strong>「1日の活動の入れ物」</strong>です。<br>例：「7/5 筑波サーキット走行会」</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100 shadow-sm">
+            <div class="card-header bg-success text-white"><strong>2. セッションログ (Session Log)</strong></div>
+            <div class="card-body">
+                <i class="fas fa-flag-checkered fa-3x text-success mb-3"></i>
+                <p class="card-text">活動ログの中の<strong>「個別の走行記録」</strong>です。<br>例：「走行1本目」「走行2本目」</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100 shadow-sm">
+            <div class="card-header bg-info text-dark"><strong>3. セッティングシート (Setting Sheet)</strong></div>
+            <div class="card-body">
+                <i class="fas fa-clipboard-list fa-3x text-info mb-3"></i>
+                <p class="card-text">走行時の<strong>「車両セッティングの記録」</strong>です。<br>例：「FSWドライ基本セット」</p>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="text-center my-3">
+    <i class="fas fa-arrow-down fa-2x text-muted"></i>
+</div>
+<p class="text-center bg-light p-3 rounded">
+    まず「活動ログ」を作成し、その中に複数の「セッションログ」を記録します。<br>各「セッションログ」には、その時使っていた「セッティングシート」を紐付けることができます。
+</p>
+
+<h3 class="mt-5 border-bottom pb-2">使い方ガイド (サーキット走行編)</h3>
+<div class="accordion" id="activity-guide">
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="step1-header">
+            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#step1-collapse" aria-expanded="true" aria-controls="step1-collapse">
+                <strong>ステップ1: 活動ログを作成する</strong>
+            </button>
+        </h2>
+        <div id="step1-collapse" class="accordion-collapse collapse show" aria-labelledby="step1-header" data-bs-parent="#activity-guide">
+            <div class="accordion-body">
+                <p>ナビゲーションバーの「活動ログ」から車両を選択し、活動ログ一覧ページへ移動します。「新しい活動を記録」ボタンから、その日の活動全体を管理する「活動ログ」を作成します。</p>
+                <ul>
+                    <li><strong>活動日:</strong> 走行する日付を入力します。</li>
+                    <li><strong>活動名:</strong> 「7月 走行会」など、分かりやすい名前を付けます。</li>
+                    <li><strong>場所:</strong> サーキットを選択するか、自由入力で場所名を記入します。天候や気温も記録できます。</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="step2-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#step2-collapse" aria-expanded="false" aria-controls="step2-collapse">
+                <strong>ステップ2: セッティングシートを作成・準備する</strong>
+            </button>
+        </h2>
+        <div id="step2-collapse" class="accordion-collapse collapse" aria-labelledby="step2-header" data-bs-parent="#activity-guide">
+            <div class="accordion-body">
+                <p>セッティングシートは、サスペンションやタイヤのセッティング情報を名前を付けて保存できるテンプレートです。事前に作成しておくことも、走行の合間に作成することも可能です。</p>
+                <ul>
+                    <li>「セッティングシート一覧」から新規作成できます。</li>
+                    <li>シート名は「ドライ基本セット」「雨用セット」など、分かりやすい名前を推奨します。</li>
+                    <li>フォームは動的に項目を追加・削除できます。サスペンション、タイヤ、スプロケットなど、記録したいカテゴリだけを選んで記録しましょう。データは柔軟なJSON形式で保存されます。</li>
+                    <li>よく使うセッティングシートは、一覧から「複製」して微調整すると便利です。</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="step3-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#step3-collapse" aria-expanded="false" aria-controls="step3-collapse">
+                <strong>ステップ3: セッションを記録する</strong>
+            </button>
+        </h2>
+        <div id="step3-collapse" class="accordion-collapse collapse" aria-labelledby="step3-header" data-bs-parent="#activity-guide">
+            <div class="accordion-body">
+                <p>活動ログ詳細ページで、「新しいセッションを記録」ボタンを押します。1回の走行（例: 1本目、2本目）ごとにセッションログを作成します。</p>
+                <ul>
+                    <li><strong>セッション名:</strong> 「1本目」「予選」など。</li>
+                    <li><strong>使用セッティング:</strong> 作成済みのセッティングシートをドロップダウンから選択して紐付けます。</li>
+                    <li><strong>ラップタイム:</strong>
+                        <ul>
+                            <li><strong>手入力:</strong> 「01:23.456」の形式で入力します。</li>
+                            <li><strong>インポート:</strong> ZiiXやMYLAPSのCSVファイルをアップロードして一括登録できます。</li>
+                        </ul>
+                    </li>
+                    <li><strong>走行メモ・フィーリング:</strong> ライダーが感じたマシンの挙動や、改善点などを自由に記述します。</li>
+                    <li><strong>稼働時間/走行距離:</strong> 車両タイプに応じて、そのセッションでの稼働時間や走行距離を記録します。</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="step4-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#step4-collapse" aria-expanded="false" aria-controls="step4-collapse">
+                <strong>ステップ4: 記録を比較・分析する</strong>
+            </button>
+        </h2>
+        <div id="step4-collapse" class="accordion-collapse collapse" aria-labelledby="step4-header" data-bs-parent="#activity-guide">
+            <div class="accordion-body">
+                <p>記録が溜まってきたら、分析機能を活用しましょう。</p>
+                <ul>
+                    <li><strong>セッション比較:</strong> 活動ログ詳細ページで、比較したいセッションにチェックを入れて「選択したセッションを比較」ボタンを押します。セッティングの違いと、ベストラップや平均ラップの差が一目で分かります。</li>
+                    <li><strong>ベストセッティング検索:</strong> 「ベストセッティング」タブでは、各サーキットで自己ベストタイムを記録した際のセッションと、その時に使用したセッティングシートが自動で表示されます。</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

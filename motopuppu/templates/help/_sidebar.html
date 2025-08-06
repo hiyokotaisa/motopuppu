@@ -1,0 +1,59 @@
+{# motopuppu/templates/help/_sidebar.html #}
+<div class="list-group sticky-top" style="top: 80px;">
+    <a href="{{ url_for('help.index') }}" class="list-group-item list-group-item-action {% if request.endpoint == 'help.index' %}active{% endif %}">
+        <i class="fas fa-home fa-fw me-2"></i>ヘルプトップ
+    </a>
+    <a href="{{ url_for('help.getting_started') }}" class="list-group-item list-group-item-action {% if request.endpoint == 'help.getting_started' %}active{% endif %}">
+        <i class="fas fa-rocket fa-fw me-2"></i>はじめに
+    </a>
+
+    {# ▼▼▼ ここから変更 ▼▼▼ #}
+    <div class="list-group-item p-0">
+        <a class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" data-bs-toggle="collapse" href="#features-collapse" role="button" aria-expanded="false" aria-controls="features-collapse">
+            <span><i class="fas fa-book fa-fw me-2"></i>機能ガイド</span>
+            <i class="fas fa-chevron-down small"></i>
+        </a>
+        <div class="collapse" id="features-collapse">
+            <div class="list-group list-group-flush ps-3">
+                <a href="{{ url_for('help.feature_activity_log') }}" class="list-group-item list-group-item-action border-0 {% if request.endpoint == 'help.feature_activity_log' %}active{% endif %}">
+                    <i class="fas fa-flag-checkered fa-fw me-2"></i>活動ログ
+                </a>
+                <a href="{{ url_for('help.feature_vehicles') }}" class="list-group-item list-group-item-action border-0 {% if request.endpoint == 'help.feature_vehicles' %}active{% endif %}">
+                    <i class="fas fa-motorcycle fa-fw me-2"></i>車両管理
+                </a>
+                 <a href="{{ url_for('help.feature_fuel') }}" class="list-group-item list-group-item-action border-0 {% if request.endpoint == 'help.feature_fuel' %}active{% endif %}">
+                    <i class="fas fa-gas-pump fa-fw me-2"></i>給油記録
+                </a>
+                <a href="{{ url_for('help.feature_maintenance') }}" class="list-group-item list-group-item-action border-0 {% if request.endpoint == 'help.feature_maintenance' %}active{% endif %}">
+                    <i class="fas fa-tools fa-fw me-2"></i>整備記録
+                </a>
+                 <a href="{{ url_for('help.feature_reminders') }}" class="list-group-item list-group-item-action border-0 {% if request.endpoint == 'help.feature_reminders' %}active{% endif %}">
+                    <i class="fas fa-bell fa-fw me-2"></i>リマインダー
+                </a>
+                 <a href="{{ url_for('help.feature_notes') }}" class="list-group-item list-group-item-action border-0 {% if request.endpoint == 'help.feature_notes' %}active{% endif %}">
+                    <i class="fas fa-sticky-note fa-fw me-2"></i>ノート機能
+                </a>
+            </div>
+        </div>
+    </div>
+    {# ▲▲▲ 変更ここまで ▲▲▲ #}
+    
+    <a href="{{ url_for('help.faq') }}" class="list-group-item list-group-item-action {% if request.endpoint == 'help.faq' %}active{% endif %}">
+        <i class="fas fa-comments fa-fw me-2"></i>よくある質問
+    </a>
+</div>
+
+<script>
+// サイドバーの機能ガイドがアクティブな場合にアコーディオンを開いた状態にする
+document.addEventListener('DOMContentLoaded', function() {
+    const activeFeatureLink = document.querySelector('#features-collapse .list-group-item.active');
+    if (activeFeatureLink) {
+        const collapseElement = document.getElementById('features-collapse');
+        if (collapseElement) {
+            new bootstrap.Collapse(collapseElement, {
+                toggle: true
+            });
+        }
+    }
+});
+</script>

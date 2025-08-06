@@ -122,11 +122,10 @@ def create_app(config_name=None):
 
     try:
         from .views import auth, main, vehicle, fuel, maintenance, notes, dev_auth, leaderboard, profile, reminder, event, touring
-        # ▼▼▼ 以下を追記 ▼▼▼
         from .views import spec_sheet
-        # ▲▲▲ 追記ここまで ▲▲▲
         from .views import achievements as achievements_view
         from .views.activity import activity_bp
+        from .views import help as help_view # <- ここに追加
 
         app.register_blueprint(auth.auth_bp)
         app.register_blueprint(main.main_bp)
@@ -141,10 +140,8 @@ def create_app(config_name=None):
         app.register_blueprint(event.event_bp)
         app.register_blueprint(activity_bp)
         app.register_blueprint(touring.touring_bp)
-        
-        # ▼▼▼ 以下を追記 ▼▼▼
         app.register_blueprint(spec_sheet.spec_sheet_bp)
-        # ▲▲▲ 追記ここまで ▲▲▲
+        app.register_blueprint(help_view.help_bp) # <- ここに追加
 
         if app.config['ENV'] == 'development' or app.debug: 
             app.register_blueprint(dev_auth.dev_auth_bp)

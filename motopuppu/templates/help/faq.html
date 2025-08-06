@@ -1,0 +1,92 @@
+{# motopuppu/templates/help/faq.html #}
+{% extends "help/layout.html" %}
+
+{% block help_content %}
+<p>アプリケーションの操作や仕様に関して、よくある質問とその回答をまとめました。</p>
+
+<div class="accordion mt-4" id="faqAccordion">
+
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="faq-q1-header">
+            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#faq-q1-collapse" aria-expanded="true" aria-controls="faq-q1-collapse">
+                <strong>Q. 燃費が計算されないのですが、なぜですか？</strong>
+            </button>
+        </h2>
+        <div id="faq-q1-collapse" class="accordion-collapse collapse show" aria-labelledby="faq-q1-header" data-bs-parent="#faqAccordion">
+            <div class="accordion-body">
+                <p>燃費は、<strong>「満タン給油」</strong>の記録から次の<strong>「満タン給油」</strong>の記録までの走行距離と給油量をもとに計算されます。以下の点をご確認ください。</p>
+                <ul>
+                    <li>給油記録を追加・編集する際に、「満タン給油」のチェックボックスがONになっているか。</li>
+                    <li>燃費を計算したい区間の開始と終了、両方の給油記録で「満タン給油」がチェックされているか。</li>
+                    <li>計算の基準となる給油記録が、最低でも2回以上登録されているか。</li>
+                    <li>対象の車両が「公道車」として登録されているか。レーサー車両は燃費計算の対象外です。</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="faq-q2-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq-q2-collapse" aria-expanded="false" aria-controls="faq-q2-collapse">
+                <strong>Q. メーター交換やリセットをしました。どうすればいいですか？</strong>
+            </button>
+        </h2>
+        <div id="faq-q2-collapse" class="accordion-collapse collapse" aria-labelledby="faq-q2-header" data-bs-parent="#faqAccordion">
+            <div class="accordion-body">
+                <p>「車両管理」から該当の車両の「編集」ページを開き、「ODOメーターリセット記録」セクションでリセット情報を記録してください。</p>
+                <ul>
+                    <li><strong>リセット日:</strong> メーターをリセットした日付。</li>
+                    <li><strong>リセット直前のメーター表示値:</strong> 交換する直前のメーターに表示されていた値（例: 30000km）。</li>
+                    <li><strong>リセット直後のメーター表示値:</strong> 新しいメーターの初期値（通常は0km）。</li>
+                </ul>
+                <p>この情報を記録すると、システムが自動的に「オフセット値」を計算し、リセットを跨いだ走行距離や燃費計算が正しく行われるようになります。過去に遡ってリセット履歴を登録することも可能です。</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="faq-q3-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq-q3-collapse" aria-expanded="false" aria-controls="faq-q3-collapse">
+                <strong>Q. レーサー車両と公道車の違いは何ですか？</strong>
+            </button>
+        </h2>
+        <div id="faq-q3-collapse" class="accordion-collapse collapse" aria-labelledby="faq-q3-header" data-bs-parent="#faqAccordion">
+            <div class="accordion-body">
+                <p>車両の登録時に選択でき、主な違いは以下の通りです。<strong>この設定は後から変更できません。</strong></p>
+                <table class="table table-bordered">
+                    <thead>
+                        <tr class="table-light">
+                            <th>項目</th>
+                            <th>公道車</th>
+                            <th>レーサー</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>主な管理単位</strong></td>
+                            <td>ODOメーター (総走行距離)</td>
+                            <td>総稼働時間</td>
+                        </tr>
+                        <tr>
+                            <td><strong>給油記録・燃費計算</strong></td>
+                            <td><i class="fas fa-check text-success"></i> 利用可能</td>
+                            <td><i class="fas fa-times text-danger"></i> 対象外</td>
+                        </tr>
+                        <tr>
+                            <td><strong>ODOメーターリセット</strong></td>
+                            <td><i class="fas fa-check text-success"></i> 利用可能</td>
+                            <td><i class="fas fa-times text-danger"></i> 対象外</td>
+                        </tr>
+                         <tr>
+                            <td><strong>活動ログ機能</strong></td>
+                            <td><i class="fas fa-check text-success"></i> 利用可能</td>
+                            <td><i class="fas fa-check text-success"></i> 利用可能</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

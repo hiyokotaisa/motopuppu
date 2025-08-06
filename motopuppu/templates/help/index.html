@@ -1,0 +1,91 @@
+{# motopuppu/templates/help/index.html #}
+{% extends "help/layout.html" %}
+
+{% block help_content %}
+<p class="lead">もとぷっぷーのご利用ありがとうございます。ここでは、アプリの各機能の使い方や便利な活用方法について解説します。</p>
+<p>お困りのことがあれば、まずは各項目をご確認ください。</p>
+
+<div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4 mt-3">
+    
+    <div class="col">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body d-flex flex-column">
+                <h5 class="card-title"><i class="fas fa-rocket me-2 text-primary"></i>はじめに</h5>
+                <p class="card-text flex-grow-1">初めて「もとぷっぷー」をお使いになる方向けのスタートガイドです。車両の登録から基本的な記録の付け方までを解説します。</p>
+                <a href="{{ url_for('help.getting_started') }}" class="btn btn-primary mt-auto">続きを読む</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body d-flex flex-column">
+                <h5 class="card-title"><i class="fas fa-flag-checkered me-2 text-info"></i>活動ログ</h5>
+                <p class="card-text flex-grow-1">サーキット走行やツーリングに特化した「活動ログ」と「セッティングシート」機能の詳細な使い方を解説します。</p>
+                <a href="{{ url_for('help.feature_activity_log') }}" class="btn btn-info text-dark mt-auto">続きを読む</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body d-flex flex-column">
+                <h5 class="card-title"><i class="fas fa-motorcycle me-2" style="color: var(--bs-purple);"></i>車両管理</h5>
+                <p class="card-text flex-grow-1">車両の登録・編集、公道車とレーサーの違い、ODOメーターリセット記録について解説します。</p>
+                <a href="{{ url_for('help.feature_vehicles') }}" class="btn mt-auto" style="background-color: var(--bs-purple); color: white;">続きを読む</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body d-flex flex-column">
+                <h5 class="card-title"><i class="fas fa-gas-pump me-2 text-success"></i>給油記録</h5>
+                <p class="card-text flex-grow-1">給油記録の付け方、燃費計算の仕組み、ログの絞り込みやCSVエクスポートについて解説します。</p>
+                <a href="{{ url_for('help.feature_fuel') }}" class="btn btn-success mt-auto">続きを読む</a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body d-flex flex-column">
+                <h5 class="card-title"><i class="fas fa-tools me-2 text-warning"></i>整備記録</h5>
+                <p class="card-text flex-grow-1">オイル交換などの整備記録の付け方、カテゴリの活用法、費用の管理について解説します。</p>
+                <a href="{{ url_for('help.feature_maintenance') }}" class="btn btn-warning mt-auto">続きを読む</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body d-flex flex-column">
+                <h5 class="card-title"><i class="fas fa-bell me-2 text-danger"></i>リマインダー</h5>
+                <p class="card-text flex-grow-1">メンテナンス時期を管理するリマインダー機能について。距離や期間での設定、整備記録との自動連携などを解説します。</p>
+                <a href="{{ url_for('help.feature_reminders') }}" class="btn btn-danger mt-auto">続きを読む</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body d-flex flex-column">
+                <h5 class="card-title"><i class="fas fa-sticky-note me-2" style="color: var(--bs-orange);"></i>ノート機能</h5>
+                <p class="card-text flex-grow-1">ツーリングの計画や買い物リストなど、自由に使えるノートとタスクリスト機能について解説します。</p>
+                <a href="{{ url_for('help.feature_notes') }}" class="btn mt-auto" style="background-color: var(--bs-orange); color: white;">続きを読む</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body d-flex flex-column">
+                <h5 class="card-title"><i class="fas fa-comments me-2 text-secondary"></i>よくある質問</h5>
+                <p class="card-text flex-grow-1">アプリの仕様や操作について、よく寄せられる質問とその回答をまとめています。</p>
+                <a href="{{ url_for('help.faq') }}" class="btn btn-secondary mt-auto">続きを読む</a>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

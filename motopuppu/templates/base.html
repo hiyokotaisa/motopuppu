@@ -65,6 +65,7 @@
         <span class="text-muted small">&copy; {% if current_year %}{{ current_year }}{% else %}{{ now.year if now else '2025'}}{% endif %} もとぷっぷー
           | <a href="{{ url_for('main.privacy_policy') }}">プライバシーポリシー</a>
           | <a href="{{ url_for('main.terms_of_service') }}">利用規約</a>
+          | <a href="{{ url_for('help.index') }}">ヘルプ</a>
         </span>
         {% if g.git_commit_hash %}
           <span class="ms-3 text-muted small">{{ g.git_commit_hash[:7] }}</span>
