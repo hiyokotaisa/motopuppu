@@ -179,6 +179,15 @@ kyagisaw@hiyoko-fedora:~/Dev/motopuppu$ tree
 │   │   ├── fuel_log.html
 │   │   ├── help
 │   │   │   ├── _sidebar.html
+│   │   │   ├── faq.html
+│   │   │   ├── features
+│   │   │   │   ├── activity_log.html
+│   │   │   │   ├── dashboard.html
+│   │   │   │   ├── fuel.html
+│   │   │   │   ├── maintenance.html
+│   │   │   │   ├── notes.html
+│   │   │   │   ├── reminders.html
+│   │   │   │   └── vehicles.html
 │   │   │   ├── getting_started.html
 │   │   │   ├── index.html
 │   │   │   └── layout.html
@@ -237,8 +246,7 @@ kyagisaw@hiyoko-fedora:~/Dev/motopuppu$ tree
 │       └── vehicle.py
 └── requirements.txt
 
-27 directories, 130 files
-
+28 directories, 138 files
     ```
 
 7.  **今回のセッションでの目標 [毎回更新]:**

@@ -2,9 +2,82 @@
 {% extends "help/layout.html" %}
 
 {% block help_content %}
-<p>整備記録の追加、編集、削除、カテゴリの活用方法、ログのフィルタリングやCSVエクスポート機能など、整備記録に関する詳細な使い方を解説します。</p>
-<div class="alert alert-info mt-4">
-    <h5 class="alert-heading"><i class="fas fa-wrench me-2"></i> 準備中</h5>
-    現在このページのコンテンツを準備中です。
+<p class="lead">オイル交換やタイヤ交換など、愛車に対して行った整備作業を記録・管理する機能です。この機能は現在<strong>「公道車」</strong>として登録された車両のみで利用できます。</p>
+
+<div class="accordion mt-4" id="maintenance-guide">
+
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="maint-add-header">
+            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#maint-add-collapse" aria-expanded="true" aria-controls="maint-add-collapse">
+                <strong>1. 記録の追加と編集</strong>
+            </button>
+        </h2>
+        <div id="maint-add-collapse" class="accordion-collapse collapse show" aria-labelledby="maint-add-header" data-bs-parent="#maintenance-guide">
+            <div class="accordion-body">
+                <p>「整備記録」ページまたはナビゲーションバーから記録の追加画面に移動できます。記録の入力項目は以下の通りです。</p>
+                <ul>
+                    <li><strong>整備内容:</strong> 行った作業を具体的に記述します。（例: 「エンジンオイルとオイルフィルターを交換」）</li>
+                    <li><strong>カテゴリ:</strong> 記録を分類するためのラベルです。（例: 「オイル交換」）。候補から選択するだけでなく、自由な名前で新しいカテゴリを作成することもできます。<strong>リマインダー機能と連携する重要な項目です。</strong></li>
+                    <li><strong>部品代 / 工賃:</strong> かかった費用を入力します。合計費用は自動で計算され、ダッシュボードの統計に反映されます。</li>
+                    <li><strong>メモ:</strong> 使用した部品の型番や、作業時の注意点など、補足情報を自由に記録できます。</li>
+                </ul>
+                <h5 class="mt-3"><i class="fas fa-toggle-on text-primary me-2"></i>ODOメーター入力とトリップメーター入力</h5>
+                <p>給油記録と同様に、走行距離の入力は「ODOメーター」と「トリップメーター」の2つのモードをスイッチで切り替えることができます。</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="maint-reminder-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#maint-reminder-collapse" aria-expanded="false" aria-controls="maint-reminder-collapse">
+                <strong>2. 【重要】カテゴリの活用とリマインダー連携</strong>
+            </button>
+        </h2>
+        <div id="maint-reminder-collapse" class="accordion-collapse collapse" aria-labelledby="maint-reminder-header" data-bs-parent="#maintenance-guide">
+            <div class="accordion-body">
+                <p>整備記録の「カテゴリ」は、リマインダー機能と連携させることで真価を発揮します。</p>
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    整備記録の**カテゴリ名**とリマインダーの**タスク内容**が完全に一致すると、そのリマインダーは自動的に「実施済み」として更新されます。
+                </div>
+                <p><strong>具体的な連携例:</strong></p>
+                <ol>
+                    <li>
+                        <strong>リマインダーを作成:</strong>
+                        <p class="small ps-3">まず、リマインダー機能で「<mark>エンジンオイル交換</mark>」というタスクを「3,000kmごと」に設定しておきます。</p>
+                    </li>
+                    <li>
+                        <strong>整備記録を追加:</strong>
+                        <p class="small ps-3">実際にオイル交換をしたら、整備記録を追加します。その際、<strong>カテゴリ</strong>にも「<mark>エンジンオイル交換</mark>」と、リマインダーのタスクと一字一句同じ名前を入力します。</p>
+                    </li>
+                    <li>
+                        <strong>自動更新:</strong>
+                        <p class="small ps-3">この整備記録を保存すると、システムがカテゴリ名の一致を検知し、リマインダーの「最終実施日」「最終実施距離」がこの整備記録の内容で自動的に更新されます。これにより、手動でリマインダーを更新する手間が省けます。</p>
+                    </li>
+                </ol>
+                <p>この機能を活用するために、定期的に行う作業はカテゴリ名を統一しておくことをお勧めします。</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="maint-log-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#maint-log-collapse" aria-expanded="false" aria-controls="maint-log-collapse">
+                <strong>3. ログの閲覧と活用</strong>
+            </button>
+        </h2>
+        <div id="maint-log-collapse" class="accordion-collapse collapse" aria-labelledby="maint-log-header" data-bs-parent="#maintenance-guide">
+            <div class="accordion-body">
+                <p>整備記録の一覧ページでは、記録を様々な方法で活用できます。</p>
+                <ul>
+                    <li><strong>フィルター:</strong> 期間、車両、カテゴリ、キーワードで表示する記録を絞り込めます。</li>
+                    <li><strong>並べ替え:</strong> 各項目名（日付、ODOなど）をクリックすると、その項目で記録を昇順・降順に並べ替えられます。</li>
+                    <li><strong>Misskey共有機能:</strong> 各記録の共有ボタン <i class="fa-solid fa-share-nodes fa-fw"></i> から、整備内容を簡単にMisskeyに投稿できます。</li>
+                    <li><strong>CSVエクスポート:</strong> 記録データをCSVファイルとしてダウンロードし、表計算ソフトなどで自由に分析できます。</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
 </div>
 {% endblock %}

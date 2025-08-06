@@ -1,6 +1,7 @@
 {# motopuppu/templates/navigation.html #}
 {% if current_user.is_authenticated %} {# ▼▼▼ g.user を current_user.is_authenticated に変更 ▼▼▼ #}
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4 sticky-top">
+{# ▼▼▼ sticky-top から fixed-top に変更 ▼▼▼ #}
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4 fixed-top">
     <div class="container">
         <a class="navbar-brand" href="{{ url_for('main.dashboard') }}">
             <i class="fas fa-motorcycle me-1"></i> もとぷっぷー

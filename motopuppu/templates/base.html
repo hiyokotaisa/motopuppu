@@ -44,19 +44,25 @@
     </style>
 
   </head>
-  {# ▼▼▼ body タグに条件付きでクラスを付与 ▼▼▼ #}
-  <body class="{{ 'page-landing' if request.endpoint == 'main.index' else '' }}">
-  {# ▲▲▲ body タグに条件付きでクラスを付与 ▲▲▲ #}
+  {# ▼▼▼ body タグにブロックを追加し、クラスを付与 ▼▼▼ #}
+  <body class="{{ 'page-landing' if request.endpoint == 'main.index' else '' }} {% block body_attributes %}{% endblock %}">
+  {# ▲▲▲ 変更ここまで ▲▲▲ #}
+    
+    {# --- ヘッダー要素 --- #}
+    <header>
+      {% include 'navigation.html' %}
+    </header>
+    {# --- ヘッダーここまで --- #}
 
-    {# --- ナビゲーションバー (変更なし - navigation.html をインクルード) --- #}
-    {% include 'navigation.html' %}
 
     {# --- メインコンテンツ領域 --- #}
-    <main class="container py-4" id="main-content">
+    {# ▼▼▼ 構造を変更 ▼▼▼ #}
+    <main id="main-content">
       {# 各ページの内容がここに挿入される #}
       {% block content %}
       {% endblock %}
     </main>
+    {# ▲▲▲ 変更ここまで ▲▲▲ #}
     {# --- メインコンテンツ ここまで --- #}
 
     {# --- フッター --- #}

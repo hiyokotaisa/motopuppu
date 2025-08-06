@@ -2,9 +2,184 @@
 {% extends "help/layout.html" %}
 
 {% block help_content %}
-<p>車両の登録、編集、削除、デフォルト設定、ODOメーターリセット記録など、車両管理機能に関する詳細な使い方を解説します。</p>
-<div class="alert alert-info mt-4">
-    <h5 class="alert-heading"><i class="fas fa-wrench me-2"></i> 準備中</h5>
-    現在このページのコンテンツを準備中です。
+<p class="lead">あなたの愛車を登録・管理する機能です。すべての記録の基本となるため、各項目の意味を正しく理解することが重要です。</p>
+
+<div class="accordion mt-4" id="vehicles-guide">
+
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="vehicles-add-header">
+            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#vehicles-add-collapse" aria-expanded="true" aria-controls="vehicles-add-collapse">
+                <strong>1. 車両の追加方法</strong>
+            </button>
+        </h2>
+        <div id="vehicles-add-collapse" class="accordion-collapse collapse show" aria-labelledby="vehicles-add-header" data-bs-parent="#vehicles-guide">
+            <div class="accordion-body">
+                <p>ナビゲーションバーの「車両管理」ページにある「新しい車両を追加」ボタンから登録画面に進みます。各項目の意味は以下の通りです。</p>
+                <ul>
+                    <li><strong>メーカー名、車両名、年式:</strong> 車両の基本情報です。車両名は必須入力です。</li>
+                    <li><strong>初期ODOメーター値 (公道車のみ):</strong> アプリを使い始める時点でのメーターの走行距離を入力します。例えば、中古で5,000kmの車両を購入した場合、ここに「5000」と入力すると、最初の整備記録として自動的に登録され、過去の記録との整合性が保てます。</li>
+                    <li><strong>現在の総稼働時間 (レーサーのみ):</strong> レーサー車両の現在の総稼働時間を時間単位で入力します。（例: 123.50）</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="vehicles-type-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#vehicles-type-collapse" aria-expanded="false" aria-controls="vehicles-type-collapse">
+                <strong>2. 【重要】「公道車」と「レーサー」の違い</strong>
+            </button>
+        </h2>
+        <div id="vehicles-type-collapse" class="accordion-collapse collapse" aria-labelledby="vehicles-type-header" data-bs-parent="#vehicles-guide">
+            <div class="accordion-body">
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>注意:</strong> 車両タイプ（公道車/レーサー）は、一度登録すると後から変更できません。
+                </div>
+                <p>車両の用途に合わせて正しく選択してください。選択によって利用できる機能が大きく異なります。</p>
+                <table class="table table-bordered table-striped">
+                    {# (テーブルの中身は変更なし) #}
+                    <thead class="table-light">
+                        <tr>
+                            <th>項目</th>
+                            <th>公道車</th>
+                            <th>レーサー</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>想定する車両</strong></td>
+                            <td>ナンバー付きの一般車両</td>
+                            <td>サーキット専用車両、モトクロッサー等</td>
+                        </tr>
+                        <tr>
+                            <td><strong>主な管理単位</strong></td>
+                            <td><i class="fas fa-road me-1"></i><strong>総走行距離 (km)</strong></td>
+                            <td><i class="fas fa-stopwatch me-1"></i><strong>総稼働時間 (h)</strong></td>
+                        </tr>
+                        <tr>
+                            <td><strong>給油記録・燃費計算</strong></td>
+                            <td class="text-center"><span class="badge bg-success">利用可能</span></td>
+                            <td class="text-center"><span class="badge bg-secondary">利用不可</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>ODOメーターリセット</strong></td>
+                            <td class="text-center"><span class="badge bg-success">利用可能</span></td>
+                            <td class="text-center"><span class="badge bg-secondary">利用不可</span></td>
+                        </tr>
+                         <tr>
+                            <td><strong>活動ログ機能</strong></td>
+                            <td class="text-center"><span class="badge bg-success">利用可能</span></td>
+                            <td class="text-center"><span class="badge bg-success">利用可能</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="vehicles-manage-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#vehicles-manage-collapse" aria-expanded="false" aria-controls="vehicles-manage-collapse">
+                <strong>3. 車両の編集と管理</strong>
+            </button>
+        </h2>
+        <div id="vehicles-manage-collapse" class="accordion-collapse collapse" aria-labelledby="vehicles-manage-header" data-bs-parent="#vehicles-guide">
+            <div class="accordion-body">
+                <p>「車両管理」ページでは、登録済みの車両カードから様々な操作ができます。</p>
+                <ul>
+                    <li><strong>デフォルト車両の設定 (<i class="fas fa-star"></i>):</strong> デフォルトに設定した車両は、給油や整備記録を追加する際に最初に選択された状態になります。最もよく利用する車両を設定しておくと便利です。</li>
+                    <li><strong>編集 (<i class="fas fa-edit"></i>):</strong> 車両の基本情報（メーカー、名前、年式など）を更新できます。また、ODOメーターリセットの記録もこの画面から行います。</li>
+                    <li><strong>削除 (<i class="fas fa-trash"></i>):</strong> 車両を削除します。その車両に関連する**すべての給油・整備・活動ログ等の記録も一緒に削除される**ため、操作は慎重に行ってください。</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="vehicles-spec-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#vehicles-spec-collapse" aria-expanded="false" aria-controls="vehicles-spec-collapse">
+                <strong>4. 整備情報シートの活用</strong>
+            </button>
+        </h2>
+        <div id="vehicles-spec-collapse" class="accordion-collapse collapse" aria-labelledby="vehicles-spec-header" data-bs-parent="#vehicles-guide">
+            <div class="accordion-body">
+                <h5><i class="fas fa-clipboard-list text-primary me-2"></i>整備情報シートとは？</h5>
+                <p>車両の整備に必要な技術情報（規定トルク、油脂類の量、純正部品品番など）を、自分専用のデジタルなサービスデータブックとして管理する機能です。「いつ、何をしたか」を記録する**整備ログ**とは異なり、整備の際に参照するための**静的な情報**をストックしておく場所です。</p>
+                <p>車両管理ページの各車両カードにある <i class="fas fa-clipboard-list"></i> アイコンからアクセスできます。</p>
+                
+                <h5 class="mt-4"><i class="fas fa-sitemap text-primary me-2"></i>シートの構造</h5>
+                <p>シートは「カテゴリ → グループ → 項目」の階層構造で、自由に情報を整理できます。</p>
+                <ul>
+                    <li><strong>カテゴリ:</strong> 「締め付けトルク」「油脂類」など、あらかじめ用意された大分類です。</li>
+                    <li><strong>グループ:</strong> カテゴリ内で自由に作成できる小分類です。 (例: 「エンジン周り」「足回り」)</li>
+                    <li><strong>項目:</strong> 具体的なデータです。(例: 項目名=「ドレンボルト」, 値=「20 N・m」)</li>
+                </ul>
+
+                <h5 class="mt-4"><i class="fas fa-clone text-primary me-2"></i>便利な使い方</h5>
+                <ul>
+                    <li>車両ごとに複数のシートを作成できます。（例: 「標準スペック」「サーキット用データ」）</li>
+                    <li>既存のシートを「複製」して、少しだけ内容が違うバージョンを簡単に作成できます。</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="vehicles-odo-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#vehicles-odo-collapse" aria-expanded="false" aria-controls="vehicles-odo-collapse">
+                <strong>5. ODOメーターリセット記録の活用法 (公道車のみ)</strong>
+            </button>
+        </h2>
+        <div id="vehicles-odo-collapse" class="accordion-collapse collapse" aria-labelledby="vehicles-odo-header" data-bs-parent="#vehicles-guide">
+            <div class="accordion-body">
+                <h5><i class="fas fa-question-circle text-info me-2"></i>なぜリセット記録が必要？</h5>
+                <p>メーターを交換したり、メーターが一周して0に戻ったりした場合、単純にメーターの値を記録するだけでは総走行距離が狂ってしまいます。この機能は、そういった変化を記録し、アプリ内の総走行距離（実走行距離）を常に正しく保つためのものです。</p>
+                
+                <h5 class="mt-4"><i class="fas fa-calculator text-info me-2"></i>どういう仕組み？</h5>
+                <p>もとぷっぷーでは、内部的に以下の計算式で走行距離を管理しています。</p>
+                {# ▼▼▼ 新しいスタイルクラスを適用 ▼▼▼ #}
+                <div class="text-center info-box my-3">
+                    <code>表示されているODOメーター値</code> + <code>累積オフセット値</code> = <strong>実走行距離</strong>
+                </div>
+                <p class="mt-2">「リセット記録」を追加すると、その差分が「累積オフセット値」に加算されます。これにより、メーターの表示が変わっても、実走行距離は連続した値として正しく計算され続けます。</p>
+
+                <h5 class="mt-4"><i class="fas fa-pen text-info me-2"></i>どうやって記録するの？</h5>
+                <p>車両の編集画面下部にある「ODOメーターリセット記録」フォームに入力します。</p>
+                <p><strong>例：メーターが30,000kmで壊れ、0kmの中古メーターに交換した場合</strong></p>
+                <ol>
+                    <li><strong>リセット日:</strong> メーターを交換した日付を選択します。</li>
+                    <li><strong>リセット直前のメーター表示値:</strong> 「30000」と入力します。</li>
+                    <li><strong>リセット直後のメーター表示値:</strong> 「0」と入力します。</li>
+                </ol>
+                <p>これを記録すると、<code>30,000 - 0 = 30,000km</code> がオフセット値として加算されます。今後、新しいメーターが500kmを指している場合、アプリ内の実走行距離は <code>500km + 30,000km = 30,500km</code> として正しく計算されます。</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="vehicles-tips-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#vehicles-tips-collapse" aria-expanded="false" aria-controls="vehicles-tips-collapse">
+                <strong>6. 便利なヒントと追加機能</strong>
+            </button>
+        </h2>
+        <div id="vehicles-tips-collapse" class="accordion-collapse collapse" aria-labelledby="vehicles-tips-header" data-bs-parent="#vehicles-guide">
+            <div class="accordion-body">
+                <h5><i class="fas fa-exchange-alt text-success me-2"></i>ナビゲーションバーからの車両切り替え</h5>
+                <p>画面上部のナビゲーションバーにある「給油」「整備」「活動ログ」などのメニューにマウスカーソルを合わせる（またはタップする）と、登録済みの車両一覧が表示されます。そこから車両を選択すると、その車両の各記録ページへ直接ジャンプできます。複数台のバイクを管理している場合に非常に便利です。</p>
+
+                <hr class="my-4">
+
+                <h5><i class="fas fa-star text-success me-2"></i>デフォルト車両設定の便利な使い方</h5>
+                <p>「車両管理」ページでデフォルトに設定した車両は、各種記録の追加ページを開いた際に、最初から選択された状態になります。これにより、毎回車両を選び直す手間が省けます。</p>
+                
+                <hr class="my-4">
+
+                <h5><i class="fas fa-edit text-success me-2"></i>ODOリセット記録の修正と削除</h5>
+                <p>ODOリセット記録の入力を間違えてしまった場合でも、車両編集ページ下部の「ODOリセット履歴」一覧から、各記録の編集・削除が可能です。記録を修正・削除すると、「累積オフセット値」は自動的に再計算され、すべての関連データが最新の状態に保たれます。</p>
+            </div>
+        </div>
+    </div>
+
 </div>
 {% endblock %}

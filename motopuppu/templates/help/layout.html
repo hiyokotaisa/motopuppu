@@ -1,26 +1,45 @@
-{# motopuppu/templates/help/layout.html (新規作成) #}
+{# motopuppu/templates/help/layout.html #}
 {% extends "base.html" %}
 
 {# ページのタイトルを動的に設定 #}
 {% block title %}{{ title }} | ヘルプセンター{% endblock %}
 
+{# ▼▼▼ ここから追記 ▼▼▼ #}
+{% block page_specific_head %}
+{# Poppins フォントを読み込む #}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+{% endblock %}
+
+{% block body_attributes %}class="help-body"{% endblock %}
+{# ▲▲▲ 追記ここまで ▲▲▲ #}
+
 {% block content %}
-<div class="container-fluid">
+<div class="container py-4"> {# 上下の余白を調整 #}
     {# ヘッダー #}
-    <div class="pb-2 mb-4 border-bottom">
+    <div class="pb-2 mb-4">
         <h1><i class="fas fa-question-circle me-2"></i>ヘルプセンター</h1>
     </div>
 
-    <div class="row">
+    <div class="row g-4"> {# g-4で少し隙間を広げる #}
         {# サイドバー #}
-        <div class="col-md-3 mb-4">
-            {% include 'help/_sidebar.html' %}
+        <div class="col-lg-3">
+            {# ▼▼▼ divで囲み、専用クラスを付与 ▼▼▼ #}
+            <div class="help-sidebar">
+                {% include 'help/_sidebar.html' %}
+            </div>
         </div>
         
         {# メインコンテンツ #}
-        <div class="col-md-9">
-            <h2 class="h3 mb-3">{{ title }}</h2>
-            {% block help_content %}{% endblock %}
+        <div class="col-lg-9">
+            {# ▼▼▼ divで囲み、専用クラスを付与 ▼▼▼ #}
+            <div class="help-container">
+                <div class="help-content">
+                    <h2 class="h3 mb-4 page-title">{{ title }}</h2>
+                    {% block help_content %}{% endblock %}
+                </div>
+            </div>
         </div>
     </div>
 </div>

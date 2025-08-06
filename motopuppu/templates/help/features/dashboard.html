@@ -2,9 +2,65 @@
 {% extends "help/layout.html" %}
 
 {% block help_content %}
-<p>アプリケーションのハブとなるダッシュボード機能について解説します。統計情報の見方、記録カレンダーの活用方法、メンテナンス通知の確認方法など、ダッシュボードを使いこなすためのヒントを紹介します。</p>
-<div class="alert alert-info mt-4">
-    <h5 class="alert-heading"><i class="fas fa-wrench me-2"></i> 準備中</h5>
-    現在このページのコンテンツを準備中です。
+<p class="lead">ダッシュボードは、あなたのバイクライフのすべてを一目で把握できる中心的なページです。登録した記録は自動的に集計・可視化され、愛車の状態を常に最適な状態に保つ手助けをします。</p>
+
+<div class="accordion mt-4" id="dashboard-guide">
+
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="dashboard-features-header">
+            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#dashboard-features-collapse" aria-expanded="true" aria-controls="dashboard-features-collapse">
+                <strong>1. ダッシュボードの主要機能</strong>
+            </button>
+        </h2>
+        <div id="dashboard-features-collapse" class="accordion-collapse collapse show" aria-labelledby="dashboard-features-header" data-bs-parent="#dashboard-guide">
+            <div class="accordion-body">
+                <p>ダッシュボードは、主に4つのセクションで構成されています。</p>
+                
+                <h5 class="mt-3"><i class="fas fa-bell text-danger me-2"></i>メンテナンス通知</h5>
+                <p>リマインダー機能で設定したメンテナンス項目のうち、期限が近づいている（黄色）、または超過している（赤色）ものがここに表示されます。これにより、重要なメンテナンスを見逃すことを防ぎます。「設定」ボタンからリマインダーの条件を編集したり、「記録追加」ボタンから直接整備記録ページに移動したりできます。</p>
+                <hr class="my-4">
+
+                <h5 class="mt-3"><i class="fas fa-chart-line text-primary me-2"></i>統計情報</h5>
+                <p>走行距離や各種費用など、重要な数値を集計して表示します。このセクションには便利なフィルター機能があります。</p>
+                <ul>
+                    <li><strong>期間フィルター:</strong> 「1ヶ月」「6ヶ月」「1年」「全期間」ボタンや、日付の範囲を直接指定することで、統計の集計期間を変更できます。</li>
+                    <li><strong>車両フィルター:</strong> ドロップダウンメニューから特定の車両を選択すると、その車両だけの統計情報を表示できます。</li>
+                </ul>
+                <hr class="my-4">
+
+                <h5 class="mt-3"><i class="fas fa-list-alt text-success me-2"></i>サマリーカード</h5>
+                <p>「登録車両」「直近の給油記録」「直近の整備記録」がカード形式で表示されます。各カードにはフィルター機能があり、素早く目的の情報にアクセスしたり、新しい記録を追加したりするためのショートカットとして機能します。</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="dashboard-calendar-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#dashboard-calendar-collapse" aria-expanded="false" aria-controls="dashboard-calendar-collapse">
+                <strong>2. 記録カレンダーの活用法</strong>
+            </button>
+        </h2>
+        <div id="dashboard-calendar-collapse" class="accordion-collapse collapse" aria-labelledby="dashboard-calendar-header" data-bs-parent="#dashboard-guide">
+            <div class="accordion-body">
+                <p>ダッシュボードの下部には、あなたが登録したすべての記録がプロットされたカレンダーが表示されます。いつ、どんな活動をしたのかを視覚的に振り返ることができます。</p>
+                
+                <h5 class="mt-3"><i class="fas fa-info-circle text-primary me-2"></i>表示される情報</h5>
+                <p>カレンダーには以下の記録が、それぞれ異なる色で表示されます。</p>
+                <ul>
+                    <li><span class="badge" style="background-color: #198754;">緑</span> <strong>給油記録</strong></li>
+                    <li><span class="badge" style="background-color: #ffc107; color: black;">黄</span> <strong>整備記録</strong></li>
+                    <li><span class="badge" style="background-color: #0dcaf0; color: black;">水</span> <strong>活動ログ</strong> (サーキット走行など)</li>
+                    <li><span class="badge" style="background-color: #6c757d;">灰</span> <strong>ノート・タスク</strong></li>
+                </ul>
+
+                <h5 class="mt-4"><i class="fas fa-mouse-pointer text-primary me-2"></i>便利な使い方</h5>
+                <ul>
+                    <li><strong>詳細をポップアップ表示:</strong> カレンダー上の各項目にマウスカーソルを合わせると（スマートフォンではタップ）、その記録の詳しい情報（ODO、費用、メモなど）がポップアップで表示されます。</li>
+                    <li><strong>編集ページへジャンプ:</strong> 各項目をクリックすると、その記録の編集ページや詳細ページへ直接移動できます。</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
 </div>
 {% endblock %}

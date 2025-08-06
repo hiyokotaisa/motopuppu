@@ -2,9 +2,135 @@
 {% extends "help/layout.html" %}
 
 {% block help_content %}
-<p>給油記録の追加、編集、削除、燃費計算の仕組み、ログのフィルタリングやCSVエクスポート機能など、給油記録に関する詳細な使い方を解説します。</p>
-<div class="alert alert-info mt-4">
-    <h5 class="alert-heading"><i class="fas fa-wrench me-2"></i> 準備中</h5>
-    現在このページのコンテンツを準備中です。
+<p class="lead">日々の給油を記録し、愛車の燃費や維持費を管理する機能です。この機能は<strong>「公道車」</strong>として登録された車両のみで利用できます。</p>
+
+<div class="accordion mt-4" id="fuel-guide">
+
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="fuel-add-header">
+            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#fuel-add-collapse" aria-expanded="true" aria-controls="fuel-add-collapse">
+                <strong>1. 記録の追加と編集</strong>
+            </button>
+        </h2>
+        <div id="fuel-add-collapse" class="accordion-collapse collapse show" aria-labelledby="fuel-add-header" data-bs-parent="#fuel-guide">
+            <div class="accordion-body">
+                <p>「給油記録」ページまたはナビゲーションバーから記録の追加画面に移動できます。編集は、記録一覧の各項目の編集ボタンから行います。</p>
+                <h5 class="mt-3"><i class="fas fa-toggle-on text-primary me-2"></i>ODOメーター入力とトリップメーター入力</h5>
+                <p>走行距離の入力には2つのモードがあり、スイッチで切り替えられます。</p>
+                <ul>
+                    <li><strong>ODOメーター入力 (デフォルト):</strong> 車両の総走行距離メーター（ODOメーター）に表示されている値をそのまま入力します。</li>
+                    <li><strong>トリップメーター入力:</strong> ODOメーターの値を覚えていない場合に便利です。前回給油時からの走行距離（トリップメーターの値）を入力すると、前回の記録を基に自動でODOメーター値が計算されます。</li>
+                </ul>
+                <h5 class="mt-3"><i class="fas fa-search-location text-primary me-2"></i>その他の項目</h5>
+                <ul>
+                    <li><strong>給油量・費用:</strong> 燃費計算やコスト管理に利用します。「単価」と「給油量」を入力すると、「合計金額」は自動で計算されます。</li>
+                    <li><strong>給油スタンド名:</strong> 「検索」ボタンを押すと、入力したキーワードで周辺のガソリンスタンドを検索し、簡単に入力できます。（ブラウザの位置情報の利用を許可する必要があります）</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="fuel-calc-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#fuel-calc-collapse" aria-expanded="false" aria-controls="fuel-calc-collapse">
+                <strong>2. 【重要】燃費計算の仕組み</strong>
+            </button>
+        </h2>
+        <div id="fuel-calc-collapse" class="accordion-collapse collapse" aria-labelledby="fuel-calc-header" data-bs-parent="#fuel-guide">
+            <div class="accordion-body">
+                <p>燃費（km/L）は、<strong>「満タン給油」の記録から、その次の「満タン給油」の記録まで</strong>のデータを使って計算されます。</p>
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>計算式:</strong> (今回の実走行距離 - 前回の満タン時実走行距離) ÷ 今回の給油量
+                </div>
+
+                <h5 class="mt-4">実例で見る燃費計算</h5>
+                <p>実際のシナリオを基に、計算の流れを詳しく見てみましょう。</p>
+                <ul class="list-group">
+                    <li class="list-group-item">
+                        <p class="mb-1"><strong>1回目 (8/1): 満タン給油</strong></p>
+                        <ul class="small">
+                            <li>ODO: 10,000 km | <strong>満タン: <span class="text-success">ON</span></strong></li>
+                            <li><strong>結果:</strong> 燃費はまだ計算されません。</li>
+                        </ul>
+                    </li>
+                    <li class="list-group-item">
+                        <p class="mb-1"><strong>2回目 (8/2): 少量給油</strong></p>
+                        <ul class="small">
+                            <li>ODO: 10,200 km | 給油量: 5 L | <strong>満タン: <span class="text-danger">OFF</span></strong></li>
+                            <li><strong>結果:</strong> 満タンではないため、燃費は計算されません。</li>
+                        </ul>
+                    </li>
+                    <li class="list-group-item">
+                        <p class="mb-1"><strong>3回目 (8/6): 満タン給油</strong></p>
+                        <ul class="small">
+                            <li>ODO: 10,450 km | 給油量: 12 L | <strong>満タン: <span class="text-success">ON</span></strong></li>
+                            <li><strong>結果:</strong> 前回の「満タン」である1回目の記録と比較して燃費が計算されます。
+                                <ul class="mt-2">
+                                    <li>走行距離: 10,450km - 10,000km = 450km</li>
+                                    <li>消費燃料: 12L (3回目の給油量のみ)</li>
+                                    <li>燃費: 450km ÷ 12L = <strong>37.50 km/L</strong></li>
+                                </ul>
+                                <div class="alert alert-warning mt-2 small p-2">
+                                    <i class="fas fa-exclamation-triangle me-1"></i><strong>注意:</strong> この「37.50 km/L」という値は、2回目の給油(5L)が計算に含まれていないため、<strong>実際の燃費よりも良く表示されてしまっています。</strong>
+                                </div>
+                            </li>
+                        </ul>
+                    </li>
+                    <li class="list-group-item">
+                        <p class="mb-1"><strong>4回目 (8/15): 満タン給油</strong></p>
+                        <ul class="small">
+                            <li>ODO: 10,800 km | 給油量: 12 L | <strong>満タン: <span class="text-success">ON</span></strong></li>
+                            <li><strong>結果:</strong> 前回の「満タン」である3回目の記録と比較して燃費が計算されます。
+                                <ul class="mt-2">
+                                    <li>走行距離: 10,800km - 10,450km = 350km</li>
+                                    <li>消費燃料: 12L (4回目の給油量のみ)</li>
+                                    <li>燃費: 350km ÷ 12L = <strong>29.17 km/L</strong></li>
+                                </ul>
+                                <p class="small mt-2">この値は、満タンから満タンまでの正しい区間で計算されているため、より正確な燃費を示します。このように、満タン給油を続けることで計算は正常化されます。</p>
+                            </li>
+                        </ul>
+                    </li>
+                </ul>
+
+                <h5 class="mt-4"><i class="fas fa-calculator text-primary me-2"></i>不正確な燃費記録への対処法</h5>
+                <p>上記の例のように、途中で満タンではない給油を挟むと、一時的に不正確な燃費が表示されることがあります。これが全体の平均燃費に影響を与えてしまうのを避けたい場合、その記録を平均計算から除外することができます。</p>
+                <p>今回の例では、3回目の記録（37.50 km/Lと表示されているもの）の編集画面を開き、<strong>「この記録を平均燃費計算から除外する」</strong>にチェックを入れて保存します。</p>
+                <p>これにより、その記録はログとしては残りますが、ダッシュボードなどに表示される全体の平均燃費からは除外され、より実態に近い平均値を維持することができます。</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="fuel-log-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#fuel-log-collapse" aria-expanded="false" aria-controls="fuel-log-collapse">
+                <strong>3. ログの閲覧と活用</strong>
+            </button>
+        </h2>
+        <div id="fuel-log-collapse" class="accordion-collapse collapse" aria-labelledby="fuel-log-header" data-bs-parent="#fuel-guide">
+            <div class="accordion-body">
+                <p>給油記録の一覧ページでは、記録を様々な方法で活用できます。</p>
+                <h5 class="mt-3"><i class="fas fa-filter text-primary me-2"></i>絞り込みと並べ替え</h5>
+                <ul>
+                    <li><strong>フィルター:</strong> 期間、車両、キーワード（メモやスタンド名）で表示する記録を絞り込めます。</li>
+                    <li><strong>並べ替え:</strong> 各項目名（日付、ODOなど）をクリックすると、その項目で記録を昇順・降順に並べ替えられます。</li>
+                </ul>
+
+                <h5 class="mt-3"><i class="fas fa-road text-primary me-2"></i>ODO/実走行距離 表示切替</h5>
+                <p>一覧ページの上部にあるトグルスイッチで、距離表示を切り替えられます。</p>
+                <ul>
+                    <li><strong>ODOメーター値を表示 (デフォルト):</strong> あなたが入力したメーターの数値をそのまま表示します。</li>
+                    <li><strong>実走行距離を表示:</strong> ODOリセット記録を基に計算された、仮想的な総走行距離を表示します。メーター交換などをした場合に、連続した走行距離を確認するのに役立ちます。</li>
+                </ul>
+
+                <h5 class="mt-3"><i class="fas fa-share-alt text-primary me-2"></i>Misskey共有機能</h5>
+                <p>各記録の右端にある共有ボタン <i class="fa-solid fa-share-nodes fa-fw"></i> をクリックすると、その給油記録の内容を整形してMisskeyに投稿できます。燃費や費用などを簡単に共有するのに便利です。</p>
+
+                <h5 class="mt-3"><i class="fas fa-file-csv text-primary me-2"></i>CSVエクスポート</h5>
+                <p>表示中の車両、または全車両の給油記録データをCSVファイルとしてダウンロードできます。表計算ソフトでさらに詳しく分析したい場合にご利用ください。</p>
+            </div>
+        </div>
+    </div>
+
 </div>
 {% endblock %}

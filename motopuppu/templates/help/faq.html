@@ -21,6 +21,7 @@
                     <li>計算の基準となる給油記録が、最低でも2回以上登録されているか。</li>
                     <li>対象の車両が「公道車」として登録されているか。レーサー車両は燃費計算の対象外です。</li>
                 </ul>
+                <p class="mt-2 small"><a href="{{ url_for('help.feature_fuel') }}">→ 詳しくは「機能ガイド：給油記録」へ</a></p>
             </div>
         </div>
     </div>
@@ -40,6 +41,7 @@
                     <li><strong>リセット直後のメーター表示値:</strong> 新しいメーターの初期値（通常は0km）。</li>
                 </ul>
                 <p>この情報を記録すると、システムが自動的に「オフセット値」を計算し、リセットを跨いだ走行距離や燃費計算が正しく行われるようになります。過去に遡ってリセット履歴を登録することも可能です。</p>
+                <p class="mt-2 small"><a href="{{ url_for('help.feature_vehicles') }}">→ 詳しくは「機能ガイド：車両管理」へ</a></p>
             </div>
         </div>
     </div>
@@ -84,9 +86,137 @@
                         </tr>
                     </tbody>
                 </table>
+                <p class="mt-2 small"><a href="{{ url_for('help.feature_vehicles') }}">→ 詳しくは「機能ガイド：車両管理」へ</a></p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="faq-q4-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq-q4-collapse" aria-expanded="false" aria-controls="faq-q4-collapse">
+                <strong>Q. 「活動ログ」「セッションログ」「セッティングシート」の違いがよくわかりません。</strong>
+            </button>
+        </h2>
+        <div id="faq-q4-collapse" class="accordion-collapse collapse" aria-labelledby="faq-q4-header" data-bs-parent="#faqAccordion">
+            <div class="accordion-body">
+                <p>これらはサーキット走行などを記録するための3つの要素で、以下のような関係性になっています。</p>
+                <ul>
+                    <li><strong>活動ログ:</strong> その日の活動全体の「入れ物」です。（例：「8/6 筑波サーキット走行会」）</li>
+                    <li><strong>セッションログ:</strong> 活動ログの中の個別の「走行記録」です。（例：「1本目」「2本目」）</li>
+                    <li><strong>セッティングシート:</strong> 各セッションで使った「車両セッティングのテンプレート」です。（例：「ドライ用基本セット」）</li>
+                </ul>
+                <p>まず「活動ログ」を作り、その中に「セッションログ」を追加し、各セッションに「セッティングシート」を紐付ける、という流れで使います。</p>
+                <p class="mt-2 small"><a href="{{ url_for('help.feature_activity_log') }}">→ 詳しくは「機能ガイド：活動ログ」へ</a></p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="faq-q5-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq-q5-collapse" aria-expanded="false" aria-controls="faq-q5-collapse">
+                <strong>Q. リマインダーが自動で更新されません。なぜですか？</strong>
+            </button>
+        </h2>
+        <div id="faq-q5-collapse" class="accordion-collapse collapse" aria-labelledby="faq-q5-header" data-bs-parent="#faqAccordion">
+            <div class="accordion-body">
+                <p>リマインダーの自動更新が機能するには、以下の2つの条件が満たされている必要があります。</p>
+                <ol>
+                    <li>リマインダーの編集画面で「整備記録のカテゴリ名が一致した場合...自動的に...更新する」の<strong>チェックがONになっている。</strong></li>
+                    <li>追加した整備記録の<code>カテゴリ</code>名と、リマインダーの<code>リマインド内容</code>が<strong>一字一句同じである。</strong>（例: カテゴリ「エンジンオイル交換」とリマインド内容「エンジンオイル交換」）</li>
+                </ol>
+                <p>特に、名称の完全一致（スペースの有無など）にご注意ください。</p>
+                <p class="mt-2 small"><a href="{{ url_for('help.feature_reminders') }}">→ 詳しくは「機能ガイド：リマインダー」へ</a></p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="faq-q6-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq-q6-collapse" aria-expanded="false" aria-controls="faq-q6-collapse">
+                <strong>Q. 「整備情報シート」と「セッティングシート」はどう違うのですか？</strong>
+            </button>
+        </h2>
+        <div id="faq-q6-collapse" class="accordion-collapse collapse" aria-labelledby="faq-q6-header" data-bs-parent="#faqAccordion">
+            <div class="accordion-body">
+                <p>どちらも車両に関する情報を記録する機能ですが、目的が異なります。</p>
+                <ul>
+                    <li><strong>整備情報シート:</strong> 整備で参照する<strong>静的なデータ</strong>を記録します。（例: 各ボルトの締め付けトルク、オイル規定量、純正部品の品番など）</li>
+                    <li><strong>セッティングシート:</strong> サーキット走行などで変更する<strong>動的なデータ</strong>を記録します。（例: サスペンションのクリック数、タイヤの空気圧、スプロケットの歯数など）</li>
+                </ul>
             </div>
         </div>
     </div>
 
-</div>
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="faq-q7-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq-q7-collapse" aria-expanded="false" aria-controls="faq-q7-collapse">
+                <strong>Q. 記録したデータをバックアップできますか？</strong>
+            </button>
+        </h2>
+        <div id="faq-q7-collapse" class="accordion-collapse collapse" aria-labelledby="faq-q7-header" data-bs-parent="#faqAccordion">
+            <div class="accordion-body">
+                <p>はい、「給油記録」と「整備記録」の各一覧ページから、表示中の車両または全車両の記録をCSVファイルとしてエクスポート（ダウンロード）できます。</p>
+                <p>この機能を使って、定期的にご自身のデータをバックアップしておくことをお勧めします。</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="faq-q8-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq-q8-collapse" aria-expanded="false" aria-controls="faq-q8-collapse">
+                <strong>Q. このアプリの利用は無料ですか？</strong>
+            </button>
+        </h2>
+        <div id="faq-q8-collapse" class="accordion-collapse collapse" aria-labelledby="faq-q8-header" data-bs-parent="#faqAccordion">
+            <div class="accordion-body">
+                <p>はい、もとぷっぷーの全ての機能は現在無料でご利用いただけます。</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="faq-q9-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq-q9-collapse" aria-expanded="false" aria-controls="faq-q9-collapse">
+                <strong>Q. 応援したいのですが、課金や寄付はできますか？</strong>
+            </button>
+        </h2>
+        <div id="faq-q9-collapse" class="accordion-collapse collapse" aria-labelledby="faq-q9-header" data-bs-parent="#faqAccordion">
+            <div class="accordion-body">
+                <p>ありがとうございます。そう言っていただけることが、開発の何よりの励みになります。</p>
+                <p>もとぷっぷーは作者の趣味による個人開発プロジェクトのため、現在のところ課金や広告の導入は予定しておりません。</p>
+                <p>もし、どうしても何かサポートをしたいというお気持ちがありましたら、以下の「ほしい物リスト」からご支援いただけますと、開発の助けとなり大変嬉しく思います。</p>
+                <a href="https://www.amazon.jp/hz/wishlist/ls/XAG2DQB43S80?ref_=wl_share" class="btn btn-warning mt-2" target="_blank" rel="noopener noreferrer"><i class="fab fa-amazon me-2"></i>ほしい物リストを見る</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="faq-q10-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq-q10-collapse" aria-expanded="false" aria-controls="faq-q10-collapse">
+                <strong>Q. 開発・運営体制はどのようになっていますか？</strong>
+            </button>
+        </h2>
+        <div id="faq-q10-collapse" class="accordion-collapse collapse" aria-labelledby="faq-q10-header" data-bs-parent="#faqAccordion">
+            <div class="accordion-body">
+                <p>もとぷっぷーは、開発者のひよこ大佐が個人で趣味として開発・運営を行っているWebサービスです。</p>
+                <p>また、本アプリケーションはMIT Licenseのもとで公開されているオープンソースソフトウェア（OSS）です。ソースコードはGitHubでどなたでもご覧いただけます。</p>
+                <a href="https://github.com/hiyokotaisa/motopuppu" class="btn btn-dark mt-2" target="_blank" rel="noopener noreferrer"><i class="fab fa-github me-2"></i>GitHubリポジトリを見る</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="faq-q11-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq-q11-collapse" aria-expanded="false" aria-controls="faq-q11-collapse">
+                <strong>Q. 質問や不具合報告はどこに連絡すればよいですか？</strong>
+            </button>
+        </h2>
+        <div id="faq-q11-collapse" class="accordion-collapse collapse" aria-labelledby="faq-q11-header" data-bs-parent="#faqAccordion">
+            <div class="accordion-body">
+                <p>ご質問、不具合の報告、機能の要望やご意見などは、開発者のMisskey.ioアカウントまでお気軽にご連絡ください。</p>
+                <a href="https://misskey.io/@hiyokotaisa" class="btn btn-info mt-2 text-dark" target="_blank" rel="noopener noreferrer"><i class="fas fa-paper-plane me-2"></i>Misskey.io (@hiyokotaisa)</a>
+            </div>
+        </div>
+    </div>
+    </div>
 {% endblock %}

@@ -2,9 +2,90 @@
 {% extends "help/layout.html" %}
 
 {% block help_content %}
-<p>メンテナンス時期を忘れずに管理するためのリマインダー機能について解説します。距離や期間でのリマインダー設定、整備記録との自動連携機能など、詳細な使い方を紹介します。</p>
-<div class="alert alert-info mt-4">
-    <h5 class="alert-heading"><i class="fas fa-wrench me-2"></i> 準備中</h5>
-    現在このページのコンテンツを準備中です。
+<p class="lead">オイル交換やタイヤ交換など、定期的なメンテナンス作業を忘れずに行うためのリマインダー機能です。走行距離や期間を基準に、次のメンテナンス時期をダッシュボードでお知らせします。</p>
+
+<div class="accordion mt-4" id="reminders-guide">
+
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="reminders-what-is-header">
+            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#reminders-what-is-collapse" aria-expanded="true" aria-controls="reminders-what-is-collapse">
+                <strong>1. リマインダー機能とは？</strong>
+            </button>
+        </h2>
+        <div id="reminders-what-is-collapse" class="accordion-collapse collapse show" aria-labelledby="reminders-what-is-header" data-bs-parent="#reminders-guide">
+            <div class="accordion-body">
+                <p>この機能を使うと、「エンジンオイルを3,000km毎に交換する」「ブレーキフルードを2年毎に交換する」といった管理が可能になります。</p>
+                <p>設定したリマインダーは、最後に実施した記録（日付や走行距離）と設定したサイクル（期間や距離）を基に、次のメンテナンス時期を自動で計算します。時期が近づいた、あるいは超過したリマインダーは、<strong>ダッシュボードの上部に警告として表示</strong>されます。</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="reminders-setup-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#reminders-setup-collapse" aria-expanded="false" aria-controls="reminders-setup-collapse">
+                <strong>2. リマインダーの作成と設定</strong>
+            </button>
+        </h2>
+        <div id="reminders-setup-collapse" class="accordion-collapse collapse" aria-labelledby="reminders-setup-header" data-bs-parent="#reminders-guide">
+            <div class="accordion-body">
+                <p>各車両のリマインダー一覧ページから「新しいリマインダーを追加」ボタンで作成します。設定は大きく分けて2つのセクションに分かれています。</p>
+                
+                <h5 class="mt-3"><i class="fas fa-cog text-primary me-2"></i>セクション1: リマインダー設定</h5>
+                <ul>
+                    <li><strong>リマインド内容 / カテゴリ:</strong>
+                        リマインドしたい作業内容を入力します。（例: 「エンジンオイル交換」）。後述する<strong>自動連携機能のキー</strong>となるため、整備記録で使うカテゴリ名と合わせておくことを強く推奨します。
+                    </li>
+                    <li><strong>サイクル（距離・期間）:</strong>
+                        リマインドの周期を「〇〇 km毎」または「〇〇 ヶ月毎」で設定します。両方を設定した場合、先に到達した方でお知らせが表示されます。
+                    </li>
+                </ul>
+
+                <h5 class="mt-4"><i class="fas fa-history text-primary me-2"></i>セクション2: 最終実施記録</h5>
+                <p>次のメンテナンス時期を計算するための起点となる、「最後にその作業を行った記録」を設定します。設定方法は2通りあります。</p>
+                <ul>
+                    <li><strong>整備ログから選択 (推奨):</strong>
+                        過去に追加した整備記録がドロップダウンに一覧表示されます。該当する記録を選択すると、その記録の日付とODOメーター値が自動で設定されます。
+                    </li>
+                    <li><strong>手動で入力する:</strong>
+                        ドロップダウンで「--- 手動で入力する ---」を選択したまま、日付と実施時のODOメーター値を直接入力します。アプリを使い始める前の作業を記録する場合などに使用します。
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="reminders-auto-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#reminders-auto-collapse" aria-expanded="false" aria-controls="reminders-auto-collapse">
+                <strong>3. 【重要】整備記録との自動連携</strong>
+            </button>
+        </h2>
+        <div id="reminders-auto-collapse" class="accordion-collapse collapse" aria-labelledby="reminders-auto-header" data-bs-parent="#reminders-guide">
+            <div class="accordion-body">
+                <p>リマインダー機能が最も便利になるのが、この自動連携機能です。リマインダー作成時に<strong>「整備記録のカテゴリ名が一致した場合...自動的に...更新する」</strong>のチェックをONにしておくことで有効になります。</p>
+                
+                <div class="alert alert-info">
+                    <i class="fas fa-link me-2"></i>
+                    <strong>仕組み:</strong> 新しい<strong>整備記録</strong>を追加した際、その**カテゴリ名**が、既存の<strong>リマインダー</strong>の**タスク内容**と完全に一致すると、そのリマインダーの最終実施記録が、新しい整備記録の内容で自動的に上書きされます。
+                </div>
+                
+                <p><strong>具体的な連携例:</strong></p>
+                <ol>
+                    <li>
+                        <strong>リマインダーを作成:</strong>
+                        <p class="small ps-3">タスク内容が「<mark>タイヤ交換</mark>」のリマインダーを作成し、「自動更新」をONにしておきます。</p>
+                    </li>
+                    <li>
+                        <strong>整備記録を追加:</strong>
+                        <p class="small ps-3">後日、実際にタイヤを交換し、その作業を整備記録として追加します。その際、<strong>カテゴリ</strong>にも「<mark>タイヤ交換</mark>」と入力します。</p>
+                    </li>
+                    <li>
+                        <strong>自動でリマインダーが更新される:</strong>
+                        <p class="small ps-3">整備記録を保存すると、システムが「タイヤ交換」という名称の一致を検知します。これにより、自分でリマインダーを編集しなくても、最終実施記録が今追加した整備記録の内容に自動で更新され、次の交換時期が再計算されます。</p>
+                    </li>
+                </ol>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}
