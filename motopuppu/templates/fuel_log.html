@@ -6,25 +6,34 @@
 {% block content %}
 <h2><i class="fas fa-gas-pump me-1"></i> 給油記録</h2>
 
-{# 「新しい給油記録を追加」ボタンと「CSVエクスポート」ボタン #}
-<div class="mb-3 d-flex justify-content-between align-items-center">
+{# ボタンエリア #}
+<div class="mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
     <a href="{{ url_for('fuel.add_fuel', vehicle_id=request_args.get('vehicle_id') if request_args.get('vehicle_id') else '') }}" class="btn btn-success">
         <i class="fas fa-plus me-1"></i> 新しい給油記録を追加
     </a>
-    {# --- CSVエクスポートボタン --- #}
+    
+    {# --- CSV関連ボタン --- #}
     {% set current_vehicle_id_str = request_args.get('vehicle_id') %}
     {% if current_vehicle_id_str and current_vehicle_id_str != '' %}
         {% set selected_vehicle_id = current_vehicle_id_str|int %}
         {% set selected_vehicle = motorcycles|selectattr('id', 'equalto', selected_vehicle_id)|first %}
-        <a href="{{ url_for('fuel.export_fuel_records_csv', motorcycle_id=selected_vehicle_id) }}" class="btn btn-info">
-            <i class="fas fa-file-csv me-1"></i> {{ selected_vehicle.name if selected_vehicle else '選択車両' }}の記録をCSVエクスポート
-        </a>
+        {% if selected_vehicle %}
+        <div class="btn-group">
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#csvImportModal">
+                <i class="fas fa-file-import me-1"></i> CSVインポート
+            </button>
+            <a href="{{ url_for('fuel.export_fuel_records_csv', motorcycle_id=selected_vehicle_id) }}" class="btn btn-info">
+                <i class="fas fa-file-csv me-1"></i> CSVエクスポート
+            </a>
+        </div>
+        {% endif %}
     {% elif motorcycles|length > 0 %}
         <a href="{{ url_for('fuel.export_all_fuel_records_csv') }}" class="btn btn-secondary">
             <i class="fas fa-download me-1"></i> 全車両の燃費記録をエクスポート
         </a>
     {% endif %}
 </div>
+
 
 {# --- フィルター展開ボタン --- #}
 <div class="mb-3">
@@ -323,7 +332,6 @@
   表示できる給油記録がありません。
 </div>
 {% endif %}
-
 {% endblock %}
 
 {# --- JavaScript --- #}
@@ -387,4 +395,64 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 });
 </script>
+{% endblock %}
+
+
+{% block modals %}
+{{ super() }}
+{# --- CSVインポート用モーダル --- #}
+{% if request_args.get('vehicle_id') %}
+    {% set selected_vehicle_id = request_args.get('vehicle_id')|int %}
+    {% set selected_vehicle = motorcycles|selectattr('id', 'equalto', selected_vehicle_id)|first %}
+    {% if selected_vehicle %}
+    <div class="modal fade" id="csvImportModal" tabindex="-1" aria-labelledby="csvImportModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form method="POST" action="{{ url_for('fuel.import_fuel_records_csv', vehicle_id=selected_vehicle_id) }}" enctype="multipart/form-data" novalidate>
+                    {{ upload_form.hidden_tag() }}
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="csvImportModalLabel">
+                            <i class="fas fa-file-import me-2"></i>給油記録のCSVインポート ({{ selected_vehicle.name }})
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>指定された形式のCSVファイルをアップロードすることで、給油記録を一括登録できます。</p>
+                        <ol>
+                            <li>下のボタンからテンプレートファイルをダウンロードします。</li>
+                            <li>テンプレートに従って給油記録を入力します。（文字コードはUTF-8）</li>
+                            <li>完成したCSVファイルを選択し、インポートボタンを押してください。</li>
+                        </ol>
+                        <p class="small text-muted">
+                            <strong>必須項目:</strong> <code>entry_date</code>, <code>odometer_reading</code>, <code>fuel_volume</code><br>
+                            <strong>日付形式:</strong> <code>YYYY-MM-DD</code> (例: 2025-08-06)
+                        </p>
+                        <div class="mb-3">
+                            <a href="{{ url_for('fuel.download_fuel_import_template') }}" class="btn btn-sm btn-outline-secondary">
+                                <i class="fas fa-download me-1"></i> テンプレートをダウンロード
+                            </a>
+                        </div>
+                        <hr>
+                        <div class="mb-3">
+                            {{ upload_form.csv_file.label(class="form-label") }}
+                            {{ upload_form.csv_file(class="form-control" + (" is-invalid" if upload_form.csv_file.errors else "")) }}
+                            {% if upload_form.csv_file.errors %}
+                                <div class="invalid-feedback">
+                                    {% for error in upload_form.csv_file.errors %}
+                                        <span>{{ error }}</span><br>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">閉じる</button>
+                        {{ upload_form.submit_upload(class="btn btn-primary") }}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+{% endif %}
 {% endblock %}

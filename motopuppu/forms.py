@@ -636,6 +636,18 @@ class ParticipantForm(FlaskForm):
     submit = SubmitField('出欠を登録・更新する')
 
 # ▼▼▼ 以下をファイルの末尾に追記 ▼▼▼
+class FuelCsvUploadForm(FlaskForm):
+    """給油記録CSVインポート用のフォーム"""
+    csv_file = FileField(
+        'CSVファイル',
+        validators=[
+            FileRequired(message="ファイルを選択してください。"),
+            FileAllowed(['csv'], 'CSVファイルのみアップロードできます')
+        ]
+    )
+    submit_upload = SubmitField('アップロードしてインポート')
+
+
 class MaintenanceSpecSheetForm(FlaskForm):
     """整備情報シート用のフォーム"""
     sheet_name = StringField(

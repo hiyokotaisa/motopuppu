@@ -7,19 +7,151 @@ import requests
 from flask import (
     Blueprint, flash, redirect, render_template, request, url_for, abort, current_app, Response, jsonify
 )
-from sqlalchemy import or_, asc, desc, func
+# ▼▼▼ or_ をインポート ▼▼▼
+from sqlalchemy import or_, asc, desc, func, and_
+# ▲▲▲ 変更ここまで ▲▲▲
 
 # ▼▼▼ インポート文を修正 ▼▼▼
 from flask_login import login_required, current_user
 # ▲▲▲ 変更ここまで ▲▲▲
 from ..models import db, Motorcycle, FuelEntry
-from ..forms import FuelForm
+from ..forms import FuelForm, FuelCsvUploadForm
 from ..constants import GAS_STATION_BRANDS
 from ..achievement_evaluator import check_achievements_for_event, EVENT_ADD_FUEL_LOG
 from .. import limiter
 
 
 fuel_bp = Blueprint('fuel', __name__, url_prefix='/fuel')
+
+# ▼▼▼ _process_fuel_csv_import関数を全面的に書き換え ▼▼▼
+def _process_fuel_csv_import(file_stream, motorcycle: Motorcycle):
+    """
+    アップロードされたCSVファイルを解析し、給油記録をデータベースに登録する。
+    重複チェック（ドライラン）と本実行の2段階で行う。
+
+    Args:
+        file_stream: アップロードされたCSVファイルのストリーム。
+        motorcycle: 登録対象のMotorcycleオブジェクト。
+
+    Returns:
+        (int, list, list): (成功した件数, エラーメッセージのリスト, 重複データのリスト) のタプル。
+    """
+    required_headers = {'entry_date', 'odometer_reading', 'fuel_volume'}
+    errors = []
+    duplicates = []
+    
+    try:
+        wrapper = io.TextIOWrapper(file_stream, encoding='utf-8-sig')
+        # 全ての行を一度に読み込む
+        all_rows = list(csv.reader(wrapper))
+
+        # --- ヘッダーの特定と検証 ---
+        header_row_index = -1
+        for i, row in enumerate(all_rows):
+            if row and not row[0].strip().startswith('#'):
+                header_row_index = i
+                break
+        
+        if header_row_index == -1:
+            errors.append("CSVファイルにヘッダー行が見つかりませんでした。")
+            return 0, errors, []
+
+        header = [h.strip().lower() for h in all_rows[header_row_index]]
+        if not required_headers.issubset(set(header)):
+            missing = required_headers - set(header)
+            errors.append(f"CSVファイルのヘッダーに必須項目がありません: {', '.join(missing)}")
+            return 0, errors, []
+
+        # --- 1. ドライラン（事前チェック）ステージ ---
+        valid_rows_to_check = []
+        for row_num, row in enumerate(all_rows[header_row_index + 1:], start=header_row_index + 2):
+            if not row or (row and row[0].strip().startswith('#')):
+                continue
+            
+            try:
+                row_data = dict(zip(header, row))
+                entry_date = date.fromisoformat(row_data.get('entry_date', '').strip())
+                odometer_reading = int(row_data.get('odometer_reading', '').strip())
+                valid_rows_to_check.append({'date': entry_date, 'odo': odometer_reading, 'row_num': row_num})
+            except (ValueError, TypeError):
+                errors.append(f"{row_num}行目: 日付またはODOメーターの形式が正しくありません。")
+
+        if errors:
+            return 0, errors, []
+
+        # --- データベースで既存レコードを一括クエリ ---
+        if valid_rows_to_check:
+            conditions = [
+                and_(FuelEntry.motorcycle_id == motorcycle.id, FuelEntry.entry_date == item['date'], FuelEntry.odometer_reading == item['odo'])
+                for item in valid_rows_to_check
+            ]
+            existing_records_query = FuelEntry.query.filter(or_(*conditions)).with_entities(FuelEntry.entry_date, FuelEntry.odometer_reading)
+            existing_keys = {(rec.entry_date, rec.odometer_reading) for rec in existing_records_query.all()}
+            
+            for item in valid_rows_to_check:
+                if (item['date'], item['odo']) in existing_keys:
+                    duplicates.append(f"{item['row_num']}行目 (日付: {item['date']}, ODO: {item['odo']}km)")
+
+        # 重複が見つかった場合は、ここで処理を中断して警告
+        if duplicates:
+            return 0, [], duplicates
+
+        # --- 2. 本実行ステージ ---
+        entries_to_add = []
+        for row_num, row in enumerate(all_rows[header_row_index + 1:], start=header_row_index + 2):
+            if not row or (row and row[0].strip().startswith('#')):
+                continue
+
+            try:
+                # バリデーションは済んでいるが、再度データを整形
+                row_data = dict(zip(header, row))
+                entry_date = date.fromisoformat(row_data.get('entry_date', '').strip())
+                odometer_reading = int(row_data.get('odometer_reading', '').strip())
+                fuel_volume = float(row_data.get('fuel_volume', '').strip())
+                
+                price_per_liter = float(row_data.get('price_per_liter', '').strip()) if row_data.get('price_per_liter', '').strip() else None
+                total_cost = int(row_data.get('total_cost', '').strip()) if row_data.get('total_cost', '').strip() else None
+                
+                if total_cost is None and price_per_liter is not None:
+                    total_cost = round(price_per_liter * fuel_volume)
+
+                is_full_tank_str = row_data.get('is_full_tank', 'true').strip().lower()
+                is_full_tank = is_full_tank_str in ['true', '1', 'yes', 'はい', 't']
+                exclude_str = row_data.get('exclude_from_average', 'false').strip().lower()
+                exclude_from_average = exclude_str in ['true', '1', 'yes', 'はい', 't']
+
+                offset_at_entry_date = motorcycle.calculate_cumulative_offset_from_logs(target_date=entry_date)
+                total_distance = odometer_reading + offset_at_entry_date
+
+                new_entry = FuelEntry(
+                    motorcycle_id=motorcycle.id, entry_date=entry_date, odometer_reading=odometer_reading,
+                    total_distance=total_distance, fuel_volume=fuel_volume, price_per_liter=price_per_liter,
+                    total_cost=total_cost, station_name=row_data.get('station_name', '').strip() or None,
+                    fuel_type=row_data.get('fuel_type', '').strip() or None, notes=row_data.get('notes', '').strip() or None,
+                    is_full_tank=is_full_tank, exclude_from_average=exclude_from_average
+                )
+                entries_to_add.append(new_entry)
+            except Exception as e:
+                # 基本的にここまで来ないはずだが念のため
+                errors.append(f"{row_num}行目: 予期せぬエラーが発生しました。({e})")
+
+        if not errors and entries_to_add:
+            db.session.add_all(entries_to_add)
+            db.session.commit()
+            for entry in entries_to_add:
+                event_data_for_ach = {'new_fuel_log_id': entry.id, 'motorcycle_id': motorcycle.id}
+                check_achievements_for_event(current_user, EVENT_ADD_FUEL_LOG, event_data=event_data_for_ach)
+            return len(entries_to_add), [], []
+        else:
+            db.session.rollback()
+            return 0, errors, []
+
+    except Exception as e:
+        db.session.rollback()
+        errors.append(f"ファイル処理中に致命的なエラーが発生しました: {e}")
+        return 0, errors, []
+# ▲▲▲ 修正ここまで ▲▲▲
+
 
 def get_previous_fuel_entry(motorcycle_id, current_entry_date, current_entry_id=None):
     if not motorcycle_id or not current_entry_date:
@@ -156,13 +288,15 @@ def fuel_log():
     fuel_entries = pagination.items
 
     is_filter_active = bool(active_filters)
+    upload_form = FuelCsvUploadForm()
 
     return render_template('fuel_log.html',
                            entries=fuel_entries, pagination=pagination,
                            motorcycles=user_motorcycles_for_fuel,
                            request_args=active_filters,
                            current_sort_by=current_sort_by, current_order=current_order,
-                           is_filter_active=is_filter_active)
+                           is_filter_active=is_filter_active,
+                           upload_form=upload_form)
 
 
 @fuel_bp.route('/add', methods=['GET', 'POST'])
@@ -390,6 +524,100 @@ def delete_fuel(entry_id):
         flash(f'記録の削除中にエラーが発生しました。詳細は管理者にお問い合わせください。', 'error')
         current_app.logger.error(f"Error deleting fuel entry ID {entry_id}: {e}", exc_info=True)
     return redirect(url_for('fuel.fuel_log'))
+
+@fuel_bp.route('/template/fuel_import_template.csv')
+@login_required
+def download_fuel_import_template():
+    """給油記録インポート用のCSVテンプレートをダウンロードさせる"""
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    writer.writerow(['# もとぷっぷー 給油記録インポート用CSVテンプレート'])
+    writer.writerow(['#'])
+    writer.writerow(['# 以下のヘッダーに従ってデータを入力してください。(この行を含む「#」で始まる行はインポート時に無視されます)'])
+    writer.writerow(['#'])
+    writer.writerow(['# --- 項目説明 ---'])
+    writer.writerow(['# entry_date (必須): 給油日をYYYY-MM-DD形式で入力します。例: 2025-08-06'])
+    writer.writerow(['# odometer_reading (必須): 給油時のODOメーターの値を整数で入力します。例: 12500'])
+    writer.writerow(['# fuel_volume (必須): 給油量をリットル単位で入力します。例: 5.50'])
+    writer.writerow(['# price_per_liter (任意): 1リットルあたりの単価を整数で入力します。例: 175'])
+    writer.writerow(['# total_cost (任意): 合計金額を整数で入力します。単価と給油量を入力した場合、この値は無視され自動計算されます。'])
+    writer.writerow(['# station_name (任意): ガソリンスタンド名を入力します。例: もとぷーSS'])
+    writer.writerow(['# is_full_tank (任意): 満タン給油の場合に「true」と入力します。燃費計算に利用されます。空欄の場合はtrueとして扱われます。'])
+    writer.writerow(['# exclude_from_average (任意): 平均燃費の計算から除外する場合に「true」と入力します。'])
+    writer.writerow(['# notes (任意): メモを入力します。'])
+    writer.writerow(['# fuel_type (任意): 油種を入力します。例: ハイオク, レギュラー'])
+    writer.writerow(['#'])
+    writer.writerow(['# --- ヘッダー (この行は編集しないでください) ---'])
+    header = [
+        'entry_date', 'odometer_reading', 'fuel_volume', 'price_per_liter',
+        'total_cost', 'station_name', 'is_full_tank', 'exclude_from_average',
+        'notes', 'fuel_type'
+    ]
+    writer.writerow(header)
+    
+    sample_data = [
+        '2025-08-01', '12500', '5.50', '175', 
+        '963', 'もとぷーSS', 'true', 'false',
+        'テスト走行後の給油', 'ハイオク'
+    ]
+    writer.writerow(sample_data)
+    
+    output.seek(0)
+    
+    return Response(
+        output.getvalue(),
+        mimetype="text/csv",
+        headers={
+            "Content-Disposition": "attachment;filename=motopuppu_fuel_import_template.csv",
+            "Content-Type": "text/csv; charset=utf-8-sig"
+        }
+    )
+
+# ▼▼▼ import_fuel_records_csv関数を修正 ▼▼▼
+@fuel_bp.route('/motorcycle/<int:vehicle_id>/import_csv', methods=['POST'])
+@limiter.limit("10 per hour")
+@login_required
+def import_fuel_records_csv(vehicle_id):
+    """CSVファイルをアップロードして給油記録を一括登録する"""
+    motorcycle = Motorcycle.query.filter_by(id=vehicle_id, user_id=current_user.id, is_racer=False).first_or_404('対象の車両が見つからないか、レーサー車両のためインポートできません。')
+    
+    form = FuelCsvUploadForm()
+    
+    if form.validate_on_submit():
+        csv_file = form.csv_file.data
+        try:
+            # seek(0)でストリームを先頭に戻す
+            csv_file.stream.seek(0)
+            success_count, errors, duplicates = _process_fuel_csv_import(csv_file.stream, motorcycle)
+
+            if duplicates:
+                flash_message = "<strong>インポートが中断されました。以下のデータが既にデータベースに存在します。</strong><br>CSVファイルから該当の行を削除して、再度アップロードしてください。<ul class='mb-0'>"
+                for dup in duplicates:
+                    flash_message += f"<li>{dup}</li>"
+                flash_message += "</ul>"
+                flash(flash_message, 'warning')
+            
+            if errors:
+                for error in errors:
+                    flash(f'CSVインポートエラー: {error}', 'danger')
+            
+            if success_count > 0:
+                flash(f'{success_count}件の給油記録を正常にインポートしました。', 'success')
+            elif not errors and not duplicates:
+                flash('インポートするデータが見つかりませんでした。', 'info')
+                
+        except Exception as e:
+            current_app.logger.error(f"CSV import failed for vehicle {vehicle_id}: {e}", exc_info=True)
+            flash('CSVファイルの処理中に予期せぬエラーが発生しました。ファイルの形式や文字コード（UTF-8）を確認してください。', 'danger')
+    else:
+        for field, errors in form.errors.items():
+            for error in errors:
+                flash(f'{getattr(form, field).label.text}: {error}', 'danger')
+
+    return redirect(url_for('fuel.fuel_log', vehicle_id=vehicle_id))
+# ▲▲▲ 修正ここまで ▲▲▲
+
 
 @fuel_bp.route('/motorcycle/<int:motorcycle_id>/export_csv')
 @login_required # ▼▼▼ デコレータを修正 ▼▼▼
