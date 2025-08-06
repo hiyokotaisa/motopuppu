@@ -2,74 +2,107 @@
 {% extends "help/layout.html" %}
 
 {% block help_content %}
-<p>「もとぷっぷー」を最大限に活用するための最初のステップをご案内します。まずは愛車を登録し、日々の記録を付けてみましょう！</p>
+<p class="lead">ようこそ！このガイドは、「もとぷっぷー」を最大限に活用するための最初のステップをご案内します。まずは愛車を登録し、日々の記録を付ける基本サイクルをマスターしましょう。</p>
 
 <div class="accordion mt-4" id="gettingStartedAccordion">
 
     <div class="accordion-item">
-        <h2 class="accordion-header" id="headingOne">
-            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="true" aria-controls="collapseOne">
-                <strong>ステップ1: 車両の登録</strong>
+        <h2 class="accordion-header" id="step1-header">
+            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#step1-collapse" aria-expanded="true" aria-controls="step1-collapse">
+                <strong>ステップ1: はじめの一歩、愛車の登録</strong>
             </button>
         </h2>
-        <div id="collapseOne" class="accordion-collapse collapse show" aria-labelledby="headingOne" data-bs-parent="#gettingStartedAccordion">
+        <div id="step1-collapse" class="accordion-collapse collapse show" aria-labelledby="step1-header" data-bs-parent="#gettingStartedAccordion">
             <div class="accordion-body">
-                {# ▼▼▼ 説明を少し具体的に変更 ▼▼▼ #}
-                <p>ナビゲーションバーの「車両管理」から、あなたのオートバイを登録します。複数台の登録も可能です。</p>
+                <p>すべての記録は、あなたのオートバイに紐付きます。まずはナビゲーションバーの「車両管理」から、愛車を登録しましょう。複数台の登録も可能です。</p>
                 <ul>
-                    <li><strong>車両名:</strong> 必須項目です。好きな名前を付けてください。</li>
+                    <li><strong>車両名:</strong> 必須項目です。ご自身の分かりやすい名前を付けてください。</li>
                     <li><strong>車両タイプの選択:</strong>
                         <ul>
-                            <li><strong>公道車:</strong> ODOメーター（総走行距離）で記録を管理します。給油記録や燃費計算が可能です。日常利用のバイクはこちらを選択します。</li>
-                            <li><strong>レーサー:</strong> 総稼働時間で記録を管理します。サーキット専用車両など、距離ではなく時間で管理したい場合こちらを選択します。（この設定は後から変更できません）</li>
+                            <li><strong>公道車:</strong> ODOメーター（総走行距離）で管理します。燃費計算など、ほとんどの機能が利用できます。</li>
+                            <li><strong>レーサー:</strong> 総稼働時間で管理します。サーキット専用車など、時間で管理したい場合こちらを選択します。</li>
                         </ul>
+                        <p class="small text-muted mt-1">※この設定は後から変更できないため、慎重に選択してください。</p>
                     </li>
-                    <li><strong>初期ODO/稼働時間:</strong> アプリ利用開始時点でのメーター値を入力します。中古で購入した車両や、途中から使い始める場合に正確な状態を反映できます。</li>
+                    <li><strong>初期ODO/稼働時間:</strong> アプリ利用開始時点でのメーター値を入力しておくと、記録の連続性が保てて便利です。</li>
                 </ul>
-                <p class="mt-2">
-                    <a href="{{ url_for('vehicle.vehicle_list') }}" class="btn btn-sm btn-outline-primary">車両管理ページへ <i class="fas fa-arrow-right"></i></a>
-                </p>
-                {# ▲▲▲ 変更ここまで ▲▲▲ #}
+                <p class="mt-2 small"><a href="{{ url_for('help.feature_vehicles') }}">→ 「公道車」と「レーサー」の詳しい違いはこちら</a></p>
+                <hr>
+                <a href="{{ url_for('vehicle.vehicle_list') }}" class="btn btn-sm btn-primary">車両管理ページへ <i class="fas fa-arrow-right ms-1"></i></a>
             </div>
         </div>
     </div>
     
-    {# (ステップ2, 3は変更なし) #}
     <div class="accordion-item">
-        <h2 class="accordion-header" id="headingTwo">
-            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo">
-                <strong>ステップ2: 給油記録を付けてみよう (公道車)</strong>
+        <h2 class="accordion-header" id="step2-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#step2-collapse" aria-expanded="false" aria-controls="step2-collapse">
+                <strong>ステップ2: 基本のサイクル、日々の記録</strong>
             </button>
         </h2>
-        <div id="collapseTwo" class="accordion-collapse collapse" aria-labelledby="headingTwo" data-bs-parent="#gettingStartedAccordion">
+        <div id="step2-collapse" class="accordion-collapse collapse" aria-labelledby="step2-header" data-bs-parent="#gettingStartedAccordion">
             <div class="accordion-body">
-                <p>ナビゲーションバーの「給油」から記録を追加します。満タン給油を2回以上記録すると、その間の燃費が自動で計算されます。</p>
-                <ul>
-                    <li><strong>給油日とODOメーター値:</strong> 必須項目です。</li>
-                    <li><strong>給油量:</strong> 燃費計算に必要です。</li>
-                    <li><strong>満タンフラグ:</strong> 燃費計算は、このフラグがONになっている給油記録の間で行われます。</li>
-                    <li><strong>トリップメーター入力:</strong> スイッチをONにすると、ODOメーターの代わりに前回給油からの走行距離で入力することもできます。</li>
-                </ul>
-                 <p class="mt-2">
-                    <a href="{{ url_for('fuel.fuel_log') }}" class="btn btn-sm btn-outline-primary">給油記録ページへ <i class="fas fa-arrow-right"></i></a>
-                </p>
+                <p>車両を登録したら、日々の活動を記録していきましょう。主な記録は「給油」と「整備」です。</p>
+                
+                <h5 class="mt-3"><i class="fas fa-gas-pump text-success me-2"></i>給油記録 (公道車)</h5>
+                <p class="small">日々の給油量や費用を記録します。「満タン給油」のチェックを入れた記録が2回以上貯まると、その間の燃費が自動で計算されます。</p>
+                <p class="mb-0"><a href="{{ url_for('fuel.add_fuel') }}" class="btn btn-sm btn-success">給油記録を追加する <i class="fas fa-arrow-right ms-1"></i></a></p>
+
+                <hr class="my-4">
+
+                <h5 class="mt-3"><i class="fas fa-tools text-warning me-2"></i>整備記録 (公道車)</h5>
+                <p class="small">オイル交換や部品交換などのメンテナンス作業を記録します。作業内容だけでなく、かかった費用や使用した部品のメモも残せます。</p>
+                <p class="mb-0"><a href="{{ url_for('maintenance.add_maintenance') }}" class="btn btn-sm btn-warning">整備記録を追加する <i class="fas fa-arrow-right ms-1"></i></a></p>
+
             </div>
         </div>
     </div>
 
     <div class="accordion-item">
-        <h2 class="accordion-header" id="headingThree">
-            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseThree" aria-expanded="false" aria-controls="collapseThree">
-                <strong>ステップ3: ダッシュボードを確認しよう</strong>
+        <h2 class="accordion-header" id="step3-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#step3-collapse" aria-expanded="false" aria-controls="step3-collapse">
+                <strong>ステップ3: 全体を把握、ダッシュボード</strong>
             </button>
         </h2>
-        <div id="collapseThree" class="accordion-collapse collapse" aria-labelledby="headingThree" data-bs-parent="#gettingStartedAccordion">
+        <div id="step3-collapse" class="accordion-collapse collapse" aria-labelledby="step3-header" data-bs-parent="#gettingStartedAccordion">
             <div class="accordion-body">
-                <p>ダッシュボードには、入力した記録がカレンダー形式で表示されたり、走行距離や費用の統計情報がカードで表示されたりします。</p>
-                <p>メンテナンス時期が近づくと通知が表示されるなど、愛車の状態が一目でわかるようになります。記録を続けて、あなただけのダッシュボードを完成させましょう。</p>
-                <p class="mt-2">
-                    <a href="{{ url_for('main.dashboard') }}" class="btn btn-sm btn-outline-primary">ダッシュボードへ <i class="fas fa-arrow-right"></i></a>
-                </p>
+                <p>記録したデータは、すべてダッシュボードに集約されます。あなたのバイクライフの司令塔です。</p>
+                <ul>
+                    <li>走行距離や燃費、費用の<strong>統計情報</strong></li>
+                    <li>メンテナンス時期を知らせる<strong>通知</strong></li>
+                    <li>すべての記録がプロットされた<strong>カレンダー</strong></li>
+                </ul>
+                <p>記録を続けるほど、ダッシュボードはあなたにとって価値のある情報源になります。</p>
+                <p class="mt-2"><a href="{{ url_for('main.dashboard') }}" class="btn btn-sm btn-primary">ダッシュボードへ <i class="fas fa-arrow-right ms-1"></i></a></p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="step4-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#step4-collapse" aria-expanded="false" aria-controls="step4-collapse">
+                <strong>ステップ4: さらに便利に、応用機能を使いこなす</strong>
+            </button>
+        </h2>
+        <div id="step4-collapse" class="accordion-collapse collapse" aria-labelledby="step4-header" data-bs-parent="#gettingStartedAccordion">
+            <div class="accordion-body">
+                <p>基本のサイクルに慣れたら、さらに便利な機能を活用してみましょう。</p>
+                <ul class="list-unstyled">
+                    <li class="mb-3">
+                        <h6><i class="fas fa-bell text-info me-2"></i>リマインダー</h6>
+                        <p class="small mb-1">「3,000km毎にオイル交換」といった定期メンテナンスを登録しておくと、時期が来たらダッシュボードでお知らせしてくれます。</p>
+                        <a href="{{ url_for('help.feature_reminders') }}" class="small">→ リマインダー機能の使い方を見る</a>
+                    </li>
+                    <li class="mb-3">
+                        <h6><i class="fas fa-flag-checkered text-info me-2"></i>活動ログ</h6>
+                        <p class="small mb-1">サーキット走行やツーリングの記録に特化した機能です。ラップタイムや車両のセッティングを詳細に記録・比較できます。</p>
+                        <a href="{{ url_for('help.feature_activity_log') }}" class="small">→ 活動ログの使い方を見る</a>
+                    </li>
+                    <li>
+                        <h6><i class="fas fa-sticky-note text-info me-2"></i>ノート機能</h6>
+                        <p class="small mb-1">ツーリング計画や買い物リストなど、バイクに関するあらゆるメモやタスクを自由に記録できます。</p>
+                        <a href="{{ url_for('help.feature_notes') }}" class="small">→ ノート機能の使い方を見る</a>
+                    </li>
+                </ul>
             </div>
         </div>
     </div>
