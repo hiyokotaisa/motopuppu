@@ -648,6 +648,18 @@ class FuelCsvUploadForm(FlaskForm):
     submit_upload = SubmitField('アップロードしてインポート')
 
 
+class MaintenanceCsvUploadForm(FlaskForm):
+    """整備記録CSVインポート用のフォーム"""
+    csv_file = FileField(
+        'CSVファイル',
+        validators=[
+            FileRequired(message="ファイルを選択してください。"),
+            FileAllowed(['csv'], 'CSVファイルのみアップロードできます')
+        ]
+    )
+    submit_upload = SubmitField('アップロードしてインポート')
+
+
 class MaintenanceSpecSheetForm(FlaskForm):
     """整備情報シート用のフォーム"""
     sheet_name = StringField(

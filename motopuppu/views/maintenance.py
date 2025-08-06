@@ -6,19 +6,150 @@ from datetime import date, datetime
 from flask import (
     Blueprint, flash, redirect, render_template, request, url_for, abort, current_app, Response, jsonify
 )
-from sqlalchemy import or_, asc, desc, func
+# ▼▼▼ or_, and_ をインポート ▼▼▼
+from sqlalchemy import or_, asc, desc, func, and_
+# ▲▲▲ 変更ここまで ▲▲▲
 
 # ▼▼▼ インポート文を修正 ▼▼▼
 from flask_login import login_required, current_user
 # ▲▲▲ 変更ここまで ▲▲▲
 from ..models import db, Motorcycle, MaintenanceEntry, MaintenanceReminder
-from ..forms import MaintenanceForm
+# ▼▼▼ MaintenanceCsvUploadForm をインポート ▼▼▼
+from ..forms import MaintenanceForm, MaintenanceCsvUploadForm
+# ▲▲▲ 変更ここまで ▲▲▲
 from ..constants import MAINTENANCE_CATEGORIES
 from ..achievement_evaluator import check_achievements_for_event, EVENT_ADD_MAINTENANCE_LOG
 from .. import limiter
 
 
 maintenance_bp = Blueprint('maintenance', __name__, url_prefix='/maintenance')
+
+# ▼▼▼ ここからCSVインポート用ヘルパー関数を追記 ▼▼▼
+def _process_maintenance_csv_import(file_stream, motorcycle: Motorcycle):
+    """
+    アップロードされた整備記録CSVを解析し、DBに登録する。
+    重複チェック（ドライラン）と本実行の2段階で行う。
+    """
+    required_headers = {'maintenance_date', 'odometer_reading_at_maintenance', 'description'}
+    errors = []
+    duplicates = []
+    
+    try:
+        wrapper = io.TextIOWrapper(file_stream, encoding='utf-8-sig')
+        all_rows = list(csv.reader(wrapper))
+
+        header_row_index = -1
+        for i, row in enumerate(all_rows):
+            if row and not row[0].strip().startswith('#'):
+                header_row_index = i
+                break
+        
+        if header_row_index == -1:
+            errors.append("CSVファイルにヘッダー行が見つかりませんでした。")
+            return 0, errors, []
+
+        header = [h.strip().lower() for h in all_rows[header_row_index]]
+        if not required_headers.issubset(set(header)):
+            missing = required_headers - set(header)
+            errors.append(f"CSVヘッダーに必須項目がありません: {', '.join(missing)}")
+            return 0, errors, []
+
+        # --- 1. ドライラン（事前チェック）ステージ ---
+        valid_rows_to_check = []
+        for row_num, row in enumerate(all_rows[header_row_index + 1:], start=header_row_index + 2):
+            if not row or (row and row[0].strip().startswith('#')):
+                continue
+            
+            try:
+                row_data = dict(zip(header, row))
+                entry_date = date.fromisoformat(row_data.get('maintenance_date', '').strip())
+                odometer_reading = int(row_data.get('odometer_reading_at_maintenance', '').strip())
+                description = row_data.get('description', '').strip()
+                if not description: # descriptionもキーとして必須
+                    raise ValueError("description is empty")
+
+                valid_rows_to_check.append({'date': entry_date, 'odo': odometer_reading, 'desc': description, 'row_num': row_num})
+            except (ValueError, TypeError):
+                errors.append(f"{row_num}行目: 日付, ODO, 整備内容の形式が正しくありません。")
+
+        if errors:
+            return 0, errors, []
+
+        # --- データベースで既存レコードを一括クエリ ---
+        if valid_rows_to_check:
+            conditions = [
+                and_(
+                    MaintenanceEntry.motorcycle_id == motorcycle.id, 
+                    MaintenanceEntry.maintenance_date == item['date'], 
+                    MaintenanceEntry.odometer_reading_at_maintenance == item['odo'],
+                    MaintenanceEntry.description == item['desc']
+                )
+                for item in valid_rows_to_check
+            ]
+            existing_records_query = MaintenanceEntry.query.filter(or_(*conditions)).with_entities(
+                MaintenanceEntry.maintenance_date, MaintenanceEntry.odometer_reading_at_maintenance, MaintenanceEntry.description
+            )
+            existing_keys = {(rec.maintenance_date, rec.odometer_reading_at_maintenance, rec.description) for rec in existing_records_query.all()}
+            
+            for item in valid_rows_to_check:
+                if (item['date'], item['odo'], item['desc']) in existing_keys:
+                    duplicates.append(f"{item['row_num']}行目 (日付: {item['date']}, ODO: {item['odo']}km, 内容: {item['desc'][:20]}...)")
+
+        if duplicates:
+            return 0, [], duplicates
+
+        # --- 2. 本実行ステージ ---
+        entries_to_add = []
+        for row_num, row in enumerate(all_rows[header_row_index + 1:], start=header_row_index + 2):
+            if not row or (row and row[0].strip().startswith('#')):
+                continue
+            
+            try:
+                row_data = dict(zip(header, row))
+                maintenance_date = date.fromisoformat(row_data.get('maintenance_date').strip())
+                odometer_reading = int(row_data.get('odometer_reading_at_maintenance').strip())
+                description = row_data.get('description').strip()
+
+                offset_at_date = motorcycle.calculate_cumulative_offset_from_logs(target_date=maintenance_date)
+                total_distance = odometer_reading + offset_at_date
+                
+                parts_cost = float(row_data.get('parts_cost', '0').strip() or '0')
+                labor_cost = float(row_data.get('labor_cost', '0').strip() or '0')
+
+                new_entry = MaintenanceEntry(
+                    motorcycle_id=motorcycle.id,
+                    maintenance_date=maintenance_date,
+                    odometer_reading_at_maintenance=odometer_reading,
+                    total_distance_at_maintenance=total_distance,
+                    description=description,
+                    location=row_data.get('location', '').strip() or None,
+                    category=row_data.get('category', '').strip() or None,
+                    parts_cost=parts_cost,
+                    labor_cost=labor_cost,
+                    notes=row_data.get('notes', '').strip() or None
+                )
+                entries_to_add.append(new_entry)
+            except Exception as e:
+                errors.append(f"{row_num}行目: 予期せぬエラーが発生しました。({e})")
+
+        if not errors and entries_to_add:
+            db.session.add_all(entries_to_add)
+            db.session.flush() # IDなどを確定させる
+            for entry in entries_to_add:
+                _update_reminder_if_applicable(entry)
+                event_data_for_ach = {'new_maintenance_log_id': entry.id, 'motorcycle_id': motorcycle.id, 'category': entry.category}
+                check_achievements_for_event(current_user, EVENT_ADD_MAINTENANCE_LOG, event_data=event_data_for_ach)
+            db.session.commit()
+            return len(entries_to_add), [], []
+        else:
+            db.session.rollback()
+            return 0, errors, []
+
+    except Exception as e:
+        db.session.rollback()
+        errors.append(f"ファイル処理中に致命的なエラーが発生しました: {e}")
+        return 0, errors, []
+# ▲▲▲ 追記ここまで ▲▲▲
 
 def get_previous_maintenance_entry(motorcycle_id, current_maintenance_date, current_entry_id=None):
     """指定された車両・日付に基づき、直前の整備記録を取得する"""
@@ -156,13 +287,18 @@ def maintenance_log():
     entries = pagination.items
     
     is_filter_active = bool(active_filters)
+    
+    # ▼▼▼ upload_form を追加 ▼▼▼
+    upload_form = MaintenanceCsvUploadForm()
+    # ▲▲▲ 変更ここまで ▲▲▲
 
     return render_template('maintenance_log.html',
                            entries=entries, pagination=pagination,
                            motorcycles=user_motorcycles_for_maintenance,
                            request_args=active_filters,
                            current_sort_by=current_sort_by, current_order=current_order,
-                           is_filter_active=is_filter_active)
+                           is_filter_active=is_filter_active,
+                           upload_form=upload_form) # ◀◀◀ upload_form を渡す
 
 @maintenance_bp.route('/add', methods=['GET', 'POST'])
 @limiter.limit("60 per hour")
@@ -351,6 +487,95 @@ def delete_maintenance(entry_id):
         flash(f'記録の削除中にエラーが発生しました。詳細は管理者にお問い合わせください。', 'error')
         current_app.logger.error(f"Error deleting maintenance entry ID {entry_id}: {e}", exc_info=True)
     return redirect(url_for('maintenance.maintenance_log'))
+
+# ▼▼▼ ここからCSVインポート用のルートを2つ追記 ▼▼▼
+@maintenance_bp.route('/template/maintenance_import_template.csv')
+@login_required
+def download_maintenance_import_template():
+    """整備記録インポート用のCSVテンプレートをダウンロードさせる"""
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    writer.writerow(['# もとぷっぷー 整備記録インポート用CSVテンプレート'])
+    writer.writerow(['#'])
+    writer.writerow(['# 以下のヘッダーに従ってデータを入力してください。(この行を含む「#」で始まる行はインポート時に無視されます)'])
+    writer.writerow(['#'])
+    writer.writerow(['# --- 項目説明 ---'])
+    writer.writerow(['# maintenance_date (必須): 整備日をYYYY-MM-DD形式で入力します。例: 2025-08-06'])
+    writer.writerow(['# odometer_reading_at_maintenance (必須): 整備時のODOメーターの値を整数で入力します。例: 20500'])
+    writer.writerow(['# description (必須): 整備内容の詳細を入力します。例: エンジンオイルとオイルフィルターを交換した。'])
+    writer.writerow(['# category (任意): 整備のカテゴリを入力します。リマインダー連携に利用できます。例: オイル交換'])
+    writer.writerow(['# location (任意): 整備を行った場所を入力します。例: 自宅ガレージ'])
+    writer.writerow(['# parts_cost (任意): 部品代を整数または小数で入力します。例: 3500.0'])
+    writer.writerow(['# labor_cost (任意): 工賃を整数または小数で入力します。例: 1500'])
+    writer.writerow(['# notes (任意): 部品型番などのメモを入力します。'])
+    writer.writerow(['#'])
+    writer.writerow(['# --- ヘッダー (この行は編集しないでください) ---'])
+    
+    header = [
+        'maintenance_date', 'odometer_reading_at_maintenance', 'description', 'category', 
+        'location', 'parts_cost', 'labor_cost', 'notes'
+    ]
+    writer.writerow(header)
+    
+    sample_data = [
+        '2025-07-20', '15000', 'エンジンオイル交換', 'オイル交換', 
+        '自宅', '3000', '0', 'オイル: MOTUL 300V 10W-40'
+    ]
+    writer.writerow(sample_data)
+    
+    output.seek(0)
+    
+    return Response(
+        output.getvalue(),
+        mimetype="text/csv",
+        headers={
+            "Content-Disposition": "attachment;filename=motopuppu_maintenance_import_template.csv",
+            "Content-Type": "text/csv; charset=utf-8-sig"
+        }
+    )
+
+@maintenance_bp.route('/motorcycle/<int:vehicle_id>/import_csv', methods=['POST'])
+@limiter.limit("10 per hour")
+@login_required
+def import_maintenance_logs_csv(vehicle_id):
+    """CSVファイルをアップロードして整備記録を一括登録する"""
+    motorcycle = Motorcycle.query.filter_by(id=vehicle_id, user_id=current_user.id, is_racer=False).first_or_404('対象の車両が見つからないか、レーサー車両のためインポートできません。')
+    
+    form = MaintenanceCsvUploadForm()
+    
+    if form.validate_on_submit():
+        csv_file = form.csv_file.data
+        try:
+            csv_file.stream.seek(0)
+            success_count, errors, duplicates = _process_maintenance_csv_import(csv_file.stream, motorcycle)
+
+            if duplicates:
+                flash_message = "<strong>インポートが中断されました。以下のデータが既にデータベースに存在します。</strong><br>CSVファイルから該当の行を削除して、再度アップロードしてください。<ul class='mb-0'>"
+                for dup in duplicates:
+                    flash_message += f"<li>{dup}</li>"
+                flash_message += "</ul>"
+                flash(flash_message, 'warning')
+            
+            if errors:
+                for error in errors:
+                    flash(f'CSVインポートエラー: {error}', 'danger')
+            
+            if success_count > 0:
+                flash(f'{success_count}件の整備記録を正常にインポートしました。', 'success')
+            elif not errors and not duplicates:
+                flash('インポートするデータが見つかりませんでした。', 'info')
+                
+        except Exception as e:
+            current_app.logger.error(f"CSV import failed for vehicle {vehicle_id}: {e}", exc_info=True)
+            flash('CSVファイルの処理中に予期せぬエラーが発生しました。ファイルの形式や文字コード（UTF-8）を確認してください。', 'danger')
+    else:
+        for field, errors in form.errors.items():
+            for error in errors:
+                flash(f'{getattr(form, field).label.text}: {error}', 'danger')
+
+    return redirect(url_for('maintenance.maintenance_log', vehicle_id=vehicle_id))
+# ▲▲▲ 追記ここまで ▲▲▲
 
 @maintenance_bp.route('/motorcycle/<int:motorcycle_id>/export_csv')
 @login_required # ▼▼▼ デコレータを修正 ▼▼▼
