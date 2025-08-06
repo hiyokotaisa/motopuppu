@@ -56,13 +56,22 @@
 
 
     {# --- メインコンテンツ領域 --- #}
-    {# ▼▼▼ 構造を変更 ▼▼▼ #}
     <main id="main-content">
-      {# 各ページの内容がここに挿入される #}
-      {% block content %}
-      {% endblock %}
+      {# ▼▼▼ ここからが修正箇所です ▼▼▼ #}
+      {# ヘルプページ以外（body_attributesに'help-body'が含まれない場合）は .container で囲む #}
+      {% if 'help-body' not in self.body_attributes() %}
+        <div class="container py-4">
+      {% endif %}
+
+      {# コンテンツブロックの定義は一度だけにする #}
+      {% block content %}{% endblock %}
+
+      {# ヘルプページ以外の場合に div タグを閉じる #}
+      {% if 'help-body' not in self.body_attributes() %}
+        </div>
+      {% endif %}
+      {# ▲▲▲ 修正はここまで ▲▲▲ #}
     </main>
-    {# ▲▲▲ 変更ここまで ▲▲▲ #}
     {# --- メインコンテンツ ここまで --- #}
 
     {# --- フッター --- #}
