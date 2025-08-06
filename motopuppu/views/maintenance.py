@@ -165,7 +165,7 @@ def maintenance_log():
                            is_filter_active=is_filter_active)
 
 @maintenance_bp.route('/add', methods=['GET', 'POST'])
-@limiter.limit("30 per hour")
+@limiter.limit("60 per hour")
 @login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def add_maintenance():
     # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
@@ -256,7 +256,7 @@ def add_maintenance():
     return render_template('maintenance_form.html', form_action='add', form=form, category_options=MAINTENANCE_CATEGORIES)
 
 @maintenance_bp.route('/<int:entry_id>/edit', methods=['GET', 'POST'])
-@limiter.limit("30 per hour")
+@limiter.limit("60 per hour")
 @login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def edit_maintenance(entry_id):
     # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
@@ -332,7 +332,7 @@ def edit_maintenance(entry_id):
 
 
 @maintenance_bp.route('/<int:entry_id>/delete', methods=['POST'])
-@limiter.limit("30 per hour")
+@limiter.limit("60 per hour")
 @login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def delete_maintenance(entry_id):
     # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
@@ -425,7 +425,7 @@ def export_all_maintenance_logs_csv():
     )
 
 @maintenance_bp.route('/get-previous-entry', methods=['GET'])
-@limiter.limit("60 per minute")
+@limiter.limit("120 per minute")
 @login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def get_previous_maintenance_api():
     motorcycle_id = request.args.get('motorcycle_id', type=int)
