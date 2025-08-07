@@ -1,5 +1,4 @@
 # motopuppu/models.py
-
 from . import db
 from datetime import datetime, date
 from sqlalchemy.dialects.postgresql import JSONB
@@ -24,6 +23,10 @@ class User(UserMixin, db.Model):
     avatar_url = db.Column(db.String(2048), nullable=True, comment="MisskeyのアバターURL")
     is_admin = db.Column(db.Boolean, default=False, nullable=False)
     
+    # ▼▼▼ 変更・追記 ▼▼▼
+    dashboard_layout = db.Column(db.JSON, nullable=True, comment="ダッシュボードのウィジェットの並び順")
+    # ▲▲▲ 変更・追記 ここまで ▲▲▲
+
     encrypted_misskey_api_token = db.Column(db.Text, nullable=True, comment="暗号化されたMisskey APIトークン")
 
     motorcycles = db.relationship('Motorcycle', backref='owner', lazy=True, cascade="all, delete-orphan")

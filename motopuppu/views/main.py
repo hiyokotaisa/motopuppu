@@ -1,5 +1,4 @@
 # motopuppu/views/main.py
-
 from flask import (
     Blueprint, render_template, redirect, url_for, g, flash,
     current_app, jsonify, request
@@ -112,8 +111,6 @@ def dashboard():
     
     selected_stats_vehicle_id = request.args.get('stats_vehicle_id', type=int)
 
-    # ▼▼▼ 変更・追記 ▼▼▼
-    # タイムライン用の車両IDを取得。デフォルトは 'all'
     selected_timeline_vehicle_id = request.args.get('timeline_vehicle_id', 'all')
     
     timeline_target_ids = []
@@ -134,7 +131,14 @@ def dashboard():
             selected_timeline_vehicle_id = 'all'
             timeline_target_ids = user_motorcycle_ids_public
 
+    # ▼▼▼ 変更・追記 ▼▼▼
     # 2. サービスを呼び出してビジネスロジックを実行
+    # レイアウト順の読み込み（なければデフォルト順を定義）
+    dashboard_layout = current_user.dashboard_layout
+    if not dashboard_layout:
+        dashboard_layout = ['reminders', 'stats', 'vehicles', 'timeline', 'calendar']
+    # ▲▲▲ 変更・追記 ここまで ▲▲▲
+
     upcoming_reminders = services.get_upcoming_reminders(user_motorcycles_all, current_user.id)
 
     for m in user_motorcycles_all:
@@ -150,13 +154,11 @@ def dashboard():
         end_date=end_date
     )
 
-    # タイムライン用のイベントを取得
     timeline_events = services.get_timeline_events(
         motorcycle_ids=timeline_target_ids,
         start_date=start_date,
         end_date=end_date
     )
-    # ▲▲▲ 変更・追記 ここまで ▲▲▲
 
     holidays_json = services.get_holidays_json()
     if holidays_json == '{}':
@@ -176,7 +178,8 @@ def dashboard():
         period=period,
         start_date_str=request.args.get('start_date', ''),
         end_date_str=request.args.get('end_date', ''),
-        current_date_str=datetime.now(ZoneInfo("Asia/Tokyo")).date().isoformat()
+        current_date_str=datetime.now(ZoneInfo("Asia/Tokyo")).date().isoformat(),
+        dashboard_layout=dashboard_layout # テンプレートにレイアウト順を渡す
     )
 
 
@@ -207,3 +210,24 @@ def misskey_redirect(note_id):
     """Misskeyのノートへリダイレクトする"""
     misskey_instance_url = current_app.config.get('MISSKEY_INSTANCE_URL', 'https://misskey.io')
     return redirect(f"{misskey_instance_url}/notes/{note_id}")
+
+# ▼▼▼ 変更・追記 ▼▼▼
+@main_bp.route('/dashboard/save_layout', methods=['POST'])
+@login_required
+def save_dashboard_layout():
+    """ダッシュボードのウィジェットの並び順を保存する"""
+    new_layout = request.json.get('layout')
+
+    # 受け取ったレイアウトがリスト形式で、中身が文字列であるかを検証
+    if not isinstance(new_layout, list) or not all(isinstance(item, str) for item in new_layout):
+        return jsonify({'status': 'error', 'message': 'Invalid layout data'}), 400
+
+    try:
+        current_user.dashboard_layout = new_layout
+        db.session.commit()
+        return jsonify({'status': 'success', 'message': 'Layout saved successfully'})
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error saving dashboard layout for user {current_user.id}: {e}", exc_info=True)
+        return jsonify({'status': 'error', 'message': 'Could not save layout to the database'}), 500
+# ▲▲▲ 変更・追記 ここまで ▲▲▲

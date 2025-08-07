@@ -1,0 +1,45 @@
+{# motopuppu/templates/dashboard/_timeline_widget.html #}
+<div class="card my-4" data-widget-name="timeline">
+    <div class="card-header d-flex align-items-center">
+        <span class="widget-grab-handle me-2" title="ドラッグして並び替え"><i class="fas fa-grip-vertical"></i></span>
+        <span class="me-auto"><i class="fas fa-stream me-1"></i> <strong>給油・整備タイムライン</strong></span>
+        <form method="GET" action="{{ url_for('main.dashboard') }}" class="d-inline-block" style="min-width: 180px;">
+            <input type="hidden" name="period" value="{{ period }}">
+            <input type="hidden" name="start_date" value="{{ start_date_str }}">
+            <input type="hidden" name="end_date" value="{{ end_date_str }}">
+            <input type="hidden" name="stats_vehicle_id" value="{{ selected_stats_vehicle_id or '' }}">
+            <select name="timeline_vehicle_id" class="form-select form-select-sm" onchange="this.form.submit()" aria-label="タイムライン対象車両で絞り込み">
+                <option value="all" {% if selected_timeline_vehicle_id == 'all' %}selected{% endif %}>すべての公道車</option>
+                {% for m_timeline in motorcycles_public %}
+                <option value="{{ m_timeline.id }}" {% if selected_timeline_vehicle_id == m_timeline.id|string %}selected{% endif %}>{{ m_timeline.name }}</option>
+                {% endfor %}
+            </select>
+        </form>
+    </div>
+    <div class="card-body">
+        <div class="d-flex justify-content-end mb-3">
+            <div class="btn-group btn-group-sm" role="group" id="timeline-filter-buttons">
+                <button type="button" class="btn btn-outline-secondary active" data-filter="all" title="すべて表示" aria-label="すべて表示">すべて</button>
+                <button type="button" class="btn btn-outline-secondary" data-filter="fuel" title="給油のみ表示" aria-label="給油のみ表示"><i class="fas fa-gas-pump"></i></button>
+                <button type="button" class="btn btn-outline-secondary" data-filter="maintenance" title="整備のみ表示" aria-label="整備のみ表示"><i class="fas fa-tools"></i></button>
+            </div>
+        </div>
+        {% if timeline_events %}
+            <ul class="dashboard-timeline">
+                {% for event in timeline_events %}
+                <li class="timeline-item" data-event-type="{{ event.type }}" data-bs-toggle="modal" data-bs-target="#timelineDetailModal" data-event-title="{{ event.title }}" data-event-date="{{ event.date.strftime('%Y-%m-%d') }}" data-event-odo="{{ event.odo | int }}" data-event-cost="{{ event.cost | round | int if event.cost is not none else '---' }}" data-event-details='{{ event.details | tojson | safe }}' data-event-edit-url="{{ event.edit_url }}">
+                    <div class="timeline-item-marker type-{{ event.type }}"><i class="fas {% if event.type == 'fuel' %}fa-gas-pump{% elif event.type == 'maintenance' %}fa-tools{% endif %}"></i></div>
+                    <div class="timeline-item-content">
+                        <div class="d-flex justify-content-between"><span class="timeline-item-date">{{ event.date.strftime('%Y年%m月%d日') }}</span><span class="timeline-item-date">{{ event.odo | int | format_number }} km</span></div>
+                        <h5 class="timeline-item-title mt-1">{{ event.title | truncate(50) }}</h5>
+                        <p class="timeline-item-description mb-1">{{ event.description | truncate(60) }}</p>
+                        {% if event.cost is not none %}<div class="text-end timeline-item-cost">費用: {{ event.cost | round | int | format_number }} 円</div>{% endif %}
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p class="text-muted text-center">この車両には表示できるタイムライン記録がありません。</p>
+        {% endif %}
+    </div>
+</div>

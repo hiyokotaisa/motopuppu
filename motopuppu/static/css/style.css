@@ -406,7 +406,6 @@
     font-size: 0.9rem;
 }
 
-/* ▼▼▼ 変更・追記 ▼▼▼ */
 /* --- ダッシュボード タイムライン (接続修正版 v2) --- */
 .dashboard-timeline {
     list-style: none;
@@ -421,18 +420,16 @@
     margin-bottom: 1.5rem;
     padding-left: 50px;
 }
-/* 項目ごとの縦棒を作成 */
 .timeline-item::before {
     content: '';
     position: absolute;
-    left: 18px; /* (マーカー幅40px / 2) - (棒の幅4px / 2) */
-    top: 20px;  /* マーカーの中心から開始 */
-    bottom: -1.5rem; /* 下のアイテムのマージン(1.5rem)分だけ下に伸ばす */
+    left: 18px;
+    top: 20px;
+    bottom: -1.5rem;
     width: 4px;
     background-color: #e9ecef;
-    z-index: 1; /* マーカーより背後に表示 */
+    z-index: 1;
 }
-/* 最後の項目の縦棒は不要なので非表示にする */
 .timeline-item:last-child::before {
     display: none;
 }
@@ -449,7 +446,7 @@
     align-items: center;
     justify-content: center;
     font-size: 1.2rem;
-    z-index: 10; /* 縦棒より手前に表示 */
+    z-index: 10;
 }
 .timeline-item-marker.type-fuel {
     color: #198754;
@@ -500,5 +497,21 @@
 #timelineDetailModal .modal-body dd {
     white-space: pre-wrap; /* メモなどの改行を反映 */
     word-break: break-word;
+}
+/* ▼▼▼ 変更・追記 ▼▼▼ */
+/* --- 並び替えモード用のスタイル --- */
+.widget-grab-handle {
+    cursor: grab;
+    display: none; /* 通常時は非表示 */
+}
+.sortable-ghost {
+    opacity: 0.4;
+    background: #c8ebfb;
+}
+#dashboard-widgets-container.is-sorting .widget-grab-handle {
+    display: inline-block; /* is-sortingクラスが付いた時だけ表示 */
+}
+#dashboard-widgets-container.is-sorting .card-header {
+    background-color: #f0f8ff; /* 並び替え中はヘッダー色を少し変える */
 }
 /* ▲▲▲ 変更・追記 ここまで ▲▲▲ */
