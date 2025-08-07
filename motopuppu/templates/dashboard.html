@@ -157,7 +157,11 @@
     <h1 class="h2">{% if current_user.is_authenticated %}ようこそ、{{ current_user.display_name or current_user.misskey_username }}さん{% else %}ダッシュボード{% endif %}</h1>
     <div class="btn-toolbar mb-2 mb-md-0">
         <div id="layout-buttons-default" class="me-2">
-             <button id="edit-layout-btn" type="button" class="btn btn-sm btn-outline-secondary"><i class="fas fa-arrows-alt me-1"></i> レイアウト変更</button>
+            {# ▼▼▼ 変更箇所 ▼▼▼ #}
+            <button id="edit-layout-btn" type="button" class="btn btn-sm btn-outline-secondary" title="レイアウトを編集" aria-label="レイアウトを編集">
+                <i class="bi bi-gear-fill"></i>
+            </button>
+            {# ▲▲▲ 変更ここまで ▲▲▲ #}
         </div>
         <div id="layout-buttons-editing" class="btn-group me-2" style="display: none;">
             <button id="save-layout-btn" type="button" class="btn btn-sm btn-success"><i class="fas fa-check me-1"></i> 保存</button>
