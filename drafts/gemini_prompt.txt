@@ -109,6 +109,7 @@ kyagisaw@hiyoko-fedora:~/Dev/motopuppu$ tree
 │       ├── 6a92e8863546_link_activity_log_to_event.py
 │       ├── 6dadc8ff0649_add_racer_fields_to_motorcycle.py
 │       ├── 760969e7b61d_populate_new_achievement_definitions_.py
+│       ├── 7b1844b671ec_add_dashboard_layout_to_user_model.py
 │       ├── 896791ff77ea_add_odo_reset_log_table_and_data_.py
 │       ├── 9516bc768302_add_event_and_event_participant_models.py
 │       ├── aa6d3aff4f5c_add_encrypted_misskey_api_token_to_user_.py
@@ -168,6 +169,12 @@ kyagisaw@hiyoko-fedora:~/Dev/motopuppu$ tree
 │   │   ├── auth
 │   │   │   └── delete_account_complete.html
 │   │   ├── base.html
+│   │   ├── dashboard
+│   │   │   ├── _calendar_widget.html
+│   │   │   ├── _reminders_widget.html
+│   │   │   ├── _stats_widget.html
+│   │   │   ├── _timeline_widget.html
+│   │   │   └── _vehicles_widget.html
 │   │   ├── dashboard.html
 │   │   ├── event
 │   │   │   ├── event_detail.html
@@ -246,7 +253,8 @@ kyagisaw@hiyoko-fedora:~/Dev/motopuppu$ tree
 │       └── vehicle.py
 └── requirements.txt
 
-28 directories, 138 files
+29 directories, 144 files
+
     ```
 
 7.  **今回のセッションでの目標 [毎回更新]:**

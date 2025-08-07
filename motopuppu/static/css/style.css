@@ -511,7 +511,55 @@
 #dashboard-widgets-container.is-sorting .widget-grab-handle {
     display: inline-block; /* is-sortingクラスが付いた時だけ表示 */
 }
-#dashboard-widgets-container.is-sorting .card-header {
+#dashboard-widgets-container.is-sorting .card-header,
+/* ▼▼▼ アコーディオン化対応 ▼▼▼ */
+#dashboard-widgets-container.is-sorting .accordion-header {
     background-color: #f0f8ff; /* 並び替え中はヘッダー色を少し変える */
 }
 /* ▲▲▲ 変更・追記 ここまで ▲▲▲ */
+
+/* --- 【見た目修正】ダッシュボード アコーディオンウィジェット --- */
+.dashboard-widgets .accordion-header {
+    display: flex;
+    align-items: center;
+}
+
+.dashboard-widgets .accordion-button {
+    display: flex;
+    align-items: center;
+    width: auto;
+    flex-grow: 1;
+}
+
+.dashboard-widgets .accordion-header > *:not(.accordion-button) {
+    padding: 0.5rem 1rem;
+    flex-shrink: 0;
+}
+
+/* ボタンのデフォルトスタイルをリセットして、親ヘッダーの見た目を継承させる */
+.dashboard-widgets .accordion-button {
+    color: inherit; /* テキスト色を親から継承 */
+    background-color: transparent; /* 背景を透過 */
+    border: none;
+    box-shadow: none;
+    border-radius: 0; /* 角丸をなくす */
+}
+
+/* 展開時もスタイルを維持 */
+.dashboard-widgets .accordion-button:not(.collapsed) {
+    color: inherit;
+    background-color: transparent;
+    box-shadow: none;
+}
+
+/* フォーカス時の青い枠線も削除 */
+.dashboard-widgets .accordion-button:focus {
+    box-shadow: none;
+    border-color: transparent;
+}
+
+/* 矢印アイコンの色が薄くならないように調整 */
+.dashboard-widgets .accordion-button::after,
+.dashboard-widgets .accordion-button:not(.collapsed)::after {
+    filter: brightness(0.7);
+}

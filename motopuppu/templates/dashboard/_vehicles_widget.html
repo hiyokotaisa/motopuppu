@@ -1,31 +1,35 @@
 {# motopuppu/templates/dashboard/_vehicles_widget.html #}
-<div class="card mb-4" data-widget-name="vehicles">
-    <div class="card-header d-flex align-items-center">
-        <span class="widget-grab-handle me-2" title="ドラッグして並び替え"><i class="fas fa-grip-vertical"></i></span>
-        <span class="me-auto"><i class="fas fa-motorcycle me-1"></i> <strong>登録車両</strong></span>
-    </div>
-    <div class="card-body">
-        {% if motorcycles %}
-            <ul class="list-group list-group-flush">
-                {% for motorcycle_item in motorcycles %}
-                <li class="list-group-item d-flex justify-content-between align-items-center">
-                    <span>
-                        {% if motorcycle_item.is_default %}<i class="fas fa-star text-warning me-1" title="デフォルト車両"></i>{% endif %}
-                        <strong>{{ motorcycle_item.name }}</strong>
-                        {% if motorcycle_item.is_racer %}<span class="badge bg-info ms-1">レーサー</span>{% else %}<span class="badge bg-secondary ms-1">公道車</span>{% endif %}
-                        <small class="text-muted">({{ motorcycle_item.maker or 'メーカー不明' }} / {{ motorcycle_item.year or '年式不明' }})</small>
-                        <br>
-                        {% if not motorcycle_item.is_racer and motorcycle_item._average_kpl is defined and motorcycle_item._average_kpl is not none %}<small class="text-info"><i class="fas fa-tachometer-alt me-1"></i> 平均燃費: <strong>{{"%.2f"|format(motorcycle_item._average_kpl)}}</strong> km/L</small>{% elif motorcycle_item.is_racer %}<small class="text-info"><i class="fas fa-stopwatch me-1"></i> 総稼働: <strong>{{ "%.2f"|format(motorcycle_item.total_operating_hours if motorcycle_item.total_operating_hours is not none else 0) }}</strong> 時間</small>{% endif %}
-                    </span>
-                    <div class="btn-group btn-group-sm">
-                        <a href="{{ url_for('activity.list_activities', vehicle_id=motorcycle_item.id) }}" class="btn btn-outline-info" title="この車両の活動ログを閲覧"><i class="fas fa-flag-checkered"></i></a>
-                        {% if not motorcycle_item.is_racer %}<a href="{{ url_for('fuel.add_fuel', motorcycle_id=motorcycle_item.id) }}" class="btn btn-outline-success" title="この車両の給油記録を追加"><i class="fas fa-gas-pump"></i></a><a href="{{ url_for('maintenance.add_maintenance', motorcycle_id=motorcycle_item.id) }}" class="btn btn-outline-warning" title="この車両の整備記録を追加"><i class="fas fa-tools"></i></a>{% else %}<span class="btn btn-outline-success disabled" title="レーサー車両は給油記録の対象外です"><i class="fas fa-gas-pump"></i></span><span class="btn btn-outline-warning disabled" title="レーサー車両の整備記録は現在対応していません"><i class="fas fa-tools"></i></span>{% endif %}
-                        <a href="{{ url_for('vehicle.edit_vehicle', vehicle_id=motorcycle_item.id) }}" class="btn btn-outline-secondary" title="車両情報を編集"><i class="fas fa-edit"></i></a>
-                    </div>
-                </li>
-                {% endfor %}
-            </ul>
-        {% else %}<p class="card-text text-muted">車両が登録されていません。</p>{% endif %}
-        <div class="mt-3"><a href="{{ url_for('vehicle.add_vehicle') }}" class="btn btn-sm btn-outline-primary"><i class="fas fa-plus me-1"></i> 車両を追加</a></div>
+<div class="accordion-item card mb-4" data-widget-name="vehicles">
+    <h2 class="accordion-header" id="heading-vehicles">
+        <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-vehicles" aria-expanded="true" aria-controls="collapse-vehicles">
+            <span class="widget-grab-handle me-2" title="ドラッグして並び替え"><i class="fas fa-grip-vertical"></i></span>
+            <span class="me-auto"><i class="fas fa-motorcycle me-1"></i> <strong>登録車両</strong></span>
+        </button>
+    </h2>
+    <div id="collapse-vehicles" class="accordion-collapse collapse show" aria-labelledby="heading-vehicles">
+        <div class="card-body">
+            {% if motorcycles %}
+                <ul class="list-group list-group-flush">
+                    {% for motorcycle_item in motorcycles %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span>
+                            {% if motorcycle_item.is_default %}<i class="fas fa-star text-warning me-1" title="デフォルト車両"></i>{% endif %}
+                            <strong>{{ motorcycle_item.name }}</strong>
+                            {% if motorcycle_item.is_racer %}<span class="badge bg-info ms-1">レーサー</span>{% else %}<span class="badge bg-secondary ms-1">公道車</span>{% endif %}
+                            <small class="text-muted">({{ motorcycle_item.maker or 'メーカー不明' }} / {{ motorcycle_item.year or '年式不明' }})</small>
+                            <br>
+                            {% if not motorcycle_item.is_racer and motorcycle_item._average_kpl is defined and motorcycle_item._average_kpl is not none %}<small class="text-info"><i class="fas fa-tachometer-alt me-1"></i> 平均燃費: <strong>{{"%.2f"|format(motorcycle_item._average_kpl)}}</strong> km/L</small>{% elif motorcycle_item.is_racer %}<small class="text-info"><i class="fas fa-stopwatch me-1"></i> 総稼働: <strong>{{ "%.2f"|format(motorcycle_item.total_operating_hours if motorcycle_item.total_operating_hours is not none else 0) }}</strong> 時間</small>{% endif %}
+                        </span>
+                        <div class="btn-group btn-group-sm">
+                            <a href="{{ url_for('activity.list_activities', vehicle_id=motorcycle_item.id) }}" class="btn btn-outline-info" title="この車両の活動ログを閲覧"><i class="fas fa-flag-checkered"></i></a>
+                            {% if not motorcycle_item.is_racer %}<a href="{{ url_for('fuel.add_fuel', motorcycle_id=motorcycle_item.id) }}" class="btn btn-outline-success" title="この車両の給油記録を追加"><i class="fas fa-gas-pump"></i></a><a href="{{ url_for('maintenance.add_maintenance', motorcycle_id=motorcycle_item.id) }}" class="btn btn-outline-warning" title="この車両の整備記録を追加"><i class="fas fa-tools"></i></a>{% else %}<span class="btn btn-outline-success disabled" title="レーサー車両は給油記録の対象外です"><i class="fas fa-gas-pump"></i></span><span class="btn btn-outline-warning disabled" title="レーサー車両の整備記録は現在対応していません"><i class="fas fa-tools"></i></span>{% endif %}
+                            <a href="{{ url_for('vehicle.edit_vehicle', vehicle_id=motorcycle_item.id) }}" class="btn btn-outline-secondary" title="車両情報を編集"><i class="fas fa-edit"></i></a>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+            {% else %}<p class="card-text text-muted">車両が登録されていません。</p>{% endif %}
+            <div class="mt-3"><a href="{{ url_for('vehicle.add_vehicle') }}" class="btn btn-sm btn-outline-primary"><i class="fas fa-plus me-1"></i> 車両を追加</a></div>
+        </div>
     </div>
 </div>

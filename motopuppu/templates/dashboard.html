@@ -184,7 +184,8 @@
     {% endif %}
 {% endwith %}
 
-<div id="dashboard-widgets-container">
+{# ▼▼▼ accordionクラスを追加 ▼▼▼ #}
+<div id="dashboard-widgets-container" class="accordion dashboard-widgets">
     {% for widget_name in dashboard_layout %}
         {% if widget_name == 'reminders' %}
             {% include 'dashboard/_reminders_widget.html' %}
@@ -608,6 +609,64 @@ document.addEventListener('DOMContentLoaded', function() {
     } else {
         console.error("Calendar element (#calendar) not found");
     }
+
+// ▼▼▼【ここから追記】ウィジェット開閉状態の保存・復元機能 ▼▼▼
+    const WIDGET_STATE_KEY = 'dashboardWidgetStates';
+
+    // localStorageから状態を読み込み、ウィジェットに適用する関数
+    const applyWidgetStates = () => {
+        const savedStatesJSON = localStorage.getItem(WIDGET_STATE_KEY);
+        if (!savedStatesJSON) {
+            return; // 保存されたデータがなければ何もしない
+        }
+        
+        try {
+            const savedStates = JSON.parse(savedStatesJSON);
+            const widgets = widgetsContainer.querySelectorAll('.accordion-item');
+
+            widgets.forEach(widget => {
+                const widgetName = widget.dataset.widgetName;
+                if (widgetName in savedStates) {
+                    const shouldBeOpen = savedStates[widgetName];
+                    const collapseElement = widget.querySelector('.accordion-collapse');
+                    const button = widget.querySelector('.accordion-button');
+
+                    if (shouldBeOpen) {
+                        collapseElement.classList.add('show');
+                        button.classList.remove('collapsed');
+                        button.setAttribute('aria-expanded', 'true');
+                    } else {
+                        collapseElement.classList.remove('show');
+                        button.classList.add('collapsed');
+                        button.setAttribute('aria-expanded', 'false');
+                    }
+                }
+            });
+        } catch (e) {
+            console.error('Failed to parse widget states from localStorage', e);
+            localStorage.removeItem(WIDGET_STATE_KEY); // 不正なデータを削除
+        }
+    };
+
+    // 現在のウィジェットの状態をlocalStorageに保存する関数
+    const saveWidgetStates = () => {
+        const states = {};
+        const widgets = widgetsContainer.querySelectorAll('.accordion-item');
+        widgets.forEach(widget => {
+            const widgetName = widget.dataset.widgetName;
+            const collapseElement = widget.querySelector('.accordion-collapse');
+            states[widgetName] = collapseElement.classList.contains('show');
+        });
+        localStorage.setItem(WIDGET_STATE_KEY, JSON.stringify(states));
+    };
+
+    // ページ読み込み時に状態を復元
+    applyWidgetStates();
+
+    // ウィジェットが開かれたり閉じられたりした後に、状態を保存
+    widgetsContainer.addEventListener('shown.bs.collapse', saveWidgetStates);
+    widgetsContainer.addEventListener('hidden.bs.collapse', saveWidgetStates);
+    // ▲▲▲【追記はここまで】▲▲▲
 });
 </script>
 {% endblock %}
