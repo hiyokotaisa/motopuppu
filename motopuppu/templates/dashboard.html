@@ -301,7 +301,7 @@
 <div class="row g-4">
     <div class="col-md-12">
         <div class="card">
-            <div class="card-header"><i class="fas fa-motorcycle me-1"></i> 登録車両</div>
+            <div class="card-header"><i class="fas fa-motorcycle me-1"></i> <strong>登録車両</strong></div>
             <div class="card-body">
                 {% if motorcycles %}
                     <ul class="list-group list-group-flush">
@@ -365,11 +365,13 @@
     </div>
     <div class="card-body">
         <div class="d-flex justify-content-end mb-3">
+            {# ▼▼▼ 変更・追記 ▼▼▼ #}
             <div class="btn-group btn-group-sm" role="group" id="timeline-filter-buttons">
-                <button type="button" class="btn btn-outline-secondary active" data-filter="all">すべて</button>
-                <button type="button" class="btn btn-outline-secondary" data-filter="fuel">給油</button>
-                <button type="button" class="btn btn-outline-secondary" data-filter="maintenance">整備</button>
+                <button type="button" class="btn btn-outline-secondary active" data-filter="all" title="すべて表示" aria-label="すべて表示">すべて</button>
+                <button type="button" class="btn btn-outline-secondary" data-filter="fuel" title="給油のみ表示" aria-label="給油のみ表示"><i class="fas fa-gas-pump"></i></button>
+                <button type="button" class="btn btn-outline-secondary" data-filter="maintenance" title="整備のみ表示" aria-label="整備のみ表示"><i class="fas fa-tools"></i></button>
             </div>
+            {# ▲▲▲ 変更・追記 ここまで ▲▲▲ #}
         </div>
         
         {% if timeline_events %}
@@ -408,7 +410,6 @@
     </div>
 </div>
 
-{# ▼▼▼ 変更・追記 ▼▼▼ #}
 <div class="card my-4">
     <div class="card-header">
         <i class="fas fa-calendar-alt me-1"></i> <strong>記録カレンダー</strong>
@@ -417,7 +418,6 @@
         <div id='calendar'></div>
     </div>
 </div>
-{# ▲▲▲ 変更・追記 ここまで ▲▲▲ #}
 
 <div class="modal fade" id="timelineDetailModal" tabindex="-1" aria-labelledby="timelineDetailModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
@@ -457,12 +457,13 @@ document.addEventListener('DOMContentLoaded', function() {
     const filterButtons = document.getElementById('timeline-filter-buttons');
     if (filterButtons) {
         filterButtons.addEventListener('click', function(e) {
-            if (e.target.tagName === 'BUTTON') {
-                const filter = e.target.dataset.filter;
+            const button = e.target.closest('button');
+            if (button) {
+                const filter = button.dataset.filter;
                 
                 // ボタンのアクティブ状態を切り替え
                 filterButtons.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
-                e.target.classList.add('active');
+                button.classList.add('active');
 
                 // タイムラインアイテムの表示を切り替え
                 document.querySelectorAll('.timeline-item').forEach(item => {

@@ -313,8 +313,6 @@
     transition: background-color 0.15s ease-in-out, color 0.15s ease-in-out; /* スムーズな変化のため */
 }
 
-/* ▼▼▼ ここからが修正箇所です ▼▼▼ */
-
 /* 機能ガイドのトグルボタンのスタイルを!importantで上書きし、アニメーション中の崩れを防ぐ */
 .help-sidebar .list-group-item[data-bs-toggle="collapse"] {
     font-weight: 500 !important;
@@ -338,8 +336,6 @@
 .help-sidebar .list-group-item:not(.active):hover {
     background-color: #ecf0f1;
 }
-
-/* ▲▲▲ 修正ここまで ▲▲▲ */
 
 .help-sidebar .list-group-item .fa-chevron-down {
     transition: transform 0.2s ease-in-out;
@@ -411,29 +407,34 @@
 }
 
 /* ▼▼▼ 変更・追記 ▼▼▼ */
-/* --- ダッシュボード タイムライン --- */
+/* --- ダッシュボード タイムライン (接続修正版 v2) --- */
 .dashboard-timeline {
     list-style: none;
     padding: 0;
     position: relative;
-    max-height: 500px; /* コンテンツが多くなった場合にスクロールバーを表示 */
+    max-height: 500px;
     overflow-y: auto;
-    padding-right: 10px; /* スクロールバーのための余白 */
-}
-.dashboard-timeline:before {
-    content: '';
-    position: absolute;
-    top: 10px;
-    bottom: 10px;
-    left: 20px;
-    width: 4px;
-    background-color: #e9ecef;
-    border-radius: 2px;
+    padding-right: 10px;
 }
 .timeline-item {
     position: relative;
     margin-bottom: 1.5rem;
     padding-left: 50px;
+}
+/* 項目ごとの縦棒を作成 */
+.timeline-item::before {
+    content: '';
+    position: absolute;
+    left: 18px; /* (マーカー幅40px / 2) - (棒の幅4px / 2) */
+    top: 20px;  /* マーカーの中心から開始 */
+    bottom: -1.5rem; /* 下のアイテムのマージン(1.5rem)分だけ下に伸ばす */
+    width: 4px;
+    background-color: #e9ecef;
+    z-index: 1; /* マーカーより背後に表示 */
+}
+/* 最後の項目の縦棒は不要なので非表示にする */
+.timeline-item:last-child::before {
+    display: none;
 }
 .timeline-item-marker {
     position: absolute;
@@ -448,7 +449,7 @@
     align-items: center;
     justify-content: center;
     font-size: 1.2rem;
-    z-index: 10;
+    z-index: 10; /* 縦棒より手前に表示 */
 }
 .timeline-item-marker.type-fuel {
     color: #198754;
