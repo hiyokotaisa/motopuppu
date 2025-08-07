@@ -1,4 +1,5 @@
 # motopuppu/views/main.py
+
 from flask import (
     Blueprint, render_template, redirect, url_for, g, flash,
     current_app, jsonify, request
@@ -100,23 +101,41 @@ def dashboard():
     # 1. リクエストの解析と基本データの準備
     period, start_date, end_date = parse_period_from_request(request)
 
-    # ▼▼▼ g.user.idをcurrent_user.idに置き換え ▼▼▼
     user_motorcycles_all = Motorcycle.query.filter_by(user_id=current_user.id).order_by(
         Motorcycle.is_default.desc(), Motorcycle.name).all()
-    # ▲▲▲ 変更ここまで ▲▲▲
     if not user_motorcycles_all:
         flash('ようこそ！最初に利用する車両を登録してください。', 'info')
         return redirect(url_for('vehicle.add_vehicle'))
 
-    user_motorcycle_ids_public = [m.id for m in user_motorcycles_all if not m.is_racer]
-    selected_fuel_vehicle_id = request.args.get('fuel_vehicle_id', type=int)
-    selected_maint_vehicle_id = request.args.get('maint_vehicle_id', type=int)
+    motorcycles_public = [m for m in user_motorcycles_all if not m.is_racer]
+    user_motorcycle_ids_public = [m.id for m in motorcycles_public]
+    
     selected_stats_vehicle_id = request.args.get('stats_vehicle_id', type=int)
 
+    # ▼▼▼ 変更・追記 ▼▼▼
+    # タイムライン用の車両IDを取得。デフォルトは 'all'
+    selected_timeline_vehicle_id = request.args.get('timeline_vehicle_id', 'all')
+    
+    timeline_target_ids = []
+    if selected_timeline_vehicle_id == 'all':
+        timeline_target_ids = user_motorcycle_ids_public
+    else:
+        try:
+            # IDが数値に変換でき、かつユーザーの所有車両であるか確認
+            vehicle_id_int = int(selected_timeline_vehicle_id)
+            if vehicle_id_int in [m.id for m in motorcycles_public]:
+                timeline_target_ids = [vehicle_id_int]
+            else:
+                flash('不正な車両が指定されました。', 'danger')
+                selected_timeline_vehicle_id = 'all'
+                timeline_target_ids = user_motorcycle_ids_public
+        except (ValueError, TypeError):
+            flash('不正な車両IDが指定されました。', 'danger')
+            selected_timeline_vehicle_id = 'all'
+            timeline_target_ids = user_motorcycle_ids_public
+
     # 2. サービスを呼び出してビジネスロジックを実行
-    # ▼▼▼ g.user.idをcurrent_user.idに置き換え ▼▼▼
     upcoming_reminders = services.get_upcoming_reminders(user_motorcycles_all, current_user.id)
-    # ▲▲▲ 変更ここまで ▲▲▲
 
     for m in user_motorcycles_all:
         if not m.is_racer:
@@ -131,22 +150,13 @@ def dashboard():
         end_date=end_date
     )
 
-    recent_fuel_entries = services.get_recent_logs(
-        model=FuelEntry,
-        vehicle_ids=user_motorcycle_ids_public,
-        selected_vehicle_id=selected_fuel_vehicle_id,
-        start_date=start_date, end_date=end_date,
-        order_by_cols=[FuelEntry.entry_date.desc(), FuelEntry.total_distance.desc()]
+    # タイムライン用のイベントを取得
+    timeline_events = services.get_timeline_events(
+        motorcycle_ids=timeline_target_ids,
+        start_date=start_date,
+        end_date=end_date
     )
-    
-    recent_maintenance_entries = services.get_recent_logs(
-        model=MaintenanceEntry,
-        vehicle_ids=user_motorcycle_ids_public,
-        selected_vehicle_id=selected_maint_vehicle_id,
-        start_date=start_date, end_date=end_date,
-        order_by_cols=[MaintenanceEntry.maintenance_date.desc(), MaintenanceEntry.total_distance_at_maintenance.desc()],
-        extra_filters=[MaintenanceEntry.category != '初期設定']
-    )
+    # ▲▲▲ 変更・追記 ここまで ▲▲▲
 
     holidays_json = services.get_holidays_json()
     if holidays_json == '{}':
@@ -156,12 +166,10 @@ def dashboard():
     return render_template(
         'dashboard.html',
         motorcycles=user_motorcycles_all,
-        motorcycles_public=[m for m in user_motorcycles_all if not m.is_racer],
-        recent_fuel_entries=recent_fuel_entries,
-        recent_maintenance_entries=recent_maintenance_entries,
+        motorcycles_public=motorcycles_public,
         upcoming_reminders=upcoming_reminders,
-        selected_fuel_vehicle_id=selected_fuel_vehicle_id,
-        selected_maint_vehicle_id=selected_maint_vehicle_id,
+        timeline_events=timeline_events,
+        selected_timeline_vehicle_id=selected_timeline_vehicle_id,
         selected_stats_vehicle_id=selected_stats_vehicle_id,
         dashboard_stats=dashboard_stats,
         holidays_json=holidays_json,
@@ -173,14 +181,12 @@ def dashboard():
 
 
 @main_bp.route('/api/dashboard/events')
-@login_required # ▼▼▼ デコレータを@login_requiredに変更 ▼▼▼
+@login_required
 def dashboard_events_api():
-    # ▼▼▼ g.userをcurrent_userに置き換え ▼▼▼
     if not current_user.is_authenticated:
         return jsonify({'error': 'User not logged in'}), 401
     
     calendar_events = services.get_calendar_events_for_user(current_user)
-    # ▲▲▲ 変更ここまで ▲▲▲
     
     return jsonify(calendar_events)
 
@@ -194,22 +200,10 @@ def terms_of_service():
 def privacy_policy():
     return render_template('legal/privacy_policy.html', title="プライバシーポリシー")
 
-# ▼▼▼ 以下をファイルの末尾に追記 ▼▼▼
+
 @main_bp.route('/misskey_redirect/<note_id>')
-@login_required # ▼▼▼ デコレータを@login_requiredに変更 ▼▼▼
+@login_required
 def misskey_redirect(note_id):
     """Misskeyのノートへリダイレクトする"""
     misskey_instance_url = current_app.config.get('MISSKEY_INSTANCE_URL', 'https://misskey.io')
     return redirect(f"{misskey_instance_url}/notes/{note_id}")
-# ▲▲▲ 追記ここまで ▲▲▲
-
-# ▼▼▼ 不要になったため以下の関数を削除 ▼▼▼
-# @main_bp.before_app_request
-# def load_logged_in_user():
-#     g.user = get_current_user()
-
-
-# @main_bp.app_context_processor
-# def inject_user():
-#     return dict(g=g if hasattr(g, 'user') else None)
-# ▲▲▲ 変更ここまで ▲▲▲

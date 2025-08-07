@@ -98,7 +98,21 @@ def create_app(config_name=None):
     from .utils.datetime_helpers import format_utc_to_jst_string, to_user_localtime
     app.jinja_env.filters['to_jst'] = format_utc_to_jst_string
     app.jinja_env.filters['user_localtime'] = to_user_localtime # エラー解決のためにこの行を追加
-    # ▲▲▲ 変更ここまで ▲▲▲
+
+    # ▼▼▼ ここからエラー解決のために追記 ▼▼▼
+    def format_number_filter(value):
+        """数値を3桁区切りの文字列にフォーマットするJinja2フィルター"""
+        if value is None:
+            return ''
+        try:
+            # カンマ区切りの文字列にフォーマット
+            return f"{int(value):,}"
+        except (ValueError, TypeError):
+            return value
+
+    # 上記で定義した関数を'format_number'という名前でJinja2フィルターに登録
+    app.jinja_env.filters['format_number'] = format_number_filter
+    # ▲▲▲ 追記ここまで ▲▲▲
     
     # ▼▼▼ user_loader関数を定義 ▼▼▼
     from .models import User

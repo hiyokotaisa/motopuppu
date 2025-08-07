@@ -74,6 +74,84 @@ def calculate_average_kpl(motorcycle: Motorcycle):
 
 # --- ダッシュボード用サービス関数 ---
 
+# ▼▼▼ 変更・追記 ▼▼▼
+def get_timeline_events(motorcycle_ids, start_date=None, end_date=None):
+    """指定された車両IDリストの給油・整備記録を時系列で取得する"""
+    if not motorcycle_ids:
+        return []
+
+    timeline_events = []
+    is_multiple_vehicles = len(motorcycle_ids) > 1
+
+    # 1. 給油記録を取得
+    fuel_query = FuelEntry.query.options(db.joinedload(FuelEntry.motorcycle)).filter(FuelEntry.motorcycle_id.in_(motorcycle_ids))
+    if start_date and end_date:
+        fuel_query = fuel_query.filter(FuelEntry.entry_date.between(start_date, end_date))
+    
+    for entry in fuel_query.all():
+        title = f"給油 ({entry.fuel_volume:.2f}L)"
+        if is_multiple_vehicles:
+            title = f"[{entry.motorcycle.name}] {title}"
+
+        timeline_events.append({
+            'type': 'fuel',
+            'date': entry.entry_date,
+            'id': entry.id,
+            'odo': entry.odometer_reading,
+            'total_dist': entry.total_distance,
+            'title': title,
+            'description': f"燃費: {entry.km_per_liter if entry.km_per_liter is not None else '---'} km/L",
+            'cost': entry.total_cost,
+            'details': {
+                '車両名': entry.motorcycle.name,
+                '給油量': f"{entry.fuel_volume:.2f} L",
+                '単価': f"{entry.price_per_liter} 円/L" if entry.price_per_liter else '---',
+                '合計金額': f"{entry.total_cost:,.0f} 円" if entry.total_cost is not None else '---',
+                'スタンド': entry.station_name or '未記録',
+                'メモ': entry.notes or 'なし'
+            },
+            'edit_url': url_for('fuel.edit_fuel', entry_id=entry.id)
+        })
+
+    # 2. 整備記録を取得
+    maint_query = MaintenanceEntry.query.options(db.joinedload(MaintenanceEntry.motorcycle)).filter(MaintenanceEntry.motorcycle_id.in_(motorcycle_ids)).filter(MaintenanceEntry.category != '初期設定')
+    if start_date and end_date:
+        maint_query = maint_query.filter(MaintenanceEntry.maintenance_date.between(start_date, end_date))
+
+    for entry in maint_query.all():
+        title = entry.category or entry.description
+        if is_multiple_vehicles:
+            title = f"[{entry.motorcycle.name}] {title}"
+
+        timeline_events.append({
+            'type': 'maintenance',
+            'date': entry.maintenance_date,
+            'id': entry.id,
+            'odo': entry.odometer_reading_at_maintenance,
+            'total_dist': entry.total_distance_at_maintenance,
+            'title': title,
+            'description': entry.description,
+            'cost': entry.total_cost,
+            'details': {
+                '車両名': entry.motorcycle.name,
+                'カテゴリ': entry.category or '未分類',
+                '内容': entry.description,
+                '部品代': f"{entry.parts_cost:,.0f} 円" if entry.parts_cost is not None else '---',
+                '工賃': f"{entry.labor_cost:,.0f} 円" if entry.labor_cost is not None else '---',
+                '合計費用': f"{entry.total_cost:,.0f} 円" if entry.total_cost is not None else '---',
+                '場所': entry.location or '未記録',
+                'メモ': entry.notes or 'なし'
+            },
+            'edit_url': url_for('maintenance.edit_maintenance', entry_id=entry.id)
+        })
+    
+    # 3. 日付で降順にソート
+    timeline_events.sort(key=lambda x: x['date'], reverse=True)
+
+    return timeline_events
+# ▲▲▲ 変更・追記 ここまで ▲▲▲
+
+
 def get_upcoming_reminders(user_motorcycles_all, user_id):
     """メンテナンスリマインダーを取得・計算する"""
     upcoming_reminders = []

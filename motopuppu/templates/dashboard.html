@@ -5,23 +5,98 @@
 
 {% block styles %}
 {{ super() }}
-{# 必要であればカレンダー用のカスタムCSSを追加 #}
+{# ▼▼▼ 変更・追記 ▼▼▼ #}
 <style>
+    /* タイムラインのスタイル */
+    .dashboard-timeline {
+        list-style: none;
+        padding: 0;
+        position: relative;
+    }
+    .dashboard-timeline:before {
+        content: '';
+        position: absolute;
+        top: 10px;
+        bottom: 10px;
+        left: 20px;
+        width: 4px;
+        background-color: #e9ecef;
+        border-radius: 2px;
+    }
+    .timeline-item {
+        position: relative;
+        margin-bottom: 1.5rem;
+        padding-left: 50px;
+    }
+    .timeline-item-marker {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background-color: #fff;
+        border: 4px solid #e9ecef;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+        z-index: 10;
+    }
+    .timeline-item-marker.type-fuel {
+        color: #198754;
+        border-color: #198754;
+    }
+    .timeline-item-marker.type-maintenance {
+        color: #ffc107;
+        border-color: #ffc107;
+    }
+    .timeline-item-content {
+        position: relative;
+        background-color: #f8f9fa;
+        padding: 0.75rem 1rem;
+        border-radius: 0.375rem;
+        border: 1px solid #e9ecef;
+        cursor: pointer;
+        transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
+    }
+    .timeline-item-content:hover {
+        background-color: #f1f3f5;
+        border-color: #dee2e6;
+    }
+    .timeline-item-date {
+        font-weight: 600;
+        font-size: 0.9rem;
+        color: #6c757d;
+    }
+    .timeline-item-title {
+        font-weight: 600;
+        margin-bottom: 0.1rem;
+        color: #212529;
+    }
+    .timeline-item-description {
+        font-size: 0.9rem;
+        color: #495057;
+    }
+    .timeline-item-cost {
+        font-size: 0.85rem;
+        color: #6c757d;
+    }
+    #timelineDetailModal .modal-header .icon-fuel { color: #198754; }
+    #timelineDetailModal .modal-header .icon-maintenance { color: #ffc107; }
+
     /* ポップオーバーの最大幅など */
     .motopuppu-popover {
         max-width: 350px; /* 例: 最大幅を設定 */
     }
-
     /* 日付セルの高さを少し確保（イベントが多いときに見やすく） */
     .fc-daygrid-day-frame {
         min-height: 100px; /* 例 */
     }
-
     /* 祝日の背景色など */
     .fc .fc-daygrid-day.fc-day-holiday {
         background-color: rgba(255, 0, 0, 0.05); /* 例: 薄い赤 */
     }
-    
     /* 土日の日付番号の色 */
     .fc .fc-daygrid-day-number.is-sat {
         color: #0d6efd; /* Bootstrap primary */
@@ -29,7 +104,6 @@
     .fc .fc-daygrid-day-number.is-sun, .fc .fc-daygrid-day-number.is-holiday {
         color: #dc3545; /* Bootstrap danger */
     }
-
     /* 祝日名 */
     .fc-holiday-name {
         display: block;
@@ -42,7 +116,6 @@
         padding: 0 2px;
         margin-top: -2px; /* 日付番号との間隔調整 */
     }
-    
     /* TODOリストのスタイル調整 */
     .motopuppu-popover .list-unstyled li {
         margin-bottom: 0.2rem; /* アイテム間のスペース */
@@ -56,14 +129,13 @@
         cursor: default; /* disabledなのでカーソルを標準に */
     }
 </style>
+{# ▲▲▲ 変更・追記 ここまで ▲▲▲ #}
 {% endblock %}
 
 {% block content %}
 {# --- ヘッダー --- #}
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-    {# ▼▼▼ g.user を current_user に変更 ▼▼▼ #}
     <h1 class="h2">{% if current_user.is_authenticated %}ようこそ、{{ current_user.display_name or current_user.misskey_username }}さん{% else %}ダッシュボード{% endif %}</h1>
-    {# ▲▲▲ 変更ここまで ▲▲▲ #}
     <div class="btn-toolbar mb-2 mb-md-0">
         <div class="btn-group me-2">
             <a href="{{ url_for('fuel.add_fuel') }}" class="btn btn-sm btn-success"><i class="fas fa-gas-pump me-1"></i> 給油記録を追加</a>
@@ -122,7 +194,7 @@
 </div>
 {% endif %}
 
-{# --- 統計情報セクション (変更なし) --- #}
+{# --- 統計情報セクション --- #}
 {% if dashboard_stats %}
 <div class="card mb-4">
     <div class="card-header">
@@ -130,13 +202,12 @@
             <span class="me-auto"><i class="fas fa-chart-line me-1"></i> <strong>統計情報</strong></span>
             
             <form method="GET" action="{{ url_for('main.dashboard') }}" class="d-inline-block" style="min-width: 180px;">
+                <input type="hidden" name="timeline_vehicle_id" value="{{ selected_timeline_vehicle_id or '' }}">
                 {% if period != 'all' %}
                     <input type="hidden" name="period" value="{{ period }}">
                     <input type="hidden" name="start_date" value="{{ start_date_str }}">
                     <input type="hidden" name="end_date" value="{{ end_date_str }}">
                 {% endif %}
-                <input type="hidden" name="fuel_vehicle_id" value="{{ selected_fuel_vehicle_id or '' }}">
-                <input type="hidden" name="maint_vehicle_id" value="{{ selected_maint_vehicle_id or '' }}">
                 <select name="stats_vehicle_id" class="form-select form-select-sm" onchange="this.form.submit()" aria-label="統計対象車両で絞り込み">
                     <option value="" {% if not selected_stats_vehicle_id %}selected{% endif %}>すべての車両 (デフォルト)</option>
                     {% for m_stats in motorcycles %}
@@ -149,9 +220,8 @@
     
     <div class="card-body pb-0">
         <form method="GET" action="{{ url_for('main.dashboard') }}" id="period-filter-form">
+            <input type="hidden" name="timeline_vehicle_id" value="{{ selected_timeline_vehicle_id or '' }}">
             <input type="hidden" name="stats_vehicle_id" value="{{ selected_stats_vehicle_id or '' }}">
-            <input type="hidden" name="fuel_vehicle_id" value="{{ selected_fuel_vehicle_id or '' }}">
-            <input type="hidden" name="maint_vehicle_id" value="{{ selected_maint_vehicle_id or '' }}">
             
             <div class="row gx-2 gy-2 align-items-center">
                 <div class="col-auto">
@@ -162,7 +232,7 @@
                         <button type="submit" name="period" value="1m" class="btn btn-sm {% if period == '1m' %}btn-primary{% else %}btn-outline-primary{% endif %}">1ヶ月</button>
                         <button type="submit" name="period" value="6m" class="btn btn-sm {% if period == '6m' %}btn-primary{% else %}btn-outline-primary{% endif %}">6ヶ月</button>
                         <button type="submit" name="period" value="1y" class="btn btn-sm {% if period == '1y' %}btn-primary{% else %}btn-outline-primary{% endif %}">1年</button>
-                        <a href="{{ url_for('main.dashboard', stats_vehicle_id=selected_stats_vehicle_id, fuel_vehicle_id=selected_fuel_vehicle_id, maint_vehicle_id=selected_maint_vehicle_id) }}" class="btn btn-sm {% if period == 'all' %}btn-primary{% else %}btn-outline-primary{% endif %}">全期間</a>
+                        <a href="{{ url_for('main.dashboard', stats_vehicle_id=selected_stats_vehicle_id, timeline_vehicle_id=selected_timeline_vehicle_id) }}" class="btn btn-sm {% if period == 'all' %}btn-primary{% else %}btn-outline-primary{% endif %}">全期間</a>
                     </div>
                 </div>
                 <div class="col-auto">
@@ -274,102 +344,70 @@
             </div>
         </div>
     </div>
+</div>
 
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
-                <span class="me-2"><i class="fas fa-gas-pump me-1"></i> 直近の給油記録 (公道車のみ)</span>
-                <form method="GET" action="{{ url_for('main.dashboard') }}" class="d-inline-block ms-auto" style="min-width: 150px;">
-                    {% if period != 'all' %}
-                        <input type="hidden" name="period" value="{{ period }}">
-                        <input type="hidden" name="start_date" value="{{ start_date_str }}">
-                        <input type="hidden" name="end_date" value="{{ end_date_str }}">
-                    {% endif %}
-                    <input type="hidden" name="stats_vehicle_id" value="{{ selected_stats_vehicle_id or '' }}">
-                    <input type="hidden" name="maint_vehicle_id" value="{{ selected_maint_vehicle_id or '' }}">
-                    <select name="fuel_vehicle_id" class="form-select form-select-sm" onchange="this.form.submit()" aria-label="車両で絞り込み">
-                        <option value="" {% if not selected_fuel_vehicle_id %}selected{% endif %}>すべての公道車</option>
-                        {% for m_fuel in motorcycles_public %}
-                        <option value="{{ m_fuel.id }}" {% if selected_fuel_vehicle_id == m_fuel.id %}selected{% endif %}>{{ m_fuel.name }}</option>
-                        {% endfor %}
-                    </select>
-                </form>
-            </div>
-            <div class="card-body">
-                {% if recent_fuel_entries %}
-                    <ul class="list-group list-group-flush">
-                        {% for entry in recent_fuel_entries %}
-                        <li class="list-group-item">
-                            <div class="d-flex w-100 justify-content-between">
-                                <h6 class="mb-1">{{ entry.motorcycle.name }} <small class="text-muted">@ {{ entry.odometer_reading }} km</small></h6>
-                                <small>{{ entry.entry_date.strftime('%Y-%m-%d') }}</small>
-                            </div>
-                            <p class="mb-1">
-                                給油量: {{ "%.2f"|format(entry.fuel_volume) }} L
-                                {% if entry.km_per_liter is not none %}| 燃費: {{ "%.2f"|format(entry.km_per_liter) }} km/L{% endif %}
-                                {% if entry.total_cost is not none %}| 金額: {{ entry.total_cost|round|int }} 円{% endif %}
-                            </p>
-                            <small class="text-muted">{{ entry.station_name or 'スタンド名未記録' }}</small>
-                            <a href="{{ url_for('fuel.edit_fuel', entry_id=entry.id) }}" class="btn btn-sm btn-outline-secondary float-end py-0 px-1" title="編集"><i class="fas fa-edit fa-xs"></i></a>
-                        </li>
-                        {% endfor %}
-                    </ul>
-                    <div class="mt-3"><a href="{{ url_for('fuel.fuel_log') }}" class="btn btn-sm btn-outline-secondary">全給油記録を見る</a></div>
-                {% else %}
-                    <p class="card-text text-muted">
-                        {% if selected_fuel_vehicle_id %}選択された車両の直近の給油記録はありません。{% else %}給油記録はまだありません。{% endif %}
-                    </p>
-                {% endif %}
-            </div>
+{# ▼▼▼ 変更・追記 ▼▼▼ #}
+<div class="card my-4">
+    <div class="card-header">
+        <div class="d-flex justify-content-between align-items-center flex-wrap">
+            <span class="me-auto"><i class="fas fa-stream me-1"></i> <strong>給油・整備タイムライン</strong></span>
+            
+            <form method="GET" action="{{ url_for('main.dashboard') }}" class="d-inline-block" style="min-width: 180px;">
+                <input type="hidden" name="period" value="{{ period }}">
+                <input type="hidden" name="start_date" value="{{ start_date_str }}">
+                <input type="hidden" name="end_date" value="{{ end_date_str }}">
+                <input type="hidden" name="stats_vehicle_id" value="{{ selected_stats_vehicle_id or '' }}">
+                <select name="timeline_vehicle_id" class="form-select form-select-sm" onchange="this.form.submit()" aria-label="タイムライン対象車両で絞り込み">
+                    <option value="all" {% if selected_timeline_vehicle_id == 'all' %}selected{% endif %}>すべての公道車</option>
+                    {% for m_timeline in motorcycles_public %}
+                    <option value="{{ m_timeline.id }}" {% if selected_timeline_vehicle_id == m_timeline.id|string %}selected{% endif %}>{{ m_timeline.name }}</option>
+                    {% endfor %}
+                </select>
+            </form>
         </div>
     </div>
-
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
-                <span class="me-2"><i class="fas fa-tools me-1"></i> 直近の整備記録 (公道車のみ)</span>
-                <form method="GET" action="{{ url_for('main.dashboard') }}" class="d-inline-block ms-auto" style="min-width: 150px;">
-                    {% if period != 'all' %}
-                        <input type="hidden" name="period" value="{{ period }}">
-                        <input type="hidden" name="start_date" value="{{ start_date_str }}">
-                        <input type="hidden" name="end_date" value="{{ end_date_str }}">
-                    {% endif %}
-                    <input type="hidden" name="stats_vehicle_id" value="{{ selected_stats_vehicle_id or '' }}">
-                    <input type="hidden" name="fuel_vehicle_id" value="{{ selected_fuel_vehicle_id or '' }}">
-                    <select name="maint_vehicle_id" class="form-select form-select-sm" onchange="this.form.submit()" aria-label="車両で絞り込み">
-                        <option value="" {% if not selected_maint_vehicle_id %}selected{% endif %}>すべての公道車</option>
-                        {% for m_maint in motorcycles_public %}
-                        <option value="{{ m_maint.id }}" {% if selected_maint_vehicle_id == m_maint.id %}selected{% endif %}>{{ m_maint.name }}</option>
-                        {% endfor %}
-                    </select>
-                </form>
-            </div>
-            <div class="card-body">
-                {% if recent_maintenance_entries %}
-                    <ul class="list-group list-group-flush">
-                        {% for entry in recent_maintenance_entries %}
-                        <li class="list-group-item">
-                            <div class="d-flex w-100 justify-content-between">
-                                <h6 class="mb-1">{{ entry.motorcycle.name }} <small class="text-muted">@ {{ entry.total_distance_at_maintenance }} km</small></h6>
-                                <small>{{ entry.maintenance_date.strftime('%Y-%m-%d') }}</small>
-                            </div>
-                            <p class="mb-1">
-                                内容: {{ entry.description | truncate(50) }}
-                                {% if entry.total_cost %}| 費用: {{ entry.total_cost|round|int }} 円{% endif %}
-                            </p>
-                            <small class="text-muted">カテゴリ: {{ entry.category or '未分類' }}</small>
-                            <a href="{{ url_for('maintenance.edit_maintenance', entry_id=entry.id) }}" class="btn btn-sm btn-outline-secondary float-end py-0 px-1" title="編集"><i class="fas fa-edit fa-xs"></i></a>
-                        </li>
-                        {% endfor %}
-                    </ul>
-                    <div class="mt-3"><a href="{{ url_for('maintenance.maintenance_log') }}" class="btn btn-sm btn-outline-secondary">全整備記録を見る</a></div>
-                {% else %}
-                    <p class="card-text text-muted">
-                        {% if selected_maint_vehicle_id %}選択された車両の直近の整備記録はありません。{% else %}整備記録はまだありません。{% endif %}
-                    </p>
-                {% endif %}
+    <div class="card-body">
+        <div class="d-flex justify-content-end mb-3">
+            <div class="btn-group btn-group-sm" role="group" id="timeline-filter-buttons">
+                <button type="button" class="btn btn-outline-secondary active" data-filter="all">すべて</button>
+                <button type="button" class="btn btn-outline-secondary" data-filter="fuel">給油</button>
+                <button type="button" class="btn btn-outline-secondary" data-filter="maintenance">整備</button>
             </div>
         </div>
+        
+        {% if timeline_events %}
+            <ul class="dashboard-timeline">
+                {% for event in timeline_events %}
+                <li class="timeline-item" data-event-type="{{ event.type }}" 
+                    data-bs-toggle="modal" data-bs-target="#timelineDetailModal"
+                    data-event-title="{{ event.title }}"
+                    data-event-date="{{ event.date.strftime('%Y-%m-%d') }}"
+                    data-event-odo="{{ event.odo | int }}"
+                    data-event-cost="{{ event.cost | round | int if event.cost is not none else '---' }}"
+                    data-event-details='{{ event.details | tojson | safe }}'
+                    data-event-edit-url="{{ event.edit_url }}">
+                    <div class="timeline-item-marker type-{{ event.type }}">
+                        <i class="fas {% if event.type == 'fuel' %}fa-gas-pump{% elif event.type == 'maintenance' %}fa-tools{% endif %}"></i>
+                    </div>
+                    <div class="timeline-item-content">
+                        <div class="d-flex justify-content-between">
+                            <span class="timeline-item-date">{{ event.date.strftime('%Y年%m月%d日') }}</span>
+                            <span class="timeline-item-date">{{ event.odo | int | format_number }} km</span>
+                        </div>
+                        <h5 class="timeline-item-title mt-1">{{ event.title | truncate(50) }}</h5>
+                        <p class="timeline-item-description mb-1">{{ event.description | truncate(60) }}</p>
+                        {% if event.cost is not none %}
+                        <div class="text-end timeline-item-cost">
+                            費用: {{ event.cost | round | int | format_number }} 円
+                        </div>
+                        {% endif %}
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p class="text-muted text-center">この車両には表示できるタイムライン記録がありません。</p>
+        {% endif %}
     </div>
 </div>
 
@@ -377,12 +415,124 @@
     <h2>記録カレンダー</h2>
     <div id='calendar'></div>
 </div>
+
+<div class="modal fade" id="timelineDetailModal" tabindex="-1" aria-labelledby="timelineDetailModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="timelineDetailModalLabel">
+            <span id="modal-icon-placeholder"></span>
+            <span id="modal-title-placeholder"></span>
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <dl class="row">
+            <dt class="col-sm-4">日付</dt>
+            <dd class="col-sm-8" id="modal-date"></dd>
+
+            <dt class="col-sm-4">ODOメーター</dt>
+            <dd class="col-sm-8" id="modal-odo"></dd>
+        </dl>
+        <hr>
+        <dl class="row" id="modal-details-container"></dl>
+      </div>
+      <div class="modal-footer">
+        <a href="#" id="modal-edit-button" class="btn btn-primary">編集する</a>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">閉じる</button>
+      </div>
+    </div>
+  </div>
+</div>
+{# ▲▲▲ 変更・追記 ここまで ▲▲▲ #}
 {% endblock %}
 
 {% block scripts %}
 {{ super() }}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // --- タイムライン機能 ---
+    const filterButtons = document.getElementById('timeline-filter-buttons');
+    if (filterButtons) {
+        filterButtons.addEventListener('click', function(e) {
+            if (e.target.tagName === 'BUTTON') {
+                const filter = e.target.dataset.filter;
+                
+                // ボタンのアクティブ状態を切り替え
+                filterButtons.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
+                e.target.classList.add('active');
+
+                // タイムラインアイテムの表示を切り替え
+                document.querySelectorAll('.timeline-item').forEach(item => {
+                    if (filter === 'all' || item.dataset.eventType === filter) {
+                        item.style.display = 'block';
+                    } else {
+                        item.style.display = 'none';
+                    }
+                });
+            }
+        });
+    }
+
+    const timelineDetailModal = document.getElementById('timelineDetailModal');
+    if (timelineDetailModal) {
+        timelineDetailModal.addEventListener('show.bs.modal', function (event) {
+            const item = event.relatedTarget;
+            const eventType = item.dataset.eventType;
+            const title = item.dataset.eventTitle;
+            const date = item.dataset.eventDate;
+            const odo = parseInt(item.dataset.eventOdo).toLocaleString();
+            const details = JSON.parse(item.dataset.eventDetails);
+            const editUrl = item.dataset.eventEditUrl;
+
+            const modalTitle = timelineDetailModal.querySelector('#modal-title-placeholder');
+            const modalIcon = timelineDetailModal.querySelector('#modal-icon-placeholder');
+            const modalDate = timelineDetailModal.querySelector('#modal-date');
+            const modalOdo = timelineDetailModal.querySelector('#modal-odo');
+            const modalDetailsContainer = timelineDetailModal.querySelector('#modal-details-container');
+            const modalEditButton = timelineDetailModal.querySelector('#modal-edit-button');
+
+            // アイコンとタイトルを設定
+            if (eventType === 'fuel') {
+                modalIcon.innerHTML = '<i class="fas fa-gas-pump icon-fuel"></i>';
+                modalTitle.textContent = '給油記録詳細';
+            } else if (eventType === 'maintenance') {
+                modalIcon.innerHTML = '<i class="fas fa-tools icon-maintenance"></i>';
+                modalTitle.textContent = '整備記録詳細';
+            }
+
+            // 基本情報を設定
+            modalDate.textContent = date;
+            modalOdo.textContent = `${odo} km`;
+
+            // 詳細情報を動的に生成
+            modalDetailsContainer.innerHTML = '';
+            for (const [key, value] of Object.entries(details)) {
+                // "車両名"はモーダルでは不要なのでスキップ
+                if (key === '車両名' && Object.keys(details).length > 2) {
+                    if (document.querySelectorAll('.dashboard-timeline .timeline-item').length > 0) {
+                       const selectedVehicle = document.querySelector('select[name="timeline_vehicle_id"]');
+                       if (selectedVehicle && selectedVehicle.value !== 'all') continue;
+                    }
+                }
+
+                const dt = document.createElement('dt');
+                dt.className = 'col-sm-4';
+                dt.textContent = key;
+
+                const dd = document.createElement('dd');
+                dd.className = 'col-sm-8';
+                dd.textContent = value;
+                
+                modalDetailsContainer.appendChild(dt);
+                modalDetailsContainer.appendChild(dd);
+            }
+            
+            // 編集ボタンのURLを設定
+            modalEditButton.href = editUrl;
+        });
+    }
+
     var calendarEl = document.getElementById('calendar');
     let holidaysMap = {};
     try {
