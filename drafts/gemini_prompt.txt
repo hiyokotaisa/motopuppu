@@ -78,22 +78,23 @@
 6.  **現在のプロジェクトディレクトリ:**
 
     ```
-kyagisaw@kyagisaw-mac motopuppu % tree
+kyagisaw@hiyoko-fedora:~/Dev/motopuppu$ tree
 .
+├── Dockerfile
+├── LICENSE
+├── README.md
 ├── announcements.json
 ├── compose.yml
-├── Dockerfile
 ├── drafts
 │   ├── gemini_prompt.txt
 │   └── racer_draft.md
 ├── fonts
 │   └── ipaexg.ttf
 ├── instance
-├── LICENSE
 ├── migrations
+│   ├── README
 │   ├── alembic.ini
 │   ├── env.py
-│   ├── README
 │   ├── script.py.mako
 │   └── versions
 │       ├── 03b74d3f953e_add_criteria_column_to_.py
@@ -152,12 +153,15 @@ kyagisaw@kyagisaw-mac motopuppu % tree
 │   │   ├── images
 │   │   │   └── blobcat_8bit.webp
 │   │   ├── js
+│   │   │   ├── filter_persistence.js
 │   │   │   ├── gas_station_search.js
+│   │   │   ├── global_search.js
 │   │   │   ├── lap_time_manager.js
 │   │   │   ├── misskey_share.js
 │   │   │   └── odo_toggle.js
 │   │   └── manifest.json
 │   ├── templates
+│   │   ├── _breadcrumbs.html
 │   │   ├── achievements
 │   │   │   └── unlocked_list.html
 │   │   ├── activity
@@ -189,7 +193,6 @@ kyagisaw@kyagisaw-mac motopuppu % tree
 │   │   ├── fuel_log.html
 │   │   ├── garage
 │   │   │   └── public_garage.html
-│   │   ├── garage_card.html
 │   │   ├── help
 │   │   │   ├── _sidebar.html
 │   │   │   ├── faq.html
@@ -255,14 +258,15 @@ kyagisaw@kyagisaw-mac motopuppu % tree
 │       ├── notes.py
 │       ├── profile.py
 │       ├── reminder.py
+│       ├── search.py
 │       ├── spec_sheet.py
 │       ├── touring.py
 │       └── vehicle.py
-├── README.md
-├── requirements.txt
-└── tests
+└── requirements.txt
 
-32 directories, 150 files
+31 directories, 153 files
+
+
 
     ```
 

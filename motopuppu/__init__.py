@@ -140,7 +140,7 @@ def create_app(config_name=None):
         from .views import achievements as achievements_view
         from .views.activity import activity_bp
         from .views import help as help_view
-        from .views import garage # ▼▼▼ インポートを追加 ▼▼▼
+        from .views import garage, search # ▼▼▼ `search` をインポートに追加 ▼▼▼
 
         app.register_blueprint(auth.auth_bp)
         app.register_blueprint(main.main_bp)
@@ -157,7 +157,8 @@ def create_app(config_name=None):
         app.register_blueprint(touring.touring_bp)
         app.register_blueprint(spec_sheet.spec_sheet_bp)
         app.register_blueprint(help_view.help_bp)
-        app.register_blueprint(garage.garage_bp) # ▼▼▼ 登録を追加 ▼▼▼
+        app.register_blueprint(garage.garage_bp)
+        app.register_blueprint(search.search_bp) # ▼▼▼ search_bp を登録 ▼▼▼
 
         if app.config['ENV'] == 'development' or app.debug: 
             app.register_blueprint(dev_auth.dev_auth_bp)

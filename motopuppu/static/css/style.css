@@ -563,3 +563,64 @@
 .dashboard-widgets .accordion-button:not(.collapsed)::after {
     filter: brightness(0.7);
 }
+
+/* --- グローバル検索フォーム --- */
+#global-search-form {
+    position: relative; /* 結果表示の基準位置とする */
+}
+
+#global-search-results {
+    /* display: none; */ /* JSで制御するため、ここでは'block'のままにしておく */
+    position: absolute;
+    top: 100%; /* フォームの真下に表示 */
+    left: 0;
+    right: 0;
+    z-index: 1050; /* ナビゲーションバーより手前に */
+    max-height: 70vh; /* 最大高さを画面の70%に */
+    overflow-y: auto; /* 高さを超えたらスクロール */
+    border-top: none;
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+}
+
+/* 検索結果アイテム */
+.search-result-item .result-title {
+    font-weight: 500;
+}
+.search-result-item .result-text {
+    font-size: 0.85em;
+    color: #6c757d; /* text-muted */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
+}
+
+/* ▼▼▼ ここから追記 ▼▼▼ */
+/* --- グローバル検索フォームのスタイル調整 --- */
+#global-search-input {
+    background-color: #495057; /* 濃いグレーの背景 */
+    color: #f8f9fa;            /* 明るいグレーの文字色 */
+    border-color: #6c757d;     /* 少し明るいグレーの境界線 */
+}
+
+/* 検索ボックスのプレースホルダー文字の色 */
+#global-search-input::placeholder {
+    color: #adb5bd;
+}
+
+/* 検索ボックスのフォーカス（クリックした時）のスタイル */
+#global-search-input:focus {
+    background-color: #495057;
+    color: #f8f9fa;
+    border-color: #80bdff; /* Bootstrapのデフォルトのフォーカス色 */
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25); /* Bootstrapのデフォルトのフォーカスグロー */
+}
+
+/* ナビゲーションバーの入力グループのアイコン背景 */
+#global-search-form .input-group-text {
+    background-color: #495057;
+    border-color: #6c757d;
+    color: #adb5bd; /* アイコンの色 */
+}
+/* ▲▲▲ 追記ここまで ▲▲▲ */

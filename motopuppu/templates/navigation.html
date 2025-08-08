@@ -108,6 +108,18 @@
                 </li>
             </ul>
 
+            {# ▼▼▼ ここからグローバル検索フォームを挿入 ▼▼▼ #}
+            <form class="d-flex mx-lg-auto" role="search" id="global-search-form" style="min-width: 300px;">
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fas fa-search"></i></span>
+                    <input class="form-control" type="search" id="global-search-input" placeholder="全体を検索 (Ctrl+K)" aria-label="Search">
+                </div>
+                <div class="dropdown-menu" id="global-search-results">
+                    {# 検索結果はここにJavaScriptで動的に挿入されます #}
+                </div>
+            </form>
+            {# ▲▲▲ 挿入はここまで ▲▲▲ #}
+
             <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle d-flex align-items-center {% if request.endpoint.startswith(('achievements.', 'profile.', 'help.')) %}active{% endif %}" href="#" id="navbarUserDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
