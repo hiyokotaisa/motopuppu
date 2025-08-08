@@ -78,25 +78,27 @@
 6.  **現在のプロジェクトディレクトリ:**
 
     ```
-kyagisaw@hiyoko-fedora:~/Dev/motopuppu$ tree
+kyagisaw@kyagisaw-mac motopuppu % tree
 .
-├── Dockerfile
-├── LICENSE
-├── README.md
 ├── announcements.json
 ├── compose.yml
+├── Dockerfile
 ├── drafts
 │   ├── gemini_prompt.txt
 │   └── racer_draft.md
+├── fonts
+│   └── ipaexg.ttf
 ├── instance
+├── LICENSE
 ├── migrations
-│   ├── README
 │   ├── alembic.ini
 │   ├── env.py
+│   ├── README
 │   ├── script.py.mako
 │   └── versions
 │       ├── 03b74d3f953e_add_criteria_column_to_.py
 │       ├── 2611ecc6c187_add_avatar_url_to_user_model.py
+│       ├── 37af33cd44be_add_garage_card_fields_to_motorcycle.py
 │       ├── 3c3d01d7c4c9_add_exclude_from_average_to_fuel_entries.py
 │       ├── 3f7f9b1139eb_add_activity_log_models.py
 │       ├── 3f8fa3c5156e_add_maintenance_record_link_to_reminders.py
@@ -110,6 +112,7 @@ kyagisaw@hiyoko-fedora:~/Dev/motopuppu$ tree
 │       ├── 6dadc8ff0649_add_racer_fields_to_motorcycle.py
 │       ├── 760969e7b61d_populate_new_achievement_definitions_.py
 │       ├── 7b1844b671ec_add_dashboard_layout_to_user_model.py
+│       ├── 890e7eb7d568_re_design_garage_card_to_be_user_centric.py
 │       ├── 896791ff77ea_add_odo_reset_log_table_and_data_.py
 │       ├── 9516bc768302_add_event_and_event_participant_models.py
 │       ├── aa6d3aff4f5c_add_encrypted_misskey_api_token_to_user_.py
@@ -184,6 +187,9 @@ kyagisaw@hiyoko-fedora:~/Dev/motopuppu$ tree
 │   │   │   └── public_list_events.html
 │   │   ├── fuel_form.html
 │   │   ├── fuel_log.html
+│   │   ├── garage
+│   │   │   └── public_garage.html
+│   │   ├── garage_card.html
 │   │   ├── help
 │   │   │   ├── _sidebar.html
 │   │   │   ├── faq.html
@@ -241,6 +247,7 @@ kyagisaw@hiyoko-fedora:~/Dev/motopuppu$ tree
 │       ├── dev_auth.py
 │       ├── event.py
 │       ├── fuel.py
+│       ├── garage.py
 │       ├── help.py
 │       ├── leaderboard.py
 │       ├── main.py
@@ -251,9 +258,11 @@ kyagisaw@hiyoko-fedora:~/Dev/motopuppu$ tree
 │       ├── spec_sheet.py
 │       ├── touring.py
 │       └── vehicle.py
-└── requirements.txt
+├── README.md
+├── requirements.txt
+└── tests
 
-29 directories, 144 files
+32 directories, 150 files
 
     ```
 

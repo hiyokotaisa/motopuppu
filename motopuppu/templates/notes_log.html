@@ -22,7 +22,8 @@
 
 {# --- フィルターフォーム (Collapse) --- #}
 <div class="collapse {% if is_filter_active %}show{% endif %}" id="filterCollapse">
-    <form method="GET" action="{{ url_for('notes.notes_log') }}" class="mb-4 p-3 border rounded bg-light">
+    {# ▼▼▼ form タグに id="notes-filter-form" を追加 ▼▼▼ #}
+    <form method="GET" action="{{ url_for('notes.notes_log') }}" class="mb-4 p-3 border rounded bg-light" id="notes-filter-form">
         <div class="row g-3 align-items-end">
             <div class="col-md-3">
                 <label for="start_date" class="form-label">開始日</label>
@@ -339,4 +340,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // このテンプレート固有のMisskey共有スクリプトは削除されました。共通スクリプトが base.html で読み込まれます。
 });
 </script>
+{# ▼▼▼ 作成した filter_persistence.js を読み込む ▼▼▼ #}
+<script src="{{ url_for('static', filename='js/filter_persistence.js') }}"></script>
 {% endblock %}

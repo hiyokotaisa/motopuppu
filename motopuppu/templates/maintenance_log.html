@@ -45,7 +45,7 @@
 
 {# --- フィルターフォーム (Collapse) --- #}
 <div class="collapse {% if is_filter_active %}show{% endif %}" id="filterCollapse">
-    <form method="GET" action="{{ url_for('maintenance.maintenance_log') }}" class="mb-4 p-3 border rounded bg-light">
+    <form method="GET" action="{{ url_for('maintenance.maintenance_log') }}" class="mb-4 p-3 border rounded bg-light" id="maintenance-filter-form">
         <div class="row g-3 align-items-end">
             <div class="col-md-2">
                 <label for="start_date" class="form-label">開始日</label>
@@ -377,6 +377,7 @@ document.addEventListener('DOMContentLoaded', function() {
     {# =================================================================== #}
 });
 </script>
+<script src="{{ url_for('static', filename='js/filter_persistence.js') }}"></script>
 {% endblock %}
 
 {# ▼▼▼ modals ブロックを追記 ▼▼▼ #}
