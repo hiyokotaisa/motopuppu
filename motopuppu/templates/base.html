@@ -108,22 +108,28 @@
     
     {% block scripts %}{% endblock %}
 
-    {# ▼▼▼ クイックアクションボタン ▼▼▼ #}
-    {% if current_user.is_authenticated %}
-    <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 1030;">
-        <div class="dropup">
-            <button class="btn btn-primary btn-lg rounded-circle shadow" type="button" id="quickActionBtn" data-bs-toggle="dropdown" aria-expanded="false" style="width: 60px; height: 60px;">
-                <i class="fas fa-plus"></i>
-            </button>
-            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="quickActionBtn">
-                <li><a class="dropdown-item" href="{{ url_for('fuel.add_fuel') }}"><i class="fas fa-gas-pump fa-fw me-2"></i>給油記録を追加</a></li>
-                <li><a class="dropdown-item" href="{{ url_for('maintenance.add_maintenance') }}"><i class="fas fa-tools fa-fw me-2"></i>整備記録を追加</a></li>
-                <li><a class="dropdown-item" href="{{ url_for('notes.add_note') }}"><i class="fas fa-sticky-note fa-fw me-2"></i>ノートを追加</a></li>
-            </ul>
+    {# ▼▼▼ クイックアクションボタン (ここから修正) ▼▼▼ #}
+    {% if current_user.is_authenticated and g.user_motorcycles %}
+        {% set default_vehicle = g.user_motorcycles|selectattr('is_default')|first or g.user_motorcycles[0] %}
+        <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 1030;">
+            <div class="dropup">
+                <button class="btn btn-primary btn-lg rounded-circle shadow" type="button" id="quickActionBtn" data-bs-toggle="dropdown" aria-expanded="false" style="width: 60px; height: 60px;">
+                    <i class="fas fa-plus"></i>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="quickActionBtn">
+                    <li><h6 class="dropdown-header">日常の記録</h6></li>
+                    <li><a class="dropdown-item" href="{{ url_for('fuel.add_fuel', motorcycle_id=default_vehicle.id) }}"><i class="fas fa-gas-pump fa-fw me-2"></i>給油記録</a></li>
+                    <li><a class="dropdown-item" href="{{ url_for('maintenance.add_maintenance', motorcycle_id=default_vehicle.id) }}"><i class="fas fa-tools fa-fw me-2"></i>整備記録</a></li>
+                    <li><a class="dropdown-item" href="{{ url_for('notes.add_note') }}"><i class="fas fa-sticky-note fa-fw me-2"></i>ノート</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><h6 class="dropdown-header">活動の記録 ({{ default_vehicle.name }})</h6></li>
+                    <li><a class="dropdown-item" href="{{ url_for('activity.add_activity', vehicle_id=default_vehicle.id) }}"><i class="fas fa-flag-checkered fa-fw me-2"></i>走行ログ</a></li>
+                    <li><a class="dropdown-item" href="{{ url_for('touring.create_log', vehicle_id=default_vehicle.id) }}"><i class="fas fa-map-signs fa-fw me-2"></i>ツーリングログ</a></li>
+                </ul>
+            </div>
         </div>
-    </div>
     {% endif %}
-    {# ▲▲▲ クイックアクションボタン ▲▲▲ #}
+    {# ▲▲▲ クイックアクションボタン (ここまで修正) ▲▲▲ #}
 
   </body>
 </html>
