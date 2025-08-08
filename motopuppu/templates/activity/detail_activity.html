@@ -20,9 +20,9 @@
  .dropdown-menu {
    z-index: 1030; /* .sticky-top (1020) より大きい値に設定 */
  }
- /* ▼▼▼ グラフ上でのページのスクロール/ズームを無効化 ▼▼▼ */
+ /* ▼▼▼ グラフ上でのタッチ操作の設定を pan-y に変更 ▼▼▼ */
  canvas[id^="lapChart-"] {
-   touch-action: none;
+   touch-action: pan-y;
  }
 </style>
 
