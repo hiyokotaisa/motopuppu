@@ -44,8 +44,12 @@ def format_seconds_to_time(total_seconds):
     seconds = total_seconds % 60
     return f"{minutes}:{seconds:06.3f}" # 0埋めして S.fff 形式にする
 
-def calculate_lap_stats(lap_times):
-    """ ラップタイムのリストからベスト、平均、各ラップの詳細（順位含む）を計算する """
+# --- ▼▼▼ ここからが修正箇所 ▼▼▼ ---
+def calculate_lap_stats(lap_times, sort_by='record_asc'):
+    """
+    ラップタイムのリストからベスト、平均、各ラップの詳細を計算する。
+    sort_by パラメータに応じて結果のリストをソートする。
+    """
     if not lap_times or not isinstance(lap_times, list):
         return "N/A", "N/A", []
 
@@ -65,20 +69,18 @@ def calculate_lap_stats(lap_times):
     average_lap_sec = sum(valid_seconds) / len(valid_seconds)
 
     # 3. タイム順にソートして順位を決定
-    sorted_laps = sorted(lap_seconds_indexed, key=lambda x: x['seconds'])
-
-    # 4. 元のインデックスをキーとして順位をマッピング
+    sorted_by_time = sorted(lap_seconds_indexed, key=lambda x: x['seconds'])
     rank_map = {}
-    for rank, item in enumerate(sorted_laps, 1):
+    for rank, item in enumerate(sorted_by_time, 1):
         rank_map[item['original_index']] = rank
 
-    # 5. 最終的な詳細リストを作成
+    # 4. 最終的な詳細リストを作成 (この時点では記録順)
     lap_details = []
-    for item in lap_seconds_indexed:
+    for item in sorted(lap_seconds_indexed, key=lambda x: x['original_index']):
         original_index = item['original_index']
         sec = item['seconds']
         rank = rank_map.get(original_index)
-        
+
         gap_str = ""
         if sec != best_lap_sec:
             diff = sec - best_lap_sec
@@ -89,13 +91,19 @@ def calculate_lap_stats(lap_times):
             'lap_num': original_index + 1,
             'time_str': format_seconds_to_time(sec),
             'diff_str': gap_str,
-            'is_best': sec == best_lap_sec
+            'is_best': sec == best_lap_sec,
+            'seconds': sec  # ソート用に秒数を保持
         })
-    
-    # 元の順序に戻す
-    lap_details.sort(key=lambda x: x['lap_num'])
+
+    # 5. `sort_by` の値に応じてリストを並び替え
+    if sort_by == 'time_asc':
+        lap_details.sort(key=lambda x: x['seconds'])
+    elif sort_by == 'time_desc':
+        lap_details.sort(key=lambda x: x['seconds'], reverse=True)
+    # 'record_asc' の場合は何もしないので、デフォルトの記録順になる
 
     return format_seconds_to_time(best_lap_sec), format_seconds_to_time(average_lap_sec), lap_details
+# --- ▲▲▲ 変更ここまで ▲▲▲ ---
 
 def _calculate_and_set_best_lap(session, lap_times_list):
     """

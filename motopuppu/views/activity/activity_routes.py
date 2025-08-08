@@ -203,9 +203,16 @@ def detail_activity(activity_id):
     motorcycle = activity.motorcycle
     sessions = SessionLog.query.filter_by(activity_log_id=activity.id).order_by(SessionLog.id.asc()).all()
 
+    # --- ▼▼▼ ここからが修正箇所 ▼▼▼ ---
+
+    # 1. URLのクエリパラメータからソート順を取得
+    sort_order = request.args.get('sort', 'record_asc')
+
     for session in sessions:
-        session.best_lap, session.average_lap, session.lap_details = calculate_lap_stats(session.lap_times)
+        # 2. `calculate_lap_stats` にソート順を渡す
+        session.best_lap, session.average_lap, session.lap_details = calculate_lap_stats(session.lap_times, sort_by=sort_order)
         
+        # グラフデータの生成ロジックは既存のものを維持
         lap_seconds_for_chart = []
         if session.lap_times and isinstance(session.lap_times, list):
             for lap_str in session.lap_times:
@@ -232,6 +239,7 @@ def detail_activity(activity_id):
     session_form.setting_sheet_id.choices.insert(0, (0, '--- セッティングなし ---'))
 
     if session_form.validate_on_submit():
+        # POST時の処理 (セッション追加) は変更なし
         lap_times_list = json.loads(session_form.lap_times_json.data) if session_form.lap_times_json.data else []
         
         new_session = SessionLog(
@@ -260,6 +268,7 @@ def detail_activity(activity_id):
             db.session.add(new_session)
             db.session.commit()
             flash('新しいセッションを記録しました。', 'success')
+            # POST後にリダイレクトする際は、ソートパラメータは不要
             return redirect(url_for('activity.detail_activity', activity_id=activity.id))
         except Exception as e:
             db.session.rollback()
@@ -272,4 +281,7 @@ def detail_activity(activity_id):
                            motorcycle=motorcycle,
                            session_form=session_form,
                            import_form=import_form,
-                           setting_key_map=SETTING_KEY_MAP)
+                           setting_key_map=SETTING_KEY_MAP,
+                           # 3. テンプレートに現在のソート順を渡す
+                           current_sort=sort_order)
+    # --- ▲▲▲ 変更ここまで ▲▲▲ ---
