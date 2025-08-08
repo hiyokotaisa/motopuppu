@@ -1,6 +1,5 @@
 {# motopuppu/templates/navigation.html #}
-{% if current_user.is_authenticated %} {# ▼▼▼ g.user を current_user.is_authenticated に変更 ▼▼▼ #}
-{# ▼▼▼ sticky-top から fixed-top に変更 ▼▼▼ #}
+{% if current_user.is_authenticated %}
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4 fixed-top">
     <div class="container">
         <a class="navbar-brand" href="{{ url_for('main.dashboard') }}">
@@ -11,71 +10,45 @@
         </button>
         <div class="collapse navbar-collapse" id="navbarNav">
             <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                
+                {# --- ダッシュボード --- #}
                 <li class="nav-item">
                     <a class="nav-link {% if request.endpoint == 'main.dashboard' %}active{% endif %}" aria-current="page" href="{{ url_for('main.dashboard') }}">
                         <i class="fas fa-tachometer-alt me-1"></i> ダッシュボード
                     </a>
                 </li>
-                <li class="nav-item">
-                    <a class="nav-link {% if request.endpoint.startswith('fuel.') %}active{% endif %}" href="{{ url_for('fuel.fuel_log') }}">
-                        <i class="fas fa-gas-pump me-1"></i> 給油
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link {% if request.endpoint.startswith('maintenance.') %}active{% endif %}" href="{{ url_for('maintenance.maintenance_log') }}">
-                        <i class="fas fa-tools me-1"></i> 整備
-                    </a>
-                </li>
+
+                {# --- 記録する Dropdown --- #}
                 <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle {% if request.endpoint.startswith('reminder.') %}active{% endif %}" href="#" id="reminderDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                        <i class="fas fa-bell me-1"></i> リマインダー
+                    <a class="nav-link dropdown-toggle {% if request.endpoint.startswith(('fuel.', 'maintenance.', 'notes.')) %}active{% endif %}" href="#" id="logDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fas fa-edit me-1"></i> 記録する
                     </a>
-                    <ul class="dropdown-menu" aria-labelledby="reminderDropdown">
-                        {# g.user_motorcycles は before_request で設定されているのでそのまま利用可能 #}
-                        {% if g.user_motorcycles %}
-                            {% for motorcycle in g.user_motorcycles %}
-                            <li>
-                                <a class="dropdown-item {% if request.endpoint == 'reminder.list_reminders' and request.view_args.get('vehicle_id') == motorcycle.id %}active{% endif %}" href="{{ url_for('reminder.list_reminders', vehicle_id=motorcycle.id) }}">
-                                    {{ motorcycle.name }}
-                                </a>
-                            </li>
-                            {% endfor %}
-                        {% else %}
-                            <li>
-                                <a class="dropdown-item disabled" href="#">車両を登録してください</a>
-                            </li>
-                        {% endif %}
+                    <ul class="dropdown-menu" aria-labelledby="logDropdown">
+                        <li>
+                            <a class="dropdown-item {% if request.endpoint.startswith('fuel.') %}active{% endif %}" href="{{ url_for('fuel.fuel_log') }}">
+                                <i class="fas fa-gas-pump fa-fw me-2"></i>給油記録
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item {% if request.endpoint.startswith('maintenance.') %}active{% endif %}" href="{{ url_for('maintenance.maintenance_log') }}">
+                                <i class="fas fa-tools fa-fw me-2"></i>整備記録
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item {% if request.endpoint.startswith('notes.') %}active{% endif %}" href="{{ url_for('notes.notes_log') }}">
+                                <i class="fas fa-sticky-note fa-fw me-2"></i>ノート
+                            </a>
+                        </li>
                     </ul>
                 </li>
-                <li class="nav-item">
-                    <a class="nav-link {% if request.endpoint.startswith('notes.') %}active{% endif %}" href="{{ url_for('notes.notes_log') }}">
-                        <i class="fas fa-sticky-note me-1"></i> ノート
-                    </a>
-                </li>
 
-                {# ▼▼▼ 「活動ログ」ドロップダウンに「ツーリングログ」を統合 ▼▼▼ #}
+                {# --- 活動記録 Dropdown --- #}
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle {% if request.endpoint.startswith(('activity.', 'touring.', 'leaderboard.', 'event.')) %}active{% endif %}" href="#" id="activityLogDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="fas fa-route me-1"></i> 活動記録
                     </a>
                     <ul class="dropdown-menu" aria-labelledby="activityLogDropdown">
-                        {# ツーリングログへのリンク #}
-                        <li><h6 class="dropdown-header"><i class="fas fa-map-signs me-1"></i> ツーリングログ</h6></li>
-                        {% if g.user_motorcycles %}
-                            {% for motorcycle in g.user_motorcycles %}
-                            <li>
-                                <a class="dropdown-item {% if request.endpoint == 'touring.list_logs' and request.view_args.get('vehicle_id') == motorcycle.id %}active{% endif %}" href="{{ url_for('touring.list_logs', vehicle_id=motorcycle.id) }}">
-                                    {{ motorcycle.name }}
-                                </a>
-                            </li>
-                            {% endfor %}
-                        {% else %}
-                            <li><a class="dropdown-item disabled" href="#">車両を登録してください</a></li>
-                        {% endif %}
-                        <li><hr class="dropdown-divider"></li>
-
-                        {# 走行ログ（旧活動ログ）へのリンク #}
-                        <li><h6 class="dropdown-header"><i class="fas fa-flag-checkered me-1"></i> 走行ログ</h6></li>
+                        <li><h6 class="dropdown-header"><i class="fas fa-flag-checkered fa-fw me-2"></i>走行ログ</h6></li>
                         {% if g.user_motorcycles %}
                             {% for motorcycle in g.user_motorcycles %}
                             <li>
@@ -88,45 +61,62 @@
                             <li><a class="dropdown-item disabled" href="#">車両を登録してください</a></li>
                         {% endif %}
                         <li><hr class="dropdown-divider"></li>
-
-                        {# その他関連機能へのリンク #}
-                        <li>
-                            <a class="dropdown-item {% if request.endpoint == 'event.public_events_list' %}active{% endif %}" href="{{ url_for('event.public_events_list') }}">
-                                <i class="fas fa-calendar-alt fa-fw me-1"></i> 公開イベント一覧
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item {% if request.endpoint == 'event.list_events' %}active{% endif %}" href="{{ url_for('event.list_events') }}">
-                                <i class="fas fa-calendar-check fa-fw me-1"></i> イベント管理
-                            </a>
-                        </li>
-                        <li>
-                            <a class="dropdown-item {% if request.endpoint.startswith('leaderboard.') %}active{% endif %}" href="{{ url_for('leaderboard.index') }}">
-                                <i class="fas fa-trophy fa-fw me-1"></i> リーダーボード
-                            </a>
-                        </li>
+                        <li><h6 class="dropdown-header"><i class="fas fa-map-signs fa-fw me-2"></i>ツーリングログ</h6></li>
+                        {% if g.user_motorcycles %}
+                            {% for motorcycle in g.user_motorcycles %}
+                            <li>
+                                <a class="dropdown-item {% if request.endpoint == 'touring.list_logs' and request.view_args.get('vehicle_id') == motorcycle.id %}active{% endif %}" href="{{ url_for('touring.list_logs', vehicle_id=motorcycle.id) }}">
+                                    {{ motorcycle.name }}
+                                </a>
+                            </li>
+                            {% endfor %}
+                        {% else %}
+                            <li><a class="dropdown-item disabled" href="#">車両を登録してください</a></li>
+                        {% endif %}
+                        <li><hr class="dropdown-divider"></li>
+                        <li><h6 class="dropdown-header"><i class="fas fa-users fa-fw me-2"></i>コミュニティ</h6></li>
+                        <li><a class="dropdown-item {% if request.endpoint.startswith('leaderboard.') %}active{% endif %}" href="{{ url_for('leaderboard.index') }}"><i class="fas fa-trophy fa-fw me-2"></i>リーダーボード</a></li>
+                        <li><a class="dropdown-item {% if request.endpoint.startswith('event.') %}active{% endif %}" href="{{ url_for('event.list_events') }}"><i class="fas fa-calendar-check fa-fw me-2"></i>イベント管理</a></li>
                     </ul>
                 </li>
-                {# ▲▲▲ 変更ここまで ▲▲▲ #}
 
-                <li class="nav-item">
-                    <a class="nav-link {% if request.endpoint.startswith('vehicle.') %}active{% endif %}" href="{{ url_for('vehicle.vehicle_list') }}">
-                        <i class="fas fa-motorcycle me-1"></i> 車両管理
+                {# --- 管理 Dropdown --- #}
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle {% if request.endpoint.startswith(('vehicle.', 'reminder.')) %}active{% endif %}" href="#" id="manageDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fas fa-cog me-1"></i> 管理
                     </a>
+                    <ul class="dropdown-menu" aria-labelledby="manageDropdown">
+                        <li>
+                            <a class="dropdown-item {% if request.endpoint.startswith('vehicle.') %}active{% endif %}" href="{{ url_for('vehicle.vehicle_list') }}">
+                                <i class="fas fa-motorcycle fa-fw me-2"></i>車両管理
+                            </a>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><h6 class="dropdown-header"><i class="fas fa-bell fa-fw me-2"></i>リマインダー</h6></li>
+                        {% if g.user_motorcycles %}
+                            {% for motorcycle in g.user_motorcycles %}
+                            <li>
+                                <a class="dropdown-item {% if request.endpoint == 'reminder.list_reminders' and request.view_args.get('vehicle_id') == motorcycle.id %}active{% endif %}" href="{{ url_for('reminder.list_reminders', vehicle_id=motorcycle.id) }}">
+                                    {{ motorcycle.name }}
+                                </a>
+                            </li>
+                            {% endfor %}
+                        {% else %}
+                            <li><a class="dropdown-item disabled" href="#">車両を登録してください</a></li>
+                        {% endif %}
+                    </ul>
                 </li>
             </ul>
 
             <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle d-flex align-items-center {% if request.endpoint.startswith(('achievements.', 'profile.', 'help.')) %}active{% endif %}" href="#" id="navbarUserDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                        {# ▼▼▼ g.user を current_user に変更 ▼▼▼ #}
                         {% if current_user.avatar_url %}
                             <img src="{{ current_user.avatar_url }}" alt="{{ current_user.display_name or current_user.misskey_username }}" class="rounded-circle me-2" style="width: 24px; height: 24px; object-fit: cover;">
                         {% else %}
                             <i class="fas fa-user-circle fa-lg me-2"></i>
                         {% endif %}
                         <span>{{ current_user.display_name or current_user.misskey_username or 'ユーザー' }}</span>
-                        {# ▲▲▲ 変更ここまで ▲▲▲ #}
                     </a>
                     <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarUserDropdown">
                         <li>
@@ -153,7 +143,6 @@
                     </ul>
                 </li>
             </ul>
-
         </div>
     </div>
 </nav>
