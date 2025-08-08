@@ -2,9 +2,10 @@
 {% extends "base.html" %}
 
 {# --- タイトル --- #}
-{% block title %}活動ログ: {{ activity.activity_title or activity.location_name }} - もとぷっぷー{% endblock %}
+{% block title %}走行ログ: {{ activity.activity_title or activity.location_name }} - もとぷっぷー{% endblock %}
 
 {% block content %}
+{% include '_breadcrumbs.html' %}
 {# --- ▼▼▼ 変更 ▼▼▼ --- #}
 <style>
  /* !important を追加して、他のスタイルに上書きされないように指定を強化 */
@@ -20,11 +21,11 @@
 {# --- ▲▲▲ 変更ここまで ▲▲▲ --- #}
 
 <div class="d-flex align-items-center mb-3">
-    <a href="{{ url_for('activity.list_activities', vehicle_id=motorcycle.id) }}" class="btn btn-sm btn-outline-secondary me-3" title="活動ログ一覧へ戻る">
+    <a href="{{ url_for('activity.list_activities', vehicle_id=motorcycle.id) }}" class="btn btn-sm btn-outline-secondary me-3" title="走行ログ一覧へ戻る">
         <i class="fas fa-arrow-left"></i>
     </a>
     <div>
-        <h2 class="mb-0">活動ログ詳細</h2>
+        <h2 class="mb-0">走行ログ詳細</h2>
         <span class="text-muted">{{ motorcycle.name }}</span>
     </div>
 </div>

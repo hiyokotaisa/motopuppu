@@ -46,12 +46,69 @@
             {% endif %}
         {% endif %}
 
+        {# --- リマインダー --- #}
+        {% if request.endpoint.startswith('reminder.') %}
+             <li class="breadcrumb-item"><a href="{{ url_for('reminder.list_reminders', vehicle_id=request.view_args.get('vehicle_id', g.user_motorcycles[0].id if g.user_motorcycles else 0)) }}">リマインダー</a></li>
+            {% if request.endpoint == 'reminder.edit_reminder' %}
+                <li class="breadcrumb-item active" aria-current="page">リマインダーの編集</li>
+            {% elif request.endpoint == 'reminder.add_reminder' %}
+                 <li class="breadcrumb-item active" aria-current="page">リマインダーの追加</li>
+            {% endif %}
+        {% endif %}
+
+        {# --- 活動記録 (走行ログ) --- #}
+        {% if request.endpoint.startswith('activity.') %}
+            <li class="breadcrumb-item"><a href="{{ url_for('activity.list_activities', vehicle_id=request.view_args.get('vehicle_id', g.user_motorcycles[0].id if g.user_motorcycles else 0)) }}">走行ログ</a></li>
+            {% if request.endpoint in ['activity.detail_activity', 'activity.edit_activity', 'activity.add_session', 'activity.edit_session'] %}
+                <li class="breadcrumb-item active" aria-current="page">詳細・編集</li>
+            {% endif %}
+        {% endif %}
+
+        {# --- 活動記録 (ツーリングログ) --- #}
+        {% if request.endpoint.startswith('touring.') %}
+            <li class="breadcrumb-item"><a href="{{ url_for('touring.list_logs', vehicle_id=request.view_args.get('vehicle_id', g.user_motorcycles[0].id if g.user_motorcycles else 0)) }}">ツーリングログ</a></li>
+             {% if request.endpoint in ['touring.detail_log', 'touring.edit_log'] %}
+                <li class="breadcrumb-item active" aria-current="page">詳細・編集</li>
+            {% elif request.endpoint == 'touring.add_log' %}
+                 <li class="breadcrumb-item active" aria-current="page">ログの追加</li>
+            {% endif %}
+        {% endif %}
+
+        {# --- リーダーボード --- #}
+        {% if request.endpoint.startswith('leaderboard.') %}
+            <li class="breadcrumb-item active" aria-current="page">リーダーボード</li>
+        {% endif %}
+
+        {# --- イベント --- #}
+        {% if request.endpoint.startswith('event.') %}
+            <li class="breadcrumb-item"><a href="{{ url_for('event.list_events') }}">イベント管理</a></li>
+             {% if request.endpoint in ['event.event_detail', 'event.edit_event'] %}
+                <li class="breadcrumb-item active" aria-current="page">詳細・編集</li>
+            {% elif request.endpoint == 'event.add_event' %}
+                 <li class="breadcrumb-item active" aria-current="page">イベントの追加</li>
+            {% endif %}
+        {% endif %}
+
+        {# --- 実績 --- #}
+        {% if request.endpoint.startswith('achievements.') %}
+            <li class="breadcrumb-item active" aria-current="page">実績一覧</li>
+        {% endif %}
+
+        {# --- 整備情報シート --- #}
+        {% if request.endpoint.startswith('spec_sheet.') %}
+            <li class="breadcrumb-item"><a href="{{ url_for('vehicle.vehicle_list') }}">車両管理</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('spec_sheet.list_sheets', vehicle_id=request.view_args.get('vehicle_id')) }}">整備情報シート</a></li>
+             {% if request.endpoint == 'spec_sheet.edit_sheet' %}
+                <li class="breadcrumb-item active" aria-current="page">編集</li>
+            {% elif request.endpoint == 'spec_sheet.add_sheet' %}
+                 <li class="breadcrumb-item active" aria-current="page">追加</li>
+            {% endif %}
+        {% endif %}
+
         {# --- プロフィール設定 --- #}
         {% if request.endpoint.startswith('profile.') %}
             <li class="breadcrumb-item active" aria-current="page">プロフィール設定</li>
         {% endif %}
-
-        {# --- 今後、他のページも同様に if/elif 形式で追加していく --- #}
 
     </ol>
 </nav>

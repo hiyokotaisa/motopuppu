@@ -4,6 +4,7 @@
 {% block title %}整備情報シート ({{ motorcycle.name }}) - もとぷっぷー{% endblock %}
 
 {% block content %}
+{% include '_breadcrumbs.html' %}
 <div class="d-flex align-items-center mb-3">
     <a href="{{ url_for('vehicle.vehicle_list') }}" class="btn btn-sm btn-outline-secondary me-3" title="車両管理へ戻る">
         <i class="fas fa-arrow-left"></i>
