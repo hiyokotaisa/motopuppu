@@ -29,6 +29,10 @@ class User(UserMixin, db.Model):
     is_garage_public = db.Column(db.Boolean, nullable=False, default=False, server_default='false', comment="ガレージカードを公開するか")
     # ▲▲▲ 変更・追記 ここまで ▲▲▲
 
+    # ▼▼▼【ここから追記】▼▼▼
+    show_cost_in_dashboard = db.Column(db.Boolean, nullable=False, default=True, server_default='true', comment="ダッシュボードでコスト関連情報を表示するか")
+    # ▲▲▲【追記はここまで】▲▲▲
+
     encrypted_misskey_api_token = db.Column(db.Text, nullable=True, comment="暗号化されたMisskey APIトークン")
 
     motorcycles = db.relationship('Motorcycle', backref='owner', lazy=True, cascade="all, delete-orphan")

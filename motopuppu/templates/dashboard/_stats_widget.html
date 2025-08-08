@@ -1,28 +1,44 @@
 {# motopuppu/templates/dashboard/_stats_widget.html #}
 <div class="accordion-item card mb-4" data-widget-name="stats">
-    <h2 class="accordion-header d-flex align-items-center" id="heading-stats">
+    {# ▼▼▼【ここから変更】ヘッダーからフォームとトグルスイッチを削除し、シンプルにします ▼▼▼ #}
+    <h2 class="accordion-header" id="heading-stats">
         <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-stats" aria-expanded="true" aria-controls="collapse-stats">
             <span class="widget-grab-handle me-2" title="ドラッグして並び替え"><i class="fas fa-grip-vertical"></i></span>
             <span class="me-auto"><i class="fas fa-chart-line me-1"></i> <strong>統計情報</strong></span>
         </button>
-        <form method="GET" action="{{ url_for('main.dashboard') }}" class="d-inline-block p-2" style="min-width: 180px;">
-            <input type="hidden" name="timeline_vehicle_id" value="{{ selected_timeline_vehicle_id or '' }}">
-            {% if period != 'all' %}
-                <input type="hidden" name="period" value="{{ period }}">
-                <input type="hidden" name="start_date" value="{{ start_date_str }}">
-                <input type="hidden" name="end_date" value="{{ end_date_str }}">
-            {% endif %}
-            <select name="stats_vehicle_id" class="form-select form-select-sm" onchange="this.form.submit()" aria-label="統計対象車両で絞り込み">
-                <option value="" {% if not selected_stats_vehicle_id %}selected{% endif %}>すべての車両 (デフォルト)</option>
-                {% for m_stats in motorcycles %}
-                <option value="{{ m_stats.id }}" {% if selected_stats_vehicle_id == m_stats.id %}selected{% endif %}>{{ m_stats.name }} {% if m_stats.is_racer %}(レーサー){% endif %}</option>
-                {% endfor %}
-            </select>
-        </form>
     </h2>
+    {# ▲▲▲【変更はここまで】▲▲▲ #}
     <div id="collapse-stats" class="accordion-collapse collapse show" aria-labelledby="heading-stats">
         {% if dashboard_stats %}
         <div class="card-body pb-0">
+            {# ▼▼▼【ここから変更】操作コントロールをカード本体の先頭に移動・再配置 ▼▼▼ #}
+            <div class="row gx-3 gy-2 mb-3 align-items-center">
+                <div class="col-md-auto">
+                    <form method="GET" action="{{ url_for('main.dashboard') }}" class="d-flex align-items-center">
+                        <label for="stats_vehicle_id" class="form-label mb-0 me-2 small text-muted">対象車両:</label>
+                        <input type="hidden" name="timeline_vehicle_id" value="{{ selected_timeline_vehicle_id or '' }}">
+                        {% if period != 'all' %}
+                            <input type="hidden" name="period" value="{{ period }}">
+                            <input type="hidden" name="start_date" value="{{ start_date_str }}">
+                            <input type="hidden" name="end_date" value="{{ end_date_str }}">
+                        {% endif %}
+                        <select name="stats_vehicle_id" id="stats_vehicle_id" class="form-select form-select-sm" onchange="this.form.submit()" aria-label="統計対象車両で絞り込み" style="min-width: 160px;">
+                            <option value="" {% if not selected_stats_vehicle_id %}selected{% endif %}>すべての車両</option>
+                            {% for m_stats in motorcycles %}
+                            <option value="{{ m_stats.id }}" {% if selected_stats_vehicle_id == m_stats.id %}selected{% endif %}>{{ m_stats.name }} {% if m_stats.is_racer %}(レーサー){% endif %}</option>
+                            {% endfor %}
+                        </select>
+                    </form>
+                </div>
+                <div class="col-md-auto ms-md-auto">
+                     <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" role="switch" id="cost-display-toggle" {% if current_user.show_cost_in_dashboard %}checked{% endif %}>
+                        <label class="form-check-label small" for="cost-display-toggle">コスト情報を表示</label>
+                    </div>
+                </div>
+            </div>
+            {# ▲▲▲【変更はここまで】▲▲▲ #}
+            
             <form method="GET" action="{{ url_for('main.dashboard') }}" id="period-filter-form">
                 <input type="hidden" name="timeline_vehicle_id" value="{{ selected_timeline_vehicle_id or '' }}">
                 <input type="hidden" name="stats_vehicle_id" value="{{ selected_stats_vehicle_id or '' }}">
@@ -56,6 +72,8 @@
                     <h6 class="card-title text-muted small">平均燃費</h6>
                     {% if dashboard_stats.average_kpl_val is not none %}<p class="card-text fs-4 fw-bold mb-0">{{ "%.2f"|format(dashboard_stats.average_kpl_val) }} <small class="fs-6">km/L</small></p><small class="text-muted">({{ dashboard_stats.average_kpl_label }})</small>{% else %}<p class="card-text fs-4 fw-bold mb-0">-</p><small class="text-muted">({{ dashboard_stats.average_kpl_label }})</small>{% endif %}
                 </div>
+                
+                {% if dashboard_stats.show_cost %}
                 <div class="col-md-3 col-6">
                     <h6 class="card-title text-muted small">{% if period != 'all' %}期間内{% else %}累計{% endif %} 給油費用</h6>
                     <p class="card-text fs-4 fw-bold mb-0">{{ "{:,.0f}".format(dashboard_stats.total_fuel_cost | int) }} <small class="fs-6">円</small></p>
@@ -66,6 +84,18 @@
                     <p class="card-text fs-4 fw-bold mb-0">{{ "{:,.0f}".format(dashboard_stats.total_maint_cost | int) }} <small class="fs-6">円</small></p>
                     <small class="text-muted">({{ dashboard_stats.cost_label }})</small>
                 </div>
+                {% else %}
+                <div class="col-md-3 col-6">
+                    <h6 class="card-title text-muted small">{% if period != 'all' %}期間内{% else %}累計{% endif %} 給油量</h6>
+                    <p class="card-text fs-4 fw-bold mb-0">{{ "%.1f"|format(dashboard_stats.total_fuel_volume | float) }} <small class="fs-6">L</small></p>
+                    <small class="text-muted">({{ dashboard_stats.non_cost_label }})</small>
+                </div>
+                <div class="col-md-3 col-6">
+                    <h6 class="card-title text-muted small">{% if period != 'all' %}期間内{% else %}累計{% endif %} 整備回数</h6>
+                    <p class="card-text fs-4 fw-bold mb-0">{{ dashboard_stats.total_maint_count }} <small class="fs-6">回</small></p>
+                    <small class="text-muted">({{ dashboard_stats.non_cost_label }})</small>
+                </div>
+                {% endif %}
             </div>
         </div>
         {% else %}

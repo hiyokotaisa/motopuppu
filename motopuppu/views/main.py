@@ -146,13 +146,17 @@ def dashboard():
             m._average_kpl = services.calculate_average_kpl(m)
 
     target_vehicle_for_stats = next((m for m in user_motorcycles_all if m.id == selected_stats_vehicle_id), None)
+    
+    # ▼▼▼【ここから変更】ユーザー設定をサービス関数に渡す ▼▼▼
     dashboard_stats = services.get_dashboard_stats(
         user_motorcycles_all=user_motorcycles_all,
         user_motorcycle_ids_public=user_motorcycle_ids_public,
         target_vehicle_for_stats=target_vehicle_for_stats,
         start_date=start_date,
-        end_date=end_date
+        end_date=end_date,
+        show_cost=current_user.show_cost_in_dashboard # ユーザー設定を渡す
     )
+    # ▲▲▲【変更はここまで】▲▲▲
 
     timeline_events = services.get_timeline_events(
         motorcycle_ids=timeline_target_ids,
@@ -210,6 +214,25 @@ def misskey_redirect(note_id):
     """Misskeyのノートへリダイレクトする"""
     misskey_instance_url = current_app.config.get('MISSKEY_INSTANCE_URL', 'https://misskey.io')
     return redirect(f"{misskey_instance_url}/notes/{note_id}")
+
+# ▼▼▼【ここから追記】コスト表示設定を切り替えるAPIエンドポイント ▼▼▼
+@main_bp.route('/dashboard/toggle-cost-display', methods=['POST'])
+@login_required
+def toggle_dashboard_cost_display():
+    """ダッシュボードのコスト表示設定を切り替える"""
+    try:
+        current_user.show_cost_in_dashboard = not current_user.show_cost_in_dashboard
+        db.session.commit()
+        return jsonify({
+            'status': 'success',
+            'message': 'Display setting updated.',
+            'show_cost': current_user.show_cost_in_dashboard
+        })
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error toggling cost display for user {current_user.id}: {e}", exc_info=True)
+        return jsonify({'status': 'error', 'message': 'Could not update setting'}), 500
+# ▲▲▲【追記はここまで】▲▲▲
 
 # ▼▼▼ 変更・追記 ▼▼▼
 @main_bp.route('/dashboard/save_layout', methods=['POST'])

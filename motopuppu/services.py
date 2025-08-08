@@ -1,5 +1,4 @@
 # motopuppu/services.py
-
 from flask import current_app, url_for
 from datetime import date, timedelta
 from dateutil.relativedelta import relativedelta
@@ -280,13 +279,19 @@ def get_recent_logs(model, vehicle_ids, order_by_cols, selected_vehicle_id=None,
     return query.order_by(*order_by_cols).limit(limit).all()
 
 
-def get_dashboard_stats(user_motorcycles_all, user_motorcycle_ids_public, target_vehicle_for_stats=None, start_date=None, end_date=None):
+# ▼▼▼【ここから変更】関数定義に show_cost 引数を追加し、ロジックを分岐 ▼▼▼
+def get_dashboard_stats(user_motorcycles_all, user_motorcycle_ids_public, target_vehicle_for_stats=None, start_date=None, end_date=None, show_cost=True):
     """ダッシュボードの統計カード情報を計算して返す"""
     stats = {
         'primary_metric_val': 0, 'primary_metric_unit': '', 'primary_metric_label': '-',
         'is_racer_stats': False, 'average_kpl_val': None, 'average_kpl_label': '-',
-        'total_fuel_cost': 0, 'total_maint_cost': 0, 'cost_label': '-',
+        'show_cost': show_cost, # 表示モードを格納
     }
+    # 表示モードに応じて初期化するキーを変更
+    if show_cost:
+        stats.update({'total_fuel_cost': 0, 'total_maint_cost': 0, 'cost_label': '-'})
+    else:
+        stats.update({'total_fuel_volume': 0, 'total_maint_count': 0, 'non_cost_label': '-'})
 
     if target_vehicle_for_stats:
         stats['is_racer_stats'] = target_vehicle_for_stats.is_racer
@@ -295,6 +300,11 @@ def get_dashboard_stats(user_motorcycles_all, user_motorcycle_ids_public, target
             stats['primary_metric_unit'] = '時間'
             stats['primary_metric_label'] = target_vehicle_for_stats.name
             stats['average_kpl_label'] = f"{target_vehicle_for_stats.name} (レーサー)"
+            # ラベルを更新
+            if show_cost:
+                stats['cost_label'] = target_vehicle_for_stats.name
+            else:
+                stats['non_cost_label'] = target_vehicle_for_stats.name
         else: # 公道車（個別）
             vehicle_id = target_vehicle_for_stats.id
             fuel_q = db.session.query(FuelEntry.total_distance.label('distance')).filter(FuelEntry.motorcycle_id == vehicle_id)
@@ -316,15 +326,27 @@ def get_dashboard_stats(user_motorcycles_all, user_motorcycle_ids_public, target
             stats['average_kpl_val'] = target_vehicle_for_stats._average_kpl
             stats['average_kpl_label'] = target_vehicle_for_stats.name
 
-            fuel_cost_q = db.session.query(func.sum(FuelEntry.total_cost)).filter(FuelEntry.motorcycle_id == vehicle_id)
-            maint_cost_q = db.session.query(func.sum(func.coalesce(MaintenanceEntry.parts_cost, 0) + func.coalesce(MaintenanceEntry.labor_cost, 0))).filter(MaintenanceEntry.motorcycle_id == vehicle_id)
-            if start_date:
-                fuel_cost_q = fuel_cost_q.filter(FuelEntry.entry_date.between(start_date, end_date))
-                maint_cost_q = maint_cost_q.filter(MaintenanceEntry.maintenance_date.between(start_date, end_date))
+            # コスト表示/非表示に応じてクエリを分岐
+            if show_cost:
+                fuel_cost_q = db.session.query(func.sum(FuelEntry.total_cost)).filter(FuelEntry.motorcycle_id == vehicle_id)
+                maint_cost_q = db.session.query(func.sum(func.coalesce(MaintenanceEntry.parts_cost, 0) + func.coalesce(MaintenanceEntry.labor_cost, 0))).filter(MaintenanceEntry.motorcycle_id == vehicle_id)
+                if start_date:
+                    fuel_cost_q = fuel_cost_q.filter(FuelEntry.entry_date.between(start_date, end_date))
+                    maint_cost_q = maint_cost_q.filter(MaintenanceEntry.maintenance_date.between(start_date, end_date))
 
-            stats['total_fuel_cost'] = fuel_cost_q.scalar() or 0
-            stats['total_maint_cost'] = maint_cost_q.scalar() or 0
-            stats['cost_label'] = target_vehicle_for_stats.name
+                stats['total_fuel_cost'] = fuel_cost_q.scalar() or 0
+                stats['total_maint_cost'] = maint_cost_q.scalar() or 0
+                stats['cost_label'] = target_vehicle_for_stats.name
+            else:
+                fuel_volume_q = db.session.query(func.sum(FuelEntry.fuel_volume)).filter(FuelEntry.motorcycle_id == vehicle_id)
+                maint_count_q = db.session.query(func.count(MaintenanceEntry.id)).filter(MaintenanceEntry.motorcycle_id == vehicle_id)
+                if start_date:
+                    fuel_volume_q = fuel_volume_q.filter(FuelEntry.entry_date.between(start_date, end_date))
+                    maint_count_q = maint_count_q.filter(MaintenanceEntry.maintenance_date.between(start_date, end_date))
+
+                stats['total_fuel_volume'] = fuel_volume_q.scalar() or 0
+                stats['total_maint_count'] = maint_count_q.scalar() or 0
+                stats['non_cost_label'] = target_vehicle_for_stats.name
     else: # 全車両
         # 走行距離
         total_running_distance = 0
@@ -351,19 +373,31 @@ def get_dashboard_stats(user_motorcycles_all, user_motorcycle_ids_public, target
         else:
             stats['average_kpl_label'] = "計算対象外"
 
-        # 費用
+        # 費用または代替情報
         if user_motorcycle_ids_public:
-            fuel_cost_q = db.session.query(func.sum(FuelEntry.total_cost)).filter(FuelEntry.motorcycle_id.in_(user_motorcycle_ids_public))
-            maint_cost_q = db.session.query(func.sum(func.coalesce(MaintenanceEntry.parts_cost, 0) + func.coalesce(MaintenanceEntry.labor_cost, 0))).filter(MaintenanceEntry.motorcycle_id.in_(user_motorcycle_ids_public))
-            if start_date:
-                fuel_cost_q = fuel_cost_q.filter(FuelEntry.entry_date.between(start_date, end_date))
-                maint_cost_q = maint_cost_q.filter(MaintenanceEntry.maintenance_date.between(start_date, end_date))
+            if show_cost:
+                fuel_cost_q = db.session.query(func.sum(FuelEntry.total_cost)).filter(FuelEntry.motorcycle_id.in_(user_motorcycle_ids_public))
+                maint_cost_q = db.session.query(func.sum(func.coalesce(MaintenanceEntry.parts_cost, 0) + func.coalesce(MaintenanceEntry.labor_cost, 0))).filter(MaintenanceEntry.motorcycle_id.in_(user_motorcycle_ids_public))
+                if start_date:
+                    fuel_cost_q = fuel_cost_q.filter(FuelEntry.entry_date.between(start_date, end_date))
+                    maint_cost_q = maint_cost_q.filter(MaintenanceEntry.maintenance_date.between(start_date, end_date))
 
-            stats['total_fuel_cost'] = fuel_cost_q.scalar() or 0
-            stats['total_maint_cost'] = maint_cost_q.scalar() or 0
-        stats['cost_label'] = "すべての公道車"
+                stats['total_fuel_cost'] = fuel_cost_q.scalar() or 0
+                stats['total_maint_cost'] = maint_cost_q.scalar() or 0
+                stats['cost_label'] = "すべての公道車"
+            else:
+                fuel_volume_q = db.session.query(func.sum(FuelEntry.fuel_volume)).filter(FuelEntry.motorcycle_id.in_(user_motorcycle_ids_public))
+                maint_count_q = db.session.query(func.count(MaintenanceEntry.id)).filter(MaintenanceEntry.motorcycle_id.in_(user_motorcycle_ids_public))
+                if start_date:
+                    fuel_volume_q = fuel_volume_q.filter(FuelEntry.entry_date.between(start_date, end_date))
+                    maint_count_q = maint_count_q.filter(MaintenanceEntry.maintenance_date.between(start_date, end_date))
+
+                stats['total_fuel_volume'] = fuel_volume_q.scalar() or 0
+                stats['total_maint_count'] = maint_count_q.scalar() or 0
+                stats['non_cost_label'] = "すべての公道車"
         
     return stats
+# ▲▲▲【変更はここまで】▲▲▲
 
 def get_holidays_json():
     """祝日情報を取得し、JSON文字列として返す"""

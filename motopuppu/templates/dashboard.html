@@ -237,6 +237,9 @@
 
 {% block scripts %}
 {{ super() }}
+{# ▼▼▼【重要】この行を追加して、FullCalendarライブラリを読み込みます ▼▼▼ #}
+<script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js'></script>
+{# ▲▲▲ 追加はここまで ▲▲▲ #}
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
 
 <script>
@@ -670,6 +673,48 @@ document.addEventListener('DOMContentLoaded', function() {
     // ウィジェットが開かれたり閉じられたりした後に、状態を保存
     widgetsContainer.addEventListener('shown.bs.collapse', saveWidgetStates);
     widgetsContainer.addEventListener('hidden.bs.collapse', saveWidgetStates);
+    // ▲▲▲【追記はここまで】▲▲▲
+
+    // ▼▼▼【ここから追記】コスト表示トグル機能 ▼▼▼
+    const costToggle = document.getElementById('cost-display-toggle');
+    if (costToggle) {
+        costToggle.addEventListener('change', function() {
+            const csrfTokenEl = document.querySelector('meta[name="csrf-token"]');
+            if (!csrfTokenEl) {
+                alert('エラー: CSRFトークンが見つかりません。');
+                return;
+            }
+            const csrfToken = csrfTokenEl.getAttribute('content');
+
+            // トグル操作中は操作不可にする
+            this.disabled = true;
+
+            fetch("{{ url_for('main.toggle_dashboard_cost_display') }}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                }
+            })
+            .then(response => {
+                if (response.ok) {
+                    // 成功したらページをリロードして表示を更新
+                    window.location.reload();
+                } else {
+                    // 失敗した場合、トグルを元の状態に戻してアラートを表示
+                    this.checked = !this.checked;
+                    this.disabled = false;
+                    alert('設定の変更に失敗しました。ページを再読み込みしてください。');
+                }
+            })
+            .catch(error => {
+                console.error('Error toggling cost display:', error);
+                this.checked = !this.checked;
+                this.disabled = false;
+                alert('通信エラーが発生しました。');
+            });
+        });
+    }
     // ▲▲▲【追記はここまで】▲▲▲
 });
 </script>
