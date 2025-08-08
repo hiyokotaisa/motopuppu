@@ -43,9 +43,7 @@ def global_search():
         results.append({
             'category': '車両',
             'title': f"{item.name} ({item.maker or 'メーカー未設定'})",
-            # ▼▼▼ 修正箇所: リンク先をメインダッシュボードのフィルターに変更 ▼▼▼
             'url': url_for('main.dashboard', stats_vehicle_id=item.id),
-            # ▲▲▲ 修正ここまで ▲▲▲
             'text': f"年式: {item.year or '未設定'}"
         })
 
@@ -67,13 +65,17 @@ def global_search():
         })
 
     # 3. 給油記録 (FuelEntry) - メモやスタンド名
+    # ▼▼▼ 修正箇所: 検索対象に車両名と油種を追加 ▼▼▼
     fuel_entries = FuelEntry.query.join(Motorcycle).filter(
         Motorcycle.user_id == current_user.id,
         or_(
             FuelEntry.notes.ilike(search_term),
-            FuelEntry.station_name.ilike(search_term)
+            FuelEntry.station_name.ilike(search_term),
+            FuelEntry.fuel_type.ilike(search_term),
+            Motorcycle.name.ilike(search_term) 
         )
     ).order_by(FuelEntry.entry_date.desc()).limit(MAX_RESULTS_PER_CATEGORY).all()
+    # ▲▲▲ 修正ここまで ▲▲▲
     for item in fuel_entries:
         results.append({
             'category': '給油記録',
