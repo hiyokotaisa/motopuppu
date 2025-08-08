@@ -131,32 +131,30 @@ def dashboard():
             selected_timeline_vehicle_id = 'all'
             timeline_target_ids = user_motorcycle_ids_public
 
-    # ▼▼▼ 変更・追記 ▼▼▼
     # 2. サービスを呼び出してビジネスロジックを実行
     # レイアウト順の読み込み（なければデフォルト順を定義）
     dashboard_layout = current_user.dashboard_layout
     if not dashboard_layout:
         dashboard_layout = ['reminders', 'stats', 'vehicles', 'timeline', 'calendar']
-    # ▲▲▲ 変更・追記 ここまで ▲▲▲
 
     upcoming_reminders = services.get_upcoming_reminders(user_motorcycles_all, current_user.id)
 
-    for m in user_motorcycles_all:
-        if not m.is_racer:
-            m._average_kpl = services.calculate_average_kpl(m)
+    # ▼▼▼【ここから変更】事前計算ループを削除 ▼▼▼
+    # for m in user_motorcycles_all:
+    #     if not m.is_racer:
+    #         m._average_kpl = services.calculate_average_kpl(m)
+    # ▲▲▲【変更はここまで】▲▲▲
 
     target_vehicle_for_stats = next((m for m in user_motorcycles_all if m.id == selected_stats_vehicle_id), None)
     
-    # ▼▼▼【ここから変更】ユーザー設定をサービス関数に渡す ▼▼▼
     dashboard_stats = services.get_dashboard_stats(
         user_motorcycles_all=user_motorcycles_all,
         user_motorcycle_ids_public=user_motorcycle_ids_public,
         target_vehicle_for_stats=target_vehicle_for_stats,
         start_date=start_date,
         end_date=end_date,
-        show_cost=current_user.show_cost_in_dashboard # ユーザー設定を渡す
+        show_cost=current_user.show_cost_in_dashboard
     )
-    # ▲▲▲【変更はここまで】▲▲▲
 
     timeline_events = services.get_timeline_events(
         motorcycle_ids=timeline_target_ids,
@@ -215,7 +213,7 @@ def misskey_redirect(note_id):
     misskey_instance_url = current_app.config.get('MISSKEY_INSTANCE_URL', 'https://misskey.io')
     return redirect(f"{misskey_instance_url}/notes/{note_id}")
 
-# ▼▼▼【ここから追記】コスト表示設定を切り替えるAPIエンドポイント ▼▼▼
+
 @main_bp.route('/dashboard/toggle-cost-display', methods=['POST'])
 @login_required
 def toggle_dashboard_cost_display():
@@ -232,9 +230,8 @@ def toggle_dashboard_cost_display():
         db.session.rollback()
         current_app.logger.error(f"Error toggling cost display for user {current_user.id}: {e}", exc_info=True)
         return jsonify({'status': 'error', 'message': 'Could not update setting'}), 500
-# ▲▲▲【追記はここまで】▲▲▲
 
-# ▼▼▼ 変更・追記 ▼▼▼
+
 @main_bp.route('/dashboard/save_layout', methods=['POST'])
 @login_required
 def save_dashboard_layout():
@@ -253,4 +250,3 @@ def save_dashboard_layout():
         db.session.rollback()
         current_app.logger.error(f"Error saving dashboard layout for user {current_user.id}: {e}", exc_info=True)
         return jsonify({'status': 'error', 'message': 'Could not save layout to the database'}), 500
-# ▲▲▲ 変更・追記 ここまで ▲▲▲

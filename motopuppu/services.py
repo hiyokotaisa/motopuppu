@@ -28,15 +28,41 @@ def get_latest_total_distance(motorcycle_id, offset_val):
     return max(latest_fuel_dist, latest_maint_dist, offset_val if offset_val is not None else 0)
 
 
-def calculate_average_kpl(motorcycle: Motorcycle):
-    """車両全体の平均燃費を計算する"""
+# ▼▼▼【ここから変更】関数が期間を受け取れるようにし、クエリを修正 ▼▼▼
+def calculate_average_kpl(motorcycle: Motorcycle, start_date=None, end_date=None):
+    """車両の平均燃費を計算する。期間が指定されていれば、その期間で計算する。"""
     if motorcycle.is_racer:
         return None
 
-    all_full_tank_entries = FuelEntry.query.filter(
-        FuelEntry.motorcycle_id == motorcycle.id,
-        FuelEntry.is_full_tank == True
-    ).order_by(FuelEntry.total_distance.asc()).all()
+    all_full_tank_entries = []
+    
+    # 期間指定がある場合のロジック
+    if start_date and end_date:
+        # 計算の起点とするため、期間の開始日より前の最後の満タン記録を取得
+        first_entry = FuelEntry.query.filter(
+            FuelEntry.motorcycle_id == motorcycle.id,
+            FuelEntry.is_full_tank == True,
+            FuelEntry.entry_date < start_date
+        ).order_by(FuelEntry.entry_date.desc()).first()
+        
+        # 期間内の満タン記録をすべて取得
+        period_entries = FuelEntry.query.filter(
+            FuelEntry.motorcycle_id == motorcycle.id,
+            FuelEntry.is_full_tank == True,
+            FuelEntry.entry_date.between(start_date, end_date)
+        ).order_by(FuelEntry.entry_date.asc()).all()
+        
+        if first_entry:
+            all_full_tank_entries.append(first_entry)
+        all_full_tank_entries.extend(period_entries)
+    
+    # 期間指定がない場合は、これまで通り全期間を対象とする
+    else:
+        all_full_tank_entries = FuelEntry.query.filter(
+            FuelEntry.motorcycle_id == motorcycle.id,
+            FuelEntry.is_full_tank == True
+        ).order_by(FuelEntry.total_distance.asc()).all()
+
 
     if len(all_full_tank_entries) < 2:
         return None
@@ -48,6 +74,10 @@ def calculate_average_kpl(motorcycle: Motorcycle):
         start_entry = all_full_tank_entries[i]
         end_entry = all_full_tank_entries[i+1]
 
+        # 期間指定がある場合、計算区間の終了日が期間内でなければスキップ
+        if end_date and end_entry.entry_date > end_date:
+            continue
+            
         if start_entry.exclude_from_average or end_entry.exclude_from_average:
             continue
 
@@ -70,10 +100,11 @@ def calculate_average_kpl(motorcycle: Motorcycle):
         except ZeroDivisionError:
             return None
     return None
+# ▲▲▲【変更はここまで】▲▲▲
 
 # --- ダッシュボード用サービス関数 ---
 
-# ▼▼▼ 変更・追記 ▼▼▼
+# (get_timeline_events, get_upcoming_reminders, get_recent_logs は変更なし)
 def get_timeline_events(motorcycle_ids, start_date=None, end_date=None):
     """指定された車両IDリストの給油・整備記録を時系列で取得する"""
     if not motorcycle_ids:
@@ -148,7 +179,6 @@ def get_timeline_events(motorcycle_ids, start_date=None, end_date=None):
     timeline_events.sort(key=lambda x: x['date'], reverse=True)
 
     return timeline_events
-# ▲▲▲ 変更・追記 ここまで ▲▲▲
 
 
 def get_upcoming_reminders(user_motorcycles_all, user_id):
@@ -279,7 +309,7 @@ def get_recent_logs(model, vehicle_ids, order_by_cols, selected_vehicle_id=None,
     return query.order_by(*order_by_cols).limit(limit).all()
 
 
-# ▼▼▼【ここから変更】関数定義に show_cost 引数を追加し、ロジックを分岐 ▼▼▼
+# ▼▼▼【ここから変更】get_dashboard_stats内の燃費計算を期間指定で行うように修正 ▼▼▼
 def get_dashboard_stats(user_motorcycles_all, user_motorcycle_ids_public, target_vehicle_for_stats=None, start_date=None, end_date=None, show_cost=True):
     """ダッシュボードの統計カード情報を計算して返す"""
     stats = {
@@ -323,7 +353,9 @@ def get_dashboard_stats(user_motorcycles_all, user_motorcycle_ids_public, target
             stats['primary_metric_val'] = running_dist
             stats['primary_metric_unit'] = 'km'
             stats['primary_metric_label'] = target_vehicle_for_stats.name
-            stats['average_kpl_val'] = target_vehicle_for_stats._average_kpl
+            
+            # _average_kpl を使うのではなく、期間を指定して再計算する
+            stats['average_kpl_val'] = calculate_average_kpl(target_vehicle_for_stats, start_date, end_date)
             stats['average_kpl_label'] = target_vehicle_for_stats.name
 
             # コスト表示/非表示に応じてクエリを分岐
@@ -368,7 +400,8 @@ def get_dashboard_stats(user_motorcycles_all, user_motorcycle_ids_public, target
         # 平均燃費
         default_vehicle = next((m for m in user_motorcycles_all if m.is_default), user_motorcycles_all[0] if user_motorcycles_all else None)
         if default_vehicle and not default_vehicle.is_racer:
-            stats['average_kpl_val'] = default_vehicle._average_kpl
+            # _average_kpl を使うのではなく、期間を指定して再計算する
+            stats['average_kpl_val'] = calculate_average_kpl(default_vehicle, start_date, end_date)
             stats['average_kpl_label'] = f"デフォルト ({default_vehicle.name})"
         else:
             stats['average_kpl_label'] = "計算対象外"
@@ -398,6 +431,7 @@ def get_dashboard_stats(user_motorcycles_all, user_motorcycle_ids_public, target
         
     return stats
 # ▲▲▲【変更はここまで】▲▲▲
+
 
 def get_holidays_json():
     """祝日情報を取得し、JSON文字列として返す"""
@@ -589,7 +623,6 @@ class CryptoService:
             return None
         return self.fernet.decrypt(encrypted_data.encode()).decode()
 
-# ▼▼▼ ここから変更 ▼▼▼
 def get_user_garage_data(user) -> dict:
     """ユーザーの公開ガレージ表示に必要なデータをまとめて取得する"""
     if not user:
@@ -643,4 +676,3 @@ def get_user_garage_data(user) -> dict:
         'hero_stats': hero_stats,
         'achievements': unlocked_achievements,
     }
-# ▲▲▲ 変更ここまで ▲▲▲
