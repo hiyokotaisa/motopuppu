@@ -301,7 +301,6 @@
                         {% if session.lap_chart_dict %}
                         <div class="mt-3">
                             <div class="text-end mb-1">
-                                {# --- ▼▼▼ 左右スクロールボタンを追加 ▼▼▼ --- #}
                                 <div class="btn-group btn-group-sm" role="group" aria-label="Chart controls">
                                     <button type="button" class="btn btn-outline-secondary pan-left-btn" data-chart-id="lapChart-{{ session.id }}" title="左へスクロール">
                                         <i class="fas fa-arrow-left"></i>
@@ -319,7 +318,6 @@
                                         <i class="fas fa-undo"></i>
                                     </button>
                                 </div>
-                                {# --- ▲▲▲ 変更ここまで ▲▲▲ --- #}
                             </div>
                             <div style="position: relative; height: 250px; width: 100%;">
                                 <canvas id="lapChart-{{ session.id }}" data-chart-data='{{ session.lap_chart_dict | tojson }}'></canvas>
@@ -518,14 +516,14 @@ document.addEventListener('DOMContentLoaded', () => {
         chartInstances[canvas.id] = chart;
     });
 
-    {# --- ▼▼▼ 左右スクロールボタン用のリスナーを追加 ▼▼▼ --- #}
     // 左へスクロール
     document.querySelectorAll('.pan-left-btn').forEach(button => {
         button.addEventListener('click', (event) => {
             const chartId = event.currentTarget.dataset.chartId;
             const chart = chartInstances[chartId];
             if (chart) {
-                chart.pan({ x: -100, y: 0 }); // 100ピクセル左へ
+                // --- ▼▼▼ スクロール方向を反転 ▼▼▼ ---
+                chart.pan({ x: 50, y: 0 });
             }
         });
     });
@@ -536,11 +534,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const chartId = event.currentTarget.dataset.chartId;
             const chart = chartInstances[chartId];
             if (chart) {
-                chart.pan({ x: 100, y: 0 }); // 100ピクセル右へ
+                // --- ▼▼▼ スクロール方向を反転 ▼▼▼ ---
+                chart.pan({ x: -50, y: 0 });
             }
         });
     });
-    {# --- ▲▲▲ 変更ここまで ▲▲▲ --- #}
 
     // 拡大ボタン
     document.querySelectorAll('.zoom-in-btn').forEach(button => {
