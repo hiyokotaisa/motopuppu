@@ -1,6 +1,7 @@
 # motopuppu/views/vehicle.py
+import uuid
 from flask import (
-    Blueprint, flash, redirect, render_template, request, url_for, abort, current_app
+    Blueprint, flash, redirect, render_template, request, url_for, abort, current_app, jsonify
 )
 from datetime import date, datetime, timezone
 from zoneinfo import ZoneInfo
@@ -76,7 +77,12 @@ def add_vehicle():
             maker=form.maker.data.strip() if form.maker.data else None,
             name=form.name.data.strip(),
             year=form.year.data,
-            is_racer=is_racer_vehicle
+            is_racer=is_racer_vehicle,
+            # ▼▼▼ ここから追記 ▼▼▼
+            show_in_garage=form.show_in_garage.data,
+            image_url=form.image_url.data,
+            custom_details=form.custom_details.data
+            # ▲▲▲ 追記ここまで ▲▲▲
         )
 
         if is_racer_vehicle:
@@ -179,6 +185,12 @@ def edit_vehicle(vehicle_id):
         motorcycle.name = form.name.data.strip()
         motorcycle.year = form.year.data
         motorcycle.is_racer = original_is_racer
+
+        # ▼▼▼ ここから変更 ▼▼▼
+        motorcycle.show_in_garage = form.show_in_garage.data
+        motorcycle.image_url = form.image_url.data
+        motorcycle.custom_details = form.custom_details.data
+        # ▲▲▲ 変更ここまで ▲▲▲
 
         if motorcycle.is_racer:
             motorcycle.total_operating_hours = form.total_operating_hours.data if form.total_operating_hours.data is not None else motorcycle.total_operating_hours
@@ -381,3 +393,23 @@ def edit_odo_reset_log(log_id):
                            vehicle_name=motorcycle.name,
                            cancel_url=url_for('vehicle.edit_vehicle', vehicle_id=motorcycle.id),
                            now_date_iso=now_date_iso_for_template)
+
+# ▼▼▼ ここから追記 ▼▼▼
+@vehicle_bp.route('/<int:vehicle_id>/toggle_garage_display', methods=['POST'])
+@login_required
+def toggle_garage_display(vehicle_id):
+    """車両のガレージ表示/非表示を切り替えるAPI"""
+    motorcycle = Motorcycle.query.filter_by(id=vehicle_id, user_id=current_user.id).first_or_404()
+    try:
+        motorcycle.show_in_garage = not motorcycle.show_in_garage
+        db.session.commit()
+        return jsonify({
+            'status': 'success',
+            'newState': motorcycle.show_in_garage,
+            'message': f'「{motorcycle.name}」のガレージ掲載設定を更新しました。'
+        })
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error toggling show_in_garage for vehicle {vehicle_id}: {e}", exc_info=True)
+        return jsonify({'status': 'error', 'message': '設定の更新中にエラーが発生しました。'}), 500
+# ▲▲▲ 追記ここまで ▲▲▲

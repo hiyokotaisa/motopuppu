@@ -14,7 +14,7 @@ from cryptography.fernet import Fernet
 # ▲▲▲ 追記ここまで ▲▲▲
 
 # ▼▼▼ モデルのインポートを追加 ▼▼▼
-from .models import db, Motorcycle, FuelEntry, MaintenanceEntry, MaintenanceReminder, ActivityLog, GeneralNote
+from .models import db, Motorcycle, FuelEntry, MaintenanceEntry, MaintenanceReminder, ActivityLog, GeneralNote, UserAchievement, AchievementDefinition
 # ▲▲▲ ここまで追加 ▲▲▲
 
 
@@ -554,3 +554,59 @@ class CryptoService:
         if not encrypted_data:
             return None
         return self.fernet.decrypt(encrypted_data.encode()).decode()
+
+# ▼▼▼ ここから変更 ▼▼▼
+def get_user_garage_data(user) -> dict:
+    """ユーザーの公開ガレージ表示に必要なデータをまとめて取得する"""
+    if not user:
+        return None
+
+    # ガレージに掲載する設定の車両を取得
+    vehicles_in_garage = Motorcycle.query.filter(
+        Motorcycle.user_id == user.id,
+        Motorcycle.show_in_garage == True
+    ).order_by(Motorcycle.is_default.desc(), Motorcycle.id.asc()).all()
+
+    # デフォルト車両をヒーローに、それ以外をリストに分ける
+    hero_vehicle = next((v for v in vehicles_in_garage if v.is_default), None)
+    # もしデフォルト車両が掲載対象でない場合、リストの最初の車両をヒーローにする
+    if not hero_vehicle and vehicles_in_garage:
+        hero_vehicle = vehicles_in_garage[0]
+    
+    other_vehicles = [v for v in vehicles_in_garage if v != hero_vehicle]
+    
+    # ヒーロー車両の統計情報
+    hero_stats = {}
+    if hero_vehicle:
+        if hero_vehicle.is_racer:
+            hero_stats['primary_metric_label'] = '総稼働時間'
+            hero_stats['primary_metric_value'] = f"{hero_vehicle.total_operating_hours or 0:.2f}"
+            hero_stats['primary_metric_unit'] = '時間'
+        else:
+            total_mileage = get_latest_total_distance(hero_vehicle.id, hero_vehicle.odometer_offset)
+            avg_kpl = calculate_average_kpl(hero_vehicle)
+            hero_stats['primary_metric_label'] = '総走行距離'
+            hero_stats['primary_metric_value'] = f"{total_mileage:,}"
+            hero_stats['primary_metric_unit'] = 'km'
+            hero_stats['avg_kpl'] = f"{avg_kpl:.2f} km/L" if avg_kpl else "---"
+
+    # ユーザーの実績
+    unlocked_achievements = db.session.query(
+        AchievementDefinition.name,
+        AchievementDefinition.icon_class
+    ).join(
+        UserAchievement, UserAchievement.achievement_code == AchievementDefinition.code
+    ).filter(
+        UserAchievement.user_id == user.id
+    ).order_by(
+        UserAchievement.unlocked_at.desc()
+    ).limit(5).all()
+
+    return {
+        'owner': user,
+        'hero_vehicle': hero_vehicle,
+        'other_vehicles': other_vehicles,
+        'hero_stats': hero_stats,
+        'achievements': unlocked_achievements,
+    }
+# ▲▲▲ 変更ここまで ▲▲▲

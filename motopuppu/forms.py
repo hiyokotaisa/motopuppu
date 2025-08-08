@@ -2,7 +2,7 @@
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileField, FileRequired, FileAllowed
 from wtforms import StringField, SelectField, DateField, DecimalField, IntegerField, TextAreaField, BooleanField, SubmitField, RadioField, FieldList, FormField, HiddenField, DateTimeField, PasswordField
-from wtforms.validators import DataRequired, Optional, NumberRange, Length, ValidationError, InputRequired, EqualTo
+from wtforms.validators import DataRequired, Optional, NumberRange, Length, ValidationError, InputRequired, EqualTo, URL
 from datetime import date, datetime
 from wtforms_sqlalchemy.fields import QuerySelectField
 
@@ -221,6 +221,30 @@ class VehicleForm(FlaskForm):
         render_kw={"placeholder": "例: 123.50"},
         default=0.00
     )
+    
+    # ▼▼▼ ここから変更 ▼▼▼
+    show_in_garage = BooleanField(
+        'この車両を公開ガレージに掲載する',
+        description='プロフィール設定でガレージ全体が公開に設定されている場合、この車両があなたのガレージカードに表示されます。'
+    )
+    image_url = StringField(
+        '車両画像URL (任意)',
+        validators=[
+            Optional(),
+            URL(message="有効なURL形式で入力してください。"),
+            Length(max=2048, message="URLは2048文字以内で入力してください。")
+        ],
+        render_kw={"placeholder": "https://... Misskeyにアップロードした画像のURLなど"},
+        description='ガレージカードに表示するメインの画像URL。'
+    )
+    custom_details = TextAreaField(
+        'カスタム・メモ (任意)',
+        validators=[Optional(), Length(max=2000)],
+        render_kw={"rows": 4, "placeholder": "マフラー:ヨシムラ\nハンドル:ハリケーン\n..."},
+        description='ガレージカードに表示するカスタム内容やアピールポイント。'
+    )
+    # ▲▲▲ 変更ここまで ▲▲▲
+
     submit = SubmitField('登録する')
 
     def validate_total_operating_hours(self, field):
@@ -395,7 +419,13 @@ class ProfileForm(FlaskForm):
                                 validators=[DataRequired(message="表示名を入力してください。"),
                                             Length(min=1, max=20, message="表示名は20文字以内で入力してください。")],
                                 render_kw={"placeholder": "例: もとぷー太郎"})
-    submit_profile = SubmitField('表示名を更新')
+    # ▼▼▼ ここから追記 ▼▼▼
+    is_garage_public = BooleanField(
+        'ガレージを公開する',
+        description='チェックすると、あなたのガレージページが作成され、誰でも閲覧できるようになります。'
+    )
+    # ▲▲▲ 追記ここまで ▲▲▲
+    submit_profile = SubmitField('更新する')
 
 
 class DeleteAccountForm(FlaskForm):

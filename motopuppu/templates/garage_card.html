@@ -1,0 +1,88 @@
+{# motopuppu/templates/garage_card.html #}
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    {# --- OGPタグ (Misskeyなどで共有した際のプレビュー設定) --- #}
+    <title>{{ motorcycle.name }}'s Garage Card - もとぷっぷー</title>
+    <meta property="og:title" content="{{ motorcycle.name }} ({{ motorcycle.maker or 'メーカー未設定' }})" />
+    <meta property="og:description" content="Owner: {{ owner.display_name or owner.misskey_username }}. もとぷっぷーで管理中の車両情報を見てみよう！" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="{{ request.url }}" />
+    <meta property="og:image" content="{{ url_for('vehicle.garage_card_ogp_image', public_id=motorcycle.public_id, _external=True) }}" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .card-container {
+            max-width: 800px;
+            margin: 2rem auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container card-container">
+        <div class="card shadow-lg">
+            <div class="card-header text-center bg-dark text-white">
+                <h1 class="h3 mb-0"><i class="fas fa-motorcycle me-2"></i>Garage Card</h1>
+            </div>
+            <div class="card-body p-4">
+                {% if motorcycle.image_url %}
+                    <img src="{{ motorcycle.image_url }}" class="img-fluid rounded mb-4" alt="{{ motorcycle.name }}">
+                {% endif %}
+                <h2 class="card-title">{{ motorcycle.name }}</h2>
+                <h5 class="card-subtitle mb-3 text-muted">{{ motorcycle.maker or 'メーカー未設定' }} / {{ motorcycle.year or '年式不明' }}</h5>
+                
+                <div class="d-flex align-items-center mb-4">
+                    <img src="{{ owner.avatar_url }}" class="rounded-circle me-3" width="50" height="50" alt="owner_avatar">
+                    <div>
+                        <span class="text-muted d-block">Owner</span>
+                        <strong class="fs-5">{{ owner.display_name or owner.misskey_username }}</strong>
+                    </div>
+                </div>
+
+                <hr>
+
+                <h4 class="mt-4"><i class="fas fa-tachometer-alt me-2 text-primary"></i>Live Status</h4>
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>{{ stats.primary_metric_label }}</span>
+                        <strong>{{ stats.primary_metric_value }} {{ stats.primary_metric_unit }}</strong>
+                    </li>
+                    {% if not motorcycle.is_racer and stats.avg_kpl %}
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>平均燃費</span>
+                        <strong>{{ stats.avg_kpl }}</strong>
+                    </li>
+                    {% endif %}
+                </ul>
+
+                <h4 class="mt-4"><i class="fas fa-wrench me-2 text-warning"></i>カスタム・メモ</h4>
+                <div class="p-3 bg-light rounded">
+                    <pre class="mb-0" style="white-space: pre-wrap; font-family: inherit;">{{ motorcycle.custom_details or 'カスタムメモは登録されていません。' }}</pre>
+                </div>
+
+                <h4 class="mt-4"><i class="fas fa-trophy me-2 text-success"></i>最近の実績</h4>
+                <ul class="list-group list-group-flush">
+                    {% for ach in achievements %}
+                    <li class="list-group-item"><i class="{{ ach.icon_class }} me-2 fa-fw text-muted"></i>{{ ach.name }}</li>
+                    {% else %}
+                    <li class="list-group-item text-muted">まだ解除された実績はありません。</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            <div class="card-footer text-center text-muted small">
+                Powered by もとぷっぷー
+            </div>
+        </div>
+    </div>
+</body>
+</html>

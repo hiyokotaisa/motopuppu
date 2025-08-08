@@ -97,6 +97,33 @@
     </div>
     {# --- ▲▲▲ フェーズ1変更点 ▲▲▲ --- #}
 
+    {# ▼▼▼ ここから追記 ▼▼▼ #}
+    <hr class="my-4">
+    <h5><i class="fas fa-id-card me-2"></i>ガレージカード設定</h5>
+
+    <div class="mb-3 form-check">
+        {{ form.show_in_garage(class="form-check-input" + (" is-invalid" if form.show_in_garage.errors else "")) }}
+        {{ form.show_in_garage.label(class="form-check-label") }}
+        {% if form.show_in_garage.errors %}<div class="invalid-feedback d-block">{% for error in form.show_in_garage.errors %}<span>{{ error }}</span><br>{% endfor %}</div>{% endif %}
+        <div class="form-text">{{ form.show_in_garage.description }}</div>
+    </div>
+
+    <div class="mb-3">
+        {{ form.image_url.label(class="form-label") }}
+        {{ form.image_url(class="form-control" + (" is-invalid" if form.image_url.errors else ""), placeholder=(form.image_url.render_kw.get("placeholder", "") if form.image_url.render_kw else "")) }}
+        {% if form.image_url.errors %}<div class="invalid-feedback">{% for error in form.image_url.errors %}<span>{{ error }}</span><br>{% endfor %}</div>{% endif %}
+        <div class="form-text">{{ form.image_url.description }}</div>
+    </div>
+
+    <div class="mb-3">
+        {{ form.custom_details.label(class="form-label") }}
+        {{ form.custom_details(class="form-control" + (" is-invalid" if form.custom_details.errors else ""), rows=(form.custom_details.render_kw.get("rows", 4) if form.custom_details.render_kw else 4), placeholder=(form.custom_details.render_kw.get("placeholder", "") if form.custom_details.render_kw else "")) }}
+        {% if form.custom_details.errors %}<div class="invalid-feedback">{% for error in form.custom_details.errors %}<span>{{ error }}</span><br>{% endfor %}</div>{% endif %}
+        <div class="form-text">{{ form.custom_details.description }}</div>
+    </div>
+    {# ▲▲▲ 追記ここまで ▲▲▲ #}
+
+
     {{ form.submit(class="btn btn-primary mt-3", value=('登録する' if form_action == 'add' else '更新する')) }}
     <a href="{{ url_for('vehicle.vehicle_list') }}" class="btn btn-secondary mt-3">キャンセル</a>
 </form>

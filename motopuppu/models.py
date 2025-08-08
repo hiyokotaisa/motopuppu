@@ -25,6 +25,8 @@ class User(UserMixin, db.Model):
     
     # ▼▼▼ 変更・追記 ▼▼▼
     dashboard_layout = db.Column(db.JSON, nullable=True, comment="ダッシュボードのウィジェットの並び順")
+    public_id = db.Column(db.String(36), unique=True, nullable=True, index=True, comment="公開ガレージ用の一意なID")
+    is_garage_public = db.Column(db.Boolean, nullable=False, default=False, server_default='false', comment="ガレージカードを公開するか")
     # ▲▲▲ 変更・追記 ここまで ▲▲▲
 
     encrypted_misskey_api_token = db.Column(db.Text, nullable=True, comment="暗号化されたMisskey APIトークン")
@@ -49,6 +51,13 @@ class Motorcycle(db.Model):
     is_default = db.Column(db.Boolean, nullable=False, server_default='false')
     is_racer = db.Column(db.Boolean, nullable=False, default=False, server_default='false')
     total_operating_hours = db.Column(db.Numeric(8, 2), nullable=True, default=0.00)
+
+    # ▼▼▼ ここから変更 ▼▼▼
+    image_url = db.Column(db.String(2048), nullable=True, comment="車両画像のURL")
+    custom_details = db.Column(db.Text, nullable=True, comment="カスタム箇所のメモ")
+    show_in_garage = db.Column(db.Boolean, nullable=False, default=True, server_default='true', comment="ガレージカードに掲載するか")
+    # ▲▲▲ 変更ここまで ▲▲▲
+
     fuel_entries = db.relationship('FuelEntry', backref='motorcycle', lazy='dynamic', order_by="desc(FuelEntry.entry_date)", cascade="all, delete-orphan")
     maintenance_entries = db.relationship('MaintenanceEntry', backref='motorcycle', lazy='dynamic', order_by="desc(MaintenanceEntry.maintenance_date)", cascade="all, delete-orphan")
     consumable_logs = db.relationship('ConsumableLog', backref='motorcycle', lazy='dynamic', order_by="desc(ConsumableLog.change_date)", cascade="all, delete-orphan")

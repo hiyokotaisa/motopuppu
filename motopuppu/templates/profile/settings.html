@@ -18,9 +18,29 @@
         {% endif %}
     {% endwith %}
 
+    {# ▼▼▼ ここから追記 ▼▼▼ #}
+    {% if current_user.is_garage_public and current_user.public_id %}
+    <div class="card bg-light border-primary mb-4">
+        <div class="card-header bg-primary text-white">
+             <h5 class="mb-0"><i class="fas fa-globe-asia me-2"></i>公開ガレージURL</h5>
+        </div>
+        <div class="card-body">
+            <p class="card-text">あなたのガレージは現在公開中です。以下のURLを共有してみましょう！</p>
+            <div class="input-group">
+                <input type="text" class="form-control" value="{{ url_for('garage.garage_detail', public_id=current_user.public_id, _external=True) }}" readonly id="publicGarageUrl">
+                <button class="btn btn-outline-primary" type="button" onclick="navigator.clipboard.writeText(document.getElementById('publicGarageUrl').value); this.innerHTML = '<i class=\'fas fa-check me-1\'></i>コピー完了'; setTimeout(() => { this.innerHTML = '<i class=\'fas fa-copy me-1\'></i> コピー'; }, 2000);">
+                    <i class="fas fa-copy me-1"></i> コピー
+                </button>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    {# ▲▲▲ 追記ここまで ▲▲▲ #}
+
+
     <div class="card mb-4">
         <div class="card-header">
-            <h5 class="mb-0">表示名の設定</h5>
+            <h5 class="mb-0">プロフィール更新</h5>
         </div>
         <div class="card-body">
             {# ▼▼▼ g.user を current_user に変更 ▼▼▼ #}
@@ -39,6 +59,16 @@
                         </div>
                     {% endif %}
                 </div>
+
+                {# ▼▼▼ ここから追記 ▼▼▼ #}
+                <div class="mb-3 form-check form-switch">
+                    {{ profile_form.is_garage_public(class="form-check-input" + (" is-invalid" if profile_form.is_garage_public.errors else "")) }}
+                    {{ profile_form.is_garage_public.label(class="form-check-label") }}
+                    {% if profile_form.is_garage_public.errors %}<div class="invalid-feedback d-block">{% for error in profile_form.is_garage_public.errors %}<span>{{ error }}</span><br>{% endfor %}</div>{% endif %}
+                    <div class="form-text">{{ profile_form.is_garage_public.description }}</div>
+                </div>
+                {# ▲▲▲ 追記ここまで ▲▲▲ #}
+                
                 {{ profile_form.submit_profile(class="btn btn-primary") }}
             </form>
         </div>
