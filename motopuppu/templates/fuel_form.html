@@ -5,6 +5,7 @@
 {% block title %}{{ page_title }} - もとぷっぷー{% endblock %}
 
 {% block content %}
+{% include '_breadcrumbs.html' %}
 <h2>{{ page_title }}</h2>
 
 {# Flash Messages (Flask-WTFのフォームエラーはフィールドごとに出るので、ここでは一般的なメッセージ用) #}

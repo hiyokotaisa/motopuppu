@@ -1,0 +1,57 @@
+{# motopuppu/templates/_breadcrumbs.html #}
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        {# 常に表示される最初の階層 #}
+        <li class="breadcrumb-item"><a href="{{ url_for('main.dashboard') }}">ホーム</a></li>
+
+        {# request.endpoint の値に応じて、2階層目以降を動的に生成 #}
+        
+        {# --- 車両管理 --- #}
+        {% if request.endpoint.startswith('vehicle.') %}
+            <li class="breadcrumb-item"><a href="{{ url_for('vehicle.vehicle_list') }}">車両管理</a></li>
+            {% if request.endpoint == 'vehicle.edit_vehicle' %}
+                <li class="breadcrumb-item active" aria-current="page">車両の編集</li>
+            {% elif request.endpoint == 'vehicle.add_vehicle' %}
+                 <li class="breadcrumb-item active" aria-current="page">車両の追加</li>
+            {% endif %}
+        {% endif %}
+
+        {# --- 給油記録 --- #}
+        {% if request.endpoint.startswith('fuel.') %}
+             <li class="breadcrumb-item"><a href="{{ url_for('fuel.fuel_log') }}">給油記録</a></li>
+            {% if request.endpoint == 'fuel.edit_fuel' %}
+                <li class="breadcrumb-item active" aria-current="page">記録の編集</li>
+            {% elif request.endpoint == 'fuel.add_fuel' %}
+                 <li class="breadcrumb-item active" aria-current="page">記録の追加</li>
+            {% endif %}
+        {% endif %}
+
+        {# --- 整備記録 --- #}
+        {% if request.endpoint.startswith('maintenance.') %}
+             <li class="breadcrumb-item"><a href="{{ url_for('maintenance.maintenance_log') }}">整備記録</a></li>
+            {% if request.endpoint == 'maintenance.edit_maintenance' %}
+                <li class="breadcrumb-item active" aria-current="page">記録の編集</li>
+            {% elif request.endpoint == 'maintenance.add_maintenance' %}
+                 <li class="breadcrumb-item active" aria-current="page">記録の追加</li>
+            {% endif %}
+        {% endif %}
+        
+        {# --- ノート --- #}
+        {% if request.endpoint.startswith('notes.') %}
+             <li class="breadcrumb-item"><a href="{{ url_for('notes.notes_log') }}">ノート</a></li>
+            {% if request.endpoint == 'notes.edit_note' %}
+                <li class="breadcrumb-item active" aria-current="page">ノートの編集</li>
+            {% elif request.endpoint == 'notes.add_note' %}
+                 <li class="breadcrumb-item active" aria-current="page">ノートの追加</li>
+            {% endif %}
+        {% endif %}
+
+        {# --- プロフィール設定 --- #}
+        {% if request.endpoint.startswith('profile.') %}
+            <li class="breadcrumb-item active" aria-current="page">プロフィール設定</li>
+        {% endif %}
+
+        {# --- 今後、他のページも同様に if/elif 形式で追加していく --- #}
+
+    </ol>
+</nav>
