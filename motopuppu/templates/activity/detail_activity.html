@@ -20,6 +20,10 @@
  .dropdown-menu {
    z-index: 1030; /* .sticky-top (1020) より大きい値に設定 */
  }
+ /* ▼▼▼ グラフ上でのページのスクロール/ズームを無効化 ▼▼▼ */
+ canvas[id^="lapChart-"] {
+   touch-action: none;
+ }
 </style>
 
 <div class="d-flex align-items-center mb-3">
@@ -296,7 +300,6 @@
 
                         {% if session.lap_chart_dict %}
                         <div class="mt-3">
-                            {# --- ▼▼▼ ズームボタン群を追加 ▼▼▼ --- #}
                             <div class="text-end mb-1">
                                 <div class="btn-group btn-group-sm" role="group" aria-label="Chart zoom controls">
                                     <button type="button" class="btn btn-outline-secondary zoom-in-btn" data-chart-id="lapChart-{{ session.id }}" title="拡大">
@@ -310,7 +313,6 @@
                                     </button>
                                 </div>
                             </div>
-                            {# --- ▲▲▲ 変更ここまで ▲▲▲ --- #}
                             <div style="position: relative; height: 250px; width: 100%;">
                                 <canvas id="lapChart-{{ session.id }}" data-chart-data='{{ session.lap_chart_dict | tojson }}'></canvas>
                             </div>
@@ -508,7 +510,6 @@ document.addEventListener('DOMContentLoaded', () => {
         chartInstances[canvas.id] = chart;
     });
 
-    {# --- ▼▼▼ ズームボタン用のイベントリスナーを追加 ▼▼▼ --- #}
     // 拡大ボタン
     document.querySelectorAll('.zoom-in-btn').forEach(button => {
         button.addEventListener('click', (event) => {
@@ -541,7 +542,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     });
-    {# --- ▲▲▲ 変更ここまで ▲▲▲ --- #}
 
     const compareForm = document.getElementById('compare-form');
     if (compareForm) {
