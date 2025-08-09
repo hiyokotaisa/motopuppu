@@ -20,25 +20,17 @@
     {% endif %}
 {% endwith %}
 
-{# ▼▼▼ ここから追記 ▼▼▼ #}
-{% if current_user.is_garage_public and current_user.public_id %}
-<div class="card bg-light border-primary mb-4">
+{# ▼▼▼ ここから変更 ▼▼▼ #}
+<div class="card bg-light border-secondary mb-4">
     <div class="card-body">
-        <h5 class="card-title text-primary"><i class="fas fa-globe-asia me-2"></i>あなたの公開ガレージ</h5>
-        <p class="card-text">あなたのガレージは現在公開中です。以下のURLを共有してみましょう！</p>
-        <div class="input-group">
-            <input type="text" class="form-control" value="{{ url_for('garage.garage_detail', public_id=current_user.public_id, _external=True) }}" readonly id="publicGarageUrl">
-            <button class="btn btn-outline-primary" type="button" onclick="navigator.clipboard.writeText(document.getElementById('publicGarageUrl').value); alert('URLをコピーしました！');">
-                <i class="fas fa-copy me-1"></i> コピー
-            </button>
-        </div>
-        <div class="form-text mt-1">
-            公開設定は<a href="{{ url_for('profile.settings') }}">プロフィール設定</a>から変更できます。
-        </div>
+        <h5 class="card-title"><i class="fas fa-id-card me-2"></i>公開ガレージ設定</h5>
+        <p class="card-text">
+            あなたの公開ガレージカード（プロフィールページ）のデザインや、掲載する車両の選択は専用の設定画面から行えます。
+        </p>
+        <a href="{{ url_for('garage_settings.settings') }}" class="btn btn-primary">ガレージ設定画面へ</a>
     </div>
 </div>
-{% endif %}
-{# ▲▲▲ 追記ここまで ▲▲▲ #}
+{# ▲▲▲ 変更ここまで ▲▲▲ #}
 
 
 <div class="mb-4">
@@ -117,17 +109,6 @@
                              <span class="badge rounded-pill bg-success me-1" title="活動ログ"><i class="fas fa-flag-checkered fa-fw me-1"></i>{{ motorcycle.activity_log_count }}</span>
                          </div>
                      </li>
-                    {# ▼▼▼ ここから追記 ▼▼▼ #}
-                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                        <span class="text-muted">ガレージに掲載</span>
-                        <div class="form-check form-switch">
-                            <input class="form-check-input garage-toggle-switch" type="checkbox" role="switch" 
-                                   id="garageToggle{{ motorcycle.id }}" 
-                                   data-vehicle-id="{{ motorcycle.id }}"
-                                   {% if motorcycle.show_in_garage %}checked{% endif %}>
-                        </div>
-                    </li>
-                    {# ▲▲▲ 追記ここまで ▲▲▲ #}
                 </ul>
             </div>
             <div class="card-footer bg-light p-2">
@@ -138,9 +119,7 @@
                         <a href="{{ url_for('fuel.add_fuel', motorcycle_id=motorcycle.id) }}" class="btn btn-sm btn-outline-primary" title="給油記録を追加"><i class="fas fa-gas-pump"></i></a>
                         {% endif %}
                         <a href="{{ url_for('maintenance.add_maintenance', motorcycle_id=motorcycle.id) }}" class="btn btn-sm btn-outline-warning" title="整備記録を追加"><i class="fas fa-tools"></i></a>
-                        {# ▼▼▼ 以下を追記 ▼▼▼ #}
                         <a href="{{ url_for('spec_sheet.list_sheets', vehicle_id=motorcycle.id) }}" class="btn btn-sm btn-outline-secondary" title="整備情報シート"><i class="fas fa-clipboard-list"></i></a>
-                        {# ▲▲▲ 追記ここまで ▲▲▲ #}
                         <a href="{{ url_for('notes.add_note', motorcycle_id=motorcycle.id) }}" class="btn btn-sm btn-outline-info" title="ノートを追加"><i class="fas fa-book"></i></a>
                         <a href="{{ url_for('activity.list_activities', vehicle_id=motorcycle.id) }}" class="btn btn-sm btn-outline-success" title="活動ログを閲覧・追加"><i class="fas fa-flag-checkered"></i></a>
                     </div>
@@ -180,46 +159,11 @@
 
 {% block scripts %}
 {{ super() }}
-{# ▼▼▼ ここから追記 ▼▼▼ #}
+{# ▼▼▼ ここから削除 ▼▼▼
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    const switches = document.querySelectorAll('.garage-toggle-switch');
-    const csrfToken = '{{ csrf_token() }}';
-
-    switches.forEach(sw => {
-        sw.addEventListener('change', function () {
-            const vehicleId = this.dataset.vehicleId;
-            const isChecked = this.checked;
-
-            fetch(`/vehicles/${vehicleId}/toggle_garage_display`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': csrfToken
-                },
-                body: JSON.stringify({ show_in_garage: isChecked }) // 念のため状態も送信
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    // 成功した場合、特に何もしない（UIは既に変わっているため）
-                    // 必要であればトースト通知などを表示
-                    console.log(data.message);
-                } else {
-                    // 失敗した場合、スイッチを元の状態に戻す
-                    this.checked = !isChecked;
-                    alert(data.message || 'エラーが発生しました。');
-                }
-            })
-            .catch(error => {
-                // 通信エラーなど
-                this.checked = !isChecked;
-                alert('設定の更新に失敗しました。');
-                console.error('Error:', error);
-            });
-        });
-    });
+    // ... garage-toggle-switch に関連するスクリプト全体を削除 ...
 });
 </script>
-{# ▲▲▲ 追記ここまで ▲▲▲ #}
+   ▲▲▲ 削除ここまで ▲▲▲ #}
 {% endblock %}

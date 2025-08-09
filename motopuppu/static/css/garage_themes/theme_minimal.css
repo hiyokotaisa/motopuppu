@@ -1,0 +1,77 @@
+/* motopuppu/static/css/garage_themes/theme_minimal.css */
+body.garage-theme-minimal {
+    background-color: #fff;
+    color: #222;
+    font-family: 'Inter', sans-serif;
+}
+.garage-theme-minimal .container {
+    max-width: 960px; /* 少し狭めて余白を強調 */
+}
+.garage-theme-minimal .garage-header {
+    background: none;
+    padding: 4rem 1rem;
+    color: #111;
+    text-align: left !important;
+}
+.garage-theme-minimal .garage-header img {
+    border: 1px solid #eee !important;
+}
+.garage-theme-minimal .display-4 {
+    font-weight: 800;
+    font-size: 3.5rem;
+}
+.garage-theme-minimal .lead {
+    color: #888;
+}
+.garage-theme-minimal .card {
+    border: none;
+    background: none;
+    padding: 0;
+}
+.garage-theme-minimal .card-body {
+    padding: 0;
+}
+.garage-theme-minimal .card.h-100 {
+    background-color: #f9f9f9;
+    padding: 1.5rem;
+    border-radius: 8px;
+}
+.garage-theme-minimal .hero-img {
+    border-radius: 8px;
+}
+.garage-theme-minimal h2, .garage-theme-minimal h3, .garage-theme-minimal h4 {
+    font-weight: 700;
+    letter-spacing: -1px;
+    color: #222;
+}
+.garage-theme-minimal .border-bottom {
+    border-color: #eee !important;
+}
+.garage-theme-minimal .card-subtitle {
+    color: #777 !important;
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+.garage-theme-minimal .card-text.fs-4 {
+    color: #111;
+    font-weight: 500;
+}
+.garage-theme-minimal .list-group-item {
+    background: none;
+    border-color: #eee;
+    padding-left: 0;
+    padding-right: 0;
+}
+.garage-theme-minimal hr {
+    background-color: #eee;
+    height: 1px;
+    border: none;
+}
+.garage-theme-minimal pre {
+    background-color: #f9f9f9;
+    border: none;
+    border-radius: 8px;
+    color: #444;
+    font-size: 0.9rem;
+    line-height: 1.6;
+}

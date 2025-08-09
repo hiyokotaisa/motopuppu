@@ -634,11 +634,20 @@ def get_user_garage_data(user) -> dict:
         Motorcycle.show_in_garage == True
     ).order_by(Motorcycle.is_default.desc(), Motorcycle.id.asc()).all()
 
-    # デフォルト車両をヒーローに、それ以外をリストに分ける
-    hero_vehicle = next((v for v in vehicles_in_garage if v.is_default), None)
-    # もしデフォルト車両が掲載対象でない場合、リストの最初の車両をヒーローにする
+    # ▼▼▼【ここから変更】ヒーロー車両の決定ロジック ▼▼▼
+    hero_vehicle = None
+    # 1. ユーザーがヒーロー車両を明示的に指定している場合
+    if user.garage_hero_vehicle_id:
+        hero_vehicle = next((v for v in vehicles_in_garage if v.id == user.garage_hero_vehicle_id), None)
+    
+    # 2. 明示的な指定がない場合、従来のデフォルト車両をヒーローにする
+    if not hero_vehicle:
+        hero_vehicle = next((v for v in vehicles_in_garage if v.is_default), None)
+
+    # 3. それでも決まらない場合、リストの最初の車両をヒーローにする
     if not hero_vehicle and vehicles_in_garage:
         hero_vehicle = vehicles_in_garage[0]
+    # ▲▲▲【変更はここまで】▲▲▲
     
     other_vehicles = [v for v in vehicles_in_garage if v != hero_vehicle]
     
@@ -656,6 +665,24 @@ def get_user_garage_data(user) -> dict:
             hero_stats['primary_metric_value'] = f"{total_mileage:,}"
             hero_stats['primary_metric_unit'] = 'km'
             hero_stats['avg_kpl'] = f"{avg_kpl:.2f} km/L" if avg_kpl else "---"
+
+        # ▼▼▼【ここから追記】追加の統計情報を計算 ▼▼▼
+        # 総メンテナンス費用
+        total_maint_cost = db.session.query(
+            func.sum(func.coalesce(MaintenanceEntry.parts_cost, 0) + func.coalesce(MaintenanceEntry.labor_cost, 0))
+        ).filter(
+            MaintenanceEntry.motorcycle_id == hero_vehicle.id
+        ).scalar() or 0
+        hero_stats['total_maint_cost'] = f"{total_maint_cost:,.0f} 円"
+
+        # 活動ログ回数
+        total_activities = db.session.query(
+            func.count(ActivityLog.id)
+        ).filter(
+            ActivityLog.motorcycle_id == hero_vehicle.id
+        ).scalar() or 0
+        hero_stats['total_activities'] = f"{total_activities} 回"
+        # ▲▲▲【追記はここまで】▲▲▲
 
     # ユーザーの実績
     unlocked_achievements = db.session.query(

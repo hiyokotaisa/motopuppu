@@ -27,6 +27,8 @@ class User(UserMixin, db.Model):
     dashboard_layout = db.Column(db.JSON, nullable=True, comment="ダッシュボードのウィジェットの並び順")
     public_id = db.Column(db.String(36), unique=True, nullable=True, index=True, comment="公開ガレージ用の一意なID")
     is_garage_public = db.Column(db.Boolean, nullable=False, default=False, server_default='false', comment="ガレージカードを公開するか")
+    garage_theme = db.Column(db.String(50), nullable=False, default='default', server_default='default', comment="ガレージカードのデザインテーマ")
+    garage_hero_vehicle_id = db.Column(db.Integer, db.ForeignKey('motorcycles.id', ondelete='SET NULL'), nullable=True, comment="ガレージの主役車両ID")
     # ▲▲▲ 変更・追記 ここまで ▲▲▲
 
     # ▼▼▼【ここから追記】▼▼▼
@@ -35,7 +37,9 @@ class User(UserMixin, db.Model):
 
     encrypted_misskey_api_token = db.Column(db.Text, nullable=True, comment="暗号化されたMisskey APIトークン")
 
-    motorcycles = db.relationship('Motorcycle', backref='owner', lazy=True, cascade="all, delete-orphan")
+    # ▼▼▼【ここから修正】foreign_keysを指定して曖昧さを解消 ▼▼▼
+    motorcycles = db.relationship('Motorcycle', foreign_keys='Motorcycle.user_id', backref='owner', lazy=True, cascade="all, delete-orphan")
+    # ▲▲▲【修正はここまで】▲▲▲
     general_notes = db.relationship('GeneralNote', backref='owner', lazy=True, cascade="all, delete-orphan")
     achievements = db.relationship('UserAchievement', backref='user', lazy='dynamic', cascade="all, delete-orphan")
     setting_sheets = db.relationship('SettingSheet', backref='user', lazy='dynamic', cascade="all, delete-orphan")

@@ -78,23 +78,22 @@
 6.  **現在のプロジェクトディレクトリ:**
 
     ```
-kyagisaw@hiyoko-fedora:~/Dev/motopuppu$ tree
+kyagisaw@kyagisaw-mac motopuppu % tree
 .
-├── Dockerfile
-├── LICENSE
-├── README.md
 ├── announcements.json
 ├── compose.yml
+├── Dockerfile
 ├── drafts
 │   ├── gemini_prompt.txt
 │   └── racer_draft.md
 ├── fonts
 │   └── ipaexg.ttf
 ├── instance
+├── LICENSE
 ├── migrations
-│   ├── README
 │   ├── alembic.ini
 │   ├── env.py
+│   ├── README
 │   ├── script.py.mako
 │   └── versions
 │       ├── 03b74d3f953e_add_criteria_column_to_.py
@@ -115,8 +114,10 @@ kyagisaw@hiyoko-fedora:~/Dev/motopuppu$ tree
 │       ├── 7b1844b671ec_add_dashboard_layout_to_user_model.py
 │       ├── 890e7eb7d568_re_design_garage_card_to_be_user_centric.py
 │       ├── 896791ff77ea_add_odo_reset_log_table_and_data_.py
+│       ├── 8fa81400776d_add_show_cost_in_dashboard_to_user_model.py
 │       ├── 9516bc768302_add_event_and_event_participant_models.py
 │       ├── aa6d3aff4f5c_add_encrypted_misskey_api_token_to_user_.py
+│       ├── be856a8078da_add_garage_theme_and_hero_vehicle_id_to_.py
 │       ├── c9271122696a_add_passcode_hash_to_event_participants.py
 │       ├── cb61b6485ca8_add_missing_general_notes_and_odo_reset_.py
 │       ├── cbc2495d2f76_initial_migration.py
@@ -142,6 +143,12 @@ kyagisaw@hiyoko-fedora:~/Dev/motopuppu$ tree
 │   ├── services.py
 │   ├── static
 │   │   ├── css
+│   │   │   ├── garage_themes
+│   │   │   │   ├── theme_dark.css
+│   │   │   │   ├── theme_default.css
+│   │   │   │   ├── theme_minimal.css
+│   │   │   │   ├── theme_racing.css
+│   │   │   │   └── theme_retro.css
 │   │   │   └── style.css
 │   │   ├── favicons
 │   │   │   ├── apple-touch-icon.png
@@ -192,7 +199,8 @@ kyagisaw@hiyoko-fedora:~/Dev/motopuppu$ tree
 │   │   ├── fuel_form.html
 │   │   ├── fuel_log.html
 │   │   ├── garage
-│   │   │   └── public_garage.html
+│   │   │   ├── public_garage.html
+│   │   │   └── settings.html
 │   │   ├── help
 │   │   │   ├── _sidebar.html
 │   │   │   ├── faq.html
@@ -250,6 +258,7 @@ kyagisaw@hiyoko-fedora:~/Dev/motopuppu$ tree
 │       ├── dev_auth.py
 │       ├── event.py
 │       ├── fuel.py
+│       ├── garage_settings.py
 │       ├── garage.py
 │       ├── help.py
 │       ├── leaderboard.py
@@ -262,12 +271,11 @@ kyagisaw@hiyoko-fedora:~/Dev/motopuppu$ tree
 │       ├── spec_sheet.py
 │       ├── touring.py
 │       └── vehicle.py
-└── requirements.txt
+├── README.md
+├── requirements.txt
+└── tests
 
-31 directories, 153 files
-
-
-
+33 directories, 162 files
     ```
 
 7.  **今回のセッションでの目標 [毎回更新]:**

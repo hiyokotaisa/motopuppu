@@ -1,0 +1,26 @@
+/* motopuppu/static/css/garage_themes/theme_default.css */
+body.garage-theme-default {
+    background-color: #f8f9fa;
+}
+.garage-theme-default .garage-header {
+    background: linear-gradient(45deg, #343a40, #495057);
+    color: white;
+    padding: 3rem 1rem;
+    border-radius: .3rem;
+}
+.garage-theme-default .hero-img {
+    max-width: 100%;
+    border-radius: .5rem;
+    box-shadow: 0 0.5rem 1rem rgba(0,0,0,.15);
+}
+.garage-theme-default .footer-brand {
+    font-size: 0.9rem;
+    color: #6c757d;
+}
+.garage-theme-default .card {
+    background-color: #ffffff;
+}
+.garage-theme-default pre {
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+}

@@ -25,12 +25,6 @@ def settings():
     if profile_form.submit_profile.data and profile_form.validate_on_submit():
         # ▼▼▼ user を current_user に変更 ▼▼▼
         current_user.display_name = profile_form.display_name.data
-        # ▼▼▼ ここから追記 ▼▼▼
-        current_user.is_garage_public = profile_form.is_garage_public.data
-        # もし公開設定がONにされ、かつ公開IDがまだ無ければ、新しく生成する
-        if current_user.is_garage_public and not current_user.public_id:
-            current_user.public_id = str(uuid.uuid4())
-        # ▲▲▲ 追記ここまで ▲▲▲
         try:
             db.session.commit()
             flash('プロフィール情報を更新しました。', 'success')
@@ -74,7 +68,6 @@ def settings():
     if request.method == 'GET':
         # ▼▼▼ user を current_user に変更 ▼▼▼
         profile_form.display_name.data = current_user.display_name or current_user.misskey_username
-        profile_form.is_garage_public.data = current_user.is_garage_public
         # ▲▲▲ 変更ここまで ▲▲▲
 
     return render_template('profile/settings.html',

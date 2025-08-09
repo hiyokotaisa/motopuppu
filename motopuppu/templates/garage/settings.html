@@ -1,0 +1,256 @@
+{# motopuppu/templates/garage/settings.html #}
+{% extends "base.html" %}
+
+{% block title %}ガレージ設定 - もとぷっぷー{% endblock %}
+
+{% block content %}
+{% include '_breadcrumbs.html' %}
+<div class="container my-4">
+    <h2><i class="fas fa-id-card me-2"></i>ガレージ設定</h2>
+    <p>あなたの公開ガレージカードのデザインや掲載内容を設定します。</p>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+    
+    {% if current_user.is_garage_public and current_user.public_id %}
+    <div class="card bg-light border-primary mb-4">
+        <div class="card-body">
+            <h5 class="card-title text-primary"><i class="fas fa-globe-asia me-2"></i>公開ガレージURL</h5>
+            <div class="input-group">
+                <input type="text" class="form-control" value="{{ url_for('garage.garage_detail', public_id=current_user.public_id, _external=True) }}" readonly id="publicGarageUrl">
+            </div>
+            {# ▼▼▼【ここから変更】ボタン類をグループ化し、プレビューボタンを追加 ▼▼▼ #}
+            <div class="mt-2">
+                <button class="btn btn-outline-primary" type="button" onclick="navigator.clipboard.writeText(document.getElementById('publicGarageUrl').value); this.innerHTML = '<i class=\'fas fa-check\'></i> コピー完了'; setTimeout(() => {this.innerHTML = '<i class=\'fas fa-copy\'></i> コピー'}, 2000)">
+                    <i class="fas fa-copy me-1"></i>コピー
+                </button>
+                <a href="{{ url_for('garage.garage_detail', public_id=current_user.public_id, _external=True) }}" target="_blank" class="btn btn-outline-secondary">
+                    <i class="fas fa-eye me-1"></i>プレビュー
+                </a>
+                <button class="btn btn-outline-secondary" type="button" data-bs-toggle="modal" data-bs-target="#qrCodeModal">
+                    <i class="fas fa-qrcode me-1"></i>QRコード表示
+                </button>
+            </div>
+            {# ▲▲▲【変更はここまで】▲▲▲ #}
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="card mb-4">
+        <h5 class="card-header">全体設定</h5>
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('garage_settings.settings') }}" novalidate>
+                {{ form.hidden_tag() }}
+                <div class="mb-4 form-check form-switch fs-5">
+                    {{ form.is_garage_public(class="form-check-input" + (" is-invalid" if form.is_garage_public.errors else "")) }}
+                    {{ form.is_garage_public.label(class="form-check-label") }}
+                    <div class="form-text mt-1">{{ form.is_garage_public.description }}</div>
+                </div>
+                <div class="mb-4">
+                    {{ form.garage_hero_vehicle_id.label(class="form-label") }}
+                    {{ form.garage_hero_vehicle_id(class="form-select" + (" is-invalid" if form.garage_hero_vehicle_id.errors else "")) }}
+                    <div class="form-text mt-1">{{ form.garage_hero_vehicle_id.description }}</div>
+                </div>
+                <div class="mb-3">
+                    {{ form.garage_theme.label(class="form-label") }}
+                    {{ form.garage_theme(class="form-select" + (" is-invalid" if form.garage_theme.errors else "")) }}
+                    <div class="form-text mt-1">{{ form.garage_theme.description }}</div>
+                </div>
+                {{ form.submit(class="btn btn-primary") }}
+            </form>
+        </div>
+    </div>
+
+    <div class="card">
+        <h5 class="card-header">車両ごとの掲載設定</h5>
+        <div class="list-group list-group-flush">
+            {% for vehicle in vehicles_for_toggle %}
+            <div class="list-group-item d-flex justify-content-between align-items-center">
+                <div>
+                    <i class="fas fa-motorcycle me-2"></i>
+                    {{ vehicle.name }} 
+                    <small class="text-muted">({{ vehicle.maker or 'メーカー未設定' }})</small>
+                </div>
+                <div class="btn-group" role="group">
+                    <button type="button" class="btn btn-sm btn-outline-secondary edit-details-btn" 
+                            data-bs-toggle="modal" data-bs-target="#detailsModal"
+                            data-vehicle-id="{{ vehicle.id }}"
+                            data-vehicle-name="{{ vehicle.name }}"
+                            data-image-url="{{ vehicle.image_url or '' }}"
+                            data-custom-details="{{ vehicle.custom_details or '' }}">
+                        <i class="fas fa-edit me-1"></i>詳細編集
+                    </button>
+                    <div class="form-check form-switch ms-3 d-flex align-items-center">
+                        <input class="form-check-input garage-toggle-switch" type="checkbox" role="switch" 
+                               id="garageToggle{{ vehicle.id }}" 
+                               data-vehicle-id="{{ vehicle.id }}"
+                               {% if vehicle.show_in_garage %}checked{% endif %}
+                               title="ガレージへの掲載を切り替える">
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="list-group-item">車両が登録されていません。</div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="qrCodeModal" tabindex="-1" aria-labelledby="qrCodeModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="qrCodeModalLabel">公開ガレージ QRコード</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body text-center">
+        <div id="qrcode-container" class="d-inline-block p-3 bg-white border rounded"></div>
+        <p class="mt-2 text-muted">このQRコードをスマートフォンで読み取ると、あなたのガレージにアクセスできます。</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="detailsModal" tabindex="-1" aria-labelledby="detailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form id="detailsModalForm" method="POST">
+                {{ details_form.hidden_tag() }}
+                <div class="modal-header">
+                    <h5 class="modal-title" id="detailsModalLabel">車両詳細の編集</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        {{ details_form.image_url.label(class="form-label") }}
+                        {{ details_form.image_url(class="form-control", id="modal_image_url") }}
+                    </div>
+                    <div class="mb-3">
+                        {{ details_form.custom_details.label(class="form-label") }}
+                        {{ details_form.custom_details(class="form-control", id="modal_custom_details") }}
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                    {{ details_form.submit_details(class="btn btn-primary") }}
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // QRコード生成
+    const qrCodeModal = document.getElementById('qrCodeModal');
+    if (qrCodeModal) {
+        const qrContainer = document.getElementById('qrcode-container');
+        const garageUrlInput = document.getElementById('publicGarageUrl');
+        let qrCodeInstance = null; // QRコードのインスタンスを保持
+
+        // モーダルが表示される瞬間にQRコードを生成する
+        qrCodeModal.addEventListener('show.bs.modal', function () {
+            const urlToEncode = garageUrlInput.value;
+            
+            // 2回目以降の表示のために、中身を一度空にする
+            qrContainer.innerHTML = '';
+
+            if (urlToEncode) {
+                qrCodeInstance = new QRCode(qrContainer, {
+                    text: urlToEncode,
+                    width: 256,
+                    height: 256,
+                    colorDark : "#000000",
+                    colorLight : "#ffffff",
+                    correctLevel : QRCode.CorrectLevel.H
+                });
+            }
+        });
+    }
+
+    // 車両詳細編集モーダルの処理
+    const detailsModal = document.getElementById('detailsModal');
+    if (detailsModal) {
+        detailsModal.addEventListener('show.bs.modal', function (event) {
+            // モーダルを開いたボタンを取得
+            const button = event.relatedTarget;
+            
+            // ボタンのdata-*属性から情報を取得
+            const vehicleId = button.getAttribute('data-vehicle-id');
+            const vehicleName = button.getAttribute('data-vehicle-name');
+            const imageUrl = button.getAttribute('data-image-url');
+            const customDetails = button.getAttribute('data-custom-details');
+            
+            // モーダル内の要素を取得
+            const modalTitle = detailsModal.querySelector('.modal-title');
+            const modalForm = detailsModal.querySelector('#detailsModalForm');
+            const imageUrlInput = detailsModal.querySelector('#modal_image_url');
+            const customDetailsInput = detailsModal.querySelector('#modal_custom_details');
+            
+            // モーダルの内容を更新
+            modalTitle.textContent = `「${vehicleName}」の詳細編集`;
+            modalForm.action = `/garage/settings/${vehicleId}/update-details`; // フォームの送信先URLを設定
+            imageUrlInput.value = imageUrl;
+            customDetailsInput.value = customDetails;
+        });
+    }
+
+
+    // 車両ごとの掲載設定トグルスイッチ
+    const switches = document.querySelectorAll('.garage-toggle-switch');
+    const csrfToken = '{{ csrf_token() }}';
+
+    switches.forEach(sw => {
+        sw.addEventListener('change', function () {
+            const vehicleId = this.dataset.vehicleId;
+            const isChecked = this.checked;
+
+            fetch(`/vehicles/${vehicleId}/toggle_garage_display`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({ show_in_garage: isChecked })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    // サーバーエラーの場合、UIを元に戻す
+                    this.checked = !isChecked;
+                    alert('エラーが発生しました。ページをリロードして再度お試しください。');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.status !== 'success') {
+                    // アプリケーションレベルのエラーの場合、UIを元に戻す
+                    this.checked = !isChecked;
+                    alert(data.message || '設定の更新に失敗しました。');
+                }
+                // 成功時は何もしない（UIは既に更新されている）
+            })
+            .catch(error => {
+                // 通信エラーの場合、UIを元に戻す
+                this.checked = !isChecked;
+                alert('通信エラーが発生しました。設定を更新できませんでした。');
+                console.error('Error:', error);
+            });
+        });
+    });
+});
+</script>
+{% endblock %}

@@ -222,28 +222,9 @@ class VehicleForm(FlaskForm):
         default=0.00
     )
     
-    # ▼▼▼ ここから変更 ▼▼▼
-    show_in_garage = BooleanField(
-        'この車両を公開ガレージに掲載する',
-        description='プロフィール設定でガレージ全体が公開に設定されている場合、この車両があなたのガレージカードに表示されます。'
-    )
-    image_url = StringField(
-        '車両画像URL (任意)',
-        validators=[
-            Optional(),
-            URL(message="有効なURL形式で入力してください。"),
-            Length(max=2048, message="URLは2048文字以内で入力してください。")
-        ],
-        render_kw={"placeholder": "https://... Misskeyにアップロードした画像のURLなど"},
-        description='ガレージカードに表示するメインの画像URL。'
-    )
-    custom_details = TextAreaField(
-        'カスタム・メモ (任意)',
-        validators=[Optional(), Length(max=2000)],
-        render_kw={"rows": 4, "placeholder": "マフラー:ヨシムラ\nハンドル:ハリケーン\n..."},
-        description='ガレージカードに表示するカスタム内容やアピールポイント。'
-    )
-    # ▲▲▲ 変更ここまで ▲▲▲
+    # ▼▼▼【ここから削除】不要になったガレージ関連フィールドを削除 ▼▼▼
+    # show_in_garage, image_url, custom_details を削除
+    # ▲▲▲【削除はここまで】▲▲▲
 
     submit = SubmitField('登録する')
 
@@ -419,12 +400,6 @@ class ProfileForm(FlaskForm):
                                 validators=[DataRequired(message="表示名を入力してください。"),
                                             Length(min=1, max=20, message="表示名は20文字以内で入力してください。")],
                                 render_kw={"placeholder": "例: もとぷー太郎"})
-    # ▼▼▼ ここから追記 ▼▼▼
-    is_garage_public = BooleanField(
-        'ガレージを公開する',
-        description='チェックすると、あなたのガレージページが作成され、誰でも閲覧できるようになります。'
-    )
-    # ▲▲▲ 追記ここまで ▲▲▲
     submit_profile = SubmitField('更新する')
 
 
@@ -666,6 +641,51 @@ class ParticipantForm(FlaskForm):
     submit = SubmitField('出欠を登録・更新する')
 
 # ▼▼▼ 以下をファイルの末尾に追記 ▼▼▼
+
+class GarageSettingsForm(FlaskForm):
+    """ガレージ統合設定画面用のフォーム"""
+    is_garage_public = BooleanField(
+        'ガレージを公開する',
+        description='チェックすると、あなたのガレージページが作成され、誰でも閲覧できるようになります。'
+    )
+    garage_hero_vehicle_id = SelectField(
+        '主役の車両 (Hero Vehicle)',
+        coerce=int,
+        validators=[Optional()],
+        description='ガレージカードで一番大きく表示される車両を選択します。「デフォルト車両に準ずる」を選ぶと、車両管理画面のデフォルト設定が使われます。'
+    )
+    garage_theme = SelectField(
+        'デザインテーマ',
+        choices=[
+            ('default', 'デフォルト'),
+            ('dark', 'ダークモード'),
+            ('racing', 'レーシング'),
+            ('retro', 'レトロ'),
+            ('minimal', 'ミニマル')
+        ],
+        validators=[DataRequired()],
+        description='ガレージカードの見た目を変更します。'
+    )
+    submit = SubmitField('設定を保存する')
+
+class GarageVehicleDetailsForm(FlaskForm):
+    """ガレージ設定ページで個別の車両詳細を編集するためのフォーム"""
+    image_url = StringField(
+        '車両画像URL',
+        validators=[
+            Optional(),
+            URL(message="有効なURL形式で入力してください。"),
+            Length(max=2048, message="URLは2048文字以内で入力してください。")
+        ],
+        render_kw={"placeholder": "https://... Misskeyの画像URLなど"}
+    )
+    custom_details = TextAreaField(
+        'カスタム・メモ',
+        validators=[Optional(), Length(max=2000)],
+        render_kw={"rows": 5, "placeholder": "マフラー:ヨシムラ\nハンドル:ハリケーン\n..."}
+    )
+    submit_details = SubmitField('保存する')
+
 class FuelCsvUploadForm(FlaskForm):
     """給油記録CSVインポート用のフォーム"""
     csv_file = FileField(

@@ -1,0 +1,53 @@
+/* motopuppu/static/css/garage_themes/theme_retro.css */
+body.garage-theme-retro {
+    background-color: #fdfaf4;
+    color: #3d3d3d;
+    font-family: 'Merriweather', serif;
+}
+.garage-theme-retro .garage-header {
+    background: #4a6da7; /* Classic Blue */
+    color: #fdfaf4;
+    padding: 3rem 1rem;
+    border-radius: .3rem;
+    border: 4px solid #fdfaf4;
+    box-shadow: 0 0 0 1px #d3c0ac;
+}
+.garage-theme-retro .display-4 {
+    font-family: 'Lobster', cursive;
+}
+.garage-theme-retro .card {
+    background-color: #fff;
+    border: 1px solid #e0d8cd;
+    box-shadow: 3px 3px 8px rgba(0,0,0,0.05);
+}
+.garage-theme-retro .hero-img {
+    padding: 15px;
+    background: #fff;
+    border: 1px solid #e0d8cd;
+    box-shadow: 3px 3px 8px rgba(0,0,0,0.1);
+    transform: rotate(-2deg);
+}
+.garage-theme-retro h2, .garage-theme-retro h3, .garage-theme-retro h4 {
+    font-family: 'Oswald', sans-serif;
+    color: #2c3e50;
+}
+.garage-theme-retro .border-bottom {
+    border-bottom: 2px solid #d3c0ac !important;
+}
+.garage-theme-retro .card-subtitle {
+    font-family: 'Oswald', sans-serif;
+    color: #d35400 !important; /* Classic Orange */
+}
+.garage-theme-retro .card-text.fs-4 {
+    color: #2c3e50;
+    font-weight: 700;
+}
+.garage-theme-retro .list-group-item {
+    background-color: #fff;
+    border-color: #e0d8cd;
+}
+.garage-theme-retro pre {
+    background-color: #fdfaf4;
+    border: 1px dashed #d3c0ac;
+    color: #3d3d3d;
+}
