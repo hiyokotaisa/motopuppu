@@ -1,0 +1,218 @@
+{# motopuppu/templates/circuit_dashboard/index.html #}
+{% extends "base.html" %}
+
+{% block title %}サーキットダッシュボード - もとぷっぷー{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0"><i class="fas fa-flag-checkered me-2"></i>サーキットダッシュボード</h2>
+</div>
+
+{# --- 1. 総合サマリー --- #}
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card text-center h-100">
+            <div class="card-body">
+                <h5 class="card-title">走行サーキット数</h5>
+                <p class="card-text display-4">{{ summary_stats.total_circuits }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center h-100">
+            <div class="card-body">
+                <h5 class="card-title">総セッション数</h5>
+                <p class="card-text display-4">{{ summary_stats.total_sessions }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center h-100">
+            <div class="card-body">
+                <h5 class="card-title">総ラップ数</h5>
+                <p class="card-text display-4">{{ "{:,}".format(summary_stats.total_laps) }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# --- 2. サーキット別カード --- #}
+{% if circuit_data %}
+    {% for circuit in circuit_data %}
+    <div class="card mb-4">
+        <div class="card-header">
+            <h4 class="mb-0">{{ circuit.name }}</h4>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                {# 左カラム: ベストラップとリーダーボード情報 #}
+                <div class="col-lg-4 border-end">
+                    <h5><i class="fas fa-trophy text-warning me-2"></i>Personal Best</h5>
+                    <div class="text-center">
+                        <h1 class="display-5 text-danger">{{ format_seconds_to_time(circuit.best_session.best_lap_seconds) }}</h1>
+                        <p class="text-muted">
+                            {{ circuit.best_session.activity.activity_date.strftime('%Y-%m-%d') }} on {{ circuit.best_session.activity.motorcycle.name }}
+                            <br>
+                            <a href="{{ url_for('activity.detail_activity', activity_id=circuit.best_session.activity_log_id) }}">
+                                View Session: {{ circuit.best_session.session_name }}
+                            </a>
+                        </p>
+                    </div>
+                    <hr>
+                    <h5><i class="fas fa-medal me-2"></i>Leaderboard</h5>
+                    {% if circuit.leaderboard.rank %}
+                        <p>現在の順位: <strong>{{ circuit.leaderboard.rank }}位</strong></p>
+                        {% if circuit.leaderboard.gap_to_next %}
+                            <p class="mb-0">次の順位まであと <strong class="text-info">{{ "%.3f"|format(circuit.leaderboard.gap_to_next) }}秒</strong></p>
+                        {% else %}
+                            <p class="text-success mb-0"><i class="fas fa-crown"></i> サーキットトップです！</p>
+                        {% endif %}
+                    {% else %}
+                        <p class="text-muted">リーダーボードにランクインしていません。</p>
+                    {% endif %}
+                     <a href="{{ url_for('leaderboard.ranking', circuit_name=circuit.name) }}" class="btn btn-sm btn-outline-secondary mt-2 w-100">リーダーボード全体を見る</a>
+                </div>
+
+                {# 右カラム: グラフと車両別内訳 #}
+                <div class="col-lg-8">
+                    <div class="row">
+                        {# 上段: グラフとベストセッティング #}
+                        <div class="col-md-8">
+                            <h5><i class="fas fa-chart-line me-2"></i>Lap Time Progression</h5>
+                             <div style="height: 250px;">
+                                <canvas id="lapChart-{{ circuit.name|replace(' ', '-')|replace('.', '-')|replace('/', '-') }}"></canvas>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <h5><i class="fas fa-cogs me-2"></i>Best Setting</h5>
+                            {% if circuit.best_session.setting_sheet %}
+                                <p>
+                                    <a href="{{ url_for('activity.edit_setting', setting_id=circuit.best_session.setting_sheet.id) }}">
+                                        {{ circuit.best_session.setting_sheet.sheet_name }}
+                                    </a>
+                                </p>
+                                <details class="small bg-light p-2 rounded">
+                                    <summary style="cursor: pointer;">詳細を表示</summary>
+                                    <ul class="list-unstyled mt-2 mb-0">
+                                        {% for category, items in circuit.best_session.setting_sheet.details.items()|slice(3) %}
+                                            {% for key, value in items.items()|slice(3) %}
+                                                <li><strong>{{ key }}:</strong> {{ value }}</li>
+                                            {% endfor %}
+                                        {% endfor %}
+                                    </ul>
+                                </details>
+                            {% else %}
+                                <p class="text-muted">セッティングシートがありません。</p>
+                            {% endif %}
+                            <hr>
+                            <h5><i class="fas fa-bolt me-2"></i>Actions</h5>
+                            <div class="d-grid gap-2">
+                                {% if circuit.latest_session_id and circuit.latest_session_id != circuit.best_session.id %}
+                                <a href="{{ url_for('activity.compare_sessions', vehicle_id=circuit.best_session.activity.motorcycle.id, session_ids=[circuit.best_session.id, circuit.latest_session_id]) }}" class="btn btn-info btn-sm">
+                                    <i class="fas fa-balance-scale-right me-1"></i> Best vs Latest
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr class="my-4">
+
+                    {# 下段: 車両別ブレークダウン #}
+                    <h5><i class="fas fa-motorcycle me-2"></i>Vehicle Breakdown</h5>
+                    {% if circuit.vehicle_breakdown %}
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover small">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Vehicle</th>
+                                    <th class="text-end">Best Lap (Vehicle)</th>
+                                    <th class="text-end">Gap to PB</th>
+                                    <th class="text-center">Sessions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for vehicle in circuit.vehicle_breakdown %}
+                                <tr>
+                                    <td>
+                                        {% if vehicle.is_pb_holder %}
+                                            <i class="fas fa-crown text-warning" title="Personal Best Holder"></i>
+                                        {% endif %}
+                                        <a href="{{ url_for('activity.list_activities', vehicle_id=vehicle.id) }}">{{ vehicle.name }}</a>
+                                    </td>
+                                    <td class="text-end fw-bold">{{ format_seconds_to_time(vehicle.best_lap) }}</td>
+                                    <td class="text-end {% if vehicle.gap_to_pb > 0 %}text-danger{% endif %}">
+                                        {% if vehicle.gap_to_pb > 0 %}+{{ "%.3f"|format(vehicle.gap_to_pb) }}{% endif %}
+                                    </td>
+                                    <td class="text-center">{{ vehicle.session_count }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted">車両別の走行データがありません。</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+{% else %}
+<div class="alert alert-info">
+    <h4 class="alert-heading">走行データがありません</h4>
+    <p>サーキットでの走行ログを記録すると、ここに分析データが表示されます。</p>
+    <hr>
+    <p class="mb-0">まずは<a href="{{ url_for('vehicle.vehicle_list') }}" class="alert-link">車両を選んで</a>走行ログを追加してみましょう。</p>
+</div>
+{% endif %}
+
+{% endblock %}
+
+
+{% block scripts %}
+{{ super() }}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    {% for circuit in circuit_data %}
+        const ctx_{{ loop.index }} = document.getElementById('lapChart-{{ circuit.name|replace(' ', '-')|replace('.', '-')|replace('/', '-') }}');
+        if (ctx_{{ loop.index }}) {
+            const chartData = {{ circuit.chart_data|tojson }};
+            new Chart(ctx_{{ loop.index }}, {
+                type: 'line',
+                data: {
+                    labels: chartData.labels,
+                    datasets: [{
+                        label: 'Best Lap',
+                        data: chartData.data,
+                        borderColor: 'rgb(220, 53, 69)',
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: 'day',
+                                tooltipFormat: 'yyyy-MM-dd'
+                            },
+                            title: { display: true, text: 'Date' }
+                        },
+                        y: {
+                            title: { display: true, text: 'Lap Time (s)' }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+    {% endfor %}
+});
+</script>
+{% endblock %}

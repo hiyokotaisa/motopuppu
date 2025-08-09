@@ -141,6 +141,10 @@ def create_app(config_name=None):
         from .views.activity import activity_bp
         from .views import help as help_view
         from .views import garage, search # ▼▼▼ `search` をインポートに追加 ▼▼▼
+        
+        # ▼▼▼【ここから追記】`circuit_dashboard` をインポート ▼▼▼
+        from .views import circuit_dashboard
+        # ▲▲▲【追記はここまで】▲▲▲
 
         app.register_blueprint(auth.auth_bp)
         app.register_blueprint(main.main_bp)
@@ -159,6 +163,10 @@ def create_app(config_name=None):
         app.register_blueprint(help_view.help_bp)
         app.register_blueprint(garage.garage_bp)
         app.register_blueprint(search.search_bp) # ▼▼▼ search_bp を登録 ▼▼▼
+
+        # ▼▼▼【ここから追記】`circuit_dashboard_bp` を登録 ▼▼▼
+        app.register_blueprint(circuit_dashboard.circuit_dashboard_bp)
+        # ▲▲▲【追記はここまで】▲▲▲
 
         if app.config['ENV'] == 'development' or app.debug: 
             app.register_blueprint(dev_auth.dev_auth_bp)

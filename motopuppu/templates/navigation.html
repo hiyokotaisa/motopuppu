@@ -44,10 +44,19 @@
 
                 {# --- 活動記録 Dropdown --- #}
                 <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle {% if request.endpoint.startswith(('activity.', 'touring.', 'leaderboard.', 'event.')) %}active{% endif %}" href="#" id="activityLogDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    {# ▼▼▼【ここを修正】'circuit_dashboard.' を active 判定に追加 ▼▼▼ #}
+                    <a class="nav-link dropdown-toggle {% if request.endpoint.startswith(('activity.', 'touring.', 'leaderboard.', 'event.', 'circuit_dashboard.')) %}active{% endif %}" href="#" id="activityLogDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="fas fa-route me-1"></i> アクティビティ
                     </a>
                     <ul class="dropdown-menu" aria-labelledby="activityLogDropdown">
+                        {# ▼▼▼【ここから追記】▼▼▼ #}
+                        <li>
+                            <a class="dropdown-item {% if request.endpoint.startswith('circuit_dashboard.') %}active{% endif %}" href="{{ url_for('circuit_dashboard.index') }}">
+                                <i class="fas fa-columns fa-fw me-2"></i>サーキットダッシュボード
+                            </a>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        {# ▲▲▲【追記はここまで】▲▲▲ #}
                         <li><h6 class="dropdown-header"><i class="fas fa-flag-checkered fa-fw me-2"></i>走行ログ</h6></li>
                         {% if g.user_motorcycles %}
                             {% for motorcycle in g.user_motorcycles %}
