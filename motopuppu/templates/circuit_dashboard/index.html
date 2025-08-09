@@ -94,11 +94,21 @@
                                 <details class="small bg-light p-2 rounded">
                                     <summary style="cursor: pointer;">詳細を表示</summary>
                                     <ul class="list-unstyled mt-2 mb-0">
-                                        {% for category, items in circuit.best_session.setting_sheet.details.items()|slice(3) %}
-                                            {% for key, value in items.items()|slice(3) %}
-                                                <li><strong>{{ key }}:</strong> {{ value }}</li>
+                                        {# ▼▼▼【ここから修正】データが辞書形式(mapping)であるかを確認する ▼▼▼ #}
+                                        {% if circuit.best_session.setting_sheet.details is mapping %}
+                                            {% for category, cat_items in circuit.best_session.setting_sheet.details.items()|slice(3) %}
+                                                {# カテゴリの中身も辞書形式か確認 #}
+                                                {% if cat_items is mapping %}
+                                                    {% for key, value in cat_items.items() %}
+                                                        <li><strong>{{ key }}:</strong> {{ value }}</li>
+                                                    {% endfor %}
+                                                {% endif %}
                                             {% endfor %}
-                                        {% endfor %}
+                                        {% else %}
+                                            {# データが辞書でない場合（リストなど） #}
+                                            <li class="text-muted">（詳細なセッティング項目はありません）</li>
+                                        {% endif %}
+                                        {# ▲▲▲【修正はここまで】▲▲▲ #}
                                     </ul>
                                 </details>
                             {% else %}
