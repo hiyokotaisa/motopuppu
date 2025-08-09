@@ -11,9 +11,7 @@ import logging
 import subprocess
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-# ▼▼▼ Flask-Login関連のインポートを追加 ▼▼▼
 from flask_login import LoginManager, current_user
-# ▲▲▲ 変更ここまで ▲▲▲
 
 dotenv_path = os.path.join(os.path.dirname(__file__), '..', '.env')
 if os.path.exists(dotenv_path):
@@ -25,19 +23,15 @@ else:
 db = SQLAlchemy()
 migrate = Migrate()
 csrf = CSRFProtect()
-# ▼▼▼ LoginManagerのインスタンスを作成 ▼▼▼
 login_manager = LoginManager()
-login_manager.login_view = 'auth.login_page'  # 未ログイン時のリダイレクト先を指定
+login_manager.login_view = 'auth.login_page'
 login_manager.login_message = 'このページにアクセスするにはログインが必要です。'
 login_manager.login_message_category = 'warning'
-# ▲▲▲ 変更ここまで ▲▲▲
 
-# ▼▼▼ Limiterのキー関数をcurrent_userを使うように変更 ▼▼▼
 def user_or_ip_key():
     if current_user.is_authenticated:
         return str(current_user.id)
     return get_remote_address()
-# ▲▲▲ 変更ここまで ▲▲▲
 
 limiter = Limiter(key_func=user_or_ip_key)
 
@@ -61,10 +55,8 @@ def create_app(config_name=None):
         NOTES_PER_PAGE = int(os.environ.get('NOTES_PER_PAGE', 20)),
         ACTIVITIES_PER_PAGE = 10,
         GOOGLE_PLACES_API_KEY=os.environ.get('GOOGLE_PLACES_API_KEY'),
-        # ▼▼▼ リメンバーミー機能のためのクッキー設定 ▼▼▼
         REMEMBER_COOKIE_SAMESITE='Lax',
         REMEMBER_COOKIE_SECURE=True if os.environ.get('FLASK_ENV') == 'production' else False,
-        # ▲▲▲ 変更ここまで ▲▲▲
     )
     if app.config['SECRET_KEY'] == 'dev-secret-key-replace-me' and app.config['ENV'] != 'development':
         app.logger.warning("CRITICAL: SECRET_KEY is set to the default development value in a non-development environment. This is a security risk!")
@@ -89,32 +81,24 @@ def create_app(config_name=None):
     db.init_app(app)
     migrate.init_app(app, db)
     csrf.init_app(app)
-    # ▼▼▼ LoginManagerとLimiterを初期化 ▼▼▼
     login_manager.init_app(app)
     limiter.init_app(app)
-    # ▲▲▲ 変更ここまで ▲▲▲
 
-    # ▼▼▼ 変更箇所 ▼▼▼
     from .utils.datetime_helpers import format_utc_to_jst_string, to_user_localtime
     app.jinja_env.filters['to_jst'] = format_utc_to_jst_string
-    app.jinja_env.filters['user_localtime'] = to_user_localtime # エラー解決のためにこの行を追加
+    app.jinja_env.filters['user_localtime'] = to_user_localtime
 
-    # ▼▼▼ ここからエラー解決のために追記 ▼▼▼
     def format_number_filter(value):
         """数値を3桁区切りの文字列にフォーマットするJinja2フィルター"""
         if value is None:
             return ''
         try:
-            # カンマ区切りの文字列にフォーマット
             return f"{int(value):,}"
         except (ValueError, TypeError):
             return value
 
-    # 上記で定義した関数を'format_number'という名前でJinja2フィルターに登録
     app.jinja_env.filters['format_number'] = format_number_filter
-    # ▲▲▲ 追記ここまで ▲▲▲
     
-    # ▼▼▼ user_loader関数を定義 ▼▼▼
     from .models import User
     @login_manager.user_loader
     def load_user(user_id):
@@ -122,33 +106,26 @@ def create_app(config_name=None):
             return db.session.get(User, int(user_id))
         except (TypeError, ValueError):
             return None
-    # ▲▲▲ 変更ここまで ▲▲▲
             
-    # ▼▼▼ before_requestハンドラを修正 ▼▼▼
-    # g.userのロードは不要になり、g.user_motorcyclesのロードのみ行う
     @app.before_request
     def load_user_motorcycles():
         g.user_motorcycles = []
         if current_user.is_authenticated:
-            from .models import Motorcycle # 循環インポートを避けるためここでインポート
+            from .models import Motorcycle
             g.user_motorcycles = Motorcycle.query.filter_by(user_id=current_user.id).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
-    # ▲▲▲ 変更ここまで ▲▲▲
 
     try:
+        # Blueprintのインポート
         from .views import auth, main, vehicle, fuel, maintenance, notes, dev_auth, leaderboard, profile, reminder, event, touring
         from .views import spec_sheet
         from .views import achievements as achievements_view
         from .views.activity import activity_bp
         from .views import help as help_view
         from .views import garage, search
-        # ▼▼▼【ここから追記】garage_settings_bpをインポート ▼▼▼
-                from .views import garage_settings
-        # ▲▲▲【追記はここまで】▲▲▲
-
-        # ▼▼▼【ここから追記】`circuit_dashboard` をインポート ▼▼▼
+        from .views import garage_settings
         from .views import circuit_dashboard
-        # ▲▲▲【追記はここまで】▲▲▲
 
+        # Blueprintの登録
         app.register_blueprint(auth.auth_bp)
         app.register_blueprint(main.main_bp)
         app.register_blueprint(vehicle.vehicle_bp)
@@ -166,13 +143,8 @@ def create_app(config_name=None):
         app.register_blueprint(help_view.help_bp)
         app.register_blueprint(garage.garage_bp)
         app.register_blueprint(search.search_bp)
-        # ▼▼▼【ここから追記】garage_settings_bpを登録 ▼▼▼
-
-        # ▼▼▼【ここから追記】`circuit_dashboard_bp` を登録 ▼▼▼
-        app.register_blueprint(circuit_dashboard.circuit_dashboard_bp)
-        # ▲▲▲【追記はここまで】▲▲▲
         app.register_blueprint(garage_settings.garage_settings_bp)
-        # ▲▲▲【追記はここまで】▲▲▲
+        app.register_blueprint(circuit_dashboard.circuit_dashboard_bp)
 
         if app.config['ENV'] == 'development' or app.debug: 
             app.register_blueprint(dev_auth.dev_auth_bp)
@@ -208,7 +180,6 @@ def create_app(config_name=None):
 
     @app.shell_context_processor
     def make_shell_context():
-        # ▼▼▼ 新しいモデルをインポートリストと辞書に追加 ▼▼▼
         from .models import db, User, Motorcycle, FuelEntry, MaintenanceEntry, MaintenanceReminder, GeneralNote, OdoResetLog, AchievementDefinition, UserAchievement
         from .models import SettingSheet, ActivityLog, SessionLog, Event, EventParticipant, TouringLog, TouringSpot, TouringScrapbookEntry, MaintenanceSpecSheet
         return {
@@ -221,7 +192,6 @@ def create_app(config_name=None):
             'TouringLog': TouringLog, 'TouringSpot': TouringSpot, 'TouringScrapbookEntry': TouringScrapbookEntry,
             'MaintenanceSpecSheet': MaintenanceSpecSheet
         }
-        # ▲▲▲ 変更ここまで ▲▲▲
 
     try:
         os.makedirs(app.instance_path)
