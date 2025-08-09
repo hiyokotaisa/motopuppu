@@ -85,6 +85,7 @@
                         </div>
                         <div class="col-md-4">
                             <h5><i class="fas fa-cogs me-2"></i>Best Setting</h5>
+                            {# ▼▼▼【ここから修正】より安全なチェックに全体を書き換える ▼▼▼ #}
                             {% if circuit.best_session.setting_sheet %}
                                 <p>
                                     <a href="{{ url_for('activity.edit_setting', setting_id=circuit.best_session.setting_sheet.id) }}">
@@ -94,10 +95,9 @@
                                 <details class="small bg-light p-2 rounded">
                                     <summary style="cursor: pointer;">詳細を表示</summary>
                                     <ul class="list-unstyled mt-2 mb-0">
-                                        {# ▼▼▼【ここから修正】データが辞書形式(mapping)であるかを確認する ▼▼▼ #}
                                         {% if circuit.best_session.setting_sheet.details is mapping %}
-                                            {% for category, cat_items in circuit.best_session.setting_sheet.details.items()|slice(3) %}
-                                                {# カテゴリの中身も辞書形式か確認 #}
+                                            {# |slice(3) フィルターを削除 #}
+                                            {% for category, cat_items in circuit.best_session.setting_sheet.details.items() %}
                                                 {% if cat_items is mapping %}
                                                     {% for key, value in cat_items.items() %}
                                                         <li><strong>{{ key }}:</strong> {{ value }}</li>
@@ -105,15 +105,14 @@
                                                 {% endif %}
                                             {% endfor %}
                                         {% else %}
-                                            {# データが辞書でない場合（リストなど） #}
                                             <li class="text-muted">（詳細なセッティング項目はありません）</li>
                                         {% endif %}
-                                        {# ▲▲▲【修正はここまで】▲▲▲ #}
                                     </ul>
                                 </details>
                             {% else %}
                                 <p class="text-muted">セッティングシートがありません。</p>
                             {% endif %}
+                            {# ▲▲▲【修正はここまで】▲▲▲ #}
                             <hr>
                             <h5><i class="fas fa-bolt me-2"></i>Actions</h5>
                             <div class="d-grid gap-2">
@@ -225,4 +224,4 @@ document.addEventListener('DOMContentLoaded', () => {
     {% endfor %}
 });
 </script>
-{% endblock %}
+{% endblock %}d
