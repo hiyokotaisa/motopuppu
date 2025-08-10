@@ -174,9 +174,11 @@ def get_timeline_events(motorcycle_ids, start_date=None, end_date=None):
             },
             'edit_url': url_for('maintenance.edit_maintenance', entry_id=entry.id)
         })
-    
-    # 3. 日付で降順にソート
-    timeline_events.sort(key=lambda x: x['date'], reverse=True)
+
+    # 3. 日付(降順)、次にID(降順)でソート
+    # ▼▼▼▼▼ ここからが修正箇所です ▼▼▼▼▼
+    timeline_events.sort(key=lambda x: (x['date'], x['id']), reverse=True)
+    # ▲▲▲▲▲ ここまでが修正箇所です ▲▲▲▲▲
 
     return timeline_events
 
