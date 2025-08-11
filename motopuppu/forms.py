@@ -222,9 +222,24 @@ class VehicleForm(FlaskForm):
         default=0.00
     )
     
-    # ▼▼▼【ここから削除】不要になったガレージ関連フィールドを削除 ▼▼▼
-    # show_in_garage, image_url, custom_details を削除
-    # ▲▲▲【削除はここまで】▲▲▲
+    # ▼▼▼【ここに追加】 エラー解決のためにフィールドを再追加します ▼▼▼
+    show_in_garage = BooleanField(
+        'ガレージに掲載する',
+        default=True
+    )
+    image_url = StringField(
+        '車両画像URL',
+        validators=[
+            Optional(),
+            URL(message="有効なURL形式で入力してください。"),
+            Length(max=2048, message="URLは2048文字以内で入力してください。")
+        ]
+    )
+    custom_details = TextAreaField(
+        'カスタム・メモ',
+        validators=[Optional(), Length(max=2000)]
+    )
+    # ▲▲▲【追加はここまで】▲▲▲
 
     submit = SubmitField('登録する')
 

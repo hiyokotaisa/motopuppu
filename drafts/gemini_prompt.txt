@@ -144,6 +144,9 @@ kyagisaw@kyagisaw-mac motopuppu % tree
 │   ├── static
 │   │   ├── css
 │   │   │   ├── garage_themes
+│   │   │   │   ├── theme_adventure.css
+│   │   │   │   ├── theme_classic.css
+│   │   │   │   ├── theme_cyber.css
 │   │   │   │   ├── theme_dark.css
 │   │   │   │   ├── theme_default.css
 │   │   │   │   ├── theme_minimal.css
@@ -183,6 +186,8 @@ kyagisaw@kyagisaw-mac motopuppu % tree
 │   │   ├── auth
 │   │   │   └── delete_account_complete.html
 │   │   ├── base.html
+│   │   ├── circuit_dashboard
+│   │   │   └── index.html
 │   │   ├── dashboard
 │   │   │   ├── _calendar_widget.html
 │   │   │   ├── _reminders_widget.html
@@ -255,6 +260,7 @@ kyagisaw@kyagisaw-mac motopuppu % tree
 │       │   ├── session_routes.py
 │       │   └── setting_routes.py
 │       ├── auth.py
+│       ├── circuit_dashboard.py
 │       ├── dev_auth.py
 │       ├── event.py
 │       ├── fuel.py
@@ -275,7 +281,7 @@ kyagisaw@kyagisaw-mac motopuppu % tree
 ├── requirements.txt
 └── tests
 
-33 directories, 162 files
+34 directories, 167 files
     ```
 
 7.  **今回のセッションでの目標 [毎回更新]:**
