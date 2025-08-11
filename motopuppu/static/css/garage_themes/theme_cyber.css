@@ -1,0 +1,89 @@
+/* motopuppu/static/css/garage_themes/theme_cyber.css */
+@keyframes glitch-anim {
+  0% { transform: translate(0); }
+  20% { transform: translate(-2px, 2px); }
+  40% { transform: translate(-2px, -2px); }
+  60% { transform: translate(2px, 2px); }
+  80% { transform: translate(2px, -2px); }
+  100% { transform: translate(0); }
+}
+body.garage-theme-cyber {
+    background-color: #0d0221;
+    color: #f0f0f0;
+    font-family: 'Turret Road', monospace;
+    font-weight: 500;
+}
+.garage-theme-cyber .garage-header {
+    background: transparent;
+    text-align: left !important;
+    padding: 4rem 1rem;
+    border-bottom: 1px solid #ff00ff;
+    position: relative;
+}
+.garage-theme-cyber .display-4 {
+    color: #00f6ff;
+    text-transform: uppercase;
+    font-weight: 700;
+    position: relative;
+    text-shadow: 0 0 8px rgba(0, 246, 255, 0.7);
+}
+.garage-theme-cyber .display-4::before, .garage-theme-cyber .display-4::after {
+    content: attr(data-text);
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: #0d0221;
+    overflow: hidden;
+}
+.garage-theme-cyber .display-4::before {
+    left: 2px;
+    text-shadow: -2px 0 #ff00ff;
+    animation: glitch-anim 2s infinite linear alternate-reverse;
+}
+.garage-theme-cyber .display-4::after {
+    left: -2px;
+    text-shadow: -2px 0 #00f6ff, 2px 2px #ff00c4;
+    animation: glitch-anim 2s infinite linear alternate;
+}
+/* ▼▼▼【ここを追記】サブヘッダーの文字色を改善 ▼▼▼ */
+.garage-theme-cyber .lead {
+    color: #a093c4;
+}
+/* ▲▲▲【追記はここまで】▲▲▲ */
+.garage-theme-cyber .card {
+    background: rgba(13, 2, 33, 0.5);
+    border: 1px solid #ff00ff;
+    box-shadow: 0 0 15px rgba(255,0,255,0.3);
+}
+.garage-theme-cyber .hero-img {
+    border-radius: 0;
+    border: 1px solid #00f6ff;
+}
+.garage-theme-cyber h2, .garage-theme-cyber h3 {
+    color: #ff00ff;
+    text-shadow: 0 0 5px rgba(255, 0, 255, 0.5);
+}
+.garage-theme-cyber .card-subtitle {
+    color: #00f6ff !important;
+}
+.garage-theme-cyber .card-text.fs-4, .garage-theme-cyber .card-title {
+    color: #f0f0f0;
+}
+.garage-theme-cyber .list-group-item {
+    background: transparent;
+    border-color: rgba(255, 0, 255, 0.5);
+    color: #f0f0f0;
+}
+.garage-theme-cyber pre {
+    background-color: rgba(0,0,0,0.3);
+    border: 1px solid rgba(255, 0, 255, 0.5);
+    color: #f0f0f0;
+}
+.garage-theme-cyber .text-muted {
+    color: #a093c4 !important;
+}
+.garage-theme-cyber .text-primary {
+    color: #00f6ff !important;
+}

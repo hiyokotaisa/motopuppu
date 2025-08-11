@@ -5,7 +5,6 @@ body.garage-theme-dark {
 }
 .garage-theme-dark .garage-header {
     background: linear-gradient(45deg, #232323, #343434);
-    border-bottom: 1px solid #444;
 }
 .garage-theme-dark .card {
     background-color: #1e1e1e;
@@ -20,7 +19,7 @@ body.garage-theme-dark {
     color: #f5f5f5;
 }
 .garage-theme-dark .text-muted {
-    color: #aaa !important;
+    color: #aaa !important; /* ▼▼▼ 変更: グレー文字のコントラストを確保 ▼▼▼ */
 }
 .garage-theme-dark .border-bottom {
     border-color: #555 !important;
@@ -28,24 +27,14 @@ body.garage-theme-dark {
 .garage-theme-dark .list-group-item {
     background-color: transparent;
     border-color: #444;
-    color: #e0e_dark0;
+    color: #e0e0e0; /* ▼▼▼ 変更: 文字色を明示的に指定 ▼▼▼ */
 }
 .garage-theme-dark .hero-img {
     box-shadow: 0 0.5rem 1rem rgba(0,0,0,.5);
-    background-color: #2c2c2c; /* 画像がない場合の背景色 */
 }
 .garage-theme-dark a {
     color: #61dafb;
 }
-.garage-theme-dark .footer-brand,
-.garage-theme-dark .footer-brand a {
-    color: #888;
-}
-.garage-theme-dark pre {
-    background-color: #2c2c2c;
-    color: #f1f1f1;
-    border: 1px solid #555;
-}
-.garage-theme-dark .bg-light {
-    background-color: #333 !important;
+.garage-theme-dark .text-primary {
+    color: #61dafb !important; /* ▼▼▼ 変更: アイコンの色を明るくする ▼▼▼ */
 }

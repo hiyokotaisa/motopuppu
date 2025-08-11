@@ -661,7 +661,10 @@ class GarageSettingsForm(FlaskForm):
             ('dark', 'ダークモード'),
             ('racing', 'レーシング'),
             ('retro', 'レトロ'),
-            ('minimal', 'ミニマル')
+            ('minimal', 'ミニマル'),
+            ('classic', 'クラシック'),
+            ('cyber', 'サイバー'),
+            ('adventure', 'アドベンチャー')
         ],
         validators=[DataRequired()],
         description='ガレージカードの見た目を変更します。'

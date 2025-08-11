@@ -18,18 +18,17 @@
     {# --- スタイルシート (BootstrapとFont Awesome) --- #}
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
-    {# ▼▼▼【ここから追記】Google Fontsの読み込み ▼▼▼ #}
+    
+    {# --- Google Fontsの読み込み --- #}
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&family=Lobster&family=Merriweather&family=Oswald&family=Roboto+Condensed:wght@700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
-    {# ▲▲▲【追記はここまで】▲▲▲ #}
+    <link href="https://fonts.googleapis.com/css2?family=EB+Garamond&family=Inter:wght@400;500;700;800&family=Lobster&family=Merriweather&family=Oswald&family=Playfair+Display:wght@700&family=Roboto+Condensed:wght@700&family=Roboto:wght@400;700&family=Share+Tech+Mono&family=Turret+Road:wght@400;700&display=swap" rel="stylesheet">
     
-    {# ▼▼▼【ここから追記】テーマ用CSSの読み込み ▼▼▼ #}
+    {# --- テーマ用CSSの読み込み --- #}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/garage_themes/theme_default.css') }}">
     {% if owner.garage_theme and owner.garage_theme != 'default' %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/garage_themes/theme_' + owner.garage_theme + '.css') }}" onerror="this.onerror=null;this.href='{{ url_for('static', filename='css/garage_themes/theme_default.css') }}';">
     {% endif %}
-    {# ▲▲▲【追記はここまで】▲▲▲ #}
 </head>
 <body class="garage-theme-{{ owner.garage_theme or 'default' }}">
 
@@ -37,7 +36,10 @@
     
     <header class="garage-header text-center mb-5">
         <img src="{{ owner.avatar_url }}" alt="{{ owner.display_name or owner.misskey_username }}" class="rounded-circle mb-3" style="width: 80px; height: 80px; object-fit: cover; border: 3px solid white;">
-        <h1 class="display-4">{{ owner.display_name or owner.misskey_username }}'s Garage</h1>
+        
+        {% set garage_title = (owner.display_name or owner.misskey_username) + "'s Garage" %}
+        <h1 class="display-4" data-text="{{ garage_title }}">{{ garage_title }}</h1>
+        
         <p class="lead">Powered by もとぷっぷー</p>
     </header>
 
@@ -68,7 +70,6 @@
                 </div>
                 {% endif %}
                 
-                {# ▼▼▼【ここから追記】追加の統計情報を表示 ▼▼▼ #}
                 <div class="col-sm-6 mb-3">
                      <div class="card h-100">
                         <div class="card-body">
@@ -85,12 +86,13 @@
                         </div>
                     </div>
                 </div>
-                {# ▲▲▲【追記はここまで】▲▲▲ #}
             </div>
 
             {% if hero_vehicle.custom_details %}
             <h4 class="mt-4"><i class="fas fa-wrench me-2"></i>カスタム・メモ</h4>
-            <pre class="bg-light p-3 rounded">{{ hero_vehicle.custom_details }}</pre>
+            {# ▼▼▼【ここを変更】preタグから .bg-light クラスを削除 ▼▼▼ #}
+            <pre class="p-3 rounded">{{ hero_vehicle.custom_details }}</pre>
+            {# ▲▲▲【変更はここまで】▲▲▲ #}
             {% endif %}
         </div>
         <div class="col-lg-5">
