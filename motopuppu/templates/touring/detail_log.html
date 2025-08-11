@@ -4,6 +4,7 @@
 {% block title %}{{ log.title }} - ツーリングログ - もとぷっぷー{% endblock %}
 
 {% block content %}
+{% include '_breadcrumbs.html' %}
 <div class="d-flex align-items-center mb-3">
     <a href="{{ url_for('touring.list_logs', vehicle_id=log.motorcycle.id) }}" class="btn btn-sm btn-outline-secondary me-3" title="ツーリングログ一覧へ戻る">
         <i class="fas fa-arrow-left"></i>

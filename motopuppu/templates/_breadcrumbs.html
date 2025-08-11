@@ -66,11 +66,27 @@
 
         {# --- 活動記録 (ツーリングログ) --- #}
         {% if request.endpoint.startswith('touring.') %}
-            <li class="breadcrumb-item"><a href="{{ url_for('touring.list_logs', vehicle_id=request.view_args.get('vehicle_id', g.user_motorcycles[0].id if g.user_motorcycles else 0)) }}">ツーリングログ</a></li>
-             {% if request.endpoint in ['touring.detail_log', 'touring.edit_log'] %}
-                <li class="breadcrumb-item active" aria-current="page">詳細・編集</li>
-            {% elif request.endpoint == 'touring.add_log' %}
-                 <li class="breadcrumb-item active" aria-current="page">ログの追加</li>
+            {# 変数を定義して、vehicle_idを安全に取得 #}
+            {% set vehicle_id_from_args = request.view_args.get('vehicle_id') %}
+            {% set final_vehicle_id = vehicle_id_from_args %}
+            {# 詳細・編集ページでは、テンプレートに渡されたlogオブジェクトからmotorcycle_idを取得 #}
+            {% if not final_vehicle_id and log is defined and log %}
+                {% set final_vehicle_id = log.motorcycle_id %}
+            {# それでもなければ、ログインユーザーのデフォルト車両にフォールバック #}
+            {% elif not final_vehicle_id and g.user_motorcycles %}
+                {% set final_vehicle_id = g.user_motorcycles[0].id %}
+            {% endif %}
+            
+            {# 2階層目のリンクを生成 #}
+            <li class="breadcrumb-item"><a href="{{ url_for('touring.list_logs', vehicle_id=final_vehicle_id if final_vehicle_id else 0) }}">ツーリングログ</a></li>
+            
+            {# 3階層目のテキストを動的に設定 #}
+            {% if request.endpoint == 'touring.detail_log' %}
+                <li class="breadcrumb-item active" aria-current="page">{{ log.title if log else '詳細' }}</li>
+            {% elif request.endpoint == 'touring.edit_log' %}
+                <li class="breadcrumb-item active" aria-current="page">{{ '「%s」の編集' % log.title if log else '編集' }}</li>
+            {% elif request.endpoint == 'touring.create_log' %}
+                <li class="breadcrumb-item active" aria-current="page">ログの追加</li>
             {% endif %}
         {% endif %}
 
@@ -110,5 +126,15 @@
             <li class="breadcrumb-item active" aria-current="page">プロフィール設定</li>
         {% endif %}
 
+        {# --- サーキットダッシュボード --- #}
+        {% if request.endpoint.startswith('circuit_dashboard.') %}
+            <li class="breadcrumb-item active" aria-current="page">サーキットダッシュボード</li>
+        {% endif %}
+
+        {# --- ガレージ設定 --- #}
+        {% if request.endpoint.startswith('garage_settings.') %}
+            <li class="breadcrumb-item active" aria-current="page">ガレージ設定</li>
+        {% endif %}
+        
     </ol>
 </nav>

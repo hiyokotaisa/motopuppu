@@ -1,83 +1,80 @@
 こんにちは、Gemini。Flask Webアプリケーション「もとぷっぷー」の開発支援をお願いします。
 
-1.  **プロジェクト概要:**
+### **1.  プロジェクト概要**
 
-      * 名称: もとぷっぷー
-      * 目的: オートバイ所有者向けの車両情報、燃費、整備記録、リマインダー、メモ管理、実績、**そして活動・セッティング記録**Webアプリ。公道走行車両に加え、レーサーやモトクロッサーといった競技用車両の管理にも対応。
-      * 認証: Misskey MiAuth
+* **名称**: もとぷっぷー
+* **目的**: オートバイ所有者向けの車両情報、燃費、整備記録、リマインダー、メモ管理、実績、**そして活動・セッティング記録**Webアプリ。公道走行車両に加え、レーサーやモトクロッサーといった競技用車両の管理にも対応。
+* **認証**: Misskey MiAuth
 
-2.  **主要技術スタック:**
+### **2.  主要技術スタック**
 
-      * バックエンド: Python, Flask, SQLAlchemy, PostgreSQL (本番: Render)
-      * フロントエンド: Jinja2, Bootstrap 5, JavaScript
-      * フォーム処理: Flask-WTF (バリデーション、CSRF対策)
-      * DBマイグレーション: Flask-Migrate (Alembic)
-      * デプロイ: Render (Gunicorn)
-      * 開発環境: Podman (Mac/Fedora), Python venv
-      * その他: python-dotenv, requests, python-dateutil, zoneinfo (Python 3.9+)
+* **バックエンド**: Python, Flask, SQLAlchemy, PostgreSQL (本番: Render)
+* **フロントエンド**: Jinja2, Bootstrap 5, JavaScript
+* **フォーム処理**: Flask-WTF (バリデーション、CSRF対策)
+* **DBマイグレーション**: Flask-Migrate (Alembic)
+* **デプロイ**: Render (Gunicorn)
+* **開発環境**: Podman (Mac/Fedora), Python venv
+* **その他**: python-dotenv, requests, python-dateutil, zoneinfo (Python 3.9+)
 
-3.  **アーキテクチャ・構成:**
+### **3.  アーキテクチャ・構成**
 
-      * 標準的なFlask構成（アプリケーションファクトリ使用）。
-      * 機能ごとにBlueprintを使用 (auth, main, vehicle, fuel, maintenance, notes, achievements, **activity** など)。
-      * `models.py` にDBモデル定義 (`User`, `Motorcycle`, `FuelEntry`, `MaintenanceEntry`, `OdoResetLog`, `GeneralNote`, `AchievementDefinition`, `UserAchievement`, **`SettingSheet`, `ActivityLog`, `SessionLog`** など)。
-      * `forms.py` にFlask-WTFフォームクラス定義。
-      * `motopuppu/views/` 以下に各Blueprintのルート定義。
-      * `templates/`, `static/` ディレクトリ。
-      * **グローバルな車両リストの読み込み:** `@before_request` ハンドラで、ログインユーザーの車両リストを `g.user_motorcycles` に格納し、ナビゲーションバーのドロップダウンメニューで使用。
+* 標準的なFlask構成（アプリケーションファクトリ使用）。
+* 機能ごとにBlueprintを使用 (auth, main, vehicle, fuel, maintenance, notes, achievements, **activity** など)。
+* `models.py` にDBモデル定義 (`User`, `Motorcycle`, `FuelEntry`, `MaintenanceEntry`, `OdoResetLog`, `GeneralNote`, `AchievementDefinition`, `UserAchievement`, **`SettingSheet`, `ActivityLog`, `SessionLog`** など)。
+* `forms.py` にFlask-WTFフォームクラス定義。
+* `motopuppu/views/` 以下に各Blueprintのルート定義。
+* `templates/`, `static/` ディレクトリ。
+* **グローバルな車両リストの読み込み**: `@before_request` ハンドラで、ログインユーザーの車両リストを `g.user_motorcycles` に格納し、ナビゲーションバーのドロップダウンメニューで使用。
 
-4.  **主要な実装済み機能:**
+### **4.  主要な実装済み機能**
 
-      * ユーザー認証 (Misskey MiAuth, ローカル開発用ログイン)
-      * 車両管理 (CRUD, 複数対応、デフォルト設定)
-          * **レーサー車両と公道車両の区別** (総稼働時間またはODOメーターでの管理)
-      * ODOメーターリセット機能 (公道車両向けCRUD)
-      * 給油記録 (公道車両向けCRUD, ログ表示, フィルター/ソート, CSVエクスポート)
-      * 整備記録 (公道車両向けCRUD, ログ表示, フィルター/ソート, CSVエクスポート)
-      * ノート (CRUD、カテゴリ別[ノート/タスクリスト], ログ表示, フィルター)
-      * メンテナンスリマインダー (CRUD)
-      * ダッシュボード (統計概要, FullCalendar表示, フィルター機能)
-      * 実績機能 (イベントドリブンな解除、遡及処理用CLIコマンド)
-      * Misskey共有機能
-      * **活動ログ & セッティングシート機能 (ベータ版):**
-          * **目的:** サーキット走行やツーリングなど、特定の活動における車両セッティングとパフォーマンスを記録・管理。
-          * **対象:** **公道・レーサーを問わず全車両で利用可能。**
-          * **`SettingSheet` (セッティングシート):**
-              * サスペンション、タイヤ等のセットアップ情報を「テンプレート」として名前を付けて保存 (CRUD)。
-              * アーカイブ（論理削除）機能。
-              * JavaScriptによる動的フォームで、記録したいカテゴリ（サス、タイヤ等）を自由に追加・削除可能。データはJSONBで柔軟に保存。
-          * **`ActivityLog` (活動ログ):**
-              * 「7/5の走行会」のように、日付や場所、天候といった1日の活動をまとめるコンテナとして記録 (CRUD)。
-          * **`SessionLog` (セッションログ):**
-              * 活動ログの中で、「1本目」「2本目」のような個別の走行セッションを記録 (CRUD)。
-              * セッションごとに、作成済みの`SettingSheet`を選択して紐付け。
-              * ライダーの所感や、車両タイプに応じた走行前後のODO/稼働時間を記録。
-          * **UI/UX:**
-              * ナビゲーションバーの「活動ログ」から、ドロップダウンメニューで直接各車両の活動ログ一覧へアクセス可能。
+* ユーザー認証 (Misskey MiAuth, ローカル開発用ログイン)
+* 車両管理 (CRUD, 複数対応、デフォルト設定)
+    * **レーサー車両と公道車両の区別** (総稼働時間またはODOメーターでの管理)
+* ODOメーターリセット機能 (公道車両向けCRUD)
+* 給油記録 (公道車両向けCRUD, ログ表示, フィルター/ソート, CSVエクスポート)
+* 整備記録 (公道車両向けCRUD, ログ表示, フィルター/ソート, CSVエクスポート)
+* ノート (CRUD、カテゴリ別[ノート/タスクリスト], ログ表示, フィルター)
+* メンテナンスリマインダー (CRUD)
+* ダッシュボード (統計概要, FullCalendar表示, フィルター機能)
+* 実績機能 (イベントドリブンな解除、遡及処理用CLIコマンド)
+* Misskey共有機能
+* **活動ログ & セッティングシート機能 (ベータ版):**
+    * **目的:** サーキット走行やツーリングなど、特定の活動における車両セッティングとパフォーマンスを記録・管理。
+    * **対象:** **公道・レーサーを問わず全車両で利用可能。**
+    * **`SettingSheet` (セッティングシート):**
+        * サスペンション、タイヤ等のセットアップ情報を「テンプレート」として名前を付けて保存 (CRUD)。
+        * アーカイブ（論理削除）機能。
+        * JavaScriptによる動的フォームで、記録したいカテゴリ（サス、タイヤ等）を自由に追加・削除可能。データはJSONBで柔軟に保存。
+    * **`ActivityLog` (活動ログ):**
+        * 「7/5の走行会」のように、日付や場所、天候といった1日の活動をまとめるコンテナとして記録 (CRUD)。
+    * **`SessionLog` (セッションログ):**
+        * 活動ログの中で、「1本目」「2本目」のような個別の走行セッションを記録 (CRUD)。
+        * セッションごとに、作成済みの`SettingSheet`を選択して紐付け。
+        * ライダーの所感や、車両タイプに応じた走行前後のODO/稼働時間を記録。
+    * **UI/UX:**
+        * ナビゲーションバーの「活動ログ」から、ドロップダウンメニューで直接各車両の活動ログ一覧へアクセス可能。
 
-5.  **現在の状況・課題 [次回更新]:**
+### **5.  現在の状況・課題 [毎回更新]**
 
-      * **マイグレーション:**
-          * **最新リビジョン: `(ここに 'Add activity log models' のマイグレーションIDを記載)`** (要 `flask db history` で確認)
-          * `Motorcycle`に`is_racer`, `total_operating_hours`カラム追加済み。
-          * **`SettingSheet`, `ActivityLog`, `SessionLog` テーブルを追加済み。**
-      * **直近の作業 (完了済み):**
-          * **「活動ログ & セッティングシート機能 (フェーズ2)」の追加:**
-              * `SettingSheet`, `ActivityLog`, `SessionLog` モデルと関連リレーションシップを定義し、DBマイグレーションを実行。
-              * 活動ログ、セッション、セッティングシートのCRUD（作成・読み取り・更新・削除/アーカイブ）機能を持つ `activity` Blueprintを実装。
-              * ナビゲーションバーから車両を選択して活動ログへアクセスできるドロップダウンメニューを実装（`@before_request`ハンドラ利用）。
-              * 車両管理ページから各車両の活動ログへの導線を設置。
-              * 動的なセッティングシートフォームをJavaScriptで実装。
-      * **現在の課題・改善点:**
-          * a. **テストコードの拡充:** **新しく実装した活動ログ機能群**に対する単体テスト・結合テストの作成が急務。
-          * b. **活動ログ機能のUI/UX改善:** ラップタイムの入力・表示UI、セッティングシートの複製機能など、より使いやすくするための改善。
-          * c. **レーサー車両向け機能の拡充 (フェーズ2残件/フェーズ3):** 稼働時間ベースの**整備記録**機能。
-          * d. **重要コンポーネントのライフサイクル管理 (フェーズ3):** 今回実装したセッションログのデータを活用した、より精度の高い部品寿命の追跡機能。
-          * e. 既存の課題 (CSRF、DB制約、リファクタリングなど)。
+* **マイグレーション:**
+    * **直近の作業で、多数存在したマイグレーションファイルを単一のファイルに統合済み。**
+    * 開発環境・本番環境ともに、`flask db stamp head` コマンド等を用いて最新のスキーマ状態に更新済み。
+    * **最新リビジョン: `e391d758c56d` (Initial consolidated migration from existing models)**
 
-6.  **現在のプロジェクトディレクトリ:**
+* **直近の作業 (完了済み):**
+    * **DBマイグレーション履歴の統合:** 開発・本番環境のDBを維持したまま、Alembicのバージョン情報のみを最新化。
+    * **`VehicleForm`の修正:** `models.py`の`Motorcycle`モデルとの不整合を解消し、車両登録・編集機能のエラーを修正。
 
-    ```
+* **現在の課題・改善点:**
+    * a. **テストコードの拡充:** 活動ログ機能群に対する単体テスト・結合テストの作成が急務。
+    * b. **活動ログ機能のUI/UX改善:** ラップタイムの入力・表示UI、セッティングシートの複製機能など、より使いやすくするための改善。
+    * c. **レーサー車両向け機能の拡充:** 稼働時間ベースの**整備記録**機能。
+    * d. **重要コンポーネントのライフサイクル管理:** セッションログのデータを活用した、より精度の高い部品寿命の追跡機能。
+    * e. **その他既存の課題:** CSRF対策の精査、DB制約の見直し、リファクタリングなど。
+
+### **6.  現在のプロジェクトディレクトリ:**
+
 kyagisaw@kyagisaw-mac motopuppu % tree
 .
 ├── announcements.json
@@ -96,36 +93,7 @@ kyagisaw@kyagisaw-mac motopuppu % tree
 │   ├── README
 │   ├── script.py.mako
 │   └── versions
-│       ├── 03b74d3f953e_add_criteria_column_to_.py
-│       ├── 2611ecc6c187_add_avatar_url_to_user_model.py
-│       ├── 37af33cd44be_add_garage_card_fields_to_motorcycle.py
-│       ├── 3c3d01d7c4c9_add_exclude_from_average_to_fuel_entries.py
-│       ├── 3f7f9b1139eb_add_activity_log_models.py
-│       ├── 3f8fa3c5156e_add_maintenance_record_link_to_reminders.py
-│       ├── 414794921235_add_achievement_and_userachievement_.py
-│       ├── 48c543b24155_add_activity_log_models.py
-│       ├── 4bc80d3366bf_add_activity_log_models.py
-│       ├── 4ec29611c9b5_add_trigger_event_type_to_.py
-│       ├── 5d18f0a4938e_allow_null_for_content_in_general_notes.py
-│       ├── 672787e0972f_add_is_public_column_to_event_model.py
-│       ├── 6a92e8863546_link_activity_log_to_event.py
-│       ├── 6dadc8ff0649_add_racer_fields_to_motorcycle.py
-│       ├── 760969e7b61d_populate_new_achievement_definitions_.py
-│       ├── 7b1844b671ec_add_dashboard_layout_to_user_model.py
-│       ├── 890e7eb7d568_re_design_garage_card_to_be_user_centric.py
-│       ├── 896791ff77ea_add_odo_reset_log_table_and_data_.py
-│       ├── 8fa81400776d_add_show_cost_in_dashboard_to_user_model.py
-│       ├── 9516bc768302_add_event_and_event_participant_models.py
-│       ├── aa6d3aff4f5c_add_encrypted_misskey_api_token_to_user_.py
-│       ├── be856a8078da_add_garage_theme_and_hero_vehicle_id_to_.py
-│       ├── c9271122696a_add_passcode_hash_to_event_participants.py
-│       ├── cb61b6485ca8_add_missing_general_notes_and_odo_reset_.py
-│       ├── cbc2495d2f76_initial_migration.py
-│       ├── cd7db2474a21_check_sync_after_fixing_relationship.py
-│       ├── d5b35174a1cb_add_display_name_to_user_model.py
-│       ├── df2ec8ec945c_add_last_done_odo_to_maintenancereminder.py
-│       ├── f0c7fc2c92ad_add_auto_update_from_category_to_.py
-│       └── f2a7668dac26_add_maintenance_spec_sheet_table.py
+│       └── e391d758c56d_initial_consolidated_migration_from_.py
 ├── motopuppu
 │   ├── __init__.py
 │   ├── achievement_evaluator.py
@@ -281,22 +249,21 @@ kyagisaw@kyagisaw-mac motopuppu % tree
 ├── requirements.txt
 └── tests
 
-34 directories, 167 files
-    ```
+34 directories, 138 files
 
-7.  **今回のセッションでの目標 [毎回更新]:**
-      * 
-      * 現在の実装について確認が必要なファイルを指定してください。それらのファイルを送付するので、すべて確認してから実装案を作成してください
+### **7.  今回のセッションでの目標 [毎回更新]**
 
-      
-8.  **Geminiに期待する役割:**
+* （ここに次の開発目標を記載してください）
+* 現在の実装について確認が必要なファイルを指定してください。それらのファイルを送付するので、すべて確認してから実装案を作成してください
 
-      * コードの提案、修正案の提示 (ファイル全体の表示希望)
-      * 実装に関する質問への回答
-      * コードレビュー
-      * エラー分析と解決策の提案
+### **8.  Geminiに期待する役割**
 
-9.  **その他 [必要に応じて]:**
+* コードの提案、修正案の提示 (ファイル全体の表示希望)
+* 実装に関する質問への回答
+* コードレビュー
+* エラー分析と解決策の提案
 
-      * DBスキーマの変更については、過去に問題が発生した経験があるため、特に慎重に進めたい。
-      * 修正は既存のUIや他の機能への影響を最小限に抑えたい。
+### **9.  その他 [必要に応じて]**
+
+* DBスキーマの変更については、過去に問題が発生した経験があるため、特に慎重に進めたい。
+* 修正は既存のUIや他の機能への影響を最小限に抑えたい。
