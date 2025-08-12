@@ -3,16 +3,13 @@ document.addEventListener('DOMContentLoaded', function() {
     // misskey_instance_domain は base.html でグローバルJavaScript変数として設定されている想定
     // var misskey_instance_domain = {{ misskey_instance_domain | tojson | safe }};
 
-    // ▼▼▼ イベントリスナーの登録方法を「イベント委譲」に変更 ▼▼▼
     document.body.addEventListener('click', function(event) {
-        // クリックされた要素が .btn-share-misskey か、その子要素であるかを確認
-        const shareButton = event.target.closest('.btn-share-misskey');
+        // ▼▼▼【変更】data-share-url 属性を持つボタンも対象にする ▼▼▼
+        const shareButton = event.target.closest('.btn-share-misskey, [data-share-url]');
         
-        // shareButton が見つからない場合は何もしない
         if (!shareButton) {
             return;
         }
-    // ▲▲▲ 変更ここまで ▲▲▲
 
         if (typeof misskey_instance_domain === 'undefined' || !misskey_instance_domain) {
             console.error("Misskey instance domain is not defined in global scope. Check base.html.");
@@ -21,6 +18,35 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         const dataset = shareButton.dataset;
+
+        // ▼▼▼【追加】data-share-url 属性がある場合の処理 ▼▼▼
+        if (dataset.shareUrl) {
+            fetch(dataset.shareUrl)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Server responded with status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.note_text) {
+                        const encodedText = encodeURIComponent(data.note_text);
+                        const shareUrl = `https://${misskey_instance_domain}/share?text=${encodedText}`;
+                        window.open(shareUrl, '_blank', 'width=600,height=400,noopener,noreferrer');
+                    } else {
+                        console.error("Share note text not found in API response:", data);
+                        alert("共有する内容の取得に失敗しました。");
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching share note:', error);
+                    alert('共有内容の取得中にエラーが発生しました。');
+                });
+            return; // このボタンの処理はここで終了
+        }
+        // ▲▲▲【追加】ここまで ▲▲▲
+
+        // --- 以下は既存の data-type 属性を持つボタンの処理 ---
         const recordType = dataset.type;
         const vehicleName = dataset.vehicleName;
         const recordDate = dataset.date; // ISO 8601 format (e.g., "2023-05-08T10:20:30") or YYYY-MM-DD
@@ -153,7 +179,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             shareText += baseHashtags + " #活動ログ" + vehicleHashtag;
 
-        // ▼▼▼ 以下を追記 ▼▼▼
         } else if (recordType === 'touring') {
             const title = dataset.title;
             const spotsJson = dataset.spotsJson;
@@ -178,7 +203,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             shareText += baseHashtags + " #ツーリングログ" + vehicleHashtag;
-        // ▲▲▲ 追記ここまで ▲▲▲
 
         } else if (recordType === 'leaderboard') {
             const circuitName = dataset.circuitName;
@@ -211,8 +235,11 @@ document.addEventListener('DOMContentLoaded', function() {
             const shareUrl = `https://${misskey_instance_domain}/share?text=${encodedText}`;
             window.open(shareUrl, '_blank', 'width=600,height=400,noopener,noreferrer');
         } else {
-            console.warn("Share text was empty for record type:", recordType, "and dataset:", dataset);
-            alert("共有する内容がありません。");
+            // shareUrlも無く、shareTextも生成されなかった場合
+            if (!dataset.shareUrl) {
+                console.warn("Share text was empty for record type:", recordType, "and dataset:", dataset);
+                alert("共有する内容がありません。");
+            }
         }
     });
 });

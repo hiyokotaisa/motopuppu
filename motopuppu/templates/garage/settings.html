@@ -38,6 +38,10 @@
                 <button class="btn btn-outline-secondary" type="button" data-bs-toggle="modal" data-bs-target="#qrCodeModal">
                     <i class="fas fa-qrcode me-1"></i>QRコード表示
                 </button>
+                <button class="btn btn-info" type="button" 
+                        data-share-url="{{ url_for('garage_settings.share_garage_note') }}">
+                    <i class="fa-solid fa-share-nodes me-1"></i> Misskeyで共有
+                </button>
             </div>
             {# ▲▲▲【変更はここまで】▲▲▲ #}
         </div>

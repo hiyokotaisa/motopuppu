@@ -1,5 +1,5 @@
 # motopuppu/views/garage_settings.py
-from flask import Blueprint, render_template, redirect, url_for, flash, request
+from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify
 from flask_login import login_required, current_user
 from .. import db
 from ..models import User, Motorcycle
@@ -77,3 +77,37 @@ def update_details(vehicle_id):
                 flash(f"{getattr(form, field).label.text}: {error}", 'danger')
 
     return redirect(url_for('garage_settings.settings'))
+
+
+@garage_settings_bp.route('/share-note', methods=['GET'])
+@login_required
+def share_garage_note():
+    """ガレージ共有用のMisskeyノートテキストを生成して返すAPIエンドポイント"""
+    
+    # ガレージに掲載する設定の車両を取得
+    public_vehicles = Motorcycle.query.filter_by(user_id=current_user.id, show_in_garage=True).order_by(Motorcycle.name).all()
+    
+    # ノートのテキストを組み立て
+    note_lines = [
+        f"私のガレージを紹介します！🏍️✨\n"
+    ]
+    
+    if public_vehicles:
+        for v in public_vehicles:
+            note_lines.append(f"・{v.maker or '不明'} {v.name}")
+    else:
+        note_lines.append("（まだ掲載している車両がありません）")
+        
+    note_lines.append("\n") # 空行
+    
+    # 公開URLを追加
+    if current_user.is_garage_public and current_user.public_id:
+        garage_url = url_for('garage.garage_detail', public_id=current_user.public_id, _external=True)
+        note_lines.append(f"詳細はこちらから！\n{garage_url}\n")
+    
+    # ハッシュタグ
+    note_lines.append("#もとぷっぷー #ガレージ紹介")
+    
+    note_text = "\n".join(note_lines)
+    
+    return jsonify({'note_text': note_text})
