@@ -214,10 +214,15 @@
                         <a href="{{ url_for('activity.edit_session', session_id=session.id) }}" class="btn btn-sm btn-outline-primary py-0 px-1 me-1" title="編集">
                             <i class="fas fa-edit fa-fw"></i>
                         </a>
-                        <form action="{{ url_for('activity.delete_session', session_id=session.id) }}" method="POST" class="d-inline" onsubmit="return confirm('このセッション記録を削除してもよろしいですか？');">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                            <button type="submit" class="btn btn-sm btn-outline-danger py-0 px-1" title="削除"><i class="fas fa-trash fa-fw"></i></button>
-                        </form>
+                        {# ▼▼▼【ここから修正】▼▼▼ #}
+                        {# formタグを削除し、JavaScriptで処理するためのbuttonタグに変更 #}
+                        <button type="button" class="btn btn-sm btn-outline-danger py-0 px-1 delete-session-btn"
+                                data-delete-url="{{ url_for('activity.delete_session', session_id=session.id) }}"
+                                data-csrf-token="{{ csrf_token() }}"
+                                title="削除">
+                            <i class="fas fa-trash fa-fw"></i>
+                        </button>
+                        {# ▲▲▲【修正はここまで】▲▲▲ #}
                     </div>
                 </div>
                 <div class="card-body">
@@ -593,6 +598,33 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         updateCompareButtonState();
     }
+
+    // ▼▼▼【ここから追記】▼▼▼
+    // 削除ボタンの処理
+    document.querySelectorAll('.delete-session-btn').forEach(button => {
+        button.addEventListener('click', function(event) {
+            if (confirm('このセッション記録を削除してもよろしいですか？')) {
+                const deleteUrl = this.dataset.deleteUrl;
+                const csrfToken = this.dataset.csrfToken;
+
+                // 動的にフォームを作成
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = deleteUrl;
+
+                // CSRFトークン用の隠しフィールドを作成
+                const csrfInput = document.createElement('input');
+                csrfInput.type = 'hidden';
+                csrfInput.name = 'csrf_token';
+                csrfInput.value = csrfToken;
+
+                form.appendChild(csrfInput);
+                document.body.appendChild(form); // フォームをDOMに追加してsubmit可能にする
+                form.submit();
+            }
+        });
+    });
+    // ▲▲▲【追記はここまで】▲▲▲
 });
 </script>
 {% endblock %}
