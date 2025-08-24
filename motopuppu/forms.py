@@ -440,7 +440,8 @@ class LapTimeImportForm(FlaskForm):
         choices=[
             ('simple_csv', '手入力 / シンプルCSV'),
             ('ziix', 'ZiiX'),
-            ('mylaps', 'MYLAPS(Speedhive)')
+            ('mylaps', 'MYLAPS(Speedhive)'),
+            ('drogger', 'Drogger')
         ],
         validators=[DataRequired(message="機種を選択してください。")]
     )
