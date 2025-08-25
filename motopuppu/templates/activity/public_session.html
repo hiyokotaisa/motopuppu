@@ -1,0 +1,105 @@
+{# motopuppu/templates/activity/public_session.html #}
+<!DOCTYPE html>
+<html lang="ja" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>共有走行ログ: {{ session.session_name }} - もとぷっぷー</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="icon" href="{{ url_for('static', filename='favicons/favicon.ico') }}" sizes="any">
+    <style>
+        html, body { height: 100%; margin: 0; padding: 0; }
+        .modal-body { padding: 0; }
+        #telemetry-container { display: flex; flex-direction: row; height: calc(100vh - 58px); }
+        #telemetry-controls { flex: 0 0 280px; overflow-y: auto; padding: 1rem; border-right: 1px solid #444; background-color: #212529; }
+        #telemetry-main { flex-grow: 1; display: flex; flex-direction: column; min-width: 0; }
+        #mapContainer { flex-grow: 1; min-height: 200px; }
+        #playback-controls { padding: 0.5rem; border-top: 1px solid #444; }
+        #telemetry-graphs { flex-shrink: 0; height: 300px; display: flex; flex-direction: column; border-top: 1px solid #444; }
+        .chart-container { position: relative; flex-grow: 1; min-height: 0; }
+        @media (max-width: 767.98px) {
+            #telemetry-container { flex-direction: column; height: auto; }
+            #telemetry-controls { flex-shrink: 0; border-right: 0; border-bottom: 1px solid #444; }
+            #telemetry-main { height: calc(100vh - 250px); }
+        }
+    </style>
+</head>
+<body>
+    <header class="navbar navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{{ url_for('main.index') }}">
+                <img src="{{ url_for('static', filename='favicons/favicon-96x96.png') }}" alt="logo" width="30" height="30" class="d-inline-block align-text-top">
+                もとぷっぷー
+            </a>
+            <span class="navbar-text">
+                共有走行ログ
+            </span>
+        </div>
+    </header>
+
+    <div class="modal-body p-0">
+        <div id="telemetry-container">
+            <div id="telemetry-controls">
+                <h6 id="telemetrySessionName"></h6>
+                <small class="text-muted">{{ session.activity.activity_date.strftime('%Y-%m-%d') }} @ {{ session.activity.location_name_display }}</small>
+                <hr>
+                <h6>表示ラップ選択</h6>
+                <div id="lapSelectorContainer"><p class="text-muted">走行データを読み込んでいます...</p></div>
+                <hr>
+                <h6>表示オプション</h6>
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" role="switch" id="toggleBrakingPoints" checked>
+                    <label class="form-check-label" for="toggleBrakingPoints">減速ポイント <span style="color: red;">▼</span></label>
+                </div>
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" role="switch" id="toggleAccelPoints" checked>
+                    <label class="form-check-label" for="toggleAccelPoints">加速ポイント <span style="color: limegreen;">▲</span></label>
+                </div>
+            </div>
+            <div id="telemetry-main">
+                <div id="mapContainer">
+                    <div class="d-flex justify-content-center align-items-center h-100">
+                        <div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div>
+                    </div>
+                </div>
+                <div id="playback-controls" class="p-2 border-top">
+                    <div class="d-flex align-items-center">
+                        <button id="playPauseBtn" class="btn btn-primary me-2"><i class="fas fa-play"></i></button>
+                        <input type="range" class="form-range" id="timelineScrubber" min="0" max="1000" value="0">
+                    </div>
+                </div>
+                <div id="telemetry-graphs">
+                    <div class="chart-container"><canvas id="speedChart"></canvas></div>
+                    <div class="chart-container"><canvas id="rpmChart"></canvas></div>
+                    <div class="chart-container"><canvas id="throttleChart"></canvas></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+
+    {% if config.GOOGLE_MAPS_API_KEY %}
+    <script src="{{ url_for('static', filename='js/map_viewer.js') }}"></script>
+    <script>
+        // ▼▼▼【ここから修正】▼▼▼
+        // Google Maps APIがロード完了したら、コールバックとしてこの関数が呼ばれる
+        function initMap() {
+            // map_viewer.jsが公開したグローバル関数を、
+            // この公開ページ用の設定で直接呼び出す
+            window.motopuppuMapViewer.init({
+                sessionId: "{{ session.public_share_token }}",
+                sessionName: "{{ session.session_name }}",
+                dataUrl: `/activity/share/session/{{ session.public_share_token }}/gps_data`,
+                isPublicPage: true
+            });
+        }
+        // ▲▲▲【修正はここまで】▲▲▲
+    </script>
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key={{ config.GOOGLE_MAPS_API_KEY }}&callback=initMap"></script>
+    {% endif %}
+</body>
+</html>

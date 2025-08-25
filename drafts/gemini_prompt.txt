@@ -75,24 +75,26 @@
 
 ### **6.  現在のプロジェクトディレクトリ:**
 
-kyagisaw@kyagisaw-mac motopuppu % tree
+kyagisaw@hiyoko-fedora:~/Dev/motopuppu$ tree
 .
+├── Dockerfile
+├── LICENSE
+├── README.md
 ├── announcements.json
 ├── compose.yml
-├── Dockerfile
 ├── drafts
 │   ├── gemini_prompt.txt
 │   └── racer_draft.md
 ├── fonts
 │   └── ipaexg.ttf
 ├── instance
-├── LICENSE
 ├── migrations
+│   ├── README
 │   ├── alembic.ini
 │   ├── env.py
-│   ├── README
 │   ├── script.py.mako
 │   └── versions
+│       ├── 8ffa50023b83_add_gps_tracks_to_sessionlog.py
 │       └── e391d758c56d_initial_consolidated_migration_from_.py
 ├── motopuppu
 │   ├── __init__.py
@@ -105,6 +107,7 @@ kyagisaw@kyagisaw-mac motopuppu % tree
 │   ├── parsers
 │   │   ├── __init__.py
 │   │   ├── base_parser.py
+│   │   ├── drogger_parser.py
 │   │   ├── mylaps_parser.py
 │   │   ├── simple_csv_parser.py
 │   │   └── ziix_parser.py
@@ -135,6 +138,7 @@ kyagisaw@kyagisaw-mac motopuppu % tree
 │   │   │   ├── gas_station_search.js
 │   │   │   ├── global_search.js
 │   │   │   ├── lap_time_manager.js
+│   │   │   ├── map_viewer.js
 │   │   │   ├── misskey_share.js
 │   │   │   └── odo_toggle.js
 │   │   └── manifest.json
@@ -232,8 +236,8 @@ kyagisaw@kyagisaw-mac motopuppu % tree
 │       ├── dev_auth.py
 │       ├── event.py
 │       ├── fuel.py
-│       ├── garage_settings.py
 │       ├── garage.py
+│       ├── garage_settings.py
 │       ├── help.py
 │       ├── leaderboard.py
 │       ├── main.py
@@ -245,11 +249,10 @@ kyagisaw@kyagisaw-mac motopuppu % tree
 │       ├── spec_sheet.py
 │       ├── touring.py
 │       └── vehicle.py
-├── README.md
-├── requirements.txt
-└── tests
+└── requirements.txt
 
-34 directories, 138 files
+33 directories, 141 files
+
 
 ### **7.  今回のセッションでの目標 [毎回更新]**
 

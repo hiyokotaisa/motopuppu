@@ -3,6 +3,7 @@ import json
 import io
 from collections import defaultdict
 from decimal import Decimal
+import uuid
 
 from flask import (
     flash, redirect, render_template, request, url_for, abort, current_app, jsonify
@@ -394,3 +395,39 @@ def import_laps(session_id):
                 flash(f'{form[field].label.text}: {error}', 'danger')
 
     return redirect(url_for('activity.detail_activity', activity_id=session.activity_log_id))
+
+
+@activity_bp.route('/session/<int:session_id>/toggle_share', methods=['POST'])
+@limiter.limit("60 per minute")
+@login_required
+def toggle_share_session(session_id):
+    """セッションの公開設定を切り替えるAPI"""
+    session = SessionLog.query.join(ActivityLog).filter(
+        SessionLog.id == session_id,
+        ActivityLog.user_id == current_user.id
+    ).first_or_404()
+
+    try:
+        # 公開状態を反転させる
+        session.is_public = not session.is_public
+
+        # 初めて公開する場合、共有トークンを生成する
+        if session.is_public and not session.public_share_token:
+            session.public_share_token = str(uuid.uuid4())
+        
+        db.session.commit()
+
+        public_url = None
+        if session.is_public:
+            public_url = url_for('activity.public_session_view', token=session.public_share_token, _external=True)
+
+        return jsonify({
+            'success': True,
+            'is_public': session.is_public,
+            'public_url': public_url
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error toggling share for session {session_id}: {e}", exc_info=True)
+        return jsonify({'success': False, 'message': 'サーバーエラーが発生しました。'}), 500

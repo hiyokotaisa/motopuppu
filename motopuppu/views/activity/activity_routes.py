@@ -2,9 +2,10 @@
 import json
 from datetime import date
 from decimal import Decimal
+import uuid
 
 from flask import (
-    flash, redirect, render_template, request, url_for, abort, current_app
+    flash, redirect, render_template, request, url_for, abort, current_app, jsonify
 )
 from sqlalchemy.orm import joinedload
 from sqlalchemy import func
@@ -285,3 +286,40 @@ def detail_activity(activity_id):
                            # 3. テンプレートに現在のソート順を渡す
                            current_sort=sort_order)
     # --- ▲▲▲ 変更ここまで ▲▲▲ ---
+
+# --- Public Routes (No Login Required) ---
+
+@activity_bp.route('/share/session/<uuid:token>')
+def public_session_view(token):
+    """【公開】トークンを使って共有セッションページを表示する"""
+    session = db.session.query(SessionLog).filter_by(
+        public_share_token=str(token), 
+        is_public=True
+    ).options(
+        joinedload(SessionLog.activity) # activity情報も一緒に読み込む
+    ).first()
+
+    if not session:
+        abort(404)
+
+    # public_session.html は activity ディレクトリ内に配置
+    return render_template('activity/public_session.html', session=session)
+
+
+@activity_bp.route('/share/session/<uuid:token>/gps_data')
+def public_gps_data(token):
+    """【公開】共有セッションのGPSデータをJSONで返す"""
+    session = SessionLog.query.filter_by(
+        public_share_token=str(token), 
+        is_public=True
+    ).first()
+
+    if not session or not session.gps_tracks or not session.gps_tracks.get('laps'):
+        return jsonify({'error': 'No GPS data available'}), 404
+
+    response_data = {
+        'laps': session.gps_tracks.get('laps', []),
+        'lap_times': session.lap_times or [],
+    }
+    
+    return jsonify(response_data)

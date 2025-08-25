@@ -321,6 +321,26 @@
                     </div>
                 </div>
                 <div class="card-body">
+                    <div class="border-bottom pb-3 mb-3">
+                        <div class="form-check form-switch mb-2">
+                            <input class="form-check-input share-session-switch" type="checkbox" role="switch" 
+                                   id="shareSwitch-{{ session.id }}"
+                                   data-session-id="{{ session.id }}"
+                                   data-csrf-token="{{ csrf_token() }}"
+                                   {% if session.is_public %}checked{% endif %}>
+                            <label class="form-check-label" for="shareSwitch-{{ session.id }}">
+                                このセッションを公開共有する
+                            </label>
+                        </div>
+                        <div id="share-info-{{ session.id }}" class="{% if not session.is_public %}d-none{% endif %}">
+                            <div class="input-group">
+                                <input type="text" class="form-control form-control-sm" value="{{ url_for('activity.public_session_view', token=session.public_share_token, _external=True) if session.public_share_token else '' }}" readonly>
+                                <button class="btn btn-sm btn-outline-secondary copy-btn" type="button" title="リンクをコピー">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                     <div class="mb-3">
                         <strong><i class="fas fa-cog fa-fw me-1"></i>使用セッティング:</strong>
                         {% if session.setting_sheet %}
@@ -790,6 +810,70 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.body.appendChild(form);
                 form.submit();
             }
+        });
+    });
+
+    // 共有トグルスイッチの処理
+    document.querySelectorAll('.share-session-switch').forEach(switchEl => {
+        switchEl.addEventListener('change', async function(event) {
+            const sessionId = this.dataset.sessionId;
+            const csrfToken = this.dataset.csrfToken;
+            const shareInfoDiv = document.getElementById(`share-info-${sessionId}`);
+            const urlInput = shareInfoDiv.querySelector('input[type="text"]');
+
+            try {
+                const response = await fetch(`/activity/session/${sessionId}/toggle_share`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrfToken,
+                        'Content-Type': 'application/json'
+                    },
+                });
+
+                if (!response.ok) {
+                    throw new Error('サーバーとの通信に失敗しました。');
+                }
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // スイッチの状態をサーバーからのレスポンスに同期
+                    this.checked = data.is_public; 
+
+                    if (data.is_public) {
+                        urlInput.value = data.public_url;
+                        shareInfoDiv.classList.remove('d-none');
+                    } else {
+                        shareInfoDiv.classList.add('d-none');
+                    }
+                } else {
+                    // 失敗した場合はスイッチを元の状態に戻す
+                    this.checked = !this.checked; 
+                    alert(data.message || '処理に失敗しました。');
+                }
+
+            } catch (error) {
+                // 失敗した場合はスイッチを元の状態に戻す
+                this.checked = !this.checked; 
+                console.error('Share toggle error:', error);
+                alert('エラーが発生しました。');
+            }
+        });
+    });
+
+    // コピーボタンの処理
+    document.querySelectorAll('.copy-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const input = this.closest('.input-group').querySelector('input[type="text"]');
+            input.select();
+            document.execCommand('copy');
+            
+            // UIフィードバック
+            const originalIcon = this.innerHTML;
+            this.innerHTML = '<i class="fas fa-check text-success"></i>';
+            setTimeout(() => {
+                this.innerHTML = originalIcon;
+            }, 1500);
         });
     });
 });

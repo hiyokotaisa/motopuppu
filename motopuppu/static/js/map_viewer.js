@@ -1,273 +1,229 @@
 // motopuppu/static/js/map_viewer.js
-document.addEventListener('DOMContentLoaded', () => {
-    const mapModalElement = document.getElementById('mapModal');
-    if (!mapModalElement) return;
+// ▼▼▼【ここから全体を修正】▼▼▼
 
-    // --- グローバル変数定義 ---
-    let map;
-    let polylines = [];
-    let brakingMarkers = [];
-    let accelMarkers = [];
-    let bikeMarker = null; // バイクの現在位置を示すマーカー
-    let bounds;
-    
-    // Chart.jsのインスタンスを保持
-    let charts = {
-        speed: null,
-        rpm: null,
-        throttle: null
-    };
+// グローバルスコープに関数を公開するためのオブジェクト
+window.motopuppuMapViewer = {
+    init: async function(options) {
+        // オプションから設定を取得
+        const sessionId = options.sessionId;
+        const sessionName = options.sessionName;
+        const dataUrl = options.dataUrl;
+        const isPublicPage = options.isPublicPage || false;
 
-    // 再生関連
-    let currentLapData = null;
-    let animationFrameId = null;
-    let isPlaying = false;
+        // 実行コンテナ（モーダルか、通常のページか）
+        const container = isPublicPage ? document.body : document.getElementById('mapModal');
+        if (!container) return;
+        
+        // --- グローバル変数定義 ---
+        let map;
+        let polylines = [];
+        let brakingMarkers = [];
+        let accelMarkers = [];
+        let bikeMarker = null; // バイクの現在位置を示すマーカー
+        let bounds;
+        let charts = { speed: null, rpm: null, throttle: null };
+        let currentLapData = null;
+        let animationFrameId = null;
+        let isPlaying = false;
 
-
-    // --- 初期化・描画関連関数 ---
-
-    function initializeMap(containerId) {
-        const mapContainer = document.getElementById(containerId);
-        if (!mapContainer || typeof google === 'undefined') return null;
-        mapContainer.innerHTML = ''; // スピナーをクリア
-        return new google.maps.Map(mapContainer, {
-            mapTypeId: 'satellite',
-            streetViewControl: false,
-            mapTypeControl: false,
-            fullscreenControl: false,
-        });
-    }
-
-    // Chart.jsのグラフを初期化または破棄する関数
-    function setupChart(canvasId, label, color) {
-        if (charts[canvasId]) {
-            charts[canvasId].destroy();
+        // --- 関数定義 (内部ヘルパー) ---
+        function initializeMap(containerId) {
+            const mapContainer = document.getElementById(containerId);
+            if (!mapContainer || typeof google === 'undefined') return null;
+            mapContainer.innerHTML = ''; // スピナーをクリア
+            return new google.maps.Map(mapContainer, {
+                mapTypeId: 'satellite', streetViewControl: false, mapTypeControl: false, fullscreenControl: false,
+            });
         }
-        const ctx = document.getElementById(canvasId).getContext('2d');
-        return new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: [],
-                datasets: [{
-                    label: label,
-                    data: [],
-                    borderColor: color,
-                    borderWidth: 2,
-                    pointRadius: 0,
-                    tension: 0.1,
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                animation: false,
-                plugins: {
-                    legend: { display: false },
-                    tooltip: { enabled: false },
-                    // 縦線カーソル用のプラグイン設定
-                    annotation: {
-                        annotations: {
-                            line1: {
-                                type: 'line',
-                                scaleID: 'x',
-                                value: 0,
-                                borderColor: 'rgba(255, 99, 132, 0.8)',
-                                borderWidth: 1,
-                                display: false, // 初期状態は非表示
+        function setupChart(canvasId, label, color) {
+            if (charts[canvasId]) {
+                charts[canvasId].destroy();
+            }
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            return new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: label,
+                        data: [],
+                        borderColor: color,
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        tension: 0.1,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { enabled: false },
+                        // 縦線カーソル用のプラグイン設定
+                        annotation: {
+                            annotations: {
+                                line1: {
+                                    type: 'line',
+                                    scaleID: 'x',
+                                    value: 0,
+                                    borderColor: 'rgba(255, 99, 132, 0.8)',
+                                    borderWidth: 1,
+                                    display: false, // 初期状態は非表示
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { display: false },
+                            grid: { display: false }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                font: { size: 10 }
+                            },
+                            title: {
+                                display: true,
+                                text: label,
+                                font: { size: 12 }
                             }
                         }
                     }
-                },
-                scales: {
-                    x: {
-                        ticks: { display: false },
-                        grid: { display: false }
-                    },
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            font: { size: 10 }
-                        },
-                        title: {
-                            display: true,
-                            text: label,
-                            font: { size: 12 }
-                        }
-                    }
+                }
+            });
+        }
+        function getColorForSpeed(speed, minSpeed, maxSpeed) {
+            if (speed < minSpeed) speed = minSpeed;
+            if (speed > maxSpeed) speed = maxSpeed;
+            const range = maxSpeed - minSpeed;
+            if (range === 0) return '#00FF00';
+            const ratio = (speed - minSpeed) / range;
+            let r, g, b;
+            if (ratio < 0.5) {
+                r = 255;
+                g = Math.round(255 * (ratio * 2));
+                b = 0;
+            } else {
+                r = Math.round(255 * (1 - (ratio - 0.5) * 2));
+                g = 255;
+                b = Math.round(255 * ((ratio - 0.5) * 2));
+            }
+            return `rgb(${r},${g},${b})`;
+        }
+        function drawLapPolyline(track, minSpeed, maxSpeed, mapInstance) {
+            const lapPolylines = [];
+            for (let i = 0; i < track.length - 1; i++) {
+                const startPoint = track[i];
+                const endPoint = track[i + 1];
+                const avgSpeed = ((startPoint.speed || 0) + (endPoint.speed || 0)) / 2;
+                const color = getColorForSpeed(avgSpeed, minSpeed, maxSpeed);
+                const segment = new google.maps.Polyline({
+                    path: [startPoint, endPoint],
+                    geodesic: true,
+                    strokeColor: color,
+                    strokeOpacity: 1.0,
+                    strokeWeight: 4,
+                });
+                if (mapInstance) segment.setMap(mapInstance);
+                lapPolylines.push(segment);
+            }
+            return lapPolylines;
+        }
+        function findSignificantPoints(track, options = {}) {
+            const {
+                lookahead = 25,
+                speedChangeThreshold = 4.0,
+                cooldown = 30,
+            } = options;
+    
+            const brakingPoints = [];
+            const accelPoints = [];
+            
+            if (track.length < lookahead + 1) return { brakingPoints, accelPoints };
+    
+            let lastBrakeIndex = -cooldown;
+            let lastAccelIndex = -cooldown;
+    
+            for (let i = 0; i < track.length - lookahead; i++) {
+                const currentPoint = track[i];
+                const futurePoint = track[i + lookahead];
+    
+                if (currentPoint.speed === undefined || futurePoint.speed === undefined) continue;
+    
+                const speedDiff = currentPoint.speed - futurePoint.speed;
+    
+                if (speedDiff > speedChangeThreshold && i > lastBrakeIndex + cooldown) {
+                    brakingPoints.push(currentPoint);
+                    lastBrakeIndex = i;
+                }
+                else if (-speedDiff > speedChangeThreshold && i > lastAccelIndex + cooldown) {
+                    accelPoints.push(currentPoint);
+                    lastAccelIndex = i;
                 }
             }
-        });
-    }
-
-    function getColorForSpeed(speed, minSpeed, maxSpeed) {
-        if (speed < minSpeed) speed = minSpeed;
-        if (speed > maxSpeed) speed = maxSpeed;
-        const range = maxSpeed - minSpeed;
-        if (range === 0) return '#00FF00';
-        const ratio = (speed - minSpeed) / range;
-        let r, g, b;
-        if (ratio < 0.5) {
-            r = 255;
-            g = Math.round(255 * (ratio * 2));
-            b = 0;
-        } else {
-            r = Math.round(255 * (1 - (ratio - 0.5) * 2));
-            g = 255;
-            b = Math.round(255 * ((ratio - 0.5) * 2));
+            return { brakingPoints, accelPoints };
         }
-        return `rgb(${r},${g},${b})`;
-    }
-
-    function drawLapPolyline(track, minSpeed, maxSpeed, mapInstance) {
-        const lapPolylines = [];
-        for (let i = 0; i < track.length - 1; i++) {
-            const startPoint = track[i];
-            const endPoint = track[i + 1];
-            const avgSpeed = ((startPoint.speed || 0) + (endPoint.speed || 0)) / 2;
-            const color = getColorForSpeed(avgSpeed, minSpeed, maxSpeed);
-            const segment = new google.maps.Polyline({
-                path: [startPoint, endPoint],
-                geodesic: true,
-                strokeColor: color,
-                strokeOpacity: 1.0,
-                strokeWeight: 4,
+        function createMarker(point, icon, mapInstance) {
+            return new google.maps.Marker({
+                position: point,
+                icon: icon,
+                map: mapInstance,
+                title: `Speed: ${point.speed.toFixed(1)} km/h`
             });
-            if (mapInstance) segment.setMap(mapInstance);
-            lapPolylines.push(segment);
-        }
-        return lapPolylines;
-    }
-
-    // --- データ分析・マーカー関連関数 ---
-
-    function findSignificantPoints(track, options = {}) {
-        const {
-            lookahead = 25,
-            speedChangeThreshold = 4.0,
-            cooldown = 30,
-        } = options;
-
-        const brakingPoints = [];
-        const accelPoints = [];
-        
-        if (track.length < lookahead + 1) return { brakingPoints, accelPoints };
-
-        let lastBrakeIndex = -cooldown;
-        let lastAccelIndex = -cooldown;
-
-        for (let i = 0; i < track.length - lookahead; i++) {
-            const currentPoint = track[i];
-            const futurePoint = track[i + lookahead];
-
-            if (currentPoint.speed === undefined || futurePoint.speed === undefined) continue;
-
-            const speedDiff = currentPoint.speed - futurePoint.speed;
-
-            if (speedDiff > speedChangeThreshold && i > lastBrakeIndex + cooldown) {
-                brakingPoints.push(currentPoint);
-                lastBrakeIndex = i;
-            }
-            else if (-speedDiff > speedChangeThreshold && i > lastAccelIndex + cooldown) {
-                accelPoints.push(currentPoint);
-                lastAccelIndex = i;
-            }
-        }
-        return { brakingPoints, accelPoints };
-    }
-    
-    function createMarker(point, icon, mapInstance) {
-        return new google.maps.Marker({
-            position: point,
-            icon: icon,
-            map: mapInstance,
-            title: `Speed: ${point.speed.toFixed(1)} km/h`
-        });
-    }
-
-    // --- 再生・UI更新関連関数 ---
-
-    function updateDashboard(index) {
-        if (!currentLapData || index < 0 || index >= currentLapData.track.length) return;
-
-        const point = currentLapData.track[index];
-        
-        if (bikeMarker) {
-            bikeMarker.setPosition({ lat: point.lat, lng: point.lng });
         }
         
-        Object.values(charts).forEach(chart => {
-            if (chart) {
-                chart.options.plugins.annotation.annotations.line1.value = index;
-                chart.options.plugins.annotation.annotations.line1.display = true;
-                chart.update('none');
-            }
-        });
-
-        const scrubber = document.getElementById('timelineScrubber');
-        if (scrubber) {
-            scrubber.value = index;
+        function updateDashboard(index) {
+            if (!currentLapData || index < 0 || index >= currentLapData.track.length) return;
+            const point = currentLapData.track[index];
+            if (bikeMarker) { bikeMarker.setPosition({ lat: point.lat, lng: point.lng }); }
+            Object.values(charts).forEach(chart => {
+                if (chart) {
+                    chart.options.plugins.annotation.annotations.line1.value = index;
+                    chart.options.plugins.annotation.annotations.line1.display = true;
+                    chart.update('none');
+                }
+            });
+            const scrubber = container.querySelector('#timelineScrubber');
+            if (scrubber) { scrubber.value = index; }
         }
-    }
 
-    function playLoop() {
-        const scrubber = document.getElementById('timelineScrubber');
-        if (!scrubber || !isPlaying) return;
-        
-        let currentIndex = parseInt(scrubber.value, 10);
-        if (currentIndex < parseInt(scrubber.max, 10)) {
-            currentIndex++;
-            updateDashboard(currentIndex);
-            animationFrameId = requestAnimationFrame(playLoop);
-        } else {
-            stopPlayback();
+        function playLoop() {
+            const scrubber = container.querySelector('#timelineScrubber');
+            if (!scrubber || !isPlaying) return;
+            let currentIndex = parseInt(scrubber.value, 10);
+            if (currentIndex < parseInt(scrubber.max, 10)) {
+                currentIndex++;
+                updateDashboard(currentIndex);
+                animationFrameId = requestAnimationFrame(playLoop);
+            } else { stopPlayback(); }
         }
-    }
+        function startPlayback() {
+            isPlaying = true;
+            container.querySelector('#playPauseBtn').innerHTML = '<i class="fas fa-pause"></i>';
+            playLoop();
+        }
+        function stopPlayback() {
+            isPlaying = false;
+            cancelAnimationFrame(animationFrameId);
+            const playBtn = container.querySelector('#playPauseBtn');
+            if(playBtn) playBtn.innerHTML = '<i class="fas fa-play"></i>';
+        }
 
-    function startPlayback() {
-        isPlaying = true;
-        document.getElementById('playPauseBtn').innerHTML = '<i class="fas fa-pause"></i>';
-        playLoop();
-    }
+        // --- メイン処理 ---
+        const telemetrySessionName = container.querySelector('#telemetrySessionName');
+        if (telemetrySessionName) telemetrySessionName.textContent = sessionName;
 
-    function stopPlayback() {
-        isPlaying = false;
-        cancelAnimationFrame(animationFrameId);
-        document.getElementById('playPauseBtn').innerHTML = '<i class="fas fa-play"></i>';
-    }
-
-    // --- メイン処理 ---
-    
-    mapModalElement.addEventListener('show.bs.modal', async (event) => {
-        const button = event.relatedTarget;
-        const sessionId = button.dataset.sessionId;
-        const sessionName = button.dataset.sessionName;
-
-        document.getElementById('telemetrySessionName').textContent = sessionName;
-
-        const mapContainer = document.getElementById('mapContainer');
-        const lapSelectorContainer = document.getElementById('lapSelectorContainer');
+        const mapContainer = container.querySelector('#mapContainer');
+        const lapSelectorContainer = container.querySelector('#lapSelectorContainer');
         mapContainer.innerHTML = `<div class="d-flex justify-content-center align-items-center h-100"><div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div></div>`;
         lapSelectorContainer.innerHTML = `<p class="text-muted">走行データを読み込んでいます...</p>`;
-        
-        const telemetryBtn = document.getElementById('toggleTelemetryBtn');
-        const modalDialog = mapModalElement.querySelector('.modal-dialog');
-        const playbackControls = document.getElementById('playback-controls');
-        const graphsContainer = document.getElementById('telemetry-graphs');
 
-        modalDialog.classList.remove('modal-fullscreen');
-        modalDialog.classList.add('modal-xl');
-        playbackControls.classList.add('d-none');
-        graphsContainer.classList.add('d-none');
-        telemetryBtn.innerHTML = '<i class="fas fa-chart-line me-1"></i> テレメトリを表示';
-        telemetryBtn.classList.remove('btn-success');
-        telemetryBtn.classList.add('btn-outline-primary');
-
-        if (!map) {
-            map = initializeMap('mapContainer');
-        }
+        if (!map) { map = initializeMap('mapContainer'); }
         
         try {
-            const response = await fetch(`/activity/session/${sessionId}/gps_data`);
+            const response = await fetch(dataUrl);
             if (!response.ok) throw new Error('Failed to load GPS data.');
             const data = await response.json();
             
@@ -286,14 +242,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 } catch (e) { return Infinity; }
                 return Infinity;
             };
-
             let bestLapIndex = -1;
             let minTime = Infinity;
             data.lap_times.map(parseTimeToSeconds).forEach((time, index) => {
-                if (time < minTime) {
-                    minTime = time;
-                    bestLapIndex = index;
-                }
+                if (time < minTime) { minTime = time; bestLapIndex = index; }
             });
 
             lapSelectorContainer.innerHTML = '';
@@ -302,17 +254,14 @@ document.addEventListener('DOMContentLoaded', () => {
             data.lap_times.forEach((lapTime, index) => {
                 const option = document.createElement('option');
                 option.value = index;
-                // ▼▼▼【ここからが今回の主な修正箇所です】▼▼▼
                 const isBest = index === bestLapIndex;
                 option.textContent = `${isBest ? '👑 ' : ''}Lap ${index + 1} (${lapTime})`;
-                // ▲▲▲【修正はここまで】▲▲▲
                 lapSelect.appendChild(option);
             });
             lapSelectorContainer.appendChild(lapSelect);
 
             const loadLapData = (lapIndex) => {
                 stopPlayback();
-                
                 currentLapData = data.laps[lapIndex];
                 if (!currentLapData || !currentLapData.track || currentLapData.track.length < 2) return;
                 
@@ -328,56 +277,70 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 bounds = new google.maps.LatLngBounds();
                 currentLapData.track.forEach(p => bounds.extend(p));
-                
-                if (map && !bounds.isEmpty()) {
-                    map.fitBounds(bounds);
-                }
+                if (map && !bounds.isEmpty()) { map.fitBounds(bounds); }
                 
                 polylines = drawLapPolyline(currentLapData.track, minSpeed, maxSpeed, map);
-                
                 const { brakingPoints, accelPoints } = findSignificantPoints(currentLapData.track);
                 const brakingIcon = { path: 'M0,-5 L5,5 L-5,5 Z', fillColor: 'red', fillOpacity: 1.0, strokeWeight: 0, rotation: 180, scale: 0.8, anchor: new google.maps.Point(0, 0) };
                 const accelIcon = { path: 'M0,-5 L5,5 L-5,5 Z', fillColor: 'limegreen', fillOpacity: 1.0, strokeWeight: 0, scale: 0.8, anchor: new google.maps.Point(0, 0) };
                 brakingMarkers = brakingPoints.map(p => createMarker(p, brakingIcon, map));
                 accelMarkers = accelPoints.map(p => createMarker(p, accelIcon, map));
-                
                 const bikeIcon = { path: google.maps.SymbolPath.CIRCLE, scale: 5, fillColor: 'yellow', strokeColor: 'black', strokeWeight: 1 };
                 bikeMarker = new google.maps.Marker({ position: currentLapData.track[0], icon: bikeIcon, map: map, zIndex: 100 });
-
+                
                 const labels = currentLapData.track.map(p => (p.runtime || 0).toFixed(2));
                 charts.speed = setupChart('speedChart', '速度 (km/h)', 'rgba(54, 162, 235, 1)');
                 charts.rpm = setupChart('rpmChart', 'エンジン回転数 (rpm)', 'rgba(255, 99, 132, 1)');
                 charts.throttle = setupChart('throttleChart', 'スロットル開度 (%)', 'rgba(75, 192, 192, 1)');
-
                 charts.speed.data.labels = labels;
                 charts.speed.data.datasets[0].data = currentLapData.track.map(p => p.speed);
                 charts.rpm.data.labels = labels;
                 charts.rpm.data.datasets[0].data = currentLapData.track.map(p => p.rpm);
                 charts.throttle.data.labels = labels;
                 charts.throttle.data.datasets[0].data = currentLapData.track.map(p => p.throttle);
-
                 Object.values(charts).forEach(chart => chart.update());
 
-                const scrubber = document.getElementById('timelineScrubber');
+                const scrubber = container.querySelector('#timelineScrubber');
                 scrubber.max = currentLapData.track.length - 1;
                 updateDashboard(0);
             };
 
             lapSelect.addEventListener('change', (e) => loadLapData(parseInt(e.target.value, 10)));
-            document.getElementById('timelineScrubber').addEventListener('input', (e) => {
-                stopPlayback();
-                updateDashboard(parseInt(e.target.value, 10));
+            container.querySelector('#timelineScrubber').addEventListener('input', (e) => {
+                stopPlayback(); updateDashboard(parseInt(e.target.value, 10));
             });
-            document.getElementById('playPauseBtn').addEventListener('click', () => {
-                if (isPlaying) stopPlayback();
-                else startPlayback();
+            container.querySelector('#playPauseBtn').addEventListener('click', () => {
+                if (isPlaying) stopPlayback(); else startPlayback();
             });
-            document.getElementById('toggleBrakingPoints').addEventListener('change', (e) => {
+            container.querySelector('#toggleBrakingPoints').addEventListener('change', (e) => {
                 brakingMarkers.forEach(m => m.setVisible(e.target.checked));
             });
-            document.getElementById('toggleAccelPoints').addEventListener('change', (e) => {
+            container.querySelector('#toggleAccelPoints').addEventListener('change', (e) => {
                 accelMarkers.forEach(m => m.setVisible(e.target.checked));
             });
+            
+            // モーダル専用の処理
+            if (!isPublicPage) {
+                container.querySelector('#toggleTelemetryBtn').addEventListener('click', (e) => {
+                    const btn = e.currentTarget;
+                    const modalDialog = container.querySelector('.modal-dialog');
+                    const playbackControls = container.querySelector('#playback-controls');
+                    const graphsContainer = container.querySelector('#telemetry-graphs');
+                    const isTelemetryVisible = !graphsContainer.classList.contains('d-none');
+                    if (isTelemetryVisible) {
+                        modalDialog.classList.remove('modal-fullscreen'); modalDialog.classList.add('modal-xl');
+                        playbackControls.classList.add('d-none'); graphsContainer.classList.add('d-none');
+                        btn.innerHTML = '<i class="fas fa-chart-line me-1"></i> テレメトリを表示';
+                        btn.classList.remove('btn-success'); btn.classList.add('btn-outline-primary');
+                    } else {
+                        modalDialog.classList.remove('modal-xl'); modalDialog.classList.add('modal-fullscreen');
+                        playbackControls.classList.remove('d-none'); graphsContainer.classList.remove('d-none');
+                        btn.innerHTML = '<i class="fas fa-map-marked-alt me-1"></i> シンプル表示に戻す';
+                        btn.classList.remove('btn-outline-primary'); btn.classList.add('btn-success');
+                    }
+                    setTimeout(() => { if(map && bounds && !bounds.isEmpty()){ google.maps.event.trigger(map, 'resize'); map.fitBounds(bounds); } }, 200);
+                });
+            }
 
             loadLapData(0);
 
@@ -386,42 +349,28 @@ document.addEventListener('DOMContentLoaded', () => {
             mapContainer.innerHTML = '';
             lapSelectorContainer.innerHTML = `<div class="alert alert-danger">データの読み込みに失敗しました。</div>`;
         }
+    }
+};
+
+// 元のイベントリスナーは、新しいグローバル関数を呼び出すだけのシンプルな形にする
+document.addEventListener('DOMContentLoaded', () => {
+    const mapModalElement = document.getElementById('mapModal');
+    if (!mapModalElement) return;
+
+    mapModalElement.addEventListener('show.bs.modal', (event) => {
+        const button = event.relatedTarget;
+        const sessionId = button.dataset.sessionId;
+        
+        window.motopuppuMapViewer.init({
+            sessionId: sessionId,
+            sessionName: button.dataset.sessionName,
+            dataUrl: `/activity/session/${sessionId}/gps_data`,
+            isPublicPage: false
+        });
     });
 
-    document.getElementById('toggleTelemetryBtn').addEventListener('click', (e) => {
-        const btn = e.currentTarget;
-        const modalDialog = mapModalElement.querySelector('.modal-dialog');
-        const playbackControls = document.getElementById('playback-controls');
-        const graphsContainer = document.getElementById('telemetry-graphs');
-
-        const isTelemetryVisible = !graphsContainer.classList.contains('d-none');
-
-        if (isTelemetryVisible) {
-            modalDialog.classList.remove('modal-fullscreen');
-            modalDialog.classList.add('modal-xl');
-            playbackControls.classList.add('d-none');
-            graphsContainer.classList.add('d-none');
-            btn.innerHTML = '<i class="fas fa-chart-line me-1"></i> テレメトリを表示';
-            btn.classList.remove('btn-success');
-            btn.classList.add('btn-outline-primary');
-        } else {
-            modalDialog.classList.remove('modal-xl');
-            modalDialog.classList.add('modal-fullscreen');
-            playbackControls.classList.remove('d-none');
-            graphsContainer.classList.remove('d-none');
-            btn.innerHTML = '<i class="fas fa-map-marked-alt me-1"></i> シンプル表示に戻す';
-            btn.classList.remove('btn-outline-primary');
-            btn.classList.add('btn-success');
-        }
-
-        // ビューのサイズ変更後にマップを再センタリング
-        setTimeout(() => {
-            if(map && bounds && !bounds.isEmpty()){
-                google.maps.event.trigger(map, 'resize');
-                map.fitBounds(bounds);
-            }
-        }, 200); // アニメーション完了を待つ
+    mapModalElement.addEventListener('hidden.bs.modal', () => {
+        // stopPlayback に相当する処理が必要だが、スコープ外なので一旦保留
+        // 必要であれば、init関数が状態をリセットする口を持つようにする
     });
-
-    mapModalElement.addEventListener('hidden.bs.modal', () => stopPlayback());
 });

@@ -342,6 +342,8 @@ class SessionLog(db.Model):
     session_distance = db.Column(db.Integer, nullable=True)
     best_lap_seconds = db.Column(db.Numeric(8, 3), nullable=True, index=True, comment="このセッションでのベストラップ（秒）")
     include_in_leaderboard = db.Column(db.Boolean, nullable=False, default=True, server_default='true', comment="この記録をリーダーボードに掲載するか")
+    public_share_token = db.Column(db.String(36), unique=True, nullable=True, index=True, comment="外部共有用の一意なトークン (UUID)")
+    is_public = db.Column(db.Boolean, nullable=False, default=False, server_default='false', comment="このセッションを外部共有するか")
     setting_sheet = db.relationship('SettingSheet', backref='sessions')
     def __repr__(self):
         return f'<SessionLog id={self.id} activity_id={self.activity_log_id}>'
