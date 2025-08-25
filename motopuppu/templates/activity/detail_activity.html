@@ -214,15 +214,12 @@
                         <a href="{{ url_for('activity.edit_session', session_id=session.id) }}" class="btn btn-sm btn-outline-primary py-0 px-1 me-1" title="編集">
                             <i class="fas fa-edit fa-fw"></i>
                         </a>
-                        {# ▼▼▼【ここから修正】▼▼▼ #}
-                        {# formタグを削除し、JavaScriptで処理するためのbuttonタグに変更 #}
                         <button type="button" class="btn btn-sm btn-outline-danger py-0 px-1 delete-session-btn"
                                 data-delete-url="{{ url_for('activity.delete_session', session_id=session.id) }}"
                                 data-csrf-token="{{ csrf_token() }}"
                                 title="削除">
                             <i class="fas fa-trash fa-fw"></i>
                         </button>
-                        {# ▲▲▲【修正はここまで】▲▲▲ #}
                     </div>
                 </div>
                 <div class="card-body">
@@ -367,45 +364,50 @@
                 </div>
             </div>
         </div>
-
-        {# インポート用モーダル #}
-        <div class="modal fade" id="importCsvModal-{{ session.id }}" tabindex="-1" aria-labelledby="importCsvModalLabel-{{ session.id }}" aria-hidden="true">
-          <div class="modal-dialog">
-            <div class="modal-content">
-              <form method="POST" action="{{ url_for('activity.import_laps', session_id=session.id) }}" enctype="multipart/form-data" 
-                    onsubmit="return confirm('既存のラップタイムは上書きされます。よろしいですか？');">
-                <div class="modal-header">
-                  <h5 class="modal-title" id="importCsvModalLabel-{{ session.id }}">{{ session.session_name }} - CSVインポート</h5>
-                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    {{ import_form.hidden_tag() }}
-                    <div class="mb-3">
-                        {{ import_form.device_type.label(class="form-label") }}
-                        {{ import_form.device_type(class="form-select") }}
-                    </div>
-                    <div class="mb-3">
-                        {{ import_form.csv_file.label(class="form-label") }}
-                        {{ import_form.csv_file(class="form-control") }}
-                    </div>
-                    
-                    <div class="form-check">
-                        {{ import_form.remove_outliers(class="form-check-input") }}
-                        {{ import_form.remove_outliers.label(class="form-check-label") }}
-                    </div>
-
-                </div>
-                <div class="modal-footer">
-                  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
-                  {{ import_form.submit_import(class="btn btn-primary") }}
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
         {% endfor %}
     </div>
 </form>
+
+{# ▼▼▼【ここから移動】インポート用モーダルをforループの外、formの内側(ただしrowの外)から、form自体の外に移動します ▼▼▼ #}
+{% for session in sessions %}
+    {# インポート用モーダル #}
+    <div class="modal fade" id="importCsvModal-{{ session.id }}" tabindex="-1" aria-labelledby="importCsvModalLabel-{{ session.id }}" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <form method="POST" action="{{ url_for('activity.import_laps', session_id=session.id) }}" enctype="multipart/form-data" 
+                onsubmit="return confirm('既存のラップタイムは上書きされます。よろしいですか？');">
+            <div class="modal-header">
+              <h5 class="modal-title" id="importCsvModalLabel-{{ session.id }}">{{ session.session_name }} - CSVインポート</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                {{ import_form.hidden_tag() }}
+                <div class="mb-3">
+                    {{ import_form.device_type.label(class="form-label") }}
+                    {{ import_form.device_type(class="form-select") }}
+                </div>
+                <div class="mb-3">
+                    {{ import_form.csv_file.label(class="form-label") }}
+                    {{ import_form.csv_file(class="form-control") }}
+                </div>
+                
+                <div class="form-check">
+                    {{ import_form.remove_outliers(class="form-check-input") }}
+                    {{ import_form.remove_outliers.label(class="form-check-label") }}
+                </div>
+
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+              {{ import_form.submit_import(class="btn btn-primary") }}
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+{% endfor %}
+{# ▲▲▲【ここまで移動】▲▲▲ #}
+
 {% else %}
 <div class="alert alert-info">
     まだセッションが記録されていません。「新しいセッションを記録する」から追加してください。
@@ -527,7 +529,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const chartId = event.currentTarget.dataset.chartId;
             const chart = chartInstances[chartId];
             if (chart) {
-                // --- ▼▼▼ スクロール方向を反転 ▼▼▼ ---
                 chart.pan({ x: 50, y: 0 });
             }
         });
@@ -539,7 +540,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const chartId = event.currentTarget.dataset.chartId;
             const chart = chartInstances[chartId];
             if (chart) {
-                // --- ▼▼▼ スクロール方向を反転 ▼▼▼ ---
                 chart.pan({ x: -50, y: 0 });
             }
         });
@@ -599,7 +599,6 @@ document.addEventListener('DOMContentLoaded', () => {
         updateCompareButtonState();
     }
 
-    // ▼▼▼【ここから追記】▼▼▼
     // 削除ボタンの処理
     document.querySelectorAll('.delete-session-btn').forEach(button => {
         button.addEventListener('click', function(event) {
@@ -619,12 +618,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 csrfInput.value = csrfToken;
 
                 form.appendChild(csrfInput);
-                document.body.appendChild(form); // フォームをDOMに追加してsubmit可能にする
+                document.body.appendChild(form);
                 form.submit();
             }
         });
     });
-    // ▲▲▲【追記はここまで】▲▲▲
 });
 </script>
 {% endblock %}
