@@ -25,6 +25,9 @@ window.motopuppuMapViewer = {
         let currentLapData = null;
         let animationFrameId = null;
         let isPlaying = false;
+        let playbackStartTime = 0; // 再生開始時刻 (Unixタイムスタンプ)
+        let playbackStartOffset = 0; // 一時停止からの再開時のオフセット(秒)
+        let lapStartTime = 0; // ★【追加】現在のラップの開始時間を記録する変数
 
         // --- 関数定義 (内部ヘルパー) ---
         function initializeMap(containerId) {
@@ -174,6 +177,15 @@ window.motopuppuMapViewer = {
             });
         }
         
+        // 時間をフォーマットするヘルパー関数
+        function formatRuntime(totalSeconds) {
+            if (isNaN(totalSeconds) || totalSeconds < 0) totalSeconds = 0;
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = Math.floor(totalSeconds % 60);
+            const milliseconds = Math.floor((totalSeconds * 1000) % 1000);
+            return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${String(milliseconds).padStart(3, '0')}`;
+        }
+        
         function updateDashboard(index) {
             if (!currentLapData || index < 0 || index >= currentLapData.track.length) return;
             const point = currentLapData.track[index];
@@ -187,28 +199,68 @@ window.motopuppuMapViewer = {
             });
             const scrubber = container.querySelector('#timelineScrubber');
             if (scrubber) { scrubber.value = index; }
+
+            // ★【修正】時間表示を更新 (ラップ内経過時間)
+            const timeDisplay = container.querySelector('#playbackTime');
+            if (timeDisplay) {
+                const intraLapTime = (point.runtime || 0) - lapStartTime;
+                timeDisplay.textContent = formatRuntime(intraLapTime);
+            }
         }
 
+        // 新しいタイムベースの再生ループ
         function playLoop() {
-            const scrubber = container.querySelector('#timelineScrubber');
-            if (!scrubber || !isPlaying) return;
-            let currentIndex = parseInt(scrubber.value, 10);
-            if (currentIndex < parseInt(scrubber.max, 10)) {
-                currentIndex++;
-                updateDashboard(currentIndex);
-                animationFrameId = requestAnimationFrame(playLoop);
-            } else { stopPlayback(); }
+            if (!isPlaying) return;
+
+            const elapsedTime = (Date.now() - playbackStartTime) / 1000 + playbackStartOffset;
+            const totalDuration = currentLapData.track[currentLapData.track.length - 1].runtime || 0;
+
+            if (elapsedTime >= totalDuration) {
+                updateDashboard(currentLapData.track.length - 1);
+                stopPlayback();
+                return;
+            }
+
+            // 経過時間に最も近いデータ点を探す
+            let currentIndex = 0;
+            for (let i = 0; i < currentLapData.track.length; i++) {
+                if (currentLapData.track[i].runtime >= elapsedTime) {
+                    currentIndex = i;
+                    break;
+                }
+            }
+            
+            updateDashboard(currentIndex);
+            animationFrameId = requestAnimationFrame(playLoop);
         }
+
         function startPlayback() {
+            if (isPlaying || !currentLapData) return;
             isPlaying = true;
+
+            // スクラバーの現在位置から再生オフセットを決定
+            const scrubber = container.querySelector('#timelineScrubber');
+            const currentIndex = parseInt(scrubber.value, 10);
+            playbackStartOffset = currentLapData.track[currentIndex]?.runtime || 0;
+
+            playbackStartTime = Date.now();
             container.querySelector('#playPauseBtn').innerHTML = '<i class="fas fa-pause"></i>';
             playLoop();
         }
+
         function stopPlayback() {
+            if (!isPlaying) return;
             isPlaying = false;
             cancelAnimationFrame(animationFrameId);
             const playBtn = container.querySelector('#playPauseBtn');
             if(playBtn) playBtn.innerHTML = '<i class="fas fa-play"></i>';
+            
+            // 再生オフセットを更新
+            const scrubber = container.querySelector('#timelineScrubber');
+            const currentIndex = parseInt(scrubber.value, 10);
+            if (currentLapData) {
+                playbackStartOffset = currentLapData.track[currentIndex]?.runtime || 0;
+            }
         }
 
         // --- メイン処理 ---
@@ -265,6 +317,9 @@ window.motopuppuMapViewer = {
                 currentLapData = data.laps[lapIndex];
                 if (!currentLapData || !currentLapData.track || currentLapData.track.length < 2) return;
                 
+                // ★【追加】ラップの開始時間を記録
+                lapStartTime = currentLapData.track[0]?.runtime || 0;
+
                 polylines.flat().forEach(p => p.setMap(null));
                 brakingMarkers.flat().forEach(m => m.setMap(null));
                 accelMarkers.flat().forEach(m => m.setMap(null));
@@ -288,7 +343,8 @@ window.motopuppuMapViewer = {
                 const bikeIcon = { path: google.maps.SymbolPath.CIRCLE, scale: 5, fillColor: 'yellow', strokeColor: 'black', strokeWeight: 1 };
                 bikeMarker = new google.maps.Marker({ position: currentLapData.track[0], icon: bikeIcon, map: map, zIndex: 100 });
                 
-                const labels = currentLapData.track.map(p => (p.runtime || 0).toFixed(2));
+                // ★【修正】X軸のラベルをラップ内経過時間に変更
+                const labels = currentLapData.track.map(p => ((p.runtime || 0) - lapStartTime).toFixed(2));
                 charts.speed = setupChart('speedChart', '速度 (km/h)', 'rgba(54, 162, 235, 1)');
                 charts.rpm = setupChart('rpmChart', 'エンジン回転数 (rpm)', 'rgba(255, 99, 132, 1)');
                 charts.throttle = setupChart('throttleChart', 'スロットル開度 (%)', 'rgba(75, 192, 192, 1)');
@@ -303,11 +359,17 @@ window.motopuppuMapViewer = {
                 const scrubber = container.querySelector('#timelineScrubber');
                 scrubber.max = currentLapData.track.length - 1;
                 updateDashboard(0);
+                // 再生オフセットをリセット
+                playbackStartOffset = 0;
             };
 
             lapSelect.addEventListener('change', (e) => loadLapData(parseInt(e.target.value, 10)));
             container.querySelector('#timelineScrubber').addEventListener('input', (e) => {
-                stopPlayback(); updateDashboard(parseInt(e.target.value, 10));
+                stopPlayback(); 
+                const newIndex = parseInt(e.target.value, 10);
+                updateDashboard(newIndex);
+                // 新しいオフセットを設定
+                playbackStartOffset = currentLapData.track[newIndex]?.runtime || 0;
             });
             container.querySelector('#playPauseBtn').addEventListener('click', () => {
                 if (isPlaying) stopPlayback(); else startPlayback();
