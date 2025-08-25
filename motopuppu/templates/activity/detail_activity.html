@@ -207,6 +207,16 @@
                         </label>
                     </div>
                     <div>
+                        {% if session.gps_tracks and session.gps_tracks.laps %}
+                        <button type="button" class="btn btn-sm btn-outline-info py-0 px-1 me-1 view-track-btn" 
+                                data-bs-toggle="modal" 
+                                data-bs-target="#mapModal"
+                                data-session-id="{{ session.id }}"
+                                data-session-name="{{ session.session_name }}"
+                                title="走行ラインを表示">
+                            <i class="fas fa-route fa-fw"></i>
+                        </button>
+                        {% endif %}
                         <button type="button" class="btn btn-sm btn-outline-success py-0 px-1 me-1" 
                                 data-bs-toggle="modal" data-bs-target="#importCsvModal-{{ session.id }}" title="CSVからインポート">
                             <i class="fas fa-file-csv fa-fw"></i>
@@ -368,7 +378,58 @@
     </div>
 </form>
 
-{# ▼▼▼【ここから移動】インポート用モーダルをforループの外、formの内側(ただしrowの外)から、form自体の外に移動します ▼▼▼ #}
+{# ▼▼▼【ここから修正】マップ表示用のモーダル ▼▼▼ #}
+<div class="modal fade" id="mapModal" tabindex="-1" aria-labelledby="mapModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-fullscreen-lg-down">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="mapModalLabel">走行ライン</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body p-0">
+        <div class="container-fluid">
+            <div class="row">
+                <div class="col-lg-9 p-0" style="height: 80vh;">
+                    <div id="mapContainer" style="width: 100%; height: 100%;">
+                        <div class="d-flex justify-content-center align-items-center h-100">
+                            <div class="spinner-border" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-3 p-3" style="height: 80vh; overflow-y: auto;">
+                    <h6>表示ラップ選択</h6>
+                    <div class="btn-group btn-group-sm w-100 mb-2" role="group">
+                        <button type="button" class="btn btn-outline-primary" id="selectAllLaps">全選択</button>
+                        <button type="button" class="btn btn-outline-secondary" id="deselectAllLaps">全解除</button>
+                    </div>
+                    <div id="lapSelectorContainer">
+                        <p class="text-muted">走行データを読み込んでいます...</p>
+                    </div>
+
+                    {# ▼▼▼ マーカー表示切替用のUIを追加 ▼▼▼ #}
+                    <hr>
+                    <h6>表示オプション</h6>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" role="switch" id="toggleBrakingPoints" checked>
+                        <label class="form-check-label" for="toggleBrakingPoints">減速ポイント <span style="color: red;">▼</span></label>
+                    </div>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" role="switch" id="toggleAccelPoints" checked>
+                        <label class="form-check-label" for="toggleAccelPoints">加速ポイント <span style="color: limegreen;">▲</span></label>
+                    </div>
+                    {# ▲▲▲ 追加はここまで ▲▲▲ #}
+                </div>
+            </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{# ▲▲▲【修正はここまで】▲▲▲ #}
+
+
 {% for session in sessions %}
     {# インポート用モーダル #}
     <div class="modal fade" id="importCsvModal-{{ session.id }}" tabindex="-1" aria-labelledby="importCsvModalLabel-{{ session.id }}" aria-hidden="true">
@@ -406,7 +467,6 @@
       </div>
     </div>
 {% endfor %}
-{# ▲▲▲【ここまで移動】▲▲▲ #}
 
 {% else %}
 <div class="alert alert-info">
@@ -424,7 +484,16 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
 
+{% if config.GOOGLE_MAPS_API_KEY %}
+<script async defer src="https://maps.googleapis.com/maps/api/js?key={{ config.GOOGLE_MAPS_API_KEY }}&callback=initMap" type="text/javascript"></script>
+<script src="{{ url_for('static', filename='js/map_viewer.js') }}"></script>
+{% endif %}
+
 <script>
+// グローバルスコープにinitMapを定義 (APIコールバック用)
+// 実際の初期化処理は map_viewer.js でイベントベースで行うため、ここでは空にしておく
+function initMap() {}
+
 document.addEventListener('DOMContentLoaded', () => {
 
     function formatChartTime(totalSeconds) {

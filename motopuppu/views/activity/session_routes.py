@@ -5,7 +5,7 @@ from collections import defaultdict
 from decimal import Decimal
 
 from flask import (
-    flash, redirect, render_template, request, url_for, abort, current_app
+    flash, redirect, render_template, request, url_for, abort, current_app, jsonify
 )
 from sqlalchemy.orm import joinedload
 from sqlalchemy import func
@@ -219,16 +219,36 @@ def best_settings_finder(vehicle_id):
                            setting_key_map=SETTING_KEY_MAP,
                            format_seconds_to_time=format_seconds_to_time)
 
+@activity_bp.route('/session/<int:session_id>/gps_data', methods=['GET'])
+@login_required
+def get_gps_data(session_id):
+    """セッションのGPSデータをJSONで返すAPIエンドポイント"""
+    session = SessionLog.query.join(ActivityLog)\
+                              .filter(SessionLog.id == session_id, ActivityLog.user_id == current_user.id)\
+                              .first_or_404()
+
+    if not session.gps_tracks or not session.gps_tracks.get('laps'):
+        return jsonify({'error': 'No GPS data available'}), 404
+
+    # ▼▼▼【ここからが最終修正コードです】▼▼▼
+    # 問題の原因となっていたベストラップ計算を削除し、単純な辞書を作成します。
+    response_data = {
+        'laps': session.gps_tracks.get('laps', []),
+        'lap_times': session.lap_times or [],
+    }
+    # ▲▲▲【最終修正コードはここまで】▲▲▲
+    
+    return jsonify(response_data)
+
+
 @activity_bp.route('/session/<int:session_id>/edit', methods=['GET', 'POST'])
 @limiter.limit("30 per hour")
-@login_required # ▼▼▼ デコレータを修正 ▼▼▼
+@login_required
 def edit_session(session_id):
-    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
     session = SessionLog.query.options(joinedload(SessionLog.activity).joinedload(ActivityLog.motorcycle))\
                                .join(ActivityLog)\
                                .filter(SessionLog.id == session_id, ActivityLog.user_id == current_user.id)\
                                .first_or_404()
-    # ▲▲▲ 変更ここまで ▲▲▲
 
     motorcycle = session.activity.motorcycle
     form = SessionLogForm(obj=session)
@@ -280,11 +300,9 @@ def edit_session(session_id):
 
 @activity_bp.route('/session/<int:session_id>/delete', methods=['POST'])
 @limiter.limit("30 per hour")
-@login_required # ▼▼▼ デコレータを修正 ▼▼▼
+@login_required
 def delete_session(session_id):
-    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
     session = SessionLog.query.join(ActivityLog).filter(SessionLog.id == session_id, ActivityLog.user_id == current_user.id).first_or_404()
-    # ▲▲▲ 変更ここまで ▲▲▲
     activity_id = session.activity_log_id
     try:
         db.session.delete(session)
@@ -299,11 +317,9 @@ def delete_session(session_id):
 
 @activity_bp.route('/session/<int:session_id>/import_laps', methods=['POST'])
 @limiter.limit("10 per hour")
-@login_required # ▼▼▼ デコレータを修正 ▼▼▼
+@login_required
 def import_laps(session_id):
-    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
     session = SessionLog.query.join(ActivityLog).filter(SessionLog.id == session_id, ActivityLog.user_id == current_user.id).first_or_404()
-    # ▲▲▲ 変更ここまで ▲▲▲
     form = LapTimeImportForm()
 
     if form.validate_on_submit():
@@ -313,9 +329,16 @@ def import_laps(session_id):
 
         try:
             parser = get_parser(device_type)
-            encoding = 'shift_jis' if device_type == 'ziix' else 'utf-8'
-            file_stream = io.TextIOWrapper(file_storage.stream, encoding=encoding, errors='replace')
-            lap_times_list = parser.parse(file_stream)
+            
+            if device_type == 'drogger':
+                file_stream = file_storage.stream
+            else:
+                encoding = 'shift_jis' if device_type == 'ziix' else 'utf-8'
+                file_stream = io.TextIOWrapper(file_storage.stream, encoding=encoding, errors='replace')
+            
+            parsed_data = parser.parse(file_stream)
+            lap_times_list = parsed_data.get('lap_times', [])
+            gps_tracks_dict = parsed_data.get('gps_tracks', {})
 
             if not lap_times_list:
                 flash('CSVファイルからラップタイムを読み込めませんでした。ファイルが空か、形式が異なっている可能性があります。', 'warning')
@@ -336,6 +359,20 @@ def import_laps(session_id):
             
             session.lap_times = lap_times_list
             _calculate_and_set_best_lap(session, lap_times_list)
+
+            # GPSデータをDB保存用の形式に整形
+            if gps_tracks_dict:
+                laps_data_for_db = []
+                # 辞書のキー（ラップ番号）でソートして順序を保証
+                for lap_num in sorted(gps_tracks_dict.keys()):
+                    track_points = gps_tracks_dict[lap_num]
+                    laps_data_for_db.append({
+                        "lap_number": lap_num,
+                        "track": track_points
+                    })
+                session.gps_tracks = {"laps": laps_data_for_db} if laps_data_for_db else None
+            else:
+                session.gps_tracks = None # GPSデータがない場合はNoneに設定
 
             db.session.commit()
             

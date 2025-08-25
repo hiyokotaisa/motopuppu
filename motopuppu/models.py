@@ -330,6 +330,9 @@ class SessionLog(db.Model):
     setting_sheet_id = db.Column(db.Integer, db.ForeignKey('setting_sheets.id', ondelete='SET NULL'), nullable=True)
     session_name = db.Column(db.String(100), nullable=True, default='Session 1')
     lap_times = db.Column(JSONB, nullable=True)
+    # ▼▼▼【ここから追記】▼▼▼
+    gps_tracks = db.Column(JSONB, nullable=True, comment="ラップごとのGPS軌跡データ")
+    # ▲▲▲【追記はここまで】▲▲▲
     rider_feel = db.Column(db.Text, nullable=True)
     operating_hours_start = db.Column(db.Numeric(8, 2), nullable=True)
     operating_hours_end = db.Column(db.Numeric(8, 2), nullable=True)

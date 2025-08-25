@@ -57,6 +57,9 @@ def create_app(config_name=None):
         GOOGLE_PLACES_API_KEY=os.environ.get('GOOGLE_PLACES_API_KEY'),
         REMEMBER_COOKIE_SAMESITE='Lax',
         REMEMBER_COOKIE_SECURE=True if os.environ.get('FLASK_ENV') == 'production' else False,
+        # ▼▼▼【ここから修正】PLACESとMAPSでキーを統一するため、MAPS用の設定も追加します ▼▼▼
+        GOOGLE_MAPS_API_KEY=os.environ.get('GOOGLE_PLACES_API_KEY')
+        # ▲▲▲【修正はここまで】▲▲▲
     )
     if app.config['SECRET_KEY'] == 'dev-secret-key-replace-me' and app.config['ENV'] != 'development':
         app.logger.warning("CRITICAL: SECRET_KEY is set to the default development value in a non-development environment. This is a security risk!")
@@ -175,7 +178,10 @@ def create_app(config_name=None):
         return {
             'current_year': datetime.datetime.now(datetime.timezone.utc).year,
             'build_version': build_version_string,
-            'misskey_instance_domain': misskey_instance_domain 
+            'misskey_instance_domain': misskey_instance_domain,
+            # ▼▼▼【ここから修正】テンプレート内で config を参照できるようにします ▼▼▼
+            'config': app.config
+            # ▲▲▲【修正はここまで】▲▲▲
         }
 
     @app.shell_context_processor
