@@ -11,7 +11,7 @@ class DroggerParser(BaseLapTimeParser):
 
     def parse(self, file_stream):
         """
-        DroggerのCSVを解析し、ラップタイムとGPS軌跡データ（速度情報を含む）を返します。
+        DroggerのCSVを解析し、ラップタイムとGPS軌跡データ（テレメトリー情報を含む）を返します。
         
         :return: {'lap_times': list[str], 'gps_tracks': dict} 形式の辞書
         """
@@ -44,8 +44,12 @@ class DroggerParser(BaseLapTimeParser):
         lap_time_col_name = fieldnames_lower.get('laptime')
         lat_col_name = fieldnames_lower.get('latitude')
         lon_col_name = fieldnames_lower.get('longitude')
-        # ▼▼▼【ここから追記】速度データの列名を取得 ▼▼▼
         speed_col_name = fieldnames_lower.get('speed')
+        
+        # ▼▼▼【ここから追記】テレメトリーデータの列名を取得 ▼▼▼
+        runtime_col_name = fieldnames_lower.get('runtime')
+        rpm_col_name = fieldnames_lower.get('rpm')
+        throttle_col_name = fieldnames_lower.get('throttolepos') # CSVのヘッダー名に合わせる
         # ▲▲▲【追記はここまで】▲▲▲
 
         if not lap_col_name or not lap_time_col_name:
@@ -71,16 +75,22 @@ class DroggerParser(BaseLapTimeParser):
                         lng = float(row[lon_col_name])
                         # 緯度経度が0,0の場合は無効なデータとしてスキップ
                         if lat != 0 or lng != 0:
-                            # ▼▼▼【ここから修正】速度情報も一緒に記録 ▼▼▼
                             point_data = {'lat': lat, 'lng': lng}
+                            # ▼▼▼【ここから修正】テレメトリー情報も一緒に記録 ▼▼▼
                             if speed_col_name:
-                                try:
-                                    speed = float(row[speed_col_name])
-                                    point_data['speed'] = speed
-                                except (ValueError, TypeError, KeyError):
-                                    pass # 速度が不正な場合は無視
-                            gps_tracks[current_lap_number].append(point_data)
+                                try: point_data['speed'] = float(row[speed_col_name])
+                                except (ValueError, TypeError, KeyError): pass
+                            if runtime_col_name:
+                                try: point_data['runtime'] = float(row[runtime_col_name])
+                                except (ValueError, TypeError, KeyError): pass
+                            if rpm_col_name:
+                                try: point_data['rpm'] = int(float(row[rpm_col_name]))
+                                except (ValueError, TypeError, KeyError): pass
+                            if throttle_col_name:
+                                try: point_data['throttle'] = float(row[throttle_col_name])
+                                except (ValueError, TypeError, KeyError): pass
                             # ▲▲▲【修正はここまで】▲▲▲
+                            gps_tracks[current_lap_number].append(point_data)
                     except (ValueError, TypeError, KeyError):
                         # GPSデータが不正な場合はスキップ
                         pass

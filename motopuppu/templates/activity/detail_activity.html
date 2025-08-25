@@ -24,6 +24,52 @@
  canvas[id^="lapChart-"] {
    touch-action: pan-y;
  }
+
+ /* ▼▼▼ テレメトリーモーダル用のスタイルを全面的に刷新 ▼▼▼ */
+ .telemetry-modal-body {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 120px); /* ヘッダーとフッターの高さを引く */
+ }
+ #telemetry-container {
+    display: flex;
+    flex-grow: 1;
+    min-height: 0;
+ }
+ #telemetry-controls {
+    flex: 0 0 280px;
+    overflow-y: auto;
+    padding: 1rem;
+    border-right: 1px solid #dee2e6;
+ }
+ #telemetry-main {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+ }
+ #mapContainer {
+    flex-grow: 1;
+    min-height: 200px;
+ }
+ /* テレメトリー非表示時のグラフエリア */
+ #telemetry-graphs.d-none {
+    display: none !important;
+ }
+ /* テレメトリー表示時のグラフエリア */
+ #telemetry-graphs {
+    flex-shrink: 0;
+    height: 300px;
+    display: flex;
+    flex-direction: column;
+    border-top: 1px solid #dee2e6;
+ }
+ .chart-container {
+    position: relative;
+    flex-grow: 1;
+    min-height: 0;
+ }
+ /* ▲▲▲ スタイル追加はここまで ▲▲▲ */
 </style>
 
 <div class="d-flex align-items-center mb-3">
@@ -378,48 +424,59 @@
     </div>
 </form>
 
-{# ▼▼▼【ここから修正】マップ表示用のモーダル ▼▼▼ #}
+{# ▼▼▼【ここから修正】テレメトリーダッシュボード用にモーダルの構造を大幅に変更 ▼▼▼ #}
 <div class="modal fade" id="mapModal" tabindex="-1" aria-labelledby="mapModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-xl modal-fullscreen-lg-down">
+  <div class="modal-dialog modal-xl"> {# 初期サイズをxlに #}
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="mapModalLabel">走行ライン</h5>
+        <h5 class="modal-title" id="mapModalLabel">走行ライン分析</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
-      <div class="modal-body p-0">
-        <div class="container-fluid">
-            <div class="row">
-                <div class="col-lg-9 p-0" style="height: 80vh;">
-                    <div id="mapContainer" style="width: 100%; height: 100%;">
-                        <div class="d-flex justify-content-center align-items-center h-100">
-                            <div class="spinner-border" role="status">
-                                <span class="visually-hidden">Loading...</span>
-                            </div>
+      <div class="modal-body telemetry-modal-body p-0">
+        <div id="telemetry-container">
+            <div id="telemetry-controls">
+                <h6 id="telemetrySessionName"></h6>
+                <hr>
+                <h6>表示ラップ選択</h6>
+                <div id="lapSelectorContainer">
+                    <p class="text-muted">走行データを読み込んでいます...</p>
+                </div>
+                <hr>
+                <h6>表示オプション</h6>
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" role="switch" id="toggleBrakingPoints" checked>
+                    <label class="form-check-label" for="toggleBrakingPoints">減速ポイント <span style="color: red;">▼</span></label>
+                </div>
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" role="switch" id="toggleAccelPoints" checked>
+                    <label class="form-check-label" for="toggleAccelPoints">加速ポイント <span style="color: limegreen;">▲</span></label>
+                </div>
+                <hr>
+                {# テレメトリ表示切替ボタン #}
+                <div class="d-grid">
+                    <button class="btn btn-outline-primary" id="toggleTelemetryBtn">
+                        <i class="fas fa-chart-line me-1"></i> テレメトリを表示
+                    </button>
+                </div>
+            </div>
+            <div id="telemetry-main">
+                <div id="mapContainer">
+                    <div class="d-flex justify-content-center align-items-center h-100">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Loading...</span>
                         </div>
                     </div>
                 </div>
-                <div class="col-lg-3 p-3" style="height: 80vh; overflow-y: auto;">
-                    <h6>表示ラップ選択</h6>
-                    <div class="btn-group btn-group-sm w-100 mb-2" role="group">
-                        <button type="button" class="btn btn-outline-primary" id="selectAllLaps">全選択</button>
-                        <button type="button" class="btn btn-outline-secondary" id="deselectAllLaps">全解除</button>
+                <div id="playback-controls" class="p-2 border-top d-none">
+                    <div class="d-flex align-items-center">
+                        <button id="playPauseBtn" class="btn btn-primary me-2"><i class="fas fa-play"></i></button>
+                        <input type="range" class="form-range" id="timelineScrubber" min="0" max="1000" value="0">
                     </div>
-                    <div id="lapSelectorContainer">
-                        <p class="text-muted">走行データを読み込んでいます...</p>
-                    </div>
-
-                    {# ▼▼▼ マーカー表示切替用のUIを追加 ▼▼▼ #}
-                    <hr>
-                    <h6>表示オプション</h6>
-                    <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" role="switch" id="toggleBrakingPoints" checked>
-                        <label class="form-check-label" for="toggleBrakingPoints">減速ポイント <span style="color: red;">▼</span></label>
-                    </div>
-                    <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" role="switch" id="toggleAccelPoints" checked>
-                        <label class="form-check-label" for="toggleAccelPoints">加速ポイント <span style="color: limegreen;">▲</span></label>
-                    </div>
-                    {# ▲▲▲ 追加はここまで ▲▲▲ #}
+                </div>
+                <div id="telemetry-graphs" class="d-none">
+                    <div class="chart-container"><canvas id="speedChart"></canvas></div>
+                    <div class="chart-container"><canvas id="rpmChart"></canvas></div>
+                    <div class="chart-container"><canvas id="throttleChart"></canvas></div>
                 </div>
             </div>
         </div>
@@ -483,6 +540,9 @@
 {# Chart.js 本体と、ズームプラグインをCDNから読み込み #}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+{# ▼▼▼ Chart.jsの縦線カーソル用プラグインを追加 ▼▼▼ #}
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+
 
 {% if config.GOOGLE_MAPS_API_KEY %}
 <script async defer src="https://maps.googleapis.com/maps/api/js?key={{ config.GOOGLE_MAPS_API_KEY }}&callback=initMap" type="text/javascript"></script>
