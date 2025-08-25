@@ -8,15 +8,17 @@ document.addEventListener('DOMContentLoaded', () => {
     let polylines = [];
     let brakingMarkers = [];
     let accelMarkers = [];
-    let bikeMarker = null;
+    let bikeMarker = null; // バイクの現在位置を示すマーカー
     let bounds;
     
+    // Chart.jsのインスタンスを保持
     let charts = {
         speed: null,
         rpm: null,
         throttle: null
     };
 
+    // 再生関連
     let currentLapData = null;
     let animationFrameId = null;
     let isPlaying = false;
@@ -27,7 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function initializeMap(containerId) {
         const mapContainer = document.getElementById(containerId);
         if (!mapContainer || typeof google === 'undefined') return null;
-        mapContainer.innerHTML = '';
+        mapContainer.innerHTML = ''; // スピナーをクリア
         return new google.maps.Map(mapContainer, {
             mapTypeId: 'satellite',
             streetViewControl: false,
@@ -36,6 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Chart.jsのグラフを初期化または破棄する関数
     function setupChart(canvasId, label, color) {
         if (charts[canvasId]) {
             charts[canvasId].destroy();
@@ -61,6 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 plugins: {
                     legend: { display: false },
                     tooltip: { enabled: false },
+                    // 縦線カーソル用のプラグイン設定
                     annotation: {
                         annotations: {
                             line1: {
@@ -69,7 +73,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 value: 0,
                                 borderColor: 'rgba(255, 99, 132, 0.8)',
                                 borderWidth: 1,
-                                display: false,
+                                display: false, // 初期状態は非表示
                             }
                         }
                     }
@@ -81,7 +85,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     },
                     y: {
                         beginAtZero: true,
-                        ticks: { font: { size: 10 } },
+                        ticks: {
+                            font: { size: 10 }
+                        },
                         title: {
                             display: true,
                             text: label,
@@ -132,10 +138,18 @@ document.addEventListener('DOMContentLoaded', () => {
         return lapPolylines;
     }
 
+    // --- データ分析・マーカー関連関数 ---
+
     function findSignificantPoints(track, options = {}) {
-        const { lookahead = 25, speedChangeThreshold = 4.0, cooldown = 30 } = options;
+        const {
+            lookahead = 25,
+            speedChangeThreshold = 4.0,
+            cooldown = 30,
+        } = options;
+
         const brakingPoints = [];
         const accelPoints = [];
+        
         if (track.length < lookahead + 1) return { brakingPoints, accelPoints };
 
         let lastBrakeIndex = -cooldown;
@@ -144,20 +158,23 @@ document.addEventListener('DOMContentLoaded', () => {
         for (let i = 0; i < track.length - lookahead; i++) {
             const currentPoint = track[i];
             const futurePoint = track[i + lookahead];
+
             if (currentPoint.speed === undefined || futurePoint.speed === undefined) continue;
 
             const speedDiff = currentPoint.speed - futurePoint.speed;
+
             if (speedDiff > speedChangeThreshold && i > lastBrakeIndex + cooldown) {
                 brakingPoints.push(currentPoint);
                 lastBrakeIndex = i;
-            } else if (-speedDiff > speedChangeThreshold && i > lastAccelIndex + cooldown) {
+            }
+            else if (-speedDiff > speedChangeThreshold && i > lastAccelIndex + cooldown) {
                 accelPoints.push(currentPoint);
                 lastAccelIndex = i;
             }
         }
         return { brakingPoints, accelPoints };
     }
-
+    
     function createMarker(point, icon, mapInstance) {
         return new google.maps.Marker({
             position: point,
@@ -167,10 +184,17 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // --- 再生・UI更新関連関数 ---
+
     function updateDashboard(index) {
         if (!currentLapData || index < 0 || index >= currentLapData.track.length) return;
+
         const point = currentLapData.track[index];
-        if (bikeMarker) bikeMarker.setPosition({ lat: point.lat, lng: point.lng });
+        
+        if (bikeMarker) {
+            bikeMarker.setPosition({ lat: point.lat, lng: point.lng });
+        }
+        
         Object.values(charts).forEach(chart => {
             if (chart) {
                 chart.options.plugins.annotation.annotations.line1.value = index;
@@ -178,13 +202,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 chart.update('none');
             }
         });
+
         const scrubber = document.getElementById('timelineScrubber');
-        if (scrubber) scrubber.value = index;
+        if (scrubber) {
+            scrubber.value = index;
+        }
     }
 
     function playLoop() {
         const scrubber = document.getElementById('timelineScrubber');
         if (!scrubber || !isPlaying) return;
+        
         let currentIndex = parseInt(scrubber.value, 10);
         if (currentIndex < parseInt(scrubber.max, 10)) {
             currentIndex++;
@@ -207,6 +235,8 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('playPauseBtn').innerHTML = '<i class="fas fa-play"></i>';
     }
 
+    // --- メイン処理 ---
+    
     mapModalElement.addEventListener('show.bs.modal', async (event) => {
         const button = event.relatedTarget;
         const sessionId = button.dataset.sessionId;
@@ -219,8 +249,6 @@ document.addEventListener('DOMContentLoaded', () => {
         mapContainer.innerHTML = `<div class="d-flex justify-content-center align-items-center h-100"><div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div></div>`;
         lapSelectorContainer.innerHTML = `<p class="text-muted">走行データを読み込んでいます...</p>`;
         
-        // ▼▼▼【ここからが今回の主な修正箇所です】▼▼▼
-        // UIを初期状態（シンプル表示）に戻す
         const telemetryBtn = document.getElementById('toggleTelemetryBtn');
         const modalDialog = mapModalElement.querySelector('.modal-dialog');
         const playbackControls = document.getElementById('playback-controls');
@@ -231,7 +259,8 @@ document.addEventListener('DOMContentLoaded', () => {
         playbackControls.classList.add('d-none');
         graphsContainer.classList.add('d-none');
         telemetryBtn.innerHTML = '<i class="fas fa-chart-line me-1"></i> テレメトリを表示';
-        // ▲▲▲【修正はここまで】▲▲▲
+        telemetryBtn.classList.remove('btn-success');
+        telemetryBtn.classList.add('btn-outline-primary');
 
         if (!map) {
             map = initializeMap('mapContainer');
@@ -258,13 +287,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 return Infinity;
             };
 
+            let bestLapIndex = -1;
+            let minTime = Infinity;
+            data.lap_times.map(parseTimeToSeconds).forEach((time, index) => {
+                if (time < minTime) {
+                    minTime = time;
+                    bestLapIndex = index;
+                }
+            });
+
             lapSelectorContainer.innerHTML = '';
             const lapSelect = document.createElement('select');
             lapSelect.className = 'form-select';
             data.lap_times.forEach((lapTime, index) => {
                 const option = document.createElement('option');
                 option.value = index;
-                option.textContent = `Lap ${index + 1} (${lapTime})`;
+                // ▼▼▼【ここからが今回の主な修正箇所です】▼▼▼
+                const isBest = index === bestLapIndex;
+                option.textContent = `${isBest ? '👑 ' : ''}Lap ${index + 1} (${lapTime})`;
+                // ▲▲▲【修正はここまで】▲▲▲
                 lapSelect.appendChild(option);
             });
             lapSelectorContainer.appendChild(lapSelect);
@@ -288,12 +329,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 bounds = new google.maps.LatLngBounds();
                 currentLapData.track.forEach(p => bounds.extend(p));
                 
-                // ▼▼▼【ここからが今回の主な修正箇所です】▼▼▼
-                // ズームレベルの調整を元に戻す
                 if (map && !bounds.isEmpty()) {
                     map.fitBounds(bounds);
                 }
-                // ▲▲▲【修正はここまで】▲▲▲
                 
                 polylines = drawLapPolyline(currentLapData.track, minSpeed, maxSpeed, map);
                 
@@ -350,8 +388,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // ▼▼▼【ここからが今回の主な修正箇所です】▼▼▼
-    // テレメトリ表示切替ボタンのイベントリスナー
     document.getElementById('toggleTelemetryBtn').addEventListener('click', (e) => {
         const btn = e.currentTarget;
         const modalDialog = mapModalElement.querySelector('.modal-dialog');
@@ -361,7 +397,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const isTelemetryVisible = !graphsContainer.classList.contains('d-none');
 
         if (isTelemetryVisible) {
-            // テレメトリを非表示に
             modalDialog.classList.remove('modal-fullscreen');
             modalDialog.classList.add('modal-xl');
             playbackControls.classList.add('d-none');
@@ -370,7 +405,6 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.classList.remove('btn-success');
             btn.classList.add('btn-outline-primary');
         } else {
-            // テレメトリを表示
             modalDialog.classList.remove('modal-xl');
             modalDialog.classList.add('modal-fullscreen');
             playbackControls.classList.remove('d-none');
@@ -379,8 +413,15 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.classList.remove('btn-outline-primary');
             btn.classList.add('btn-success');
         }
+
+        // ビューのサイズ変更後にマップを再センタリング
+        setTimeout(() => {
+            if(map && bounds && !bounds.isEmpty()){
+                google.maps.event.trigger(map, 'resize');
+                map.fitBounds(bounds);
+            }
+        }, 200); // アニメーション完了を待つ
     });
-    // ▲▲▲【修正はここまで】▲▲▲
 
     mapModalElement.addEventListener('hidden.bs.modal', () => stopPlayback());
 });
