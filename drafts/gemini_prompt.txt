@@ -95,7 +95,8 @@ kyagisaw@hiyoko-fedora:~/Dev/motopuppu$ tree
 │   ├── script.py.mako
 │   └── versions
 │       ├── 8ffa50023b83_add_gps_tracks_to_sessionlog.py
-│       └── e391d758c56d_initial_consolidated_migration_from_.py
+│       ├── e391d758c56d_initial_consolidated_migration_from_.py
+│       └── e41c7c921b61_add_public_share_fields_to_sessionlog.py
 ├── motopuppu
 │   ├── __init__.py
 │   ├── achievement_evaluator.py
@@ -153,6 +154,7 @@ kyagisaw@hiyoko-fedora:~/Dev/motopuppu$ tree
 │   │   │   ├── detail_activity.html
 │   │   │   ├── list_activities.html
 │   │   │   ├── list_settings.html
+│   │   │   ├── public_session.html
 │   │   │   ├── session_form.html
 │   │   │   └── setting_form.html
 │   │   ├── auth
@@ -251,7 +253,7 @@ kyagisaw@hiyoko-fedora:~/Dev/motopuppu$ tree
 │       └── vehicle.py
 └── requirements.txt
 
-33 directories, 141 files
+33 directories, 143 files
 
 
 ### **7.  今回のセッションでの目標 [毎回更新]**
