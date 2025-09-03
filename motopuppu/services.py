@@ -134,6 +134,7 @@ def get_timeline_events(motorcycle_ids, start_date=None, end_date=None):
             'cost': entry.total_cost,
             'details': {
                 '車両名': entry.motorcycle.name,
+                '燃費': f"{entry.km_per_liter:.2f} km/L" if entry.km_per_liter is not None else '---',
                 '給油量': f"{entry.fuel_volume:.2f} L",
                 '単価': f"{entry.price_per_liter} 円/L" if entry.price_per_liter else '---',
                 '合計金額': f"{entry.total_cost:,.0f} 円" if entry.total_cost is not None else '---',
