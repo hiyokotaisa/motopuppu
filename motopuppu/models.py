@@ -66,6 +66,11 @@ class Motorcycle(db.Model):
     show_in_garage = db.Column(db.Boolean, nullable=False, default=True, server_default='true', comment="ガレージカードに掲載するか")
     # ▲▲▲ 変更ここまで ▲▲▲
 
+    # --- ▼▼▼ 変更箇所（ここから） ▼▼▼ ---
+    primary_ratio = db.Column(db.Numeric(7, 4), nullable=True, comment="一次減速比")
+    gear_ratios = db.Column(JSONB, nullable=True, comment="各ギアの変速比 (例: {'1': 2.846, '2': 2.000, ...})")
+    # --- ▲▲▲ 変更箇所（ここまで） ▲▲▲ ---
+
     fuel_entries = db.relationship('FuelEntry', backref='motorcycle', lazy='dynamic', order_by="desc(FuelEntry.entry_date)", cascade="all, delete-orphan")
     maintenance_entries = db.relationship('MaintenanceEntry', backref='motorcycle', lazy='dynamic', order_by="desc(MaintenanceEntry.maintenance_date)", cascade="all, delete-orphan")
     consumable_logs = db.relationship('ConsumableLog', backref='motorcycle', lazy='dynamic', order_by="desc(ConsumableLog.change_date)", cascade="all, delete-orphan")

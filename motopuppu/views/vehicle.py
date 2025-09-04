@@ -84,6 +84,20 @@ def add_vehicle():
             custom_details=form.custom_details.data
             # ▲▲▲ 追記ここまで ▲▲▲
         )
+        
+        # --- ▼▼▼ 変更箇所（ここから） ▼▼▼ ---
+        # 駆動系データをフォームから取得して設定
+        new_motorcycle.primary_ratio = form.primary_ratio.data
+
+        ratios = {}
+        for i in range(1, 7):
+            field_name = f'gear_ratio_{i}'
+            field = getattr(form, field_name)
+            if field.data is not None:
+                ratios[str(i)] = float(field.data)
+        
+        new_motorcycle.gear_ratios = ratios if ratios else None
+        # --- ▲▲▲ 変更箇所（ここまで） ▲▲▲ ---
 
         if is_racer_vehicle:
             new_motorcycle.total_operating_hours = total_hours_data if total_hours_data is not None else 0.00
@@ -176,6 +190,16 @@ def edit_vehicle(vehicle_id):
         if not motorcycle.is_racer:
             odo_form.reset_date.data = date.fromisoformat(today_jst_iso)
             odo_form.display_odo_after_reset.data = 0
+            
+        # --- ▼▼▼ 変更箇所（ここから） ▼▼▼ ---
+        # DBのJSONからフォームの各ギア比フィールドに値を設定
+        if motorcycle.gear_ratios:
+            for i in range(1, 7):
+                field_name = f'gear_ratio_{i}'
+                field = getattr(form, field_name)
+                if str(i) in motorcycle.gear_ratios:
+                    field.data = motorcycle.gear_ratios[str(i)]
+        # --- ▲▲▲ 変更箇所（ここまで） ▲▲▲ ---
 
     current_year_for_validation = datetime.now(timezone.utc).year
     odo_logs = OdoResetLog.query.filter_by(motorcycle_id=vehicle_id).order_by(OdoResetLog.reset_date.desc(), OdoResetLog.id.desc()).all()
@@ -191,6 +215,20 @@ def edit_vehicle(vehicle_id):
         motorcycle.image_url = form.image_url.data
         motorcycle.custom_details = form.custom_details.data
         # ▲▲▲ 変更ここまで ▲▲▲
+
+        # --- ▼▼▼ 変更箇所（ここから） ▼▼▼ ---
+        # 駆動系データをフォームから取得して設定
+        motorcycle.primary_ratio = form.primary_ratio.data
+
+        ratios = {}
+        for i in range(1, 7):
+            field_name = f'gear_ratio_{i}'
+            field = getattr(form, field_name)
+            if field.data is not None:
+                ratios[str(i)] = float(field.data)
+        
+        motorcycle.gear_ratios = ratios if ratios else None
+        # --- ▲▲▲ 変更箇所（ここまで） ▲▲▲ ---
 
         if motorcycle.is_racer:
             motorcycle.total_operating_hours = form.total_operating_hours.data if form.total_operating_hours.data is not None else motorcycle.total_operating_hours

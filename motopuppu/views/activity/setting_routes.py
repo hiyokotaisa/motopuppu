@@ -39,7 +39,9 @@ def add_setting(vehicle_id):
             details = json.loads(details_json_str)
         except (json.JSONDecodeError, TypeError):
             flash('セッティング詳細のデータ形式が無効です。', 'danger')
+            # --- ▼▼▼ 変更箇所 ▼▼▼ ---
             return render_template('activity/setting_form.html', form=form, motorcycle=motorcycle, form_action='add', details_json=details_json_str)
+            # --- ▲▲▲ 変更箇所 ▲▲▲ ---
 
         new_setting = SettingSheet(
             motorcycle_id=motorcycle.id,
@@ -64,11 +66,13 @@ def add_setting(vehicle_id):
         error_messages = '; '.join([f'{field}: {", ".join(error_list)}' for field, error_list in form.errors.items()])
         flash(f'入力内容にエラーがあります: {error_messages}', 'danger')
 
+    # --- ▼▼▼ 変更箇所 ▼▼▼ ---
     return render_template('activity/setting_form.html',
                            form=form,
                            motorcycle=motorcycle,
                            form_action='add',
                            details_json='{}')
+    # --- ▲▲▲ 変更箇所 ▲▲▲ ---
 
 @activity_bp.route('/settings/<int:setting_id>/edit', methods=['GET', 'POST'])
 @limiter.limit("30 per hour")
@@ -87,7 +91,9 @@ def edit_setting(setting_id):
             details = json.loads(details_json_str)
         except (json.JSONDecodeError, TypeError):
             flash('セッティング詳細のデータ形式が無効です。', 'danger')
+            # --- ▼▼▼ 変更箇所 ▼▼▼ ---
             return render_template('activity/setting_form.html', form=form, motorcycle=motorcycle, setting=setting, form_action='edit', details_json=details_json_str)
+            # --- ▲▲▲ 変更箇所 ▲▲▲ ---
 
         setting.sheet_name = form.sheet_name.data
         setting.notes = form.notes.data
@@ -103,12 +109,14 @@ def edit_setting(setting_id):
             flash('セッティングシートの更新中にエラーが発生しました。', 'danger')
 
     details_json_for_template = json.dumps(setting.details)
+    # --- ▼▼▼ 変更箇所 ▼▼▼ ---
     return render_template('activity/setting_form.html',
                            form=form,
                            motorcycle=motorcycle,
                            setting=setting,
                            form_action='edit',
                            details_json=details_json_for_template)
+    # --- ▲▲▲ 変更箇所 ▲▲▲ ---
 
 @activity_bp.route('/settings/<int:setting_id>/toggle_archive', methods=['POST'])
 @limiter.limit("30 per hour")

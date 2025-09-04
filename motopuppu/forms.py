@@ -241,6 +241,21 @@ class VehicleForm(FlaskForm):
     )
     # ▲▲▲【追加はここまで】▲▲▲
 
+    # --- ▼▼▼ 変更箇所（ここから） ▼▼▼ ---
+    primary_ratio = DecimalField(
+        '一次減速比',
+        places=3,
+        validators=[Optional(), NumberRange(min=0, message='一次減速比は0以上の数値を入力してください。')],
+        render_kw={"placeholder": "例: 1.777"}
+    )
+    gear_ratio_1 = DecimalField('1速', places=3, validators=[Optional(), NumberRange(min=0)])
+    gear_ratio_2 = DecimalField('2速', places=3, validators=[Optional(), NumberRange(min=0)])
+    gear_ratio_3 = DecimalField('3速', places=3, validators=[Optional(), NumberRange(min=0)])
+    gear_ratio_4 = DecimalField('4速', places=3, validators=[Optional(), NumberRange(min=0)])
+    gear_ratio_5 = DecimalField('5速', places=3, validators=[Optional(), NumberRange(min=0)])
+    gear_ratio_6 = DecimalField('6速', places=3, validators=[Optional(), NumberRange(min=0)])
+    # --- ▲▲▲ 変更箇所（ここまで） ▲▲▲ ---
+
     submit = SubmitField('登録する')
 
     def validate_total_operating_hours(self, field):

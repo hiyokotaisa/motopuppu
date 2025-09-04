@@ -98,15 +98,55 @@
     </div>
     {# --- ▲▲▲ フェーズ1変更点 ▲▲▲ --- #}
 
-    {# ▼▼▼【ここから削除】ガレージカード設定セクションをすべて削除 ▼▼▼ #}
-    {#
     <hr class="my-4">
-    <h5><i class="fas fa-id-card me-2"></i>ガレージカード設定</h5>
-    ... (この間のフォーム要素をすべて削除) ...
-    #}
-    {# ▲▲▲【削除はここまで】▲▲▲ #}
+    <h5><i class="fas fa-cogs me-2"></i>駆動系データ</h5>
+    <p class="text-muted small">ギアレシオチャート（速度グラフ）機能で使用する車両のスペック情報を入力します。不明な場合は空欄で構いません。</p>
+    
+    <div class="row">
+        <div class="col-md-4">
+            <div class="mb-3">
+                {{ form.primary_ratio.label(class="form-label") }}
+                {{ form.primary_ratio(class="form-control" + (" is-invalid" if form.primary_ratio.errors else ""), placeholder=form.primary_ratio.render_kw.get("placeholder", "")) }}
+                {% if form.primary_ratio.errors %}<div class="invalid-feedback">{% for error in form.primary_ratio.errors %}<span>{{ error }}</span><br>{% endfor %}</div>{% endif %}
+            </div>
+        </div>
+    </div>
 
-
+    <div class="mb-3">
+        <label class="form-label">トランスミッションギア比</label>
+        <div class="row g-2">
+            <div class="col-md-2 col-4">
+                {{ form.gear_ratio_1.label(class="form-label small") }}
+                {{ form.gear_ratio_1(class="form-control form-control-sm" + (" is-invalid" if form.gear_ratio_1.errors else ""), placeholder="例: 2.846") }}
+                {% if form.gear_ratio_1.errors %}<div class="invalid-feedback">!</div>{% endif %}
+            </div>
+            <div class="col-md-2 col-4">
+                {{ form.gear_ratio_2.label(class="form-label small") }}
+                {{ form.gear_ratio_2(class="form-control form-control-sm" + (" is-invalid" if form.gear_ratio_2.errors else "")) }}
+                {% if form.gear_ratio_2.errors %}<div class="invalid-feedback">!</div>{% endif %}
+            </div>
+            <div class="col-md-2 col-4">
+                {{ form.gear_ratio_3.label(class="form-label small") }}
+                {{ form.gear_ratio_3(class="form-control form-control-sm" + (" is-invalid" if form.gear_ratio_3.errors else "")) }}
+                {% if form.gear_ratio_3.errors %}<div class="invalid-feedback">!</div>{% endif %}
+            </div>
+            <div class="col-md-2 col-4">
+                {{ form.gear_ratio_4.label(class="form-label small") }}
+                {{ form.gear_ratio_4(class="form-control form-control-sm" + (" is-invalid" if form.gear_ratio_4.errors else "")) }}
+                {% if form.gear_ratio_4.errors %}<div class="invalid-feedback">!</div>{% endif %}
+            </div>
+            <div class="col-md-2 col-4">
+                {{ form.gear_ratio_5.label(class="form-label small") }}
+                {{ form.gear_ratio_5(class="form-control form-control-sm" + (" is-invalid" if form.gear_ratio_5.errors else "")) }}
+                {% if form.gear_ratio_5.errors %}<div class="invalid-feedback">!</div>{% endif %}
+            </div>
+            <div class="col-md-2 col-4">
+                {{ form.gear_ratio_6.label(class="form-label small") }}
+                {{ form.gear_ratio_6(class="form-control form-control-sm" + (" is-invalid" if form.gear_ratio_6.errors else "")) }}
+                {% if form.gear_ratio_6.errors %}<div class="invalid-feedback">!</div>{% endif %}
+            </div>
+        </div>
+    </div>
     {{ form.submit(class="btn btn-primary mt-3", value=('登録する' if form_action == 'add' else '更新する')) }}
     <a href="{{ url_for('vehicle.vehicle_list') }}" class="btn btn-secondary mt-3">キャンセル</a>
 </form>

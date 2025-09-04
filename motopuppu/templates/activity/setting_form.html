@@ -24,6 +24,12 @@
     {% endif %}
 {% endwith %}
 
+<div id="vehicle-spec-data" 
+     data-vehicle-name="{{ motorcycle.name | e }}"
+     data-primary-ratio="{{ motorcycle.primary_ratio or '' }}" 
+     data-gear-ratios='{{ motorcycle.gear_ratios | tojson | safe if motorcycle.gear_ratios else '{}' }}'>
+</div>
+
 <form id="setting-sheet-form" method="POST" action="{{ url_for('activity.add_setting', vehicle_id=motorcycle.id) if form_action == 'add' else url_for('activity.edit_setting', setting_id=setting.id) }}">
     {{ form.hidden_tag() }} {# CSRFトークン #}
     <input type="hidden" id="details_json_input" name="details_json" value="{{ details_json if details_json else '{}' }}">
@@ -53,7 +59,6 @@
             {# --- ▼▼▼ ここからテンプレート定義 ▼▼▼ --- #}
             <div class="d-none">
                 
-                {# --- ▼▼▼ 変更箇所（スプロケットテンプレート） ▼▼▼ --- #}
                 <div id="sprocket-template" class="card mb-3 setting-category-card" data-category="sprocket">
                     <div class="card-header d-flex justify-content-between"><span>スプロケット</span><button type="button" class="btn-close btn-sm remove-category-btn" aria-label="Close"></button></div>
                     <div class="card-body">
@@ -82,15 +87,14 @@
                         </div>
                     </div>
                 </div>
-                {# --- ▲▲▲ スプロケットテンプレートここまで ▲▲▲ --- #}
 
                 <div id="ignition-template" class="card mb-3 setting-category-card" data-category="ignition">
                     <div class="card-header d-flex justify-content-between"><span>点火</span><button type="button" class="btn-close btn-sm remove-category-btn" aria-label="Close"></button></div>
                     <div class="card-body">
                         <div class="row">
                              <div class="col-md-6 mb-3">
-                                <label for="ignition_spark_plug" class="form-label small">プラグ</label>
-                                <input type="text" id="ignition_spark_plug" class="form-control" data-key="spark_plug">
+                                <label class="form-label small">プラグ</label>
+                                <input type="text" class="form-control" data-key="spark_plug">
                                 <div class="form-text">使用しているスパークプラグの型番などを入力します。</div>
                             </div>
                         </div>
@@ -121,13 +125,51 @@
                     </div>
                 </div>
                 
-                <div id="tire-template" class="card mb-3 setting-category-card" data-category="tire">
-                    <div class="card-header d-flex justify-content-between"><span>タイヤ</span><button type="button" class="btn-close btn-sm remove-category-btn" aria-label="Close"></button></div>
+                <div id="tire-front-template" class="card mb-3 setting-category-card" data-category="tire_front">
+                    <div class="card-header d-flex justify-content-between"><span>タイヤ（フロント）</span><button type="button" class="btn-close btn-sm remove-category-btn" aria-label="Close"></button></div>
                     <div class="card-body">
                         <div class="row">
-                            <div class="col-md-4 mb-3"><label class="form-label small">タイヤ銘柄</label><input type="text" class="form-control" data-key="tire_brand"></div>
-                            <div class="col-md-4 mb-3"><label class="form-label small">コンパウンド</label><input type="text" class="form-control" data-key="tire_compound"></div>
-                            <div class="col-md-4 mb-3"><label class="form-label small">空気圧(kPa)</label><input type="text" class="form-control" data-key="tire_pressure_kpa"></div>
+                            <div class="col-md-6 mb-3"><label class="form-label small">タイヤ銘柄</label><input type="text" class="form-control" data-key="tire_brand"></div>
+                            <div class="col-md-6 mb-3"><label class="form-label small">コンパウンド</label><input type="text" class="form-control" data-key="tire_compound"></div>
+                            <div class="col-md-6 mb-3"><label class="form-label small">空気圧(kPa) - 冷間</label><input type="text" class="form-control" data-key="tire_pressure_cold_kpa"></div>
+                            <div class="col-md-6 mb-3"><label class="form-label small">空気圧(kPa) - 温間</label><input type="text" class="form-control" data-key="tire_pressure_hot_kpa"></div>
+                        </div>
+                        <hr>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label class="form-label small">タイヤサイズ</label>
+                                <input type="text" class="form-control" data-key="tire_size" placeholder="例: 120/70ZR17">
+                            </div>
+                            <div class="col-md-6 d-flex align-items-end">
+                                <p class="mb-1">
+                                    <small>計算されたタイヤ外周長: <span class="fw-bold text-primary tire-circumference-display">---- mm</span></small>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="tire-rear-template" class="card mb-3 setting-category-card" data-category="tire_rear">
+                    <div class="card-header d-flex justify-content-between"><span>タイヤ（リア）</span><button type="button" class="btn-close btn-sm remove-category-btn" aria-label="Close"></button></div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3"><label class="form-label small">タイヤ銘柄</label><input type="text" class="form-control" data-key="tire_brand"></div>
+                            <div class="col-md-6 mb-3"><label class="form-label small">コンパウンド</label><input type="text" class="form-control" data-key="tire_compound"></div>
+                            <div class="col-md-6 mb-3"><label class="form-label small">空気圧(kPa) - 冷間</label><input type="text" class="form-control" data-key="tire_pressure_cold_kpa"></div>
+                            <div class="col-md-6 mb-3"><label class="form-label small">空気圧(kPa) - 温間</label><input type="text" class="form-control" data-key="tire_pressure_hot_kpa"></div>
+                        </div>
+                        <hr>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label class="form-label small">タイヤサイズ</label>
+                                <input type="text" class="form-control" data-key="tire_size" placeholder="例: 180/55ZR17">
+                                <div class="form-text">速度計算グラフに使用します。</div>
+                            </div>
+                            <div class="col-md-6 d-flex align-items-end">
+                                <p class="mb-1">
+                                    <small>計算されたタイヤ外周長: <span class="fw-bold text-primary tire-circumference-display">---- mm</span></small>
+                                </p>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -164,8 +206,11 @@
                     <button type="button" class="list-group-item list-group-item-action add-category-btn" data-template-id="suspension-template">
                         <i class="fas fa-sliders-h fa-fw me-2"></i> サスペンション
                     </button>
-                    <button type="button" class="list-group-item list-group-item-action add-category-btn" data-template-id="tire-template">
-                        <i class="fas fa-dot-circle fa-fw me-2"></i> タイヤ
+                    <button type="button" class="list-group-item list-group-item-action add-category-btn" data-template-id="tire-front-template">
+                        <i class="fas fa-dot-circle fa-fw me-2"></i> タイヤ（フロント）
+                    </button>
+                    <button type="button" class="list-group-item list-group-item-action add-category-btn" data-template-id="tire-rear-template">
+                        <i class="fas fa-dot-circle fa-fw me-2"></i> タイヤ（リア）
                     </button>
                     <button type="button" class="list-group-item list-group-item-action add-category-btn" data-template-id="sprocket-template">
                         <i class="fas fa-cogs fa-fw me-2"></i> スプロケット
@@ -183,13 +228,78 @@
             </div>
         </div>
     </div>
-    <div class="mt-4">
-        <button type="submit" class="btn btn-primary">{{ "作成する" if form_action == 'add' else "更新する" }}</button>
-        <a href="{{ url_for('activity.list_settings', vehicle_id=motorcycle.id) }}" class="btn btn-secondary">
-            <i class="fas fa-times me-1"></i> キャンセル
-        </a>
+    <div class="mt-4 d-flex justify-content-between align-items-center">
+        <div>
+            <button type="submit" class="btn btn-primary">{{ "作成する" if form_action == 'add' else "更新する" }}</button>
+            <a href="{{ url_for('activity.list_settings', vehicle_id=motorcycle.id) }}" class="btn btn-secondary">
+                <i class="fas fa-times me-1"></i> キャンセル
+            </a>
+        </div>
+        <div>
+            <button type="button" class="btn btn-info" id="show-speed-chart-btn">
+                <i class="fas fa-chart-line me-1"></i> ギアレシオチャート（速度グラフ）を計算
+            </button>
+        </div>
     </div>
 </form>
+
+<div class="modal fade" id="speedChartModal" tabindex="-1" aria-labelledby="speedChartModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="speedChartModalLabel">ギアレシオチャート（速度グラフ）</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        
+        <div class="row">
+            <div class="col-lg-9">
+                {# --- ▼▼▼ 変更箇所: canvasを高さが固定されたdivで囲む ▼▼▼ --- #}
+                <div style="position: relative; height: 60vh;">
+                    <canvas id="speedChartCanvas"></canvas>
+                </div>
+                {# --- ▲▲▲ 変更箇所ここまで ▲▲▲ --- #}
+                <div id="shift-data-container" class="mt-4"></div>
+            </div>
+            <div class="col-lg-3">
+                <h5>シミュレーション設定</h5>
+                <hr>
+                <div class="mb-3 p-2 border rounded bg-light">
+                    <p class="mb-1 small text-muted">現在の設定</p>
+                    <p class="mb-0"><strong>F: </strong><span id="chart-current-front">--</span>T, <strong>R: </strong><span id="chart-current-rear">--</span>T</p>
+                    <p class="mb-0"><strong>二次減速比: </strong><span id="chart-current-secondary">-.---</span></p>
+                </div>
+
+                <div class="mb-3">
+                    <label for="chart-sim-front" class="form-label">シミュレーション: フロント (T)</label>
+                    <input type="number" id="chart-sim-front" class="form-control">
+                </div>
+                <div class="mb-3">
+                    <label for="chart-sim-rear" class="form-label">シミュレーション: リア (T)</label>
+                    <input type="number" id="chart-sim-rear" class="form-control">
+                </div>
+                <hr>
+                 <div class="mb-3">
+                    <label for="chartRpmMax" class="form-label">最大回転数 (RPM)</label>
+                    <input type="number" id="chartRpmMax" class="form-control" value="14000" step="1000" min="5000">
+                </div>
+                <div class="mb-3">
+                    <label for="chartShiftRpm" class="form-label">シフトアップ回転数 (RPM)</label>
+                    <input type="number" id="chartShiftRpm" class="form-control" value="13000" step="500">
+                </div>
+                <div class="d-grid">
+                    <button class="btn btn-secondary" id="redraw-chart-btn">
+                        <i class="fas fa-sync-alt me-1"></i> グラフを更新
+                    </button>
+                </div>
+            </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
@@ -199,28 +309,21 @@ document.addEventListener('DOMContentLoaded', function() {
     const container = document.getElementById('setting-details-container');
     const form = document.getElementById('setting-sheet-form');
     const detailsJsonInput = document.getElementById('details_json_input');
-    const formAction = "{{ form_action }}"; // 'add' or 'edit'
+    const formAction = "{{ form_action }}";
 
-    // カテゴリ追加ボタンの処理
+    // (既存のカテゴリ追加・削除、フォーム送信ロジックは変更なし)
     document.querySelectorAll('.add-category-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            addCategoryCard(this.dataset.templateId);
-        });
+        btn.addEventListener('click', function() { addCategoryCard(this.dataset.templateId); });
     });
-
-    // カテゴリ削除ボタンの処理 (イベントデリゲーション)
     container.addEventListener('click', function(e) {
         const removeBtn = e.target.closest('.remove-category-btn');
         if (removeBtn) {
             const card = removeBtn.closest('.setting-category-card');
             const categoryKey = card.dataset.category;
-            // 対応する追加ボタンを再度有効化
             document.querySelector(`.add-category-btn[data-template-id="${categoryKey}-template"]`).disabled = false;
             card.remove();
         }
     });
-
-    // フォーム送信時にJSONを構築
     form.addEventListener('submit', function(e) {
         const settingData = {};
         container.querySelectorAll('.setting-category-card').forEach(card => {
@@ -228,29 +331,23 @@ document.addEventListener('DOMContentLoaded', function() {
             settingData[categoryKey] = {};
             card.querySelectorAll('input[data-key]').forEach(input => {
                 if (input.value.trim()) {
-                    const itemKey = input.dataset.key;
-                    settingData[categoryKey][itemKey] = input.value.trim();
+                    settingData[categoryKey][input.dataset.key] = input.value.trim();
                 }
             });
         });
         detailsJsonInput.value = JSON.stringify(settingData);
     });
     
-    // --- 編集モード用の初期化処理 ---
     function addCategoryCard(templateId, data = null) {
         const template = document.getElementById(templateId);
         if (!template) return;
-
         const clone = template.cloneNode(true);
         container.appendChild(clone);
         document.querySelector(`.add-category-btn[data-template-id="${templateId}"]`).disabled = true;
-
         if (data) {
             clone.querySelectorAll('input[data-key]').forEach(input => {
                 const itemKey = input.dataset.key;
-                if (data[itemKey]) {
-                    input.value = data[itemKey];
-                }
+                if (data[itemKey]) input.value = data[itemKey];
             });
         }
     }
@@ -260,146 +357,307 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             const savedData = JSON.parse(detailsJsonInput.value);
             const templates = {
-                'sprocket': 'sprocket-template',
-                'ignition': 'ignition-template',
-                'suspension': 'suspension-template',
-                'tire': 'tire-template',
-                'carburetor': 'carburetor-template',
-                'ecu': 'ecu-template'
+                'sprocket': 'sprocket-template', 'ignition': 'ignition-template',
+                'suspension': 'suspension-template', 'carburetor': 'carburetor-template',
+                'ecu': 'ecu-template', 'tire_front': 'tire-front-template',
+                'tire_rear': 'tire-rear-template'
             };
             for (const categoryKey in savedData) {
-                if(templates[categoryKey]) {
+                if(templates[categoryKey] && categoryKey !== 'tire') {
                     addCategoryCard(templates[categoryKey], savedData[categoryKey]);
                 }
             }
-            // --- ▼▼▼ 編集データ読み込み後、スプロケットの計算を即時実行 ▼▼▼ ---
-            const sprocketCard = container.querySelector('.setting-category-card[data-category="sprocket"]');
-            if(sprocketCard) {
-                calculateAndUpdateRatio(sprocketCard);
+            if (savedData.tire) {
+                addCategoryCard('tire-front-template', savedData.tire);
             }
-            // --- ▲▲▲ 修正ここまで ▲▲▲ ---
-        } catch (e) {
-            console.error("Error parsing setting details JSON:", e);
-        }
+            
+            container.querySelectorAll('.setting-category-card[data-category="sprocket"]').forEach(calculateAndUpdateRatio);
+            container.querySelectorAll('.setting-category-card[data-category="tire_front"]').forEach(updateTireCircumference);
+            container.querySelectorAll('.setting-category-card[data-category="tire_rear"]').forEach(updateTireCircumference);
+        } catch (e) { console.error("Error parsing setting details JSON:", e); }
     }
 
     if (formAction === 'edit') {
         populateFormForEdit();
     }
 
-    // --- ▼▼▼ 減速比計算機能（ここから） ▼▼▼ ---
-    
-    /**
-     * 特定のスプロケットカード内で減速比を計算し、表示を更新する
-     * @param {HTMLElement} card - 対象のスプロケットカード要素
-     */
     function calculateAndUpdateRatio(card) {
         const frontInput = card.querySelector('input[data-key="front_teeth"]');
         const rearInput = card.querySelector('input[data-key="rear_teeth"]');
         const display = card.querySelector('.secondary-ratio-display');
-        
         const frontTeeth = parseInt(frontInput.value, 10);
         const rearTeeth = parseInt(rearInput.value, 10);
-
         if (frontTeeth > 0 && rearTeeth > 0) {
-            const ratio = rearTeeth / frontTeeth;
-            display.textContent = ratio.toFixed(3);
+            display.textContent = (rearTeeth / frontTeeth).toFixed(3);
         } else {
             display.textContent = '-.---';
         }
-        
-        // テーブルが表示されていれば、それも更新する
         const chartContainer = card.querySelector('.ratio-chart-container');
-        if (chartContainer.style.display !== 'none') {
-            generateRatioChart(card);
-        }
+        if (chartContainer.style.display !== 'none') generateRatioChart(card);
     }
 
-    /**
-     * 減速比テーブルを生成して表示する
-     * @param {HTMLElement} card - 対象のスプロケットカード要素
-     */
     function generateRatioChart(card) {
         const frontInput = card.querySelector('input[data-key="front_teeth"]');
         const rearInput = card.querySelector('input[data-key="rear_teeth"]');
         const chartContainer = card.querySelector('.ratio-chart-container');
-
         const currentFront = parseInt(frontInput.value, 10) || 0;
         const currentRear = parseInt(rearInput.value, 10) || 0;
-        
-        // テーブルの表示範囲を定義
         const frontRange = Array.from({length: 5}, (_, i) => currentFront - 2 + i).filter(n => n > 0);
         const rearRange = Array.from({length: 11}, (_, i) => currentRear - 5 + i).filter(n => n > 0);
-
         if (frontRange.length === 0 || rearRange.length === 0) {
             chartContainer.innerHTML = '<p class="text-muted small">丁数を入力するとテーブルが表示されます。</p>';
             return;
         }
-
-        let tableHtml = '<div class="table-responsive"><table class="table table-bordered table-sm text-center" style="font-size: 0.8rem;">';
-        
-        // ヘッダー行 (フロント丁数)
-        tableHtml += '<thead><tr><th>R ＼ F</th>';
-        frontRange.forEach(f => {
-            tableHtml += `<th>${f}T</th>`;
-        });
-        tableHtml += '</tr></thead>';
-
-        // データ行 (リア丁数と減速比)
-        tableHtml += '<tbody>';
+        let tableHtml = '<div class="table-responsive"><table class="table table-bordered table-sm text-center" style="font-size: 0.8rem;"><thead><tr><th>R ＼ F</th>';
+        frontRange.forEach(f => { tableHtml += `<th>${f}T</th>`; });
+        tableHtml += '</tr></thead><tbody>';
         rearRange.forEach(r => {
             tableHtml += `<tr><th>${r}T</th>`;
             frontRange.forEach(f => {
-                const ratio = (r / f).toFixed(3);
                 const isCurrent = (r === currentRear && f === currentFront);
-                tableHtml += `<td class="${isCurrent ? 'table-primary' : ''}">${ratio}</td>`;
+                tableHtml += `<td class="${isCurrent ? 'table-primary' : ''}">${(r / f).toFixed(3)}</td>`;
             });
             tableHtml += '</tr>';
         });
         tableHtml += '</tbody></table></div>';
-        
         chartContainer.innerHTML = tableHtml;
     }
 
-    // イベントデリゲーションを使用して、動的に追加された要素のイベントを捕捉
-    container.addEventListener('input', function(e) {
-        if (e.target.matches('input[data-key="front_teeth"]') || e.target.matches('input[data-key="rear_teeth"]')) {
-            const card = e.target.closest('.setting-category-card');
-            calculateAndUpdateRatio(card);
+    function parseTireSize(sizeString) {
+        if (!sizeString) return null;
+        const regex = /(\d+)\s*\/\s*(\d+)\s*[A-Z-]*\s*(\d+)/;
+        const match = sizeString.match(regex);
+        if (match && match.length === 4) {
+            return [parseInt(match[1], 10), parseInt(match[2], 10), parseInt(match[3], 10)];
         }
+        return null;
+    }
+
+    function calculateTireCircumference(width, aspectRatio, rimDiameter) {
+        const rimDiameterMm = rimDiameter * 25.4;
+        const sidewallHeightMm = width * (aspectRatio / 100);
+        const totalDiameterMm = rimDiameterMm + (2 * sidewallHeightMm);
+        return totalDiameterMm * Math.PI;
+    }
+
+    function updateTireCircumference(card) {
+        const sizeInput = card.querySelector('input[data-key="tire_size"]');
+        const display = card.querySelector('.tire-circumference-display');
+        const parsed = parseTireSize(sizeInput.value);
+        if (parsed) {
+            display.textContent = `${Math.round(calculateTireCircumference(...parsed))} mm`;
+        } else {
+            display.textContent = '---- mm';
+        }
+    }
+
+    // --- ▼▼▼ ギアレシオチャート機能（ここからが修正箇所） ▼▼▼ ---
+    const vehicleSpecDataEl = document.getElementById('vehicle-spec-data');
+    const showChartBtn = document.getElementById('show-speed-chart-btn');
+    const speedChartModalEl = document.getElementById('speedChartModal');
+    const speedChartModal = new bootstrap.Modal(speedChartModalEl);
+    const chartCanvas = document.getElementById('speedChartCanvas');
+    const redrawChartBtn = document.getElementById('redraw-chart-btn');
+    let speedChartInstance = null;
+    
+    // グラフの骨組みを一度だけ生成する関数
+    function initChart() {
+        const vehicleName = vehicleSpecDataEl.dataset.vehicleName;
+        // 既存のインスタンスがあれば破棄
+        if (speedChartInstance) {
+            speedChartInstance.destroy();
+        }
+        speedChartInstance = new Chart(chartCanvas, {
+            type: 'line',
+            data: { labels: [], datasets: [] }, //最初は空
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: { display: true, text: `ギアレシオチャート - ${vehicleName}` },
+                    tooltip: {
+                        mode: 'index', intersect: false,
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) { label += ': '; }
+                                if (context.parsed.y !== null) { label += `${context.parsed.y} km/h`; }
+                                return label;
+                            }
+                        }
+                    },
+                    legend: { position: 'top' },
+                    annotation: { annotations: {} }
+                },
+                scales: {
+                    x: { title: { display: true, text: 'エンジン回転数 (RPM)' } },
+                    y: { title: { display: true, text: '理論速度 (km/h)' }, beginAtZero: true }
+                }
+            }
+        });
+    }
+
+    showChartBtn.addEventListener('click', () => {
+        const frontTeethInput = container.querySelector('[data-category="sprocket"] input[data-key="front_teeth"]');
+        const rearTeethInput = container.querySelector('[data-category="sprocket"] input[data-key="rear_teeth"]');
+        const currentFront = frontTeethInput ? frontTeethInput.value : '';
+        const currentRear = rearTeethInput ? rearTeethInput.value : '';
+        document.getElementById('chart-current-front').textContent = currentFront || '--';
+        document.getElementById('chart-current-rear').textContent = currentRear || '--';
+        document.getElementById('chart-sim-front').value = currentFront;
+        document.getElementById('chart-sim-rear').value = currentRear;
+        const ratioDisplay = container.querySelector('.secondary-ratio-display');
+        document.getElementById('chart-current-secondary').textContent = ratioDisplay ? ratioDisplay.textContent : '-.---';
+        speedChartModal.show();
     });
 
+    speedChartModalEl.addEventListener('shown.bs.modal', () => {
+        if (!speedChartInstance) { // 最初の表示時のみチャートを初期化
+            initChart();
+        }
+        updateChartDataAndDraw(); // データを更新して描画
+    });
+
+    redrawChartBtn.addEventListener('click', updateChartDataAndDraw);
+
+    const calculateRpmForSpeed = (speed, secondaryRatio, gearRatio, primaryRatio, tireCircumferenceM) => {
+        if (speed === 0 || tireCircumferenceM === 0) return 0;
+        return (speed * 1000 / 60) * (primaryRatio * gearRatio * secondaryRatio) / tireCircumferenceM;
+    };
+
+    function updateChartDataAndDraw() {
+        if (!speedChartInstance) return;
+
+        const primaryRatio = parseFloat(vehicleSpecDataEl.dataset.primaryRatio);
+        const gearRatios = JSON.parse(vehicleSpecDataEl.dataset.gearRatios);
+        const rearTireSizeInput = container.querySelector('[data-category="tire_rear"] input[data-key="tire_size"]');
+        const simFront = parseInt(document.getElementById('chart-sim-front').value, 10);
+        const simRear = parseInt(document.getElementById('chart-sim-rear').value, 10);
+        const shiftRpm = parseInt(document.getElementById('chartShiftRpm').value, 10);
+
+        if (!primaryRatio || !gearRatios || Object.keys(gearRatios).length === 0 || !rearTireSizeInput) {
+            alert('グラフの計算に必要な車両スペック情報（一次減速比、ギア比、リアタイヤサイズ）が不足しています。\n車両情報を確認してください。');
+            return;
+        }
+        const rearTireParsed = parseTireSize(rearTireSizeInput.value);
+        if (isNaN(simFront) || isNaN(simRear) || !rearTireParsed) {
+            alert('シミュレーション用のスプロケット歯数と、セッティングシートのリアタイヤサイズを正しく入力してください。');
+            return;
+        }
+        
+        const tireCircumferenceM = calculateTireCircumference(...rearTireParsed) / 1000;
+        const rpmMax = parseInt(document.getElementById('chartRpmMax').value, 10) || 14000;
+        const rpmStep = 500;
+        const labels = Array.from({ length: Math.floor(rpmMax / rpmStep) + 1 }, (_, i) => i * rpmStep);
+        const colors = ['#0d6efd', '#6610f2', '#6f42c1', '#d63384', '#dc3545', '#fd7e14', '#ffc107'];
+        
+        const calculateSpeed = (rpm, secondaryRatio, gearRatio) => {
+            if (rpm === 0) return 0;
+            return (rpm / (primaryRatio * gearRatio * secondaryRatio)) * tireCircumferenceM * 60 / 1000;
+        };
+
+        const datasets = [];
+        const annotations = {};
+        
+        const simSecondaryRatio = simRear / simFront;
+        const gearKeys = Object.keys(gearRatios).sort((a, b) => parseInt(a) - parseInt(b));
+        for (const gearNum of gearKeys) {
+            const gearRatio = gearRatios[gearNum];
+            const data = labels.map(rpm => calculateSpeed(rpm, simSecondaryRatio, gearRatio).toFixed(1));
+            datasets.push({
+                label: `(${simFront}-${simRear}) ${gearNum}速`, data: data,
+                borderColor: colors[parseInt(gearNum, 10) - 1] || '#6c757d',
+                fill: false, tension: 0.1, borderWidth: 2
+            });
+        }
+        
+        const shiftDataTable = [];
+        if (shiftRpm && shiftRpm <= rpmMax) {
+            for (let i = 0; i < gearKeys.length - 1; i++) {
+                const currentGearNum = gearKeys[i];
+                const nextGearNum = gearKeys[i+1];
+                const currentGearRatio = gearRatios[currentGearNum];
+                const nextGearRatio = gearRatios[nextGearNum];
+                const speedAtShift = calculateSpeed(shiftRpm, simSecondaryRatio, currentGearRatio);
+                const rpmAfterShift = calculateRpmForSpeed(speedAtShift, simSecondaryRatio, nextGearRatio, primaryRatio, tireCircumferenceM);
+                
+                if (rpmAfterShift < rpmMax) {
+                    const rpmDrop = shiftRpm - rpmAfterShift;
+                    shiftDataTable.push({
+                        shift: `${currentGearNum}速 → ${nextGearNum}速`,
+                        speed: speedAtShift.toFixed(1),
+                        rpmAfter: Math.round(rpmAfterShift),
+                        rpmDrop: Math.round(rpmDrop)
+                    });
+                    annotations[`line${i}`] = {
+                        type: 'line',
+                        xMin: rpmAfterShift, xMax: shiftRpm,
+                        yMin: speedAtShift, yMax: speedAtShift,
+                        borderColor: 'rgba(220, 53, 69, 0.7)',
+                        borderWidth: 1, borderDash: [2, 2],
+                        label: {
+                            content: `${Math.round(rpmDrop).toLocaleString()} RPM`,
+                            display: true, position: 'center',
+                            font: { size: 10 },
+                            backgroundColor: 'rgba(255, 255, 255, 0.7)',
+                            color: 'black'
+                        }
+                    };
+                }
+            }
+        }
+        generateShiftDataTable(shiftDataTable, shiftRpm);
+
+        speedChartInstance.data.labels = labels;
+        speedChartInstance.data.datasets = datasets;
+        speedChartInstance.options.plugins.annotation.annotations = annotations;
+        speedChartInstance.update();
+    }
+
+    function generateShiftDataTable(data, shiftRpm) {
+        const container = document.getElementById('shift-data-container');
+        if (!data || data.length === 0 || !shiftRpm) {
+            container.innerHTML = '';
+            return;
+        }
+        let tableHtml = `
+            <h6 class="mt-3">変速時データ (@${shiftRpm.toLocaleString()} RPM)</h6>
+            <div class="table-responsive">
+                <table class="table table-sm table-bordered" style="font-size: 0.8rem;">
+                    <thead><tr><th>変速</th><th>速度 (km/h)</th><th>変速後 回転数 (RPM)</th><th>回転数 落差 (RPM)</th></tr></thead>
+                    <tbody>`;
+        data.forEach(row => {
+            tableHtml += `<tr><td>${row.shift}</td><td>${row.speed}</td><td>${row.rpmAfter.toLocaleString()}</td><td>${row.rpmDrop.toLocaleString()}</td></tr>`;
+        });
+        tableHtml += '</tbody></table></div>';
+        container.innerHTML = tableHtml;
+    }
+
+    container.addEventListener('input', function(e) {
+        if (e.target.matches('input[data-key="front_teeth"]') || e.target.matches('input[data-key="rear_teeth"]')) {
+            calculateAndUpdateRatio(e.target.closest('.setting-category-card'));
+        }
+        if (e.target.matches('input[data-key="tire_size"]')) {
+            updateTireCircumference(e.target.closest('.setting-category-card'));
+        }
+    });
     container.addEventListener('click', function(e) {
         if (e.target.matches('.toggle-ratio-chart-btn')) {
             const card = e.target.closest('.setting-category-card');
             const chartContainer = card.querySelector('.ratio-chart-container');
             if (chartContainer) {
                 const isVisible = chartContainer.style.display !== 'none';
-                if (!isVisible) {
-                    // 表示する前に最新の状態でテーブルを生成
-                    generateRatioChart(card);
-                }
+                if (!isVisible) { generateRatioChart(card); }
                 chartContainer.style.display = isVisible ? 'none' : 'block';
             }
         }
     });
-    // --- ▲▲▲ 減速比計算機能（ここまで） ▲▲▲ ---
-
 });
 </script>
 <style>
-    /* テンプレートを非表示にするためのスタイル */
+    /* (既存のスタイルは変更なし) */
     .d-none { display: none !important; }
-
-    /* カードヘッダーのレイアウト調整 */
-    .card-header > span {
-        flex-grow: 1;
-    }
-    
-    /* ヘルプテキストのスタイル */
-    .form-text {
-        font-size: 0.8em;
-        margin-top: 2px;
-    }
+    .card-header > span { flex-grow: 1; }
+    .form-text { font-size: 0.8em; margin-top: 2px; }
 </style>
 {% endblock %}
