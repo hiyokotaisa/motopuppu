@@ -223,21 +223,57 @@ def best_settings_finder(vehicle_id):
 @activity_bp.route('/session/<int:session_id>/gps_data', methods=['GET'])
 @login_required
 def get_gps_data(session_id):
-    """セッションのGPSデータをJSONで返すAPIエンドポイント"""
-    session = SessionLog.query.join(ActivityLog)\
-                              .filter(SessionLog.id == session_id, ActivityLog.user_id == current_user.id)\
-                              .first_or_404()
+    """セッションのGPSデータとギア計算用の車両スペックをJSONで返す"""
+    session = SessionLog.query.options(
+        joinedload(SessionLog.activity).joinedload(ActivityLog.motorcycle),
+        joinedload(SessionLog.setting_sheet)
+    ).join(ActivityLog).filter(
+        SessionLog.id == session_id,
+        ActivityLog.user_id == current_user.id
+    ).first_or_404()
 
     if not session.gps_tracks or not session.gps_tracks.get('laps'):
         return jsonify({'error': 'No GPS data available'}), 404
 
-    # ▼▼▼【ここからが最終修正コードです】▼▼▼
-    # 問題の原因となっていたベストラップ計算を削除し、単純な辞書を作成します。
+    motorcycle = session.activity.motorcycle
+    setting_sheet = session.setting_sheet
+    
+    # 車両スペックを収集
+    vehicle_specs = {
+        'primary_ratio': float(motorcycle.primary_ratio) if motorcycle.primary_ratio else None,
+        'gear_ratios': {k: float(v) for k, v in motorcycle.gear_ratios.items()} if motorcycle.gear_ratios else None,
+        'front_sprocket': None,
+        'rear_sprocket': None,
+        'rear_tyre_size': None,
+    }
+
+    if setting_sheet and setting_sheet.details:
+        sprocket_settings = setting_sheet.details.get('sprocket', {})
+        tyre_settings = setting_sheet.details.get('tire_rear', {}) 
+        
+        try:
+            front_sprocket = sprocket_settings.get('front_teeth')
+            if front_sprocket:
+                vehicle_specs['front_sprocket'] = int(front_sprocket)
+        except (ValueError, TypeError):
+            pass
+
+        try:
+            rear_sprocket = sprocket_settings.get('rear_teeth')
+            if rear_sprocket:
+                vehicle_specs['rear_sprocket'] = int(rear_sprocket)
+        except (ValueError, TypeError):
+            pass
+        
+        rear_tyre_size = tyre_settings.get('tire_size')
+        if rear_tyre_size:
+            vehicle_specs['rear_tyre_size'] = rear_tyre_size
+
     response_data = {
         'laps': session.gps_tracks.get('laps', []),
         'lap_times': session.lap_times or [],
+        'vehicle_specs': vehicle_specs
     }
-    # ▲▲▲【最終修正コードはここまで】▲▲▲
     
     return jsonify(response_data)
 

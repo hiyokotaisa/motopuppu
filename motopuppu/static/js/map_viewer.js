@@ -1,7 +1,4 @@
 // motopuppu/static/js/map_viewer.js
-// ▼▼▼【ここから全体を修正】▼▼▼
-
-// グローバルスコープに関数を公開するためのオブジェクト
 window.motopuppuMapViewer = {
     init: async function(options) {
         // オプションから設定を取得
@@ -21,28 +18,41 @@ window.motopuppuMapViewer = {
         let accelMarkers = [];
         let bikeMarker = null; // バイクの現在位置を示すマーカー
         let bounds;
-        let charts = { speed: null, rpm: null, throttle: null };
+        let charts = { speed: null, rpm: null, throttle: null, gear: null };
         let currentLapData = null;
+        // ▼▼▼【ここから追記】平滑化後のギアデータを保持する変数を追加 ▼▼▼
+        let smoothedGears = [];
+        // ▲▲▲【追記はここまで】▲▲▲
         let animationFrameId = null;
         let isPlaying = false;
-        let playbackStartTime = 0; // 再生開始時刻 (Unixタイムスタンプ)
-        let playbackStartOffset = 0; // 一時停止からの再開時のオフセット(秒)
-        let lapStartTime = 0; // ★【追加】現在のラップの開始時間を記録する変数
+        let playbackStartTime = 0; 
+        let playbackStartOffset = 0;
+        let lapStartTime = 0; 
 
         // --- 関数定義 (内部ヘルパー) ---
         function initializeMap(containerId) {
             const mapContainer = document.getElementById(containerId);
             if (!mapContainer || typeof google === 'undefined') return null;
-            mapContainer.innerHTML = ''; // スピナーをクリア
+            mapContainer.innerHTML = '';
             return new google.maps.Map(mapContainer, {
                 mapTypeId: 'satellite', streetViewControl: false, mapTypeControl: false, fullscreenControl: false,
             });
         }
-        function setupChart(canvasId, label, color) {
+        function setupChart(canvasId, label, color, chartType = 'line', yAxisOptions = {}) {
             if (charts[canvasId]) {
                 charts[canvasId].destroy();
             }
-            const ctx = document.getElementById(canvasId).getContext('2d');
+            const canvasEl = document.getElementById(canvasId);
+            if (!canvasEl) {
+                console.error(`Chart canvas element with ID "${canvasId}" not found.`);
+                return null;
+            }
+            const ctx = canvasEl.getContext('2d');
+            const defaultYAxisOptions = {
+                beginAtZero: true,
+                ticks: { font: { size: 10 } },
+                title: { display: true, text: label, font: { size: 12 } }
+            };
             return new Chart(ctx, {
                 type: 'line',
                 data: {
@@ -51,9 +61,11 @@ window.motopuppuMapViewer = {
                         label: label,
                         data: [],
                         borderColor: color,
+                        backgroundColor: color, // ギアチャート用
                         borderWidth: 2,
                         pointRadius: 0,
-                        tension: 0.1,
+                        tension: chartType === 'line' ? 0.1 : 0,
+                        stepped: chartType === 'step'
                     }]
                 },
                 options: {
@@ -63,7 +75,6 @@ window.motopuppuMapViewer = {
                     plugins: {
                         legend: { display: false },
                         tooltip: { enabled: false },
-                        // 縦線カーソル用のプラグイン設定
                         annotation: {
                             annotations: {
                                 line1: {
@@ -72,27 +83,14 @@ window.motopuppuMapViewer = {
                                     value: 0,
                                     borderColor: 'rgba(255, 99, 132, 0.8)',
                                     borderWidth: 1,
-                                    display: false, // 初期状態は非表示
+                                    display: false,
                                 }
                             }
                         }
                     },
                     scales: {
-                        x: {
-                            ticks: { display: false },
-                            grid: { display: false }
-                        },
-                        y: {
-                            beginAtZero: true,
-                            ticks: {
-                                font: { size: 10 }
-                            },
-                            title: {
-                                display: true,
-                                text: label,
-                                font: { size: 12 }
-                            }
-                        }
+                        x: { ticks: { display: false }, grid: { display: false } },
+                        y: { ...defaultYAxisOptions, ...yAxisOptions }
                     }
                 }
             });
@@ -111,7 +109,7 @@ window.motopuppuMapViewer = {
             } else {
                 r = Math.round(255 * (1 - (ratio - 0.5) * 2));
                 g = 255;
-                b = Math.round(255 * ((ratio - 0.5) * 2));
+                b = 0;
             }
             return `rgb(${r},${g},${b})`;
         }
@@ -135,28 +133,17 @@ window.motopuppuMapViewer = {
             return lapPolylines;
         }
         function findSignificantPoints(track, options = {}) {
-            const {
-                lookahead = 25,
-                speedChangeThreshold = 4.0,
-                cooldown = 30,
-            } = options;
-    
+            const { lookahead = 25, speedChangeThreshold = 4.0, cooldown = 30 } = options;
             const brakingPoints = [];
             const accelPoints = [];
-            
             if (track.length < lookahead + 1) return { brakingPoints, accelPoints };
-    
             let lastBrakeIndex = -cooldown;
             let lastAccelIndex = -cooldown;
-    
             for (let i = 0; i < track.length - lookahead; i++) {
                 const currentPoint = track[i];
                 const futurePoint = track[i + lookahead];
-    
                 if (currentPoint.speed === undefined || futurePoint.speed === undefined) continue;
-    
                 const speedDiff = currentPoint.speed - futurePoint.speed;
-    
                 if (speedDiff > speedChangeThreshold && i > lastBrakeIndex + cooldown) {
                     brakingPoints.push(currentPoint);
                     lastBrakeIndex = i;
@@ -169,15 +156,8 @@ window.motopuppuMapViewer = {
             return { brakingPoints, accelPoints };
         }
         function createMarker(point, icon, mapInstance) {
-            return new google.maps.Marker({
-                position: point,
-                icon: icon,
-                map: mapInstance,
-                title: `Speed: ${point.speed.toFixed(1)} km/h`
-            });
+            return new google.maps.Marker({ position: point, icon: icon, map: mapInstance, title: `Speed: ${point.speed.toFixed(1)} km/h` });
         }
-        
-        // 時間をフォーマットするヘルパー関数
         function formatRuntime(totalSeconds) {
             if (isNaN(totalSeconds) || totalSeconds < 0) totalSeconds = 0;
             const minutes = Math.floor(totalSeconds / 60);
@@ -186,10 +166,97 @@ window.motopuppuMapViewer = {
             return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${String(milliseconds).padStart(3, '0')}`;
         }
         
+        function parseTireSize(sizeString) {
+            if (!sizeString) return null;
+            const regex = /(\d+)\s*\/\s*(\d+)\s*[A-Z-]*\s*(\d+)/;
+            const match = sizeString.match(regex);
+            if (match && match.length === 4) {
+                return [parseInt(match[1], 10), parseInt(match[2], 10), parseInt(match[3], 10)];
+            }
+            return null;
+        }
+
+        function calculateTireCircumference(width, aspectRatio, rimDiameter) {
+            const rimDiameterMm = rimDiameter * 25.4;
+            const sidewallHeightMm = width * (aspectRatio / 100);
+            const totalDiameterMm = rimDiameterMm + (2 * sidewallHeightMm);
+            return (totalDiameterMm * Math.PI) / 1000;
+        }
+        
+        function estimateGear(point, specs) {
+            if (!specs || !specs.primary_ratio || !specs.gear_ratios || !specs.front_sprocket || !specs.rear_sprocket || !specs.rear_tyre_size || !point.rpm || !point.speed) {
+                return null;
+            }
+            const parsedTire = parseTireSize(specs.rear_tyre_size);
+            if (!parsedTire) return null;
+            const tireCircumferenceM = calculateTireCircumference(...parsedTire);
+
+            const secondary_ratio = specs.rear_sprocket / specs.front_sprocket;
+            let best_gear = null;
+            let min_diff = Infinity;
+
+            for (const [gear, gear_ratio] of Object.entries(specs.gear_ratios)) {
+                if (point.rpm === 0) continue;
+                
+                const total_ratio = specs.primary_ratio * secondary_ratio * gear_ratio;
+                const calculated_speed = (point.rpm / total_ratio) * tireCircumferenceM * 60 / 1000;
+                
+                const diff = Math.abs(calculated_speed - point.speed);
+
+                if (diff < min_diff) {
+                    min_diff = diff;
+                    best_gear = parseInt(gear, 10);
+                }
+            }
+            
+            if (min_diff > (point.speed * 0.2 + 5)) {
+                return null;
+            }
+            return best_gear;
+        }
+
+        // ▼▼▼【ここからが今回の修正箇所です】平滑化フィルター関数を追加 ▼▼▼
+        function applySmoothingFilter(data, windowSize) {
+            const smoothed = [];
+            const halfWindow = Math.floor(windowSize / 2);
+
+            for (let i = 0; i < data.length; i++) {
+                const start = Math.max(0, i - halfWindow);
+                const end = Math.min(data.length, i + halfWindow + 1);
+                const window = data.slice(start, end).filter(val => val !== null);
+
+                if (window.length === 0) {
+                    smoothed.push(data[i]); // ウィンドウに有効なデータがない場合は元の値
+                    continue;
+                }
+
+                // 最頻値を計算
+                const counts = window.reduce((acc, val) => {
+                    acc[val] = (acc[val] || 0) + 1;
+                    return acc;
+                }, {});
+
+                const mode = Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b);
+                smoothed.push(parseInt(mode, 10));
+            }
+            return smoothed;
+        }
+        // ▲▲▲【修正はここまで】▲▲▲
+
+
         function updateDashboard(index) {
             if (!currentLapData || index < 0 || index >= currentLapData.track.length) return;
             const point = currentLapData.track[index];
             if (bikeMarker) { bikeMarker.setPosition({ lat: point.lat, lng: point.lng }); }
+            
+            // ▼▼▼【ここからが今回の修正箇所です】数値表示を更新 ▼▼▼
+            const gearDisplay = container.querySelector('#currentGearDisplay');
+            if (gearDisplay) {
+                const currentGear = smoothedGears[index];
+                gearDisplay.textContent = currentGear !== null ? currentGear : 'N';
+            }
+            // ▲▲▲【修正はここまで】▲▲▲
+
             Object.values(charts).forEach(chart => {
                 if (chart) {
                     chart.options.plugins.annotation.annotations.line1.value = index;
@@ -199,79 +266,56 @@ window.motopuppuMapViewer = {
             });
             const scrubber = container.querySelector('#timelineScrubber');
             if (scrubber) { scrubber.value = index; }
-
-            // ★【修正】時間表示を更新 (ラップ内経過時間)
             const timeDisplay = container.querySelector('#playbackTime');
             if (timeDisplay) {
                 const intraLapTime = (point.runtime || 0) - lapStartTime;
                 timeDisplay.textContent = formatRuntime(intraLapTime);
             }
         }
-
-        // 新しいタイムベースの再生ループ
         function playLoop() {
             if (!isPlaying) return;
-
             const elapsedTime = (Date.now() - playbackStartTime) / 1000 + playbackStartOffset;
             const totalDuration = currentLapData.track[currentLapData.track.length - 1].runtime || 0;
-
             if (elapsedTime >= totalDuration) {
                 updateDashboard(currentLapData.track.length - 1);
                 stopPlayback();
                 return;
             }
-
-            // 経過時間に最も近いデータ点を探す
             let currentIndex = 0;
             for (let i = 0; i < currentLapData.track.length; i++) {
-                if (currentLapData.track[i].runtime >= elapsedTime) {
-                    currentIndex = i;
-                    break;
-                }
+                if (currentLapData.track[i].runtime >= elapsedTime) { currentIndex = i; break; }
             }
-            
             updateDashboard(currentIndex);
             animationFrameId = requestAnimationFrame(playLoop);
         }
-
         function startPlayback() {
             if (isPlaying || !currentLapData) return;
             isPlaying = true;
-
-            // スクラバーの現在位置から再生オフセットを決定
             const scrubber = container.querySelector('#timelineScrubber');
             const currentIndex = parseInt(scrubber.value, 10);
             playbackStartOffset = currentLapData.track[currentIndex]?.runtime || 0;
-
             playbackStartTime = Date.now();
             container.querySelector('#playPauseBtn').innerHTML = '<i class="fas fa-pause"></i>';
             playLoop();
         }
-
         function stopPlayback() {
             if (!isPlaying) return;
             isPlaying = false;
             cancelAnimationFrame(animationFrameId);
             const playBtn = container.querySelector('#playPauseBtn');
             if(playBtn) playBtn.innerHTML = '<i class="fas fa-play"></i>';
-            
-            // 再生オフセットを更新
             const scrubber = container.querySelector('#timelineScrubber');
             const currentIndex = parseInt(scrubber.value, 10);
-            if (currentLapData) {
-                playbackStartOffset = currentLapData.track[currentIndex]?.runtime || 0;
-            }
+            if (currentLapData) { playbackStartOffset = currentLapData.track[currentIndex]?.runtime || 0; }
         }
 
         // --- メイン処理 ---
         const telemetrySessionName = container.querySelector('#telemetrySessionName');
         if (telemetrySessionName) telemetrySessionName.textContent = sessionName;
-
-        const mapContainer = container.querySelector('#mapContainer');
+        const mapContainerEl = container.querySelector('#mapContainer');
         const lapSelectorContainer = container.querySelector('#lapSelectorContainer');
-        mapContainer.innerHTML = `<div class="d-flex justify-content-center align-items-center h-100"><div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div></div>`;
+        mapContainerEl.innerHTML = `<div class="d-flex justify-content-center align-items-center h-100"><div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div></div>`;
         lapSelectorContainer.innerHTML = `<p class="text-muted">走行データを読み込んでいます...</p>`;
-
         if (!map) { map = initializeMap('mapContainer'); }
         
         try {
@@ -280,10 +324,13 @@ window.motopuppuMapViewer = {
             const data = await response.json();
             
             if (!data.laps || data.laps.length === 0 || !data.lap_times || data.lap_times.length === 0) {
-                mapContainer.innerHTML = '';
+                mapContainerEl.innerHTML = '';
                 lapSelectorContainer.innerHTML = `<div class="alert alert-warning">データがありません。</div>`;
                 return;
             }
+
+            const vehicleSpecs = data.vehicle_specs;
+            const canEstimateGear = vehicleSpecs && vehicleSpecs.primary_ratio && vehicleSpecs.gear_ratios && vehicleSpecs.front_sprocket && vehicleSpecs.rear_sprocket && vehicleSpecs.rear_tyre_size;
 
             const parseTimeToSeconds = (timeStr) => {
                 if (!timeStr || typeof timeStr !== 'string') return Infinity;
@@ -317,9 +364,7 @@ window.motopuppuMapViewer = {
                 currentLapData = data.laps[lapIndex];
                 if (!currentLapData || !currentLapData.track || currentLapData.track.length < 2) return;
                 
-                // ★【追加】ラップの開始時間を記録
                 lapStartTime = currentLapData.track[0]?.runtime || 0;
-
                 polylines.flat().forEach(p => p.setMap(null));
                 brakingMarkers.flat().forEach(m => m.setMap(null));
                 accelMarkers.flat().forEach(m => m.setMap(null));
@@ -329,11 +374,9 @@ window.motopuppuMapViewer = {
                 const speeds = currentLapData.track.map(p => p.speed).filter(s => s > 0);
                 const minSpeed = speeds.length > 0 ? Math.min(...speeds) : 0;
                 const maxSpeed = currentLapData.track.map(p => p.speed).reduce((max, s) => Math.max(max, s || 0), 0);
-
                 bounds = new google.maps.LatLngBounds();
                 currentLapData.track.forEach(p => bounds.extend(p));
                 if (map && !bounds.isEmpty()) { map.fitBounds(bounds); }
-                
                 polylines = drawLapPolyline(currentLapData.track, minSpeed, maxSpeed, map);
                 const { brakingPoints, accelPoints } = findSignificantPoints(currentLapData.track);
                 const brakingIcon = { path: 'M0,-5 L5,5 L-5,5 Z', fillColor: 'red', fillOpacity: 1.0, strokeWeight: 0, rotation: 180, scale: 0.8, anchor: new google.maps.Point(0, 0) };
@@ -343,23 +386,57 @@ window.motopuppuMapViewer = {
                 const bikeIcon = { path: google.maps.SymbolPath.CIRCLE, scale: 5, fillColor: 'yellow', strokeColor: 'black', strokeWeight: 1 };
                 bikeMarker = new google.maps.Marker({ position: currentLapData.track[0], icon: bikeIcon, map: map, zIndex: 100 });
                 
-                // ★【修正】X軸のラベルをラップ内経過時間に変更
                 const labels = currentLapData.track.map(p => ((p.runtime || 0) - lapStartTime).toFixed(2));
+                
+                const gearDisplayContainer = container.querySelector('#gear-display-container');
+                if (canEstimateGear) {
+                    charts.gear = setupChart('gearChart', '使用ギア', 'rgba(255, 159, 64, 1)', 'step', {
+                         ticks: { stepSize: 1, callback: function(value) { if (Number.isInteger(value)) { return value; } } },
+                         suggestedMin: 1,
+                         suggestedMax: 6
+                    });
+                    
+                    const estimatedGears = currentLapData.track.map(p => estimateGear(p, vehicleSpecs));
+                    
+                    // ▼▼▼【ここからが今回の修正箇所です】フィルターを適用し、結果をグラフと数値表示に反映 ▼▼▼
+                    smoothedGears = applySmoothingFilter(estimatedGears, 5); // ウィンドウサイズは5 (前後2点ずつ)
+
+                    if (charts.gear) {
+                        charts.gear.data.labels = labels;
+                        charts.gear.data.datasets[0].data = smoothedGears; // 平滑化後のデータをグラフに設定
+                    }
+                    gearDisplayContainer.classList.remove('d-none'); // 数値表示エリアを表示
+                    document.getElementById('gearChart').parentElement.style.display = 'block'; // グラフ表示
+                    // ▲▲▲【修正はここまで】▲▲▲
+                } else {
+                    smoothedGears = []; // ギア推定できない場合は空にする
+                    if (charts.gear) charts.gear.destroy();
+                    gearDisplayContainer.classList.add('d-none'); // 数値表示エリアを非表示
+                    const gearChartContainer = document.getElementById('gearChart');
+                    if(gearChartContainer) gearChartContainer.parentElement.style.display = 'none';
+                }
+                
                 charts.speed = setupChart('speedChart', '速度 (km/h)', 'rgba(54, 162, 235, 1)');
                 charts.rpm = setupChart('rpmChart', 'エンジン回転数 (rpm)', 'rgba(255, 99, 132, 1)');
                 charts.throttle = setupChart('throttleChart', 'スロットル開度 (%)', 'rgba(75, 192, 192, 1)');
-                charts.speed.data.labels = labels;
-                charts.speed.data.datasets[0].data = currentLapData.track.map(p => p.speed);
-                charts.rpm.data.labels = labels;
-                charts.rpm.data.datasets[0].data = currentLapData.track.map(p => p.rpm);
-                charts.throttle.data.labels = labels;
-                charts.throttle.data.datasets[0].data = currentLapData.track.map(p => p.throttle);
-                Object.values(charts).forEach(chart => chart.update());
+                
+                if(charts.speed) {
+                    charts.speed.data.labels = labels;
+                    charts.speed.data.datasets[0].data = currentLapData.track.map(p => p.speed);
+                }
+                if(charts.rpm) {
+                    charts.rpm.data.labels = labels;
+                    charts.rpm.data.datasets[0].data = currentLapData.track.map(p => p.rpm);
+                }
+                if(charts.throttle) {
+                    charts.throttle.data.labels = labels;
+                    charts.throttle.data.datasets[0].data = currentLapData.track.map(p => p.throttle);
+                }
+                Object.values(charts).forEach(chart => { if (chart) chart.update(); });
 
                 const scrubber = container.querySelector('#timelineScrubber');
                 scrubber.max = currentLapData.track.length - 1;
                 updateDashboard(0);
-                // 再生オフセットをリセット
                 playbackStartOffset = 0;
             };
 
@@ -368,7 +445,6 @@ window.motopuppuMapViewer = {
                 stopPlayback(); 
                 const newIndex = parseInt(e.target.value, 10);
                 updateDashboard(newIndex);
-                // 新しいオフセットを設定
                 playbackStartOffset = currentLapData.track[newIndex]?.runtime || 0;
             });
             container.querySelector('#playPauseBtn').addEventListener('click', () => {
@@ -380,8 +456,6 @@ window.motopuppuMapViewer = {
             container.querySelector('#toggleAccelPoints').addEventListener('change', (e) => {
                 accelMarkers.forEach(m => m.setVisible(e.target.checked));
             });
-            
-            // モーダル専用の処理
             if (!isPublicPage) {
                 container.querySelector('#toggleTelemetryBtn').addEventListener('click', (e) => {
                     const btn = e.currentTarget;
@@ -408,18 +482,17 @@ window.motopuppuMapViewer = {
 
         } catch (error) {
             console.error('Error:', error);
-            mapContainer.innerHTML = '';
+            mapContainerEl.innerHTML = '';
             lapSelectorContainer.innerHTML = `<div class="alert alert-danger">データの読み込みに失敗しました。</div>`;
         }
     }
 };
 
-// 元のイベントリスナーは、新しいグローバル関数を呼び出すだけのシンプルな形にする
 document.addEventListener('DOMContentLoaded', () => {
     const mapModalElement = document.getElementById('mapModal');
     if (!mapModalElement) return;
 
-    mapModalElement.addEventListener('show.bs.modal', (event) => {
+    mapModalElement.addEventListener('shown.bs.modal', (event) => {
         const button = event.relatedTarget;
         const sessionId = button.dataset.sessionId;
         
@@ -429,10 +502,5 @@ document.addEventListener('DOMContentLoaded', () => {
             dataUrl: `/activity/session/${sessionId}/gps_data`,
             isPublicPage: false
         });
-    });
-
-    mapModalElement.addEventListener('hidden.bs.modal', () => {
-        // stopPlayback に相当する処理が必要だが、スコープ外なので一旦保留
-        // 必要であれば、init関数が状態をリセットする口を持つようにする
     });
 });
