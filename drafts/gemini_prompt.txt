@@ -94,6 +94,7 @@ kyagisaw@hiyoko-fedora:~/Dev/motopuppu$ tree
 │   ├── env.py
 │   ├── script.py.mako
 │   └── versions
+│       ├── 309af67c371a_add_primary_and_gear_ratios_to_.py
 │       ├── 8ffa50023b83_add_gps_tracks_to_sessionlog.py
 │       ├── e391d758c56d_initial_consolidated_migration_from_.py
 │       └── e41c7c921b61_add_public_share_fields_to_sessionlog.py
@@ -253,7 +254,8 @@ kyagisaw@hiyoko-fedora:~/Dev/motopuppu$ tree
 │       └── vehicle.py
 └── requirements.txt
 
-33 directories, 143 files
+33 directories, 144 files
+
 
 
 ### **7.  今回のセッションでの目標 [毎回更新]**

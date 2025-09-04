@@ -5,6 +5,7 @@
 {% block title %}{{ page_title }} ({{ motorcycle.name }}) - もとぷっぷー{% endblock %}
 
 {% block content %}
+{# ... (HTML部分は変更なし) ... #}
 <div class="d-flex align-items-center mb-3">
     <a href="{{ url_for('activity.list_settings', vehicle_id=motorcycle.id) }}" class="btn btn-sm btn-outline-secondary me-3" title="セッティングシート管理へ戻る">
         <i class="fas fa-arrow-left"></i>
@@ -12,7 +13,6 @@
     <h2>{{ page_title }} <small class="text-muted fs-5">- {{ motorcycle.name }}</small></h2>
 </div>
 
-{# Flash Messages #}
 {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
         {% for category, message in messages %}
@@ -31,12 +31,11 @@
 </div>
 
 <form id="setting-sheet-form" method="POST" action="{{ url_for('activity.add_setting', vehicle_id=motorcycle.id) if form_action == 'add' else url_for('activity.edit_setting', setting_id=setting.id) }}">
-    {{ form.hidden_tag() }} {# CSRFトークン #}
+    {{ form.hidden_tag() }}
     <input type="hidden" id="details_json_input" name="details_json" value="{{ details_json if details_json else '{}' }}">
 
     <div class="row">
         <div class="col-lg-8">
-            {# --- 基本情報 --- #}
             <div class="card mb-4">
                 <div class="card-header">基本情報</div>
                 <div class="card-body">
@@ -53,10 +52,8 @@
                 </div>
             </div>
 
-            {# --- セッティング項目がここに追加される --- #}
             <div id="setting-details-container"></div>
             
-            {# --- ▼▼▼ ここからテンプレート定義 ▼▼▼ --- #}
             <div class="d-none">
                 
                 <div id="sprocket-template" class="card mb-3 setting-category-card" data-category="sprocket">
@@ -196,10 +193,8 @@
                     </div>
                 </div>
             </div>
-            {# --- ▲▲▲ テンプレート定義ここまで ▲▲▲ --- #}
         </div>
         <div class="col-lg-4">
-            {# --- カテゴリ追加ボタン --- #}
             <div class="card">
                 <div class="card-header">セッティング項目を追加</div>
                 <div class="list-group list-group-flush">
@@ -254,11 +249,9 @@
         
         <div class="row">
             <div class="col-lg-9">
-                {# --- ▼▼▼ 変更箇所: canvasを高さが固定されたdivで囲む ▼▼▼ --- #}
                 <div style="position: relative; height: 60vh;">
                     <canvas id="speedChartCanvas"></canvas>
                 </div>
-                {# --- ▲▲▲ 変更箇所ここまで ▲▲▲ --- #}
                 <div id="shift-data-container" class="mt-4"></div>
             </div>
             <div class="col-lg-3">
@@ -306,12 +299,11 @@
 {{ super() }}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // ... [既存のカテゴリ追加などのロジックは変更なし] ...
     const container = document.getElementById('setting-details-container');
     const form = document.getElementById('setting-sheet-form');
     const detailsJsonInput = document.getElementById('details_json_input');
     const formAction = "{{ form_action }}";
-
-    // (既存のカテゴリ追加・削除、フォーム送信ロジックは変更なし)
     document.querySelectorAll('.add-category-btn').forEach(btn => {
         btn.addEventListener('click', function() { addCategoryCard(this.dataset.templateId); });
     });
@@ -337,7 +329,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         detailsJsonInput.value = JSON.stringify(settingData);
     });
-    
     function addCategoryCard(templateId, data = null) {
         const template = document.getElementById(templateId);
         if (!template) return;
@@ -351,7 +342,6 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
     }
-
     function populateFormForEdit() {
         if (!detailsJsonInput.value || detailsJsonInput.value === '{}') return;
         try {
@@ -370,17 +360,12 @@ document.addEventListener('DOMContentLoaded', function() {
             if (savedData.tire) {
                 addCategoryCard('tire-front-template', savedData.tire);
             }
-            
             container.querySelectorAll('.setting-category-card[data-category="sprocket"]').forEach(calculateAndUpdateRatio);
             container.querySelectorAll('.setting-category-card[data-category="tire_front"]').forEach(updateTireCircumference);
             container.querySelectorAll('.setting-category-card[data-category="tire_rear"]').forEach(updateTireCircumference);
         } catch (e) { console.error("Error parsing setting details JSON:", e); }
     }
-
-    if (formAction === 'edit') {
-        populateFormForEdit();
-    }
-
+    if (formAction === 'edit') { populateFormForEdit(); }
     function calculateAndUpdateRatio(card) {
         const frontInput = card.querySelector('input[data-key="front_teeth"]');
         const rearInput = card.querySelector('input[data-key="rear_teeth"]');
@@ -395,7 +380,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const chartContainer = card.querySelector('.ratio-chart-container');
         if (chartContainer.style.display !== 'none') generateRatioChart(card);
     }
-
     function generateRatioChart(card) {
         const frontInput = card.querySelector('input[data-key="front_teeth"]');
         const rearInput = card.querySelector('input[data-key="rear_teeth"]');
@@ -422,7 +406,6 @@ document.addEventListener('DOMContentLoaded', function() {
         tableHtml += '</tbody></table></div>';
         chartContainer.innerHTML = tableHtml;
     }
-
     function parseTireSize(sizeString) {
         if (!sizeString) return null;
         const regex = /(\d+)\s*\/\s*(\d+)\s*[A-Z-]*\s*(\d+)/;
@@ -432,14 +415,12 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         return null;
     }
-
     function calculateTireCircumference(width, aspectRatio, rimDiameter) {
         const rimDiameterMm = rimDiameter * 25.4;
         const sidewallHeightMm = width * (aspectRatio / 100);
         const totalDiameterMm = rimDiameterMm + (2 * sidewallHeightMm);
         return totalDiameterMm * Math.PI;
     }
-
     function updateTireCircumference(card) {
         const sizeInput = card.querySelector('input[data-key="tire_size"]');
         const display = card.querySelector('.tire-circumference-display');
@@ -451,7 +432,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // --- ▼▼▼ ギアレシオチャート機能（ここからが修正箇所） ▼▼▼ ---
     const vehicleSpecDataEl = document.getElementById('vehicle-spec-data');
     const showChartBtn = document.getElementById('show-speed-chart-btn');
     const speedChartModalEl = document.getElementById('speedChartModal');
@@ -460,16 +440,14 @@ document.addEventListener('DOMContentLoaded', function() {
     const redrawChartBtn = document.getElementById('redraw-chart-btn');
     let speedChartInstance = null;
     
-    // グラフの骨組みを一度だけ生成する関数
     function initChart() {
         const vehicleName = vehicleSpecDataEl.dataset.vehicleName;
-        // 既存のインスタンスがあれば破棄
         if (speedChartInstance) {
             speedChartInstance.destroy();
         }
         speedChartInstance = new Chart(chartCanvas, {
             type: 'line',
-            data: { labels: [], datasets: [] }, //最初は空
+            data: { datasets: [] },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
@@ -481,16 +459,22 @@ document.addEventListener('DOMContentLoaded', function() {
                             label: function(context) {
                                 let label = context.dataset.label || '';
                                 if (label) { label += ': '; }
-                                if (context.parsed.y !== null) { label += `${context.parsed.y} km/h`; }
+                                if (context.parsed.y !== null) { label += `${context.parsed.y} km/h @ ${context.parsed.x.toLocaleString()} RPM`; }
                                 return label;
                             }
                         }
                     },
                     legend: { position: 'top' },
-                    annotation: { annotations: {} }
+                    annotation: {
+                        annotations: {}
+                    }
                 },
                 scales: {
-                    x: { title: { display: true, text: 'エンジン回転数 (RPM)' } },
+                    x: {
+                        type: 'linear',
+                        title: { display: true, text: 'エンジン回転数 (RPM)' },
+                        min: 0
+                    },
                     y: { title: { display: true, text: '理論速度 (km/h)' }, beginAtZero: true }
                 }
             }
@@ -512,10 +496,10 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     speedChartModalEl.addEventListener('shown.bs.modal', () => {
-        if (!speedChartInstance) { // 最初の表示時のみチャートを初期化
+        if (!speedChartInstance) {
             initChart();
         }
-        updateChartDataAndDraw(); // データを更新して描画
+        updateChartDataAndDraw();
     });
 
     redrawChartBtn.addEventListener('click', updateChartDataAndDraw);
@@ -548,7 +532,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const tireCircumferenceM = calculateTireCircumference(...rearTireParsed) / 1000;
         const rpmMax = parseInt(document.getElementById('chartRpmMax').value, 10) || 14000;
         const rpmStep = 500;
-        const labels = Array.from({ length: Math.floor(rpmMax / rpmStep) + 1 }, (_, i) => i * rpmStep);
+        
+        // ▼▼▼【この行を再度追加】▼▼▼
         const colors = ['#0d6efd', '#6610f2', '#6f42c1', '#d63384', '#dc3545', '#fd7e14', '#ffc107'];
         
         const calculateSpeed = (rpm, secondaryRatio, gearRatio) => {
@@ -563,7 +548,21 @@ document.addEventListener('DOMContentLoaded', function() {
         const gearKeys = Object.keys(gearRatios).sort((a, b) => parseInt(a) - parseInt(b));
         for (const gearNum of gearKeys) {
             const gearRatio = gearRatios[gearNum];
-            const data = labels.map(rpm => calculateSpeed(rpm, simSecondaryRatio, gearRatio).toFixed(1));
+            
+            const data = [];
+            for (let rpm = 0; rpm <= rpmMax; rpm += rpmStep) {
+                data.push({
+                    x: rpm,
+                    y: parseFloat(calculateSpeed(rpm, simSecondaryRatio, gearRatio).toFixed(2))
+                });
+            }
+            if (rpmMax % rpmStep !== 0) {
+                 data.push({
+                    x: rpmMax,
+                    y: parseFloat(calculateSpeed(rpmMax, simSecondaryRatio, gearRatio).toFixed(2))
+                });
+            }
+
             datasets.push({
                 label: `(${simFront}-${simRear}) ${gearNum}速`, data: data,
                 borderColor: colors[parseInt(gearNum, 10) - 1] || '#6c757d',
@@ -608,9 +607,14 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         generateShiftDataTable(shiftDataTable, shiftRpm);
 
-        speedChartInstance.data.labels = labels;
         speedChartInstance.data.datasets = datasets;
-        speedChartInstance.options.plugins.annotation.annotations = annotations;
+        
+        speedChartInstance.options.scales.x.max = rpmMax;
+        
+        speedChartInstance.options.plugins.annotation = {
+            annotations: annotations
+        };
+
         speedChartInstance.update();
     }
 
