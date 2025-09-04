@@ -18,6 +18,16 @@
         #playback-controls { padding: 0.5rem; border-top: 1px solid #444; }
         #telemetry-graphs { flex-shrink: 0; height: 300px; display: flex; flex-direction: column; border-top: 1px solid #444; }
         .chart-container { position: relative; flex-grow: 1; min-height: 0; }
+        
+        /* ギア数値表示用のスタイル */
+        #currentGearDisplay {
+            font-size: 3.5rem; /* 少し小さめに調整 */
+            font-weight: bold;
+            line-height: 1;
+            color: #fd7e14;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+        }
+
         @media (max-width: 767.98px) {
             #telemetry-container { flex-direction: column; height: auto; }
             #telemetry-controls { flex-shrink: 0; border-right: 0; border-bottom: 1px solid #444; }
@@ -43,6 +53,14 @@
             <div id="telemetry-controls">
                 <h6 id="telemetrySessionName"></h6>
                 <small class="text-muted">{{ session.activity.activity_date.strftime('%Y-%m-%d') }} @ {{ session.activity.location_name_display }}</small>
+                
+                {# ▼▼▼【ここからが今回の修正箇所です】▼▼▼ #}
+                <div id="gear-display-container" class="text-center my-3 p-2 rounded bg-dark d-none">
+                    <h3 id="currentGearDisplay" class="mb-0">-</h3>
+                    <small class="text-muted">GEAR</small>
+                </div>
+                {# ▲▲▲【修正はここまで】▲▲▲ #}
+
                 <hr>
                 <h6>表示ラップ選択</h6>
                 <div id="lapSelectorContainer"><p class="text-muted">走行データを読み込んでいます...</p></div>
@@ -71,6 +89,9 @@
                     </div>
                 </div>
                 <div id="telemetry-graphs">
+                    {# ▼▼▼【ここからが今回の修正箇所です】▼▼▼ #}
+                    <div class="chart-container"><canvas id="gearChart"></canvas></div>
+                    {# ▲▲▲【修正はここまで】▲▲▲ #}
                     <div class="chart-container"><canvas id="speedChart"></canvas></div>
                     <div class="chart-container"><canvas id="rpmChart"></canvas></div>
                     <div class="chart-container"><canvas id="throttleChart"></canvas></div>
@@ -86,11 +107,7 @@
     {% if config.GOOGLE_MAPS_API_KEY %}
     <script src="{{ url_for('static', filename='js/map_viewer.js') }}"></script>
     <script>
-        // ▼▼▼【ここから修正】▼▼▼
-        // Google Maps APIがロード完了したら、コールバックとしてこの関数が呼ばれる
         function initMap() {
-            // map_viewer.jsが公開したグローバル関数を、
-            // この公開ページ用の設定で直接呼び出す
             window.motopuppuMapViewer.init({
                 sessionId: "{{ session.public_share_token }}",
                 sessionName: "{{ session.session_name }}",
@@ -98,7 +115,6 @@
                 isPublicPage: true
             });
         }
-        // ▲▲▲【修正はここまで】▲▲▲
     </script>
     <script async defer src="https://maps.googleapis.com/maps/api/js?key={{ config.GOOGLE_MAPS_API_KEY }}&callback=initMap"></script>
     {% endif %}
