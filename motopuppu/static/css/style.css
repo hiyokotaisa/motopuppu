@@ -657,3 +657,14 @@
     color: #adb5bd; /* アイコンの色 */
 }
 /* ▲▲▲ 追記ここまで ▲▲▲ */
+
+/* ▼▼▼ 【ここから追記】車両アイコン画像用のスタイル ▼▼▼ */
+.vehicle-icon-image {
+    width: 28px;
+    height: 28px;
+    object-fit: cover;
+    border-radius: 50%;
+    border: 1px solid #dee2e6; /* 薄い枠線 */
+    vertical-align: middle;
+}
+/* ▲▲▲ 追記ここまで ▲▲▲ */

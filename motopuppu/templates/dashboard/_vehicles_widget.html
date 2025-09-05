@@ -12,13 +12,20 @@
                 <ul class="list-group list-group-flush">
                     {% for motorcycle_item in motorcycles %}
                     <li class="list-group-item d-flex justify-content-between align-items-center">
-                        <span>
-                            {% if motorcycle_item.is_default %}<i class="fas fa-star text-warning me-1" title="デフォルト車両"></i>{% endif %}
-                            <strong>{{ motorcycle_item.name }}</strong>
-                            {% if motorcycle_item.is_racer %}<span class="badge bg-info ms-1">レーサー</span>{% else %}<span class="badge bg-secondary ms-1">公道車</span>{% endif %}
-                            <small class="text-muted">({{ motorcycle_item.maker or 'メーカー不明' }} / {{ motorcycle_item.year or '年式不明' }})</small>
-                            <br>
-                            {% if not motorcycle_item.is_racer and motorcycle_item._average_kpl is defined and motorcycle_item._average_kpl is not none %}<small class="text-info"><i class="fas fa-tachometer-alt me-1"></i> 平均燃費: <strong>{{"%.2f"|format(motorcycle_item._average_kpl)}}</strong> km/L</small>{% elif motorcycle_item.is_racer %}<small class="text-info"><i class="fas fa-stopwatch me-1"></i> 総稼働: <strong>{{ "%.2f"|format(motorcycle_item.total_operating_hours if motorcycle_item.total_operating_hours is not none else 0) }}</strong> 時間</small>{% endif %}
+                        <span class="d-flex align-items-center">
+                            {# ▼▼▼【ここから変更】アイコン画像表示を追加 ▼▼▼ #}
+                            {% if motorcycle_item.image_url %}
+                                <img src="{{ motorcycle_item.image_url }}" alt="{{ motorcycle_item.name }}" class="vehicle-icon-image me-3">
+                            {% endif %}
+                            <div>
+                                {% if motorcycle_item.is_default %}<i class="fas fa-star text-warning me-1" title="デフォルト車両"></i>{% endif %}
+                                <strong>{{ motorcycle_item.name }}</strong>
+                                {% if motorcycle_item.is_racer %}<span class="badge bg-info ms-1">レーサー</span>{% else %}<span class="badge bg-secondary ms-1">公道車</span>{% endif %}
+                                <small class="text-muted">({{ motorcycle_item.maker or 'メーカー不明' }} / {{ motorcycle_item.year or '年式不明' }})</small>
+                                <br>
+                                {% if not motorcycle_item.is_racer and motorcycle_item._average_kpl is defined and motorcycle_item._average_kpl is not none %}<small class="text-info"><i class="fas fa-tachometer-alt me-1"></i> 平均燃費: <strong>{{"%.2f"|format(motorcycle_item._average_kpl)}}</strong> km/L</small>{% elif motorcycle_item.is_racer %}<small class="text-info"><i class="fas fa-stopwatch me-1"></i> 総稼働: <strong>{{ "%.2f"|format(motorcycle_item.total_operating_hours if motorcycle_item.total_operating_hours is not none else 0) }}</strong> 時間</small>{% endif %}
+                            </div>
+                            {# ▲▲▲【変更はここまで】▲▲▲ #}
                         </span>
                         <div class="btn-group btn-group-sm">
                             <a href="{{ url_for('activity.list_activities', vehicle_id=motorcycle_item.id) }}" class="btn btn-outline-info" title="この車両の活動ログを閲覧"><i class="fas fa-flag-checkered"></i></a>

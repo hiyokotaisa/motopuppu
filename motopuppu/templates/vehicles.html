@@ -46,8 +46,15 @@
         <div class="card h-100 shadow-sm">
             <div class="card-header bg-white">
                 <h5 class="card-title mb-0 d-flex justify-content-between align-items-center">
-                    <span>
-                        <i class="fas fa-motorcycle me-2 text-secondary"></i>{{ motorcycle.name }}
+                    <span class="d-flex align-items-center">
+                        {# ▼▼▼【ここから変更】アイコン画像表示を追加 ▼▼▼ #}
+                        {% if motorcycle.image_url %}
+                            <img src="{{ motorcycle.image_url }}" alt="{{ motorcycle.name }}" class="vehicle-icon-image me-2">
+                        {% else %}
+                            <i class="fas fa-motorcycle me-2 text-secondary"></i>
+                        {% endif %}
+                        <span>{{ motorcycle.name }}</span>
+                        {# ▲▲▲【変更はここまで】▲▲▲ #}
                     </span>
                     <span class="ms-2">
                         {% if motorcycle.is_default %}

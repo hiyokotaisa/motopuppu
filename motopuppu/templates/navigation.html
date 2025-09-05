@@ -61,8 +61,13 @@
                         {% if g.user_motorcycles %}
                             {% for motorcycle in g.user_motorcycles %}
                             <li>
-                                <a class="dropdown-item {% if request.endpoint == 'activity.list_activities' and request.view_args.get('vehicle_id') == motorcycle.id %}active{% endif %}" href="{{ url_for('activity.list_activities', vehicle_id=motorcycle.id) }}">
-                                    {{ motorcycle.name }}
+                                <a class="dropdown-item d-flex align-items-center {% if request.endpoint == 'activity.list_activities' and request.view_args.get('vehicle_id') == motorcycle.id %}active{% endif %}" href="{{ url_for('activity.list_activities', vehicle_id=motorcycle.id) }}">
+                                    {# ▼▼▼【ここから変更】アイコン画像表示を追加 ▼▼▼ #}
+                                    {% if motorcycle.image_url %}
+                                        <img src="{{ motorcycle.image_url }}" alt="{{ motorcycle.name }}" class="vehicle-icon-image me-2">
+                                    {% endif %}
+                                    <span>{{ motorcycle.name }}</span>
+                                    {# ▲▲▲【変更はここまで】▲▲▲ #}
                                 </a>
                             </li>
                             {% endfor %}
@@ -74,8 +79,13 @@
                         {% if g.user_motorcycles %}
                             {% for motorcycle in g.user_motorcycles %}
                             <li>
-                                <a class="dropdown-item {% if request.endpoint == 'touring.list_logs' and request.view_args.get('vehicle_id') == motorcycle.id %}active{% endif %}" href="{{ url_for('touring.list_logs', vehicle_id=motorcycle.id) }}">
-                                    {{ motorcycle.name }}
+                                <a class="dropdown-item d-flex align-items-center {% if request.endpoint == 'touring.list_logs' and request.view_args.get('vehicle_id') == motorcycle.id %}active{% endif %}" href="{{ url_for('touring.list_logs', vehicle_id=motorcycle.id) }}">
+                                    {# ▼▼▼【ここから変更】アイコン画像表示を追加 ▼▼▼ #}
+                                    {% if motorcycle.image_url %}
+                                        <img src="{{ motorcycle.image_url }}" alt="{{ motorcycle.name }}" class="vehicle-icon-image me-2">
+                                    {% endif %}
+                                    <span>{{ motorcycle.name }}</span>
+                                    {# ▲▲▲【変更はここまで】▲▲▲ #}
                                 </a>
                             </li>
                             {% endfor %}
@@ -108,8 +118,13 @@
                         {% if g.user_motorcycles %}
                             {% for motorcycle in g.user_motorcycles %}
                             <li>
-                                <a class="dropdown-item {% if request.endpoint == 'reminder.list_reminders' and request.view_args.get('vehicle_id') == motorcycle.id %}active{% endif %}" href="{{ url_for('reminder.list_reminders', vehicle_id=motorcycle.id) }}">
-                                    {{ motorcycle.name }}
+                                <a class="dropdown-item d-flex align-items-center {% if request.endpoint == 'reminder.list_reminders' and request.view_args.get('vehicle_id') == motorcycle.id %}active{% endif %}" href="{{ url_for('reminder.list_reminders', vehicle_id=motorcycle.id) }}">
+                                    {# ▼▼▼【ここから変更】アイコン画像表示を追加 ▼▼▼ #}
+                                    {% if motorcycle.image_url %}
+                                        <img src="{{ motorcycle.image_url }}" alt="{{ motorcycle.name }}" class="vehicle-icon-image me-2">
+                                    {% endif %}
+                                    <span>{{ motorcycle.name }}</span>
+                                    {# ▲▲▲【変更はここまで】▲▲▲ #}
                                 </a>
                             </li>
                             {% endfor %}
