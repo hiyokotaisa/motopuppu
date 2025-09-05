@@ -29,65 +29,135 @@
 {% endwith %}
 
 {% if settings %}
-<div class="table-responsive">
-    <table class="table table-hover">
-        <thead>
-            <tr>
-                <th>シート名</th>
-                <th>メモ</th>
-                <th class="text-center">状態</th>
-                <th>最終更新日</th>
-                <th>操作</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for setting in settings %}
-            <tr class="{{ 'table-light text-muted' if setting.is_archived else '' }}">
-                <td>
-                    <a href="{{ url_for('activity.edit_setting', setting_id=setting.id) }}">{{ setting.sheet_name }}</a>
-                    {% if setting.is_archived %}<i class="fas fa-archive ms-1 small"></i>{% endif %}
-                </td>
-                <td>
-                    {% if setting.notes %}
-                    <span title="{{ setting.notes }}" data-bs-toggle="tooltip" data-bs-placement="top">
-                        {{ setting.notes|truncate(40) }}
-                    </span>
-                    {% else %}
-                    -
-                    {% endif %}
-                </td>
-                <td class="text-center">
-                    {% if setting.is_archived %}
-                        <span class="badge bg-secondary">アーカイブ済</span>
-                    {% else %}
-                        <span class="badge bg-success">有効</span>
-                    {% endif %}
-                </td>
-                <td class="text-nowrap">{{ setting.updated_at.strftime('%Y-%m-%d') }}</td>
-                <td class="text-nowrap">
-                    <a href="{{ url_for('activity.edit_setting', setting_id=setting.id) }}" class="btn btn-sm btn-outline-primary me-1" title="編集"><i class="fas fa-edit fa-fw"></i></a>
-                    
-                    <form action="{{ url_for('activity.toggle_archive_setting', setting_id=setting.id) }}" method="POST" class="d-inline">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                        {% if setting.is_archived %}
-                            <button type="submit" class="btn btn-sm btn-outline-success" title="有効化"><i class="fas fa-undo fa-fw"></i></button>
-                        {% else %}
-                            <button type="submit" class="btn btn-sm btn-outline-warning" title="アーカイブ"><i class="fas fa-archive fa-fw"></i></button>
-                        {% endif %}
-                    </form>
 
-                    {# --- ▼▼▼ ここからが追加ブロック ▼▼▼ --- #}
-                    <form action="{{ url_for('activity.delete_setting', setting_id=setting.id) }}" method="POST" class="d-inline" onsubmit="return confirm('このセッティングシートを完全に削除してもよろしいですか？\nこのシートを使用しているセッションからは関連付けが解除されます。');">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                        <button type="submit" class="btn btn-sm btn-outline-danger" title="完全に削除"><i class="fas fa-trash fa-fw"></i></button>
-                    </form>
-                    {# --- ▲▲▲ 追加はここまで ▲▲▲ --- #}
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+{# =================================================================== #}
+{# ▼▼▼ PC/タブレット向けテーブル表示 (d-none d-lg-block) ▼▼▼ #}
+{# =================================================================== #}
+<div class="d-none d-lg-block">
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>シート名</th>
+                    <th>メモ</th>
+                    <th class="text-center">状態</th>
+                    <th>最終更新日</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for setting in settings %}
+                <tr class="{{ 'table-light text-muted' if setting.is_archived else '' }}">
+                    <td>
+                        <a href="{{ url_for('activity.edit_setting', setting_id=setting.id) }}">{{ setting.sheet_name }}</a>
+                        {% if setting.is_archived %}<i class="fas fa-archive ms-1 small"></i>{% endif %}
+                    </td>
+                    <td>
+                        {% if setting.notes %}
+                        <span title="{{ setting.notes }}" data-bs-toggle="tooltip" data-bs-placement="top">
+                            {{ setting.notes|truncate(40) }}
+                        </span>
+                        {% else %}
+                        -
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        {% if setting.is_archived %}
+                            <span class="badge bg-secondary">アーカイブ済</span>
+                        {% else %}
+                            <span class="badge bg-success">有効</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-nowrap">{{ setting.updated_at.strftime('%Y-%m-%d') }}</td>
+                    <td class="text-nowrap">
+                        <a href="{{ url_for('activity.edit_setting', setting_id=setting.id) }}" class="btn btn-sm btn-outline-primary me-1" title="編集"><i class="fas fa-edit fa-fw"></i></a>
+                        
+                        <form action="{{ url_for('activity.toggle_archive_setting', setting_id=setting.id) }}" method="POST" class="d-inline">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                            {% if setting.is_archived %}
+                                <button type="submit" class="btn btn-sm btn-outline-success" title="有効化"><i class="fas fa-undo fa-fw"></i></button>
+                            {% else %}
+                                <button type="submit" class="btn btn-sm btn-outline-warning" title="アーカイブ"><i class="fas fa-archive fa-fw"></i></button>
+                            {% endif %}
+                        </form>
+
+                        {# --- ▼▼▼ ここからが追加ブロック ▼▼▼ --- #}
+                        <form action="{{ url_for('activity.delete_setting', setting_id=setting.id) }}" method="POST" class="d-inline" onsubmit="return confirm('このセッティングシートを完全に削除してもよろしいですか？\nこのシートを使用しているセッションからは関連付けが解除されます。');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                            <button type="submit" class="btn btn-sm btn-outline-danger" title="完全に削除"><i class="fas fa-trash fa-fw"></i></button>
+                        </form>
+                        {# --- ▲▲▲ 追加はここまで ▲▲▲ --- #}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </div>
+
+{# =================================================================== #}
+{# ▼▼▼ スマートフォン向けカード表示 (d-block d-lg-none) ▼▼▼ #}
+{# =================================================================== #}
+<div class="d-block d-lg-none">
+    {% for setting in settings %}
+    <div class="card mb-3 setting-sheet-card {{ 'bg-light border-secondary' if setting.is_archived else '' }}">
+        <div class="card-header fw-bold">
+            <a href="{{ url_for('activity.edit_setting', setting_id=setting.id) }}" class="text-decoration-none {{ 'text-muted' if setting.is_archived else 'text-dark' }}">
+                {{ setting.sheet_name }}
+                {% if setting.is_archived %}<i class="fas fa-archive ms-1 small"></i>{% endif %}
+            </a>
+        </div>
+        <ul class="list-group list-group-flush">
+            <li class="list-group-item">
+                <div class="row">
+                    <div class="col-6">
+                        <dl>
+                            <dt><i class="fas fa-check-circle me-2 text-primary"></i>状態</dt>
+                            <dd>
+                                {% if setting.is_archived %}
+                                    <span class="badge bg-secondary">アーカイブ済</span>
+                                {% else %}
+                                    <span class="badge bg-success">有効</span>
+                                {% endif %}
+                            </dd>
+                        </dl>
+                    </div>
+                    <div class="col-6">
+                        <dl>
+                            <dt><i class="fas fa-pen-nib me-2 text-primary"></i>最終更新</dt>
+                            <dd>{{ setting.updated_at.strftime('%Y-%m-%d') }}</dd>
+                        </dl>
+                    </div>
+                </div>
+            </li>
+            {% if setting.notes %}
+            <li class="list-group-item">
+                <dl>
+                    <dt><i class="fas fa-sticky-note me-2 text-primary"></i>メモ</dt>
+                    <dd>{{ setting.notes|truncate(80) }}</dd>
+                </dl>
+            </li>
+            {% endif %}
+        </ul>
+        <div class="card-footer bg-white text-end">
+             <a href="{{ url_for('activity.edit_setting', setting_id=setting.id) }}" class="btn btn-sm btn-outline-primary me-1" title="編集"><i class="fas fa-edit fa-fw"></i> 編集</a>
+            <form action="{{ url_for('activity.toggle_archive_setting', setting_id=setting.id) }}" method="POST" class="d-inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                {% if setting.is_archived %}
+                    <button type="submit" class="btn btn-sm btn-outline-success" title="有効化"><i class="fas fa-undo fa-fw"></i></button>
+                {% else %}
+                    <button type="submit" class="btn btn-sm btn-outline-warning" title="アーカイブ"><i class="fas fa-archive fa-fw"></i></button>
+                {% endif %}
+            </form>
+            <form action="{{ url_for('activity.delete_setting', setting_id=setting.id) }}" method="POST" class="d-inline" onsubmit="return confirm('このセッティングシートを完全に削除してもよろしいですか？\nこのシートを使用しているセッションからは関連付けが解除されます。');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <button type="submit" class="btn btn-sm btn-outline-danger ms-1" title="完全に削除"><i class="fas fa-trash fa-fw"></i></button>
+            </form>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
 {% else %}
 <div class="alert alert-info mt-4" role="alert">
   まだセッティングシートがありません。上のボタンから最初のセッティングシートを追加しましょう！

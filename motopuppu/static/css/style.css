@@ -213,6 +213,39 @@
     margin-left: 0.25rem;
 }
 
+/* --- ▼▼▼ ここから追記ブロック ▼▼▼ --- */
+/* --- 走行ログ＆セッティングシートカード (スマートフォン表示用) --- */
+.activity-log-card .list-group-item,
+.setting-sheet-card .list-group-item {
+    padding: 0.75rem 1rem;
+}
+
+.activity-log-card dl,
+.setting-sheet-card dl {
+    margin: 0;
+}
+
+.activity-log-card dt,
+.setting-sheet-card dt {
+    font-size: 0.8rem;
+    font-weight: normal;
+    color: #6c757d;
+    margin-bottom: 0.1rem;
+}
+
+.activity-log-card dd,
+.setting-sheet-card dd {
+    font-size: 1rem;
+    font-weight: 500;
+    margin-bottom: 0;
+    line-height: 1.2;
+    /* テキストが長い場合に折り返す */
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+/* --- ▲▲▲ 追記はここまで ▲▲▲ --- */
+
+
 /* --- 整備記録カードの走行距離に単位を追加 --- */
 .maintenance-log-card dd.distance-value-cell::after {
     content: " km";
