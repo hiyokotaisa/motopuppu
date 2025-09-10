@@ -471,6 +471,18 @@ class LapTimeImportForm(FlaskForm):
         '異常に遅いラップを除外する (ピットイン等)',
         default=True
     )
+    # ▼▼▼【ここから変更】▼▼▼
+    outlier_threshold = DecimalField(
+        '異常値とみなす閾値 (中央値の倍率)',
+        places=1,
+        validators=[
+            Optional(),
+            NumberRange(min=1.1, max=10.0, message='閾値は1.1から10.0の間で設定してください。')
+        ],
+        default=2.0,
+        render_kw={"step": "0.1", "placeholder": "例: 2.0"}
+    )
+    # ▲▲▲【変更ここまで】▲▲▲
     submit_import = SubmitField('インポート実行')
 
 

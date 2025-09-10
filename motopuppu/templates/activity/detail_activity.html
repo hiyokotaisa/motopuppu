@@ -588,10 +588,25 @@
                     {{ import_form.csv_file(class="form-control") }}
                 </div>
                 
+                {# ▼▼▼【ここから変更】▼▼▼ #}
                 <div class="form-check">
-                    {{ import_form.remove_outliers(class="form-check-input") }}
+                    {{ import_form.remove_outliers(class="form-check-input", **{'data-bs-toggle': 'collapse', 'data-bs-target': '#outlier-options-' + session.id|string, 'aria-expanded': 'true' }) }}
                     {{ import_form.remove_outliers.label(class="form-check-label") }}
                 </div>
+
+                <div class="collapse show mt-3 ps-4" id="outlier-options-{{ session.id }}">
+                    <div class="mb-3">
+                        {{ import_form.outlier_threshold.label(class="form-label") }}
+                        {{ import_form.outlier_threshold(class="form-control" + (" is-invalid" if import_form.outlier_threshold.errors else "")) }}
+                        {% if import_form.outlier_threshold.errors %}
+                            <div class="invalid-feedback">{% for e in import_form.outlier_threshold.errors %}{{e}}{% endfor %}</div>
+                        {% endif %}
+                        <div class="form-text small">
+                            ラップタイムの中央値の何倍を異常値とみなすかを設定します。
+                        </div>
+                    </div>
+                </div>
+                {# ▲▲▲【変更ここまで】▲▲▲ #}
 
             </div>
             <div class="modal-footer">
@@ -633,6 +648,34 @@
 function initMap() {}
 
 document.addEventListener('DOMContentLoaded', () => {
+
+    // ▼▼▼【ここから変更】▼▼▼
+    // チェックボックスの状態に応じて閾値フィールドの表示を切り替える
+    document.querySelectorAll('input[name="remove_outliers"]').forEach(checkbox => {
+        // 対応するオプションのコンテナを取得
+        const optionsContainerId = checkbox.getAttribute('data-bs-target');
+        const optionsContainer = document.querySelector(optionsContainerId);
+        
+        // 表示を切り替える関数
+        const toggleOptions = () => {
+            if (checkbox.checked) {
+                // BootstrapのCollapseコンポーネントのインスタンスを取得して表示
+                const bsCollapse = new bootstrap.Collapse(optionsContainer, { toggle: false });
+                bsCollapse.show();
+            } else {
+                // BootstrapのCollapseコンポーネントのインスタンスを取得して非表示
+                const bsCollapse = new bootstrap.Collapse(optionsContainer, { toggle: false });
+                bsCollapse.hide();
+            }
+        };
+
+        // チェックボックスの状態が変わったときに実行
+        checkbox.addEventListener('change', toggleOptions);
+        
+        // ページ読み込み時にも状態を確認
+        toggleOptions();
+    });
+    // ▲▲▲【変更ここまで】▲▲▲
 
     function formatChartTime(totalSeconds) {
         if (totalSeconds === null || typeof totalSeconds === 'undefined' || isNaN(totalSeconds)) {
@@ -813,12 +856,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 const deleteUrl = this.dataset.deleteUrl;
                 const csrfToken = this.dataset.csrfToken;
 
-                // 動的にフォームを作成
                 const form = document.createElement('form');
                 form.method = 'POST';
                 form.action = deleteUrl;
 
-                // CSRFトークン用の隠しフィールドを作成
                 const csrfInput = document.createElement('input');
                 csrfInput.type = 'hidden';
                 csrfInput.name = 'csrf_token';
@@ -855,7 +896,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 const data = await response.json();
 
                 if (data.success) {
-                    // スイッチの状態をサーバーからのレスポンスに同期
                     this.checked = data.is_public; 
 
                     if (data.is_public) {
@@ -865,13 +905,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         shareInfoDiv.classList.add('d-none');
                     }
                 } else {
-                    // 失敗した場合はスイッチを元の状態に戻す
                     this.checked = !this.checked; 
                     alert(data.message || '処理に失敗しました。');
                 }
 
             } catch (error) {
-                // 失敗した場合はスイッチを元の状態に戻す
                 this.checked = !this.checked; 
                 console.error('Share toggle error:', error);
                 alert('エラーが発生しました。');
@@ -886,7 +924,6 @@ document.addEventListener('DOMContentLoaded', () => {
             input.select();
             document.execCommand('copy');
             
-            // UIフィードバック
             const originalIcon = this.innerHTML;
             this.innerHTML = '<i class="fas fa-check text-success"></i>';
             setTimeout(() => {

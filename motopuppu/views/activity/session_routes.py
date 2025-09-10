@@ -363,6 +363,9 @@ def import_laps(session_id):
         file_storage = form.csv_file.data
         device_type = form.device_type.data
         remove_outliers = form.remove_outliers.data
+        # ▼▼▼【ここから変更】▼▼▼
+        threshold = form.outlier_threshold.data
+        # ▲▲▲【変更ここまで】▲▲▲
 
         try:
             parser = get_parser(device_type)
@@ -390,7 +393,9 @@ def import_laps(session_id):
             laps_removed_count = 0
             
             if remove_outliers:
-                filtered_laps = filter_outlier_laps(lap_times_list)
+                # ▼▼▼【ここから変更】▼▼▼
+                filtered_laps = filter_outlier_laps(lap_times_list, threshold_multiplier=float(threshold))
+                # ▲▲▲【変更ここまで】▲▲▲
                 laps_removed_count = original_lap_count - len(filtered_laps)
                 lap_times_list = filtered_laps
             
