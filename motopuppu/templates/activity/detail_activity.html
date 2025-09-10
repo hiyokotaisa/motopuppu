@@ -602,7 +602,8 @@
                             <div class="invalid-feedback">{% for e in import_form.outlier_threshold.errors %}{{e}}{% endfor %}</div>
                         {% endif %}
                         <div class="form-text small">
-                            ラップタイムの中央値の何倍を異常値とみなすかを設定します。
+                         ラップタイムの中央値の何倍を異常値とみなすかを設定します。<br>
+                            例: ラップタイムの中央値が「1:58.8」の場合、デフォルト設定(2.0倍)では「3:57.6」より遅いラップが除外されます。
                         </div>
                     </div>
                 </div>
