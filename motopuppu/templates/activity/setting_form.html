@@ -85,6 +85,25 @@
                     </div>
                 </div>
 
+                <div id="chain-template" class="card mb-3 setting-category-card" data-category="chain">
+                    <div class="card-header d-flex justify-content-between"><span>チェーン</span><button type="button" class="btn-close btn-sm remove-category-btn" aria-label="Close"></button></div>
+                    <div class="card-body">
+                        <div class="row">
+                             <div class="col-md-4 mb-3">
+                                <label class="form-label small">チェーン銘柄</label>
+                                <input type="text" class="form-control" data-key="chain_brand">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label small">チェーンサイズ</label>
+                                <input type="text" class="form-control" data-key="chain_size" placeholder="例: 520">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label small">リンク数</label>
+                                <input type="number" class="form-control" data-key="chain_links" min="2" step="2">
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 <div id="ignition-template" class="card mb-3 setting-category-card" data-category="ignition">
                     <div class="card-header d-flex justify-content-between"><span>点火</span><button type="button" class="btn-close btn-sm remove-category-btn" aria-label="Close"></button></div>
                     <div class="card-body">
@@ -210,7 +229,10 @@
                     <button type="button" class="list-group-item list-group-item-action add-category-btn" data-template-id="sprocket-template">
                         <i class="fas fa-cogs fa-fw me-2"></i> スプロケット
                     </button>
-                     <button type="button" class="list-group-item list-group-item-action add-category-btn" data-template-id="carburetor-template">
+                    <button type="button" class="list-group-item list-group-item-action add-category-btn" data-template-id="chain-template">
+                        <i class="fas fa-link fa-fw me-2"></i> チェーン
+                    </button>
+                    <button type="button" class="list-group-item list-group-item-action add-category-btn" data-template-id="carburetor-template">
                         <i class="fas fa-gas-pump fa-fw me-2"></i> キャブレター
                     </button>
                     <button type="button" class="list-group-item list-group-item-action add-category-btn" data-template-id="ignition-template">
@@ -258,7 +280,7 @@
                 <h5>シミュレーション設定</h5>
                 <hr>
                 <div class="mb-3 p-2 border rounded bg-light">
-                    <p class="mb-1 small text-muted">現在の設定</p>
+                    <p class="mb-1 small text-muted">現在のスプロケット</p>
                     <p class="mb-0"><strong>F: </strong><span id="chart-current-front">--</span>T, <strong>R: </strong><span id="chart-current-rear">--</span>T</p>
                     <p class="mb-0"><strong>二次減速比: </strong><span id="chart-current-secondary">-.---</span></p>
                 </div>
@@ -270,6 +292,19 @@
                 <div class="mb-3">
                     <label for="chart-sim-rear" class="form-label">シミュレーション: リア (T)</label>
                     <input type="number" id="chart-sim-rear" class="form-control">
+                </div>
+                
+                <div id="chain-simulation-container" class="mb-3 p-2 border rounded bg-light" style="display: none;">
+                    <p class="mb-1 small text-muted">現在のチェーン</p>
+                    <p class="mb-0"><strong>サイズ: </strong><span id="chart-current-chain-size">--</span></p>
+                    <p class="mb-0"><strong>リンク数: </strong><span id="chart-current-chain-links">--</span> L</p>
+                    <hr class="my-2">
+                    <p class="mb-1 small text-muted">シミュレーション結果</p>
+                    <p class="mb-0">
+                        <strong>推奨リンク数: </strong>
+                        <span id="chart-sim-chain-links" class="fw-bold text-danger">--</span> L
+                    </p>
+                    <div class="form-text small mt-1">※ 概算値です。最終的には実車での確認が必要です。</div>
                 </div>
                 <hr>
                  <div class="mb-3">
@@ -346,12 +381,14 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!detailsJsonInput.value || detailsJsonInput.value === '{}') return;
         try {
             const savedData = JSON.parse(detailsJsonInput.value);
+            // ▼▼▼【ここを修正】templatesにchainを追加 ▼▼▼
             const templates = {
                 'sprocket': 'sprocket-template', 'ignition': 'ignition-template',
                 'suspension': 'suspension-template', 'carburetor': 'carburetor-template',
                 'ecu': 'ecu-template', 'tire_front': 'tire-front-template',
-                'tire_rear': 'tire-rear-template'
+                'tire_rear': 'tire-rear-template', 'chain': 'chain-template'
             };
+            // ▲▲▲【修正はここまで】▲▲▲
             for (const categoryKey in savedData) {
                 if(templates[categoryKey] && categoryKey !== 'tire') {
                     addCategoryCard(templates[categoryKey], savedData[categoryKey]);
@@ -481,6 +518,54 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // ▼▼▼【ここから追記】チェーンリンク数計算の関数 ▼▼▼
+    function calculateAndDisplayChainLinks() {
+        const container = document.getElementById('setting-details-container');
+        const chainCard = container.querySelector('[data-category="chain"]');
+        const simContainer = document.getElementById('chain-simulation-container');
+        if (!chainCard) {
+            simContainer.style.display = 'none';
+            return;
+        }
+
+        const currentLinksInput = chainCard.querySelector('input[data-key="chain_links"]');
+        const currentSizeInput = chainCard.querySelector('input[data-key="chain_size"]');
+        const currentFrontInput = container.querySelector('[data-category="sprocket"] input[data-key="front_teeth"]');
+        const currentRearInput = container.querySelector('[data-category="sprocket"] input[data-key="rear_teeth"]');
+        
+        const currentLinks = parseInt(currentLinksInput.value, 10);
+        const currentFront = parseInt(currentFrontInput ? currentFrontInput.value : '0', 10);
+        const currentRear = parseInt(currentRearInput ? currentRearInput.value : '0', 10);
+        
+        if (!currentLinks || !currentFront || !currentRear) {
+            simContainer.style.display = 'none';
+            return;
+        }
+        
+        simContainer.style.display = 'block';
+        document.getElementById('chart-current-chain-size').textContent = currentSizeInput.value || 'N/A';
+        document.getElementById('chart-current-chain-links').textContent = currentLinks;
+
+        const simFront = parseInt(document.getElementById('chart-sim-front').value, 10);
+        const simRear = parseInt(document.getElementById('chart-sim-rear').value, 10);
+
+        if (isNaN(simFront) || isNaN(simRear)) {
+            document.getElementById('chart-sim-chain-links').textContent = '--';
+            return;
+        }
+        
+        const deltaFront = simFront - currentFront;
+        const deltaRear = simRear - currentRear;
+        
+        const requiredLinks = currentLinks + (deltaFront / 2) + (deltaRear / 2);
+        
+        // リンク数は偶数にするため、計算結果を切り上げて次の偶数にする
+        const finalLinks = Math.ceil(requiredLinks / 2) * 2;
+
+        document.getElementById('chart-sim-chain-links').textContent = finalLinks;
+    }
+    // ▲▲▲【追記はここまで】▲▲▲
+
     showChartBtn.addEventListener('click', () => {
         const frontTeethInput = container.querySelector('[data-category="sprocket"] input[data-key="front_teeth"]');
         const rearTeethInput = container.querySelector('[data-category="sprocket"] input[data-key="rear_teeth"]');
@@ -492,6 +577,11 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('chart-sim-rear').value = currentRear;
         const ratioDisplay = container.querySelector('.secondary-ratio-display');
         document.getElementById('chart-current-secondary').textContent = ratioDisplay ? ratioDisplay.textContent : '-.---';
+        
+        // ▼▼▼【ここを追記】モーダル表示時にチェーン計算も実行 ▼▼▼
+        calculateAndDisplayChainLinks();
+        // ▲▲▲【追記はここまで】▲▲▲
+
         speedChartModal.show();
     });
 
@@ -503,6 +593,12 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     redrawChartBtn.addEventListener('click', updateChartDataAndDraw);
+    
+    // ▼▼▼【ここから追記】シミュレーション値の変更イベントリスナー ▼▼▼
+    document.getElementById('chart-sim-front').addEventListener('input', calculateAndDisplayChainLinks);
+    document.getElementById('chart-sim-rear').addEventListener('input', calculateAndDisplayChainLinks);
+    // ▲▲▲【追記はここまで】▲▲▲
+
 
     const calculateRpmForSpeed = (speed, secondaryRatio, gearRatio, primaryRatio, tireCircumferenceM) => {
         if (speed === 0 || tireCircumferenceM === 0) return 0;
@@ -533,7 +629,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const rpmMax = parseInt(document.getElementById('chartRpmMax').value, 10) || 14000;
         const rpmStep = 500;
         
-        // ▼▼▼【この行を再度追加】▼▼▼
         const colors = ['#0d6efd', '#6610f2', '#6f42c1', '#d63384', '#dc3545', '#fd7e14', '#ffc107'];
         
         const calculateSpeed = (rpm, secondaryRatio, gearRatio) => {

@@ -9,6 +9,16 @@ SETTING_KEY_MAP = {
             "rear_teeth": "リア (T)"
         }
     },
+    # ▼▼▼【ここから追記】▼▼▼
+    "chain": {
+        "title": "チェーン",
+        "keys": {
+            "chain_brand": "チェーン銘柄",
+            "chain_size": "チェーンサイズ",
+            "chain_links": "リンク数"
+        }
+    },
+    # ▲▲▲【追記はここまで】▲▲▲
     "ignition": {
         "title": "点火",
         "keys": {
