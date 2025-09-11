@@ -44,30 +44,26 @@
 
                 {# --- 活動記録 Dropdown --- #}
                 <li class="nav-item dropdown">
-                    {# ▼▼▼【ここを修正】'circuit_dashboard.' を active 判定に追加 ▼▼▼ #}
-                    <a class="nav-link dropdown-toggle {% if request.endpoint.startswith(('activity.', 'touring.', 'leaderboard.', 'event.', 'circuit_dashboard.', 'garage_settings.')) %}active{% endif %}" href="#" id="activityLogDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    {# ▼▼▼【ここを修正】'team.' を active 判定に追加 ▼▼▼ #}
+                    <a class="nav-link dropdown-toggle {% if request.endpoint.startswith(('activity.', 'touring.', 'leaderboard.', 'event.', 'circuit_dashboard.', 'garage_settings.', 'team.')) %}active{% endif %}" href="#" id="activityLogDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="fas fa-route me-1"></i> アクティビティ
                     </a>
                     <ul class="dropdown-menu" aria-labelledby="activityLogDropdown">
-                        {# ▼▼▼【ここから追記】▼▼▼ #}
                         <li>
                             <a class="dropdown-item {% if request.endpoint.startswith('circuit_dashboard.') %}active{% endif %}" href="{{ url_for('circuit_dashboard.index') }}">
                                 <i class="fas fa-columns fa-fw me-2"></i>サーキットダッシュボード
                             </a>
                         </li>
                         <li><hr class="dropdown-divider"></li>
-                        {# ▲▲▲【追記はここまで】▲▲▲ #}
                         <li><h6 class="dropdown-header"><i class="fas fa-flag-checkered fa-fw me-2"></i>走行ログ</h6></li>
                         {% if g.user_motorcycles %}
                             {% for motorcycle in g.user_motorcycles %}
                             <li>
                                 <a class="dropdown-item d-flex align-items-center {% if request.endpoint == 'activity.list_activities' and request.view_args.get('vehicle_id') == motorcycle.id %}active{% endif %}" href="{{ url_for('activity.list_activities', vehicle_id=motorcycle.id) }}">
-                                    {# ▼▼▼【ここから変更】アイコン画像表示を追加 ▼▼▼ #}
                                     {% if motorcycle.image_url %}
                                         <img src="{{ motorcycle.image_url }}" alt="{{ motorcycle.name }}" class="vehicle-icon-image me-2">
                                     {% endif %}
                                     <span>{{ motorcycle.name }}</span>
-                                    {# ▲▲▲【変更はここまで】▲▲▲ #}
                                 </a>
                             </li>
                             {% endfor %}
@@ -80,12 +76,10 @@
                             {% for motorcycle in g.user_motorcycles %}
                             <li>
                                 <a class="dropdown-item d-flex align-items-center {% if request.endpoint == 'touring.list_logs' and request.view_args.get('vehicle_id') == motorcycle.id %}active{% endif %}" href="{{ url_for('touring.list_logs', vehicle_id=motorcycle.id) }}">
-                                    {# ▼▼▼【ここから変更】アイコン画像表示を追加 ▼▼▼ #}
                                     {% if motorcycle.image_url %}
                                         <img src="{{ motorcycle.image_url }}" alt="{{ motorcycle.name }}" class="vehicle-icon-image me-2">
                                     {% endif %}
                                     <span>{{ motorcycle.name }}</span>
-                                    {# ▲▲▲【変更はここまで】▲▲▲ #}
                                 </a>
                             </li>
                             {% endfor %}
@@ -94,11 +88,16 @@
                         {% endif %}
                         <li><hr class="dropdown-divider"></li>
                         <li><h6 class="dropdown-header"><i class="fas fa-users fa-fw me-2"></i>コミュニティ</h6></li>
+                        {# ▼▼▼【ここから追記】チーム機能へのリンク ▼▼▼ #}
+                        <li>
+                            <a class="dropdown-item {% if request.endpoint.startswith('team.') %}active{% endif %}" href="{{ url_for('team.list_teams') }}">
+                                <i class="fas fa-users-cog fa-fw me-2"></i>チーム管理
+                            </a>
+                        </li>
+                        {# ▲▲▲【追記はここまで】▲▲▲ #}
                         <li><a class="dropdown-item {% if request.endpoint.startswith('leaderboard.') %}active{% endif %}" href="{{ url_for('leaderboard.index') }}"><i class="fas fa-trophy fa-fw me-2"></i>リーダーボード</a></li>
                         <li><a class="dropdown-item {% if request.endpoint.startswith('event.') %}active{% endif %}" href="{{ url_for('event.list_events') }}"><i class="fas fa-calendar-check fa-fw me-2"></i>イベント管理</a></li>
-                        {# ▼▼▼【ここから追記】ガレージ設定へのリンク ▼▼▼ #}
                         <li><a class="dropdown-item {% if request.endpoint.startswith('garage_settings.') %}active{% endif %}" href="{{ url_for('garage_settings.settings') }}"><i class="fas fa-id-card fa-fw me-2"></i>ガレージ設定</a></li>
-                        {# ▲▲▲【追記はここまで】▲▲▲ #}
                     </ul>
                 </li>
 
@@ -119,12 +118,10 @@
                             {% for motorcycle in g.user_motorcycles %}
                             <li>
                                 <a class="dropdown-item d-flex align-items-center {% if request.endpoint == 'reminder.list_reminders' and request.view_args.get('vehicle_id') == motorcycle.id %}active{% endif %}" href="{{ url_for('reminder.list_reminders', vehicle_id=motorcycle.id) }}">
-                                    {# ▼▼▼【ここから変更】アイコン画像表示を追加 ▼▼▼ #}
                                     {% if motorcycle.image_url %}
                                         <img src="{{ motorcycle.image_url }}" alt="{{ motorcycle.name }}" class="vehicle-icon-image me-2">
                                     {% endif %}
                                     <span>{{ motorcycle.name }}</span>
-                                    {# ▲▲▲【変更はここまで】▲▲▲ #}
                                 </a>
                             </li>
                             {% endfor %}
@@ -135,17 +132,14 @@
                 </li>
             </ul>
 
-            {# ▼▼▼ ここからグローバル検索フォームを挿入 ▼▼▼ #}
             <form class="d-flex mx-lg-auto" role="search" id="global-search-form" style="min-width: 300px;">
                 <div class="input-group">
                     <span class="input-group-text"><i class="fas fa-search"></i></span>
                     <input class="form-control" type="search" id="global-search-input" placeholder="全体を検索 (Ctrl+K)" aria-label="Search">
                 </div>
                 <div class="dropdown-menu" id="global-search-results">
-                    {# 検索結果はここにJavaScriptで動的に挿入されます #}
                 </div>
             </form>
-            {# ▲▲▲ 挿入はここまで ▲▲▲ #}
 
             <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
                 <li class="nav-item dropdown">

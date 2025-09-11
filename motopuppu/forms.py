@@ -12,9 +12,7 @@ from .constants import (
     MAX_TODO_ITEMS,
     JAPANESE_CIRCUITS
 )
-# ▼▼▼【ここから追記】▼▼▼
 from .utils.lap_time_utils import is_valid_lap_time_format
-# ▲▲▲【追記ここまで】▲▲▲
 
 
 class FuelForm(FlaskForm):
@@ -449,9 +447,23 @@ class DeleteAccountForm(FlaskForm):
             raise ValidationError("入力された文字列が一致しません。「削除します」と正しく入力してください。")
 
 
+# --- チーム機能関連 ---
+
+class TeamForm(FlaskForm):
+    """チーム作成・編集用のフォーム"""
+    name = StringField(
+        'チーム名',
+        validators=[
+            DataRequired(message='チーム名は必須です。'),
+            Length(max=50, message='チーム名は50文字以内で入力してください。')
+        ],
+        render_kw={"placeholder": "例: Project D"}
+    )
+    submit = SubmitField('チームを作成')
+
+
 # --- 活動ログ機能 (ここから) ---
 
-# ▼▼▼【ここから追記】▼▼▼
 class TargetLapTimeForm(FlaskForm):
     """サーキット目標タイム設定用のフォーム"""
     target_time = StringField(
@@ -464,7 +476,6 @@ class TargetLapTimeForm(FlaskForm):
     def validate_target_time(self, field):
         if field.data and not is_valid_lap_time_format(field.data):
             raise ValidationError('タイムの形式が正しくありません。(例: 1:23.456 または 83.456)')
-# ▲▲▲【追記ここまで】▲▲▲
 
 
 class LapTimeImportForm(FlaskForm):
@@ -490,7 +501,6 @@ class LapTimeImportForm(FlaskForm):
         '異常に遅いラップを除外する (ピットイン等)',
         default=True
     )
-    # ▼▼▼【ここから変更】▼▼▼
     outlier_threshold = DecimalField(
         '異常値とみなす閾値 (中央値の倍率)',
         places=1,
@@ -501,7 +511,6 @@ class LapTimeImportForm(FlaskForm):
         default=2.0,
         render_kw={"step": "0.1", "placeholder": "例: 2.0"}
     )
-    # ▲▲▲【変更ここまで】▲▲▲
     submit_import = SubmitField('インポート実行')
 
 
@@ -660,12 +669,10 @@ class EventForm(FlaskForm):
         format='%Y-%m-%dT%H:%M'
     )
 
-    # ▼▼▼ 変更点 ▼▼▼
     is_public = BooleanField(
         'イベント一覧に公開する',
         default=True
     )
-    # ▲▲▲ 変更ここまで ▲▲▲
     
     submit = SubmitField('イベントを保存')
     
@@ -702,7 +709,6 @@ class ParticipantForm(FlaskForm):
     )
     submit = SubmitField('出欠を登録・更新する')
 
-# ▼▼▼ 以下をファイルの末尾に追記 ▼▼▼
 
 class GarageSettingsForm(FlaskForm):
     """ガレージ統合設定画面用のフォーム"""
@@ -751,6 +757,7 @@ class GarageVehicleDetailsForm(FlaskForm):
     )
     submit_details = SubmitField('保存する')
 
+
 class FuelCsvUploadForm(FlaskForm):
     """給油記録CSVインポート用のフォーム"""
     csv_file = FileField(
@@ -788,4 +795,3 @@ class MaintenanceSpecSheetForm(FlaskForm):
     # フロントエンドからJSON文字列を受け取るための隠しフィールド
     spec_data = HiddenField('Spec Data JSON', validators=[Optional()])
     submit = SubmitField('保存する')
-# ▲▲▲ 追記ここまで ▲▲▲

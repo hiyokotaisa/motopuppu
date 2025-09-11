@@ -57,9 +57,7 @@ def create_app(config_name=None):
         GOOGLE_PLACES_API_KEY=os.environ.get('GOOGLE_PLACES_API_KEY'),
         REMEMBER_COOKIE_SAMESITE='Lax',
         REMEMBER_COOKIE_SECURE=True if os.environ.get('FLASK_ENV') == 'production' else False,
-        # ▼▼▼【ここから修正】PLACESとMAPSでキーを統一するため、MAPS用の設定も追加します ▼▼▼
         GOOGLE_MAPS_API_KEY=os.environ.get('GOOGLE_PLACES_API_KEY')
-        # ▲▲▲【修正はここまで】▲▲▲
     )
     if app.config['SECRET_KEY'] == 'dev-secret-key-replace-me' and app.config['ENV'] != 'development':
         app.logger.warning("CRITICAL: SECRET_KEY is set to the default development value in a non-development environment. This is a security risk!")
@@ -109,17 +107,23 @@ def create_app(config_name=None):
             return db.session.get(User, int(user_id))
         except (TypeError, ValueError):
             return None
-            
+    
+    # ▼▼▼【ここから修正】チーム情報もgに格納するよう変更 ▼▼▼
     @app.before_request
-    def load_user_motorcycles():
+    def load_global_g_variables():
         g.user_motorcycles = []
+        g.user_teams = []
         if current_user.is_authenticated:
-            from .models import Motorcycle
+            from .models import Motorcycle, Team
             g.user_motorcycles = Motorcycle.query.filter_by(user_id=current_user.id).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
+            g.user_teams = current_user.teams.order_by(Team.name.asc()).all()
+    # ▲▲▲【修正はここまで】▲▲▲
 
     try:
         # Blueprintのインポート
-        from .views import auth, main, vehicle, fuel, maintenance, notes, dev_auth, leaderboard, profile, reminder, event, touring
+        # ▼▼▼【ここから修正】teamを追加 ▼▼▼
+        from .views import auth, main, vehicle, fuel, maintenance, notes, dev_auth, leaderboard, profile, reminder, event, touring, team
+        # ▲▲▲【修正はここまで】▲▲▲
         from .views import spec_sheet
         from .views import achievements as achievements_view
         from .views.activity import activity_bp
@@ -148,6 +152,9 @@ def create_app(config_name=None):
         app.register_blueprint(search.search_bp)
         app.register_blueprint(garage_settings.garage_settings_bp)
         app.register_blueprint(circuit_dashboard.circuit_dashboard_bp)
+        # ▼▼▼【ここから追記】チームBlueprintを登録 ▼▼▼
+        app.register_blueprint(team.team_bp)
+        # ▲▲▲【追記ここまで】▲▲▲
 
         if app.config['ENV'] == 'development' or app.debug: 
             app.register_blueprint(dev_auth.dev_auth_bp)
@@ -179,15 +186,14 @@ def create_app(config_name=None):
             'current_year': datetime.datetime.now(datetime.timezone.utc).year,
             'build_version': build_version_string,
             'misskey_instance_domain': misskey_instance_domain,
-            # ▼▼▼【ここから修正】テンプレート内で config を参照できるようにします ▼▼▼
             'config': app.config
-            # ▲▲▲【修正はここまで】▲▲▲
         }
 
     @app.shell_context_processor
     def make_shell_context():
+        # ▼▼▼【ここから修正】Teamモデルを追加 ▼▼▼
         from .models import db, User, Motorcycle, FuelEntry, MaintenanceEntry, MaintenanceReminder, GeneralNote, OdoResetLog, AchievementDefinition, UserAchievement
-        from .models import SettingSheet, ActivityLog, SessionLog, Event, EventParticipant, TouringLog, TouringSpot, TouringScrapbookEntry, MaintenanceSpecSheet
+        from .models import SettingSheet, ActivityLog, SessionLog, Event, EventParticipant, TouringLog, TouringSpot, TouringScrapbookEntry, MaintenanceSpecSheet, Team
         return {
             'db': db, 'User': User, 'Motorcycle': Motorcycle, 'FuelEntry': FuelEntry,
             'MaintenanceEntry': MaintenanceEntry, 'MaintenanceReminder': MaintenanceReminder,
@@ -196,8 +202,9 @@ def create_app(config_name=None):
             'SettingSheet': SettingSheet, 'ActivityLog': ActivityLog, 'SessionLog': SessionLog,
             'Event': Event, 'EventParticipant': EventParticipant,
             'TouringLog': TouringLog, 'TouringSpot': TouringSpot, 'TouringScrapbookEntry': TouringScrapbookEntry,
-            'MaintenanceSpecSheet': MaintenanceSpecSheet
+            'MaintenanceSpecSheet': MaintenanceSpecSheet, 'Team': Team
         }
+        # ▲▲▲【修正はここまで】▲▲▲
 
     try:
         os.makedirs(app.instance_path)

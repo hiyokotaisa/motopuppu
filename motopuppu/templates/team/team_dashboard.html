@@ -1,0 +1,142 @@
+{# motopuppu/templates/team/team_dashboard.html #}
+{% extends "base.html" %}
+
+{% block title %}チームダッシュボード: {{ team.name }} - もとぷっぷー{% endblock %}
+
+{% block content %}
+{% include '_breadcrumbs.html' %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0"><i class="fas fa-tachometer-alt me-2"></i>チームダッシュボード: <span class="fw-normal">{{ team.name }}</span></h2>
+    <div>
+        {% if team.owner_id == current_user.id %}
+        <a href="{{ url_for('team.manage_team', team_id=team.id) }}" class="btn btn-outline-primary">
+            <i class="fas fa-cog me-1"></i> チーム管理
+        </a>
+        {% endif %}
+        
+        {% if team.owner_id != current_user.id %}
+        <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#leaveTeamModal">
+            <i class="fas fa-sign-out-alt me-1"></i> チームから脱退
+        </button>
+        {% endif %}
+    </div>
+</div>
+
+{# Flashメッセージの表示エリア #}
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
+
+{# --- Main content --- #}
+{# ▼▼▼【ここから修正】データ表示ロジックを全面的に追加 ▼▼▼ #}
+{% if circuit_data %}
+    <p class="text-muted">チームメンバーが走行したサーキットごとのベストタイムランキングです。</p>
+    <div class="accordion" id="circuitRankingsAccordion">
+        {% for circuit_name, rankings in circuit_data.items()|sort %}
+        <div class="accordion-item">
+            <h2 class="accordion-header" id="heading-{{ loop.index }}">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ loop.index }}" aria-expanded="false" aria-controls="collapse-{{ loop.index }}">
+                    <i class="fas fa-flag-checkered me-2"></i><strong>{{ circuit_name }}</strong>
+                    <span class="ms-auto me-3 small text-muted">
+                        <i class="fas fa-trophy text-warning me-1"></i>
+                        Top Time: <strong>{{ format_seconds_to_time(rankings[0].best_lap) }}</strong> ({{ rankings[0].user.display_name or rankings[0].user.misskey_username }})
+                    </span>
+                </button>
+            </h2>
+            <div id="collapse-{{ loop.index }}" class="accordion-collapse collapse" aria-labelledby="heading-{{ loop.index }}" data-bs-parent="#circuitRankingsAccordion">
+                <div class="accordion-body p-0">
+                    <ul class="list-group list-group-flush">
+                        {% for rank_item in rankings %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <div class="d-flex align-items-center">
+                                <span class="fw-bold me-3 text-center" style="width: 30px;">
+                                    {% if loop.index == 1 %}
+                                        <i class="fas fa-trophy fa-lg text-warning"></i>
+                                    {% elif loop.index == 2 %}
+                                        <i class="fas fa-medal fa-lg" style="color: silver;"></i>
+                                    {% elif loop.index == 3 %}
+                                        <i class="fas fa-medal fa-lg" style="color: #cd7f32;"></i>
+                                    {% else %}
+                                        {{ loop.index }}
+                                    {% endif %}
+                                </span>
+                                <img src="{{ rank_item.user.avatar_url or url_for('static', filename='images/blobcat_8bit.webp') }}" alt="avatar" class="rounded-circle me-2" width="32" height="32">
+                                <span>{{ rank_item.user.display_name or rank_item.user.misskey_username }}</span>
+                            </div>
+                            <span class="fw-bold fs-5">{{ format_seconds_to_time(rank_item.best_lap) }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="alert alert-info">
+        <h4 class="alert-heading">走行データがありません</h4>
+        <p>チームメンバーのサーキット走行ログがまだ記録されていないようです。</p>
+        <hr>
+        <p class="mb-0">
+            メンバーがサーキットでの走行を記録すると、ここにチーム内のランキングが表示されます。
+        </p>
+    </div>
+{% endif %}
+
+<div class="card mt-4">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="fas fa-users me-2"></i>メンバー一覧 ({{ members|length }}人)</h5>
+    </div>
+    <ul class="list-group list-group-flush">
+        {% for member in members %}
+        <li class="list-group-item d-flex align-items-center">
+            <img src="{{ member.avatar_url or url_for('static', filename='images/blobcat_8bit.webp') }}" alt="avatar" class="rounded-circle me-3" width="40" height="40">
+            <div>
+                <h6 class="mb-0">{{ member.display_name or member.misskey_username }}</h6>
+                {% if member.id == team.owner_id %}
+                    <small class="text-success">オーナー</small>
+                {% endif %}
+            </div>
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+{# ▲▲▲【修正はここまで】▲▲▲ #}
+
+
+{# --- Modals --- #}
+
+{# チーム脱退確認モーダル #}
+{% if team.owner_id != current_user.id %}
+<div class="modal fade" id="leaveTeamModal" tabindex="-1" aria-labelledby="leaveTeamModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="leaveTeamModalLabel">チームからの脱退</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p>本当にチーム「{{ team.name }}」から脱退しますか？</p>
+        <p class="text-danger small">この操作は取り消せません。再度参加するには、オーナーに招待してもらう必要があります。</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+        <form method="POST" action="{{ url_for('team.leave_team', team_id=team.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <button type="submit" class="btn btn-danger">脱退する</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}

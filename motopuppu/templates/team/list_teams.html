@@ -1,0 +1,58 @@
+{# motopuppu/templates/team/list_teams.html #}
+{% extends "base.html" %}
+
+{% block title %}参加チーム一覧 - もとぷっぷー{% endblock %}
+
+{% block content %}
+{% include '_breadcrumbs.html' %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0"><i class="fas fa-users me-2"></i>参加チーム一覧</h2>
+    <a href="{{ url_for('team.create_team') }}" class="btn btn-primary">
+        <i class="fas fa-plus me-1"></i> 新しいチームを作成
+    </a>
+</div>
+
+{# Flashメッセージの表示エリア #}
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+            <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
+
+{% if teams %}
+    <div class="list-group">
+        {% for team in teams %}
+            <a href="{{ url_for('team.dashboard', team_id=team.id) }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                <div>
+                    <h5 class="mb-1">{{ team.name }}</h5>
+                    <small class="text-muted">
+                        メンバー: {{ team.members.count() }}人
+                    </small>
+                </div>
+                <div>
+                    {% if team.owner_id == current_user.id %}
+                        <span class="badge bg-success rounded-pill me-2">オーナー</span>
+                        <i class="fas fa-chevron-right text-muted"></i>
+                    {% else %}
+                        <i class="fas fa-chevron-right text-muted"></i>
+                    {% endif %}
+                </div>
+            </a>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="card text-center">
+        <div class="card-body">
+            <h5 class="card-title">まだチームに参加していません</h5>
+            <p class="card-text">新しいチームを作成するか、既存のチームから招待を受けて参加しましょう。</p>
+        </div>
+    </div>
+{% endif %}
+
+{% endblock %}

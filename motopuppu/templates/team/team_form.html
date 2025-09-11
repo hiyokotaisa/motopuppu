@@ -1,0 +1,42 @@
+{# motopuppu/templates/team/team_form.html #}
+{% extends "base.html" %}
+
+{% set page_title = "チームの編集" if form_action == 'edit' else "新しいチームの作成" %}
+{% block title %}{{ page_title }} - もとぷっぷー{% endblock %}
+
+{% block content %}
+{% include '_breadcrumbs.html' %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0">{{ page_title }}</h2>
+</div>
+
+<div class="row">
+    <div class="col-md-8 offset-md-2">
+        <div class="card">
+            <div class="card-body">
+                {# ▼▼▼【ここを修正】POST先を 'team.manage_team' から 'team.edit_team' に変更 ▼▼▼ #}
+                <form method="POST" action="{{ url_for('team.create_team') if form_action == 'create' else url_for('team.edit_team', team_id=team.id) }}">
+                    {{ form.hidden_tag() }}
+
+                    <div class="mb-3">
+                        {{ form.name.label(class="form-label") }}
+                        {{ form.name(class="form-control" + (" is-invalid" if form.name.errors else ""), autocomplete="off") }}
+                        {% if form.name.errors %}
+                            <div class="invalid-feedback">
+                                {% for error in form.name.errors %}{{ error }}{% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="d-flex justify-content-end">
+                        <a href="{{ url_for('team.list_teams') }}" class="btn btn-secondary me-2">キャンセル</a>
+                        {{ form.submit(class="btn btn-primary") }}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

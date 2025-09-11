@@ -381,11 +381,7 @@ class Event(db.Model):
     location = db.Column(db.String(200), nullable=True, comment="開催場所")
     start_datetime = db.Column(db.DateTime, nullable=False, comment="開始日時 (UTC)")
     end_datetime = db.Column(db.DateTime, nullable=True, comment="終了日時 (UTC)")
-    
-    # ▼▼▼ 変更点 ▼▼▼
     is_public = db.Column(db.Boolean, nullable=False, default=True, server_default='true', index=True, comment="イベント一覧に公開するか")
-    # ▲▲▲ 変更ここまで ▲▲▲
-
     created_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
     updated_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now(), onupdate=db.func.now())
     owner = db.relationship('User', backref=db.backref('events', lazy='dynamic'))
@@ -470,7 +466,6 @@ class TouringScrapbookEntry(db.Model):
     def __repr__(self):
         return f'<TouringScrapbookEntry log_id={self.touring_log_id} note_id="{self.misskey_note_id}">'
 
-# ▼▼▼ 以下をファイルの末尾に追記 ▼▼▼
 class MaintenanceSpecSheet(db.Model):
     __tablename__ = 'maintenance_spec_sheets'
     id = db.Column(db.Integer, primary_key=True)
@@ -488,9 +483,7 @@ class MaintenanceSpecSheet(db.Model):
 
     def __repr__(self):
         return f'<MaintenanceSpecSheet id={self.id} name="{self.sheet_name}">'
-# ▲▲▲ 追記ここまで ▲▲▲
 
-# ▼▼▼【ここからファイルの末尾に追記】▼▼▼
 class UserCircuitTarget(db.Model):
     """ユーザーごとのサーキット目標タイムを格納するモデル"""
     __tablename__ = 'user_circuit_targets'
@@ -509,4 +502,32 @@ class UserCircuitTarget(db.Model):
 
     def __repr__(self):
         return f'<UserCircuitTarget user_id={self.user_id} circuit="{self.circuit_name}" target={self.target_lap_seconds}>'
-# ▲▲▲【追記ここまで】▲▲▲
+
+# --- ここからチーム機能関連 ---
+
+# UserとTeamの中間テーブル
+team_members = db.Table('team_members',
+    db.Column('user_id', db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), primary_key=True),
+    db.Column('team_id', db.Integer, db.ForeignKey('teams.id', ondelete='CASCADE'), primary_key=True)
+)
+
+class Team(db.Model):
+    """チーム機能のモデル"""
+    __tablename__ = 'teams'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False, index=True)
+    owner_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    invite_token = db.Column(db.String(36), unique=True, nullable=False, default=lambda: str(uuid.uuid4()), index=True)
+    created_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
+    updated_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now(), onupdate=db.func.now())
+
+    # リレーションシップ
+    owner = db.relationship('User', backref=db.backref('owned_teams', lazy='dynamic'))
+    members = db.relationship('User', secondary=team_members, lazy='dynamic',
+                              backref=db.backref('teams', lazy='dynamic'))
+
+    def __repr__(self):
+        return f'<Team id={self.id} name="{self.name}">'
+
+# --- チーム機能関連ここまで ---

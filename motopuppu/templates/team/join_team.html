@@ -1,0 +1,37 @@
+{# motopuppu/templates/team/join_team.html #}
+{% extends "base.html" %}
+
+{% block title %}チームへの参加 - もとぷっぷー{% endblock %}
+
+{% block content %}
+{% include '_breadcrumbs.html' %}
+
+<div class="row mt-4">
+    <div class="col-md-8 offset-md-2">
+        <div class="card text-center">
+            <div class="card-header">
+                チームへの参加確認
+            </div>
+            <div class="card-body">
+                <p class="card-text mt-3">
+                    以下のチームへの招待が届いています。
+                </p>
+                <h3 class="card-title my-3">「{{ team.name }}」</h3>
+                <p class="text-muted">
+                    オーナー: {{ team.owner.display_name or team.owner.misskey_username }}
+                </p>
+                
+                <form method="POST" action="{{ url_for('team.join_team', token=team.invite_token) }}" class="mt-4">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    <p>このチームに参加しますか？</p>
+                    <a href="{{ url_for('team.list_teams') }}" class="btn btn-secondary">キャンセル</a>
+                    <button type="submit" class="btn btn-primary">はい、参加します</button>
+                </form>
+            </div>
+            <div class="card-footer text-muted">
+                参加後はチームのダッシュボードにアクセスできるようになります。
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,181 @@
+{# motopuppu/templates/team/manage_team.html #}
+{% extends "base.html" %}
+
+{% block title %}チーム管理: {{ team.name }} - もとぷっぷー{% endblock %}
+
+{% block content %}
+{% include '_breadcrumbs.html' %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0"><i class="fas fa-cog me-2"></i>チーム管理: <span class="fw-normal">{{ team.name }}</span></h2>
+    <a href="{{ url_for('team.dashboard', team_id=team.id) }}" class="btn btn-outline-secondary">
+        <i class="fas fa-tachometer-alt me-1"></i> ダッシュボードへ
+    </a>
+</div>
+
+{# Flashメッセージの表示エリア #}
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
+
+{# ▼▼▼【ここから追記】チーム情報カード ▼▼▼ #}
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>チーム情報</h5>
+        <a href="{{ url_for('team.edit_team', team_id=team.id) }}" class="btn btn-sm btn-outline-primary">
+            <i class="fas fa-edit me-1"></i> チーム名を編集
+        </a>
+    </div>
+    <div class="card-body">
+        <dl class="row mb-0">
+            <dt class="col-sm-3">チーム名</dt>
+            <dd class="col-sm-9">{{ team.name }}</dd>
+
+            <dt class="col-sm-3">オーナー</dt>
+            <dd class="col-sm-9">{{ team.owner.display_name or team.owner.misskey_username }}</dd>
+
+            <dt class="col-sm-3">作成日</dt>
+            <dd class="col-sm-9">{{ team.created_at.strftime('%Y-%m-%d') }}</dd>
+        </dl>
+    </div>
+</div>
+{# ▲▲▲【追記はここまで】▲▲▲ #}
+
+<div class="row">
+    <div class="col-lg-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-link me-2"></i>メンバー招待</h5>
+            </div>
+            <div class="card-body">
+                <p>以下のリンクを共有して、新しいメンバーをチームに招待します。</p>
+                <div class="input-group mb-3">
+                    <input type="text" id="inviteUrlInput" class="form-control" value="{{ invite_url }}" readonly>
+                    <button class="btn btn-outline-secondary" type="button" id="copyInviteUrlBtn" title="リンクをコピー">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+                <small class="text-muted">このリンクを知っている人は誰でもチームに参加できます。取り扱いにはご注意ください。</small>
+            </div>
+            <div class="card-footer text-end">
+                 <form method="POST" action="{{ url_for('team.regenerate_token', team_id=team.id) }}" class="d-inline" onsubmit="return confirm('新しい招待リンクを生成しますか？古いリンクは無効になります。');">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    <button type="submit" class="btn btn-sm btn-warning">
+                        <i class="fas fa-sync-alt me-1"></i> リンクを再生成
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-users me-2"></i>メンバー一覧 ({{ members|length }}人)</h5>
+            </div>
+            {% if members %}
+            <ul class="list-group list-group-flush">
+                {% for member in members %}
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center">
+                        <img src="{{ member.avatar_url or url_for('static', filename='images/blobcat_8bit.webp') }}" alt="avatar" class="rounded-circle me-2" width="32" height="32">
+                        <span>{{ member.display_name or member.misskey_username }}</span>
+                        {% if member.id == team.owner_id %}
+                            <span class="badge bg-success ms-2">オーナー</span>
+                        {% endif %}
+                    </div>
+                    <div>
+                        {% if member.id != team.owner_id %}
+                        <form method="POST" action="{{ url_for('team.remove_member', team_id=team.id, user_id=member.id) }}" onsubmit="return confirm('本当に「{{ member.display_name or member.misskey_username }}」をチームから削除しますか？');">
+                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                            <button type="submit" class="btn btn-sm btn-outline-danger" title="チームから削除">
+                                <i class="fas fa-user-times"></i>
+                            </button>
+                        </form>
+                        {% endif %}
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <div class="card-body">
+                <p class="text-muted">まだあなた以外のメンバーはいません。</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<hr class="my-4">
+<div class="card border-danger">
+    <div class="card-header bg-danger text-white">
+        <h5 class="mb-0"><i class="fas fa-exclamation-triangle me-2"></i>危険な操作</h5>
+    </div>
+    <div class="card-body d-flex justify-content-between align-items-center">
+        <div>
+            <h6 class="card-title">チームの削除</h6>
+            <p class="card-text text-muted mb-0">チームを削除すると、すべてのメンバーシップ情報が失われます。<br>この操作は元に戻すことはできません。</p>
+        </div>
+        <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteTeamModal">
+            チームを削除する
+        </button>
+    </div>
+</div>
+
+{% endblock %}
+
+
+{% block modals %}
+{{ super() }}
+<div class="modal fade" id="deleteTeamModal" tabindex="-1" aria-labelledby="deleteTeamModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="deleteTeamModalLabel">本当にチームを削除しますか？</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p>チーム「<strong>{{ team.name }}</strong>」を完全に削除します。</p>
+        <p class="text-danger">この操作は元に戻せません。すべてのメンバーがチームから解除されます。</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+        <form method="POST" action="{{ url_for('team.delete_team', team_id=team.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <button type="submit" class="btn btn-danger">はい、削除します</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+
+{% block scripts %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const copyBtn = document.getElementById('copyInviteUrlBtn');
+    if (copyBtn) {
+        copyBtn.addEventListener('click', () => {
+            const input = document.getElementById('inviteUrlInput');
+            input.select();
+            document.execCommand('copy');
+            
+            const originalIcon = copyBtn.innerHTML;
+            copyBtn.innerHTML = '<i class="fas fa-check text-success"></i>';
+            copyBtn.title = 'コピーしました！';
+            setTimeout(() => {
+                copyBtn.innerHTML = originalIcon;
+                copyBtn.title = 'リンクをコピー';
+            }, 2000);
+        });
+    }
+});
+</script>
+{% endblock %}
