@@ -81,182 +81,190 @@ kyagisaw@kyagisaw-mac motopuppu % tree
 ├── compose.yml
 ├── Dockerfile
 ├── drafts
-│   ├── gemini_prompt.txt
-│   └── racer_draft.md
+│   ├── gemini_prompt.txt
+│   └── racer_draft.md
 ├── fonts
-│   └── ipaexg.ttf
+│   └── ipaexg.ttf
 ├── instance
 ├── LICENSE
 ├── migrations
-│   ├── alembic.ini
-│   ├── env.py
-│   ├── README
-│   ├── script.py.mako
-│   └── versions
-│       ├── 309af67c371a_add_primary_and_gear_ratios_to_.py
-│       ├── 8ffa50023b83_add_gps_tracks_to_sessionlog.py
-│       ├── bf41f9654c05_add_usercircuittarget_model_for_target_.py
-│       ├── e391d758c56d_initial_consolidated_migration_from_.py
-│       └── e41c7c921b61_add_public_share_fields_to_sessionlog.py
+│   ├── alembic.ini
+│   ├── env.py
+│   ├── README
+│   ├── script.py.mako
+│   └── versions
+│       ├── 309af67c371a_add_primary_and_gear_ratios_to_.py
+│       ├── 65cb43e34218_add_team_models_for_team_functionality.py
+│       ├── 8ffa50023b83_add_gps_tracks_to_sessionlog.py
+│       ├── bf41f9654c05_add_usercircuittarget_model_for_target_.py
+│       ├── e391d758c56d_initial_consolidated_migration_from_.py
+│       └── e41c7c921b61_add_public_share_fields_to_sessionlog.py
 ├── motopuppu
-│   ├── __init__.py
-│   ├── achievement_evaluator.py
-│   ├── achievements_utils.py
-│   ├── constants.py
-│   ├── forms.py
-│   ├── manage_commands.py
-│   ├── models.py
-│   ├── parsers
-│   │   ├── __init__.py
-│   │   ├── base_parser.py
-│   │   ├── drogger_parser.py
-│   │   ├── mylaps_parser.py
-│   │   ├── simple_csv_parser.py
-│   │   └── ziix_parser.py
-│   ├── services.py
-│   ├── static
-│   │   ├── css
-│   │   │   ├── garage_themes
-│   │   │   │   ├── theme_adventure.css
-│   │   │   │   ├── theme_classic.css
-│   │   │   │   ├── theme_cyber.css
-│   │   │   │   ├── theme_dark.css
-│   │   │   │   ├── theme_default.css
-│   │   │   │   ├── theme_minimal.css
-│   │   │   │   ├── theme_racing.css
-│   │   │   │   └── theme_retro.css
-│   │   │   └── style.css
-│   │   ├── favicons
-│   │   │   ├── apple-touch-icon.png
-│   │   │   ├── favicon-96x96.png
-│   │   │   ├── favicon.ico
-│   │   │   ├── favicon.svg
-│   │   │   ├── web-app-manifest-192x192.png
-│   │   │   └── web-app-manifest-512x512.png
-│   │   ├── images
-│   │   │   └── blobcat_8bit.webp
-│   │   ├── js
-│   │   │   ├── filter_persistence.js
-│   │   │   ├── gas_station_search.js
-│   │   │   ├── global_search.js
-│   │   │   ├── lap_time_manager.js
-│   │   │   ├── map_viewer.js
-│   │   │   ├── misskey_share.js
-│   │   │   └── odo_toggle.js
-│   │   └── manifest.json
-│   ├── templates
-│   │   ├── _breadcrumbs.html
-│   │   ├── achievements
-│   │   │   └── unlocked_list.html
-│   │   ├── activity
-│   │   │   ├── activity_form.html
-│   │   │   ├── best_settings.html
-│   │   │   ├── compare_sessions.html
-│   │   │   ├── detail_activity.html
-│   │   │   ├── list_activities.html
-│   │   │   ├── list_settings.html
-│   │   │   ├── public_session.html
-│   │   │   ├── session_form.html
-│   │   │   └── setting_form.html
-│   │   ├── auth
-│   │   │   └── delete_account_complete.html
-│   │   ├── base.html
-│   │   ├── circuit_dashboard
-│   │   │   └── index.html
-│   │   ├── dashboard
-│   │   │   ├── _calendar_widget.html
-│   │   │   ├── _reminders_widget.html
-│   │   │   ├── _stats_widget.html
-│   │   │   ├── _timeline_widget.html
-│   │   │   └── _vehicles_widget.html
-│   │   ├── dashboard.html
-│   │   ├── event
-│   │   │   ├── event_detail.html
-│   │   │   ├── event_form.html
-│   │   │   ├── list_events.html
-│   │   │   ├── public_event_view.html
-│   │   │   └── public_list_events.html
-│   │   ├── fuel_form.html
-│   │   ├── fuel_log.html
-│   │   ├── garage
-│   │   │   ├── public_garage.html
-│   │   │   └── settings.html
-│   │   ├── help
-│   │   │   ├── _sidebar.html
-│   │   │   ├── faq.html
-│   │   │   ├── features
-│   │   │   │   ├── activity_log.html
-│   │   │   │   ├── dashboard.html
-│   │   │   │   ├── fuel.html
-│   │   │   │   ├── maintenance.html
-│   │   │   │   ├── notes.html
-│   │   │   │   ├── reminders.html
-│   │   │   │   └── vehicles.html
-│   │   │   ├── getting_started.html
-│   │   │   ├── index.html
-│   │   │   └── layout.html
-│   │   ├── index.html
-│   │   ├── leaderboard
-│   │   │   ├── index.html
-│   │   │   └── ranking.html
-│   │   ├── legal
-│   │   │   ├── privacy_policy.html
-│   │   │   └── terms_of_service.html
-│   │   ├── maintenance_form.html
-│   │   ├── maintenance_log.html
-│   │   ├── navigation.html
-│   │   ├── note_form.html
-│   │   ├── notes_log.html
-│   │   ├── odo_reset_log_form.html
-│   │   ├── profile
-│   │   │   └── settings.html
-│   │   ├── reminder
-│   │   │   ├── list_reminders.html
-│   │   │   └── reminder_form.html
-│   │   ├── spec_sheet
-│   │   │   ├── list_sheets.html
-│   │   │   ├── sheet_form.html
-│   │   │   └── view_sheet.html
-│   │   ├── touring
-│   │   │   ├── _misskey_note_card.html
-│   │   │   ├── detail_log.html
-│   │   │   ├── list_logs.html
-│   │   │   └── touring_log_form.html
-│   │   ├── vehicle_form.html
-│   │   └── vehicles.html
-│   ├── utils
-│   │   ├── datetime_helpers.py
-│   │   └── lap_time_utils.py
-│   └── views
-│       ├── achievements.py
-│       ├── activity
-│       │   ├── __init__.py
-│       │   ├── activity_routes.py
-│       │   ├── session_routes.py
-│       │   └── setting_routes.py
-│       ├── auth.py
-│       ├── circuit_dashboard.py
-│       ├── dev_auth.py
-│       ├── event.py
-│       ├── fuel.py
-│       ├── garage_settings.py
-│       ├── garage.py
-│       ├── help.py
-│       ├── leaderboard.py
-│       ├── main.py
-│       ├── maintenance.py
-│       ├── notes.py
-│       ├── profile.py
-│       ├── reminder.py
-│       ├── search.py
-│       ├── spec_sheet.py
-│       ├── touring.py
-│       └── vehicle.py
+│   ├── __init__.py
+│   ├── achievement_evaluator.py
+│   ├── achievements_utils.py
+│   ├── constants.py
+│   ├── forms.py
+│   ├── manage_commands.py
+│   ├── models.py
+│   ├── parsers
+│   │   ├── __init__.py
+│   │   ├── base_parser.py
+│   │   ├── drogger_parser.py
+│   │   ├── mylaps_parser.py
+│   │   ├── simple_csv_parser.py
+│   │   └── ziix_parser.py
+│   ├── services.py
+│   ├── static
+│   │   ├── css
+│   │   │   ├── garage_themes
+│   │   │   │   ├── theme_adventure.css
+│   │   │   │   ├── theme_classic.css
+│   │   │   │   ├── theme_cyber.css
+│   │   │   │   ├── theme_dark.css
+│   │   │   │   ├── theme_default.css
+│   │   │   │   ├── theme_minimal.css
+│   │   │   │   ├── theme_racing.css
+│   │   │   │   └── theme_retro.css
+│   │   │   └── style.css
+│   │   ├── favicons
+│   │   │   ├── apple-touch-icon.png
+│   │   │   ├── favicon-96x96.png
+│   │   │   ├── favicon.ico
+│   │   │   ├── favicon.svg
+│   │   │   ├── web-app-manifest-192x192.png
+│   │   │   └── web-app-manifest-512x512.png
+│   │   ├── images
+│   │   │   └── blobcat_8bit.webp
+│   │   ├── js
+│   │   │   ├── filter_persistence.js
+│   │   │   ├── gas_station_search.js
+│   │   │   ├── global_search.js
+│   │   │   ├── lap_time_manager.js
+│   │   │   ├── map_viewer.js
+│   │   │   ├── misskey_share.js
+│   │   │   └── odo_toggle.js
+│   │   └── manifest.json
+│   ├── templates
+│   │   ├── _breadcrumbs.html
+│   │   ├── achievements
+│   │   │   └── unlocked_list.html
+│   │   ├── activity
+│   │   │   ├── activity_form.html
+│   │   │   ├── best_settings.html
+│   │   │   ├── compare_sessions.html
+│   │   │   ├── detail_activity.html
+│   │   │   ├── list_activities.html
+│   │   │   ├── list_settings.html
+│   │   │   ├── public_session.html
+│   │   │   ├── session_form.html
+│   │   │   └── setting_form.html
+│   │   ├── auth
+│   │   │   └── delete_account_complete.html
+│   │   ├── base.html
+│   │   ├── circuit_dashboard
+│   │   │   └── index.html
+│   │   ├── dashboard
+│   │   │   ├── _calendar_widget.html
+│   │   │   ├── _reminders_widget.html
+│   │   │   ├── _stats_widget.html
+│   │   │   ├── _timeline_widget.html
+│   │   │   └── _vehicles_widget.html
+│   │   ├── dashboard.html
+│   │   ├── event
+│   │   │   ├── event_detail.html
+│   │   │   ├── event_form.html
+│   │   │   ├── list_events.html
+│   │   │   ├── public_event_view.html
+│   │   │   └── public_list_events.html
+│   │   ├── fuel_form.html
+│   │   ├── fuel_log.html
+│   │   ├── garage
+│   │   │   ├── public_garage.html
+│   │   │   └── settings.html
+│   │   ├── help
+│   │   │   ├── _sidebar.html
+│   │   │   ├── faq.html
+│   │   │   ├── features
+│   │   │   │   ├── activity_log.html
+│   │   │   │   ├── dashboard.html
+│   │   │   │   ├── fuel.html
+│   │   │   │   ├── maintenance.html
+│   │   │   │   ├── notes.html
+│   │   │   │   ├── reminders.html
+│   │   │   │   └── vehicles.html
+│   │   │   ├── getting_started.html
+│   │   │   ├── index.html
+│   │   │   └── layout.html
+│   │   ├── index.html
+│   │   ├── leaderboard
+│   │   │   ├── index.html
+│   │   │   └── ranking.html
+│   │   ├── legal
+│   │   │   ├── privacy_policy.html
+│   │   │   └── terms_of_service.html
+│   │   ├── maintenance_form.html
+│   │   ├── maintenance_log.html
+│   │   ├── navigation.html
+│   │   ├── note_form.html
+│   │   ├── notes_log.html
+│   │   ├── odo_reset_log_form.html
+│   │   ├── profile
+│   │   │   └── settings.html
+│   │   ├── reminder
+│   │   │   ├── list_reminders.html
+│   │   │   └── reminder_form.html
+│   │   ├── spec_sheet
+│   │   │   ├── list_sheets.html
+│   │   │   ├── sheet_form.html
+│   │   │   └── view_sheet.html
+│   │   ├── team
+│   │   │   ├── join_team.html
+│   │   │   ├── list_teams.html
+│   │   │   ├── manage_team.html
+│   │   │   ├── team_dashboard.html
+│   │   │   └── team_form.html
+│   │   ├── touring
+│   │   │   ├── _misskey_note_card.html
+│   │   │   ├── detail_log.html
+│   │   │   ├── list_logs.html
+│   │   │   └── touring_log_form.html
+│   │   ├── vehicle_form.html
+│   │   └── vehicles.html
+│   ├── utils
+│   │   ├── datetime_helpers.py
+│   │   └── lap_time_utils.py
+│   └── views
+│       ├── achievements.py
+│       ├── activity
+│       │   ├── __init__.py
+│       │   ├── activity_routes.py
+│       │   ├── session_routes.py
+│       │   └── setting_routes.py
+│       ├── auth.py
+│       ├── circuit_dashboard.py
+│       ├── dev_auth.py
+│       ├── event.py
+│       ├── fuel.py
+│       ├── garage_settings.py
+│       ├── garage.py
+│       ├── help.py
+│       ├── leaderboard.py
+│       ├── main.py
+│       ├── maintenance.py
+│       ├── notes.py
+│       ├── profile.py
+│       ├── reminder.py
+│       ├── search.py
+│       ├── spec_sheet.py
+│       ├── team.py
+│       ├── touring.py
+│       └── vehicle.py
 ├── README.md
 ├── requirements.txt
 └── tests
 
-34 directories, 145 files
+35 directories, 152 files
 
 ### **7.  今回のセッションでの目標 [毎回更新]**
 

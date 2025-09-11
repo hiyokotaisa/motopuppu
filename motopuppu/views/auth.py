@@ -19,10 +19,16 @@ auth_bp = Blueprint('auth', __name__, url_prefix='/auth')
 @auth_bp.route('/login', methods=['GET'])
 @limiter.limit("10 per minute")
 def login():
-    # ▼▼▼ リメンバーミーの状態をセッションに保存 ▼▼▼
+    # ▼▼▼【ここから修正】リダイレクト先をセッションに保存 ▼▼▼
     remember_me = request.args.get('remember') == '1'
     session['remember_me'] = remember_me
-    # ▲▲▲ 変更ここまで ▲▲▲
+
+    # ログイン後のリダイレクト先をセッションに保存
+    next_url = request.args.get('next')
+    if next_url:
+        session['next_url'] = next_url
+        current_app.logger.info(f"Stored next_url in session: {next_url}")
+    # ▲▲▲【修正はここまで】▲▲▲
 
     miauth_session_id = str(uuid.uuid4())
     session['miauth_session_id'] = miauth_session_id
@@ -169,13 +175,20 @@ def miauth_callback():
                 current_app.logger.error(f"Error updating user info for {misskey_username}: {e}")
         current_app.logger.info(f"Existing user logged in: {user.misskey_username} (App User ID: {user.id})")
 
-    # ▼▼▼ セッションからリメンバーミーの状態を読み出してログイン処理を行う ▼▼▼
     should_remember = session.pop('remember_me', False)
     login_user(user, remember=should_remember)
-    current_app.logger.info(f"User {user.misskey_username} (ID: {user.id}) logged in via Flask-Login (Remember Me: {should_remember}). Redirecting to dashboard.")
+    current_app.logger.info(f"User {user.misskey_username} (ID: {user.id}) logged in via Flask-Login (Remember Me: {should_remember}).")
     flash('ログインしました。', 'success')
-    return redirect(url_for('main.dashboard'))
-    # ▲▲▲ 変更ここまで ▲▲▲
+    
+    # ▼▼▼【ここから修正】セッションからリダイレクト先を取得してリダイレクト ▼▼▼
+    next_url = session.pop('next_url', None)
+    if next_url:
+        current_app.logger.info(f"Redirecting to stored next_url: {next_url}")
+        return redirect(next_url)
+    else:
+        current_app.logger.info("No stored next_url, redirecting to dashboard.")
+        return redirect(url_for('main.dashboard'))
+    # ▲▲▲【修正はここまで】▲▲▲
 
 @auth_bp.route('/logout')
 def logout():
