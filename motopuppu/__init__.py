@@ -24,7 +24,9 @@ db = SQLAlchemy()
 migrate = Migrate()
 csrf = CSRFProtect()
 login_manager = LoginManager()
-login_manager.login_view = 'auth.login_page'
+# ▼▼▼【ここを修正】リダイレクト先を 'auth.login_page' から 'auth.login' に変更 ▼▼▼
+login_manager.login_view = 'auth.login'
+# ▲▲▲【修正はここまで】▲▲▲
 login_manager.login_message = 'このページにアクセスするにはログインが必要です。'
 login_manager.login_message_category = 'warning'
 
@@ -108,7 +110,6 @@ def create_app(config_name=None):
         except (TypeError, ValueError):
             return None
     
-    # ▼▼▼【ここから修正】チーム情報もgに格納するよう変更 ▼▼▼
     @app.before_request
     def load_global_g_variables():
         g.user_motorcycles = []
@@ -117,13 +118,10 @@ def create_app(config_name=None):
             from .models import Motorcycle, Team
             g.user_motorcycles = Motorcycle.query.filter_by(user_id=current_user.id).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
             g.user_teams = current_user.teams.order_by(Team.name.asc()).all()
-    # ▲▲▲【修正はここまで】▲▲▲
 
     try:
         # Blueprintのインポート
-        # ▼▼▼【ここから修正】teamを追加 ▼▼▼
         from .views import auth, main, vehicle, fuel, maintenance, notes, dev_auth, leaderboard, profile, reminder, event, touring, team
-        # ▲▲▲【修正はここまで】▲▲▲
         from .views import spec_sheet
         from .views import achievements as achievements_view
         from .views.activity import activity_bp
@@ -152,9 +150,7 @@ def create_app(config_name=None):
         app.register_blueprint(search.search_bp)
         app.register_blueprint(garage_settings.garage_settings_bp)
         app.register_blueprint(circuit_dashboard.circuit_dashboard_bp)
-        # ▼▼▼【ここから追記】チームBlueprintを登録 ▼▼▼
         app.register_blueprint(team.team_bp)
-        # ▲▲▲【追記ここまで】▲▲▲
 
         if app.config['ENV'] == 'development' or app.debug: 
             app.register_blueprint(dev_auth.dev_auth_bp)
@@ -191,7 +187,6 @@ def create_app(config_name=None):
 
     @app.shell_context_processor
     def make_shell_context():
-        # ▼▼▼【ここから修正】Teamモデルを追加 ▼▼▼
         from .models import db, User, Motorcycle, FuelEntry, MaintenanceEntry, MaintenanceReminder, GeneralNote, OdoResetLog, AchievementDefinition, UserAchievement
         from .models import SettingSheet, ActivityLog, SessionLog, Event, EventParticipant, TouringLog, TouringSpot, TouringScrapbookEntry, MaintenanceSpecSheet, Team
         return {
@@ -204,7 +199,6 @@ def create_app(config_name=None):
             'TouringLog': TouringLog, 'TouringSpot': TouringSpot, 'TouringScrapbookEntry': TouringScrapbookEntry,
             'MaintenanceSpecSheet': MaintenanceSpecSheet, 'Team': Team
         }
-        # ▲▲▲【修正はここまで】▲▲▲
 
     try:
         os.makedirs(app.instance_path)
