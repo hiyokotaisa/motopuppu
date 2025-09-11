@@ -44,6 +44,11 @@ class User(UserMixin, db.Model):
     achievements = db.relationship('UserAchievement', backref='user', lazy='dynamic', cascade="all, delete-orphan")
     setting_sheets = db.relationship('SettingSheet', backref='user', lazy='dynamic', cascade="all, delete-orphan")
     activity_logs = db.relationship('ActivityLog', backref='user', lazy='dynamic', cascade="all, delete-orphan")
+    
+    # ▼▼▼【ここから追記】▼▼▼
+    circuit_targets = db.relationship('UserCircuitTarget', backref='user', lazy='dynamic', cascade="all, delete-orphan")
+    # ▲▲▲【追記ここまで】▲▲▲
+
     def __repr__(self):
         return f'<User id={self.id} username={self.misskey_username}>'
 
@@ -484,3 +489,24 @@ class MaintenanceSpecSheet(db.Model):
     def __repr__(self):
         return f'<MaintenanceSpecSheet id={self.id} name="{self.sheet_name}">'
 # ▲▲▲ 追記ここまで ▲▲▲
+
+# ▼▼▼【ここからファイルの末尾に追記】▼▼▼
+class UserCircuitTarget(db.Model):
+    """ユーザーごとのサーキット目標タイムを格納するモデル"""
+    __tablename__ = 'user_circuit_targets'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    circuit_name = db.Column(db.String(150), nullable=False, index=True)
+    target_lap_seconds = db.Column(db.Numeric(8, 3), nullable=False, comment="目標ラップタイム（秒）")
+
+    created_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
+    updated_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now(), onupdate=db.func.now())
+
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'circuit_name', name='uq_user_circuit_target'),
+    )
+
+    def __repr__(self):
+        return f'<UserCircuitTarget user_id={self.user_id} circuit="{self.circuit_name}" target={self.target_lap_seconds}>'
+# ▲▲▲【追記ここまで】▲▲▲

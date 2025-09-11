@@ -5,6 +5,20 @@
 
 {% block content %}
 {% include '_breadcrumbs.html' %}
+
+{# ▼▼▼ Flashメッセージの表示エリアを追加 ▼▼▼ #}
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+            <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
+{# ▲▲▲ 追加ここまで ▲▲▲ #}
+
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2 class="mb-0"><i class="fas fa-flag-checkered me-2"></i>サーキットダッシュボード</h2>
 </div>
@@ -59,6 +73,33 @@
                             </a>
                         </p>
                     </div>
+
+                    {# ▼▼▼【ここから追記】目標タイム表示エリア ▼▼▼ #}
+                    <hr>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5><i class="fas fa-bullseye me-2"></i>目標タイム</h5>
+                        <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#targetTimeModal-{{ loop.index }}">
+                            <i class="fas fa-edit me-1"></i> 設定
+                        </button>
+                    </div>
+                    {% if circuit.target_lap_seconds %}
+                        {% set gap = circuit.best_session.best_lap_seconds - circuit.target_lap_seconds %}
+                        <div class="text-center mt-2">
+                            <h3 class="display-6">{{ format_seconds_to_time(circuit.target_lap_seconds) }}</h3>
+                            <p class="mb-0">
+                                自己ベストとの差:
+                                {% if gap > 0 %}
+                                    <span class="badge bg-danger fs-6">+{{ "%.3f"|format(gap) }}秒</span>
+                                {% else %}
+                                    <span class="badge bg-success fs-6">{{ "%.3f"|format(gap) }}秒</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                    {% else %}
+                        <p class="text-muted mt-2">目標タイムはまだ設定されていません。</p>
+                    {% endif %}
+                    {# ▲▲▲【追記ここまで】▲▲▲ #}
+
                     <hr>
                     <h5><i class="fas fa-medal me-2"></i>Leaderboard</h5>
                     {% if circuit.leaderboard.rank %}
@@ -167,6 +208,38 @@
             </div>
         </div>
     </div>
+
+    {# ▼▼▼【ここから追記】目標タイム設定用モーダル ▼▼▼ #}
+    <div class="modal fade" id="targetTimeModal-{{ loop.index }}" tabindex="-1" aria-labelledby="targetTimeModalLabel-{{ loop.index }}" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form method="POST" action="{{ url_for('circuit_dashboard.set_target_lap_time', circuit_name=circuit.name) }}">
+                    {{ circuit.form.hidden_tag() }}
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="targetTimeModalLabel-{{ loop.index }}">{{ circuit.name }} - 目標タイム設定</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            {{ circuit.form.target_time.label(class="form-label") }}
+                            {{ circuit.form.target_time(class="form-control" + (" is-invalid" if circuit.form.target_time.errors else "")) }}
+                            {% if circuit.form.target_time.errors %}
+                                <div class="invalid-feedback">
+                                    {% for error in circuit.form.target_time.errors %}{{ error }}{% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                        {{ circuit.form.submit(class="btn btn-primary") }}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {# ▲▲▲【追記ここまで】▲▲▲ #}
+
     {% endfor %}
 {% else %}
 <div class="alert alert-info">
@@ -225,4 +298,4 @@ document.addEventListener('DOMContentLoaded', () => {
     {% endfor %}
 });
 </script>
-{% endblock %}d
+{% endblock %}

@@ -12,6 +12,9 @@ from .constants import (
     MAX_TODO_ITEMS,
     JAPANESE_CIRCUITS
 )
+# ▼▼▼【ここから追記】▼▼▼
+from .utils.lap_time_utils import is_valid_lap_time_format
+# ▲▲▲【追記ここまで】▲▲▲
 
 
 class FuelForm(FlaskForm):
@@ -447,6 +450,22 @@ class DeleteAccountForm(FlaskForm):
 
 
 # --- 活動ログ機能 (ここから) ---
+
+# ▼▼▼【ここから追記】▼▼▼
+class TargetLapTimeForm(FlaskForm):
+    """サーキット目標タイム設定用のフォーム"""
+    target_time = StringField(
+        '目標タイム',
+        validators=[DataRequired(message="目標タイムを入力してください。")],
+        render_kw={"placeholder": "例: 1:58.123"}
+    )
+    submit = SubmitField('保存する')
+
+    def validate_target_time(self, field):
+        if field.data and not is_valid_lap_time_format(field.data):
+            raise ValidationError('タイムの形式が正しくありません。(例: 1:23.456 または 83.456)')
+# ▲▲▲【追記ここまで】▲▲▲
+
 
 class LapTimeImportForm(FlaskForm):
     """ラップタイムCSVインポート用のフォーム"""

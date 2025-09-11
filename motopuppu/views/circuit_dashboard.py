@@ -1,12 +1,15 @@
 # motopuppu/views/circuit_dashboard.py
 import decimal
-from flask import Blueprint, render_template, current_app, url_for
+from flask import Blueprint, render_template, current_app, url_for, request, flash, redirect
 from flask_login import login_required, current_user
 from sqlalchemy import func, case
 from sqlalchemy.orm import aliased, joinedload
 
-from ..models import db, ActivityLog, SessionLog, User, Motorcycle
-from ..utils.lap_time_utils import format_seconds_to_time
+# ▼▼▼【ここから変更】▼▼▼
+from ..models import db, ActivityLog, SessionLog, User, Motorcycle, UserCircuitTarget
+from ..utils.lap_time_utils import format_seconds_to_time, parse_time_to_seconds
+from ..forms import TargetLapTimeForm
+# ▲▲▲【変更ここまで】▲▲▲
 
 # 新しいBlueprintを定義
 circuit_dashboard_bp = Blueprint(
@@ -81,7 +84,6 @@ def index():
     )
 
     # 1. サーキットごとの自己ベストセッションを取得
-    #    ウィンドウ関数を使い、サーキットごとにベストラップでランク付け
     subq = base_query.with_entities(
         ActivityLog.circuit_name,
         SessionLog.id.label('session_id'),
@@ -91,9 +93,23 @@ def index():
         ).label('rn')
     ).subquery()
 
-    # ランク1位のセッションIDのみを取得
-    best_session_ids = db.session.query(subq.c.session_id).filter(subq.c.rn == 1).all()
-    best_session_ids_list = [sid for sid, in best_session_ids]
+    # ▼▼▼【ここから変更】目標タイムを取得するために LEFT JOIN を行う ▼▼▼
+    best_sessions_with_targets_query = db.session.query(
+        subq.c.session_id,
+        subq.c.circuit_name,
+        UserCircuitTarget.target_lap_seconds
+    ).select_from(subq).outerjoin(
+        UserCircuitTarget,
+        (UserCircuitTarget.user_id == current_user.id) &
+        (UserCircuitTarget.circuit_name == subq.c.circuit_name)
+    ).filter(subq.c.rn == 1).all()
+    
+    best_session_ids_list = [sid for sid, cname, target in best_sessions_with_targets_query]
+    
+    targets_map = {
+        cname: target for sid, cname, target in best_sessions_with_targets_query
+    }
+    # ▲▲▲【変更ここまで】▲▲▲
     
     best_sessions = db.session.query(SessionLog).options(
         joinedload(SessionLog.activity).joinedload(ActivityLog.motorcycle),
@@ -105,17 +121,14 @@ def index():
     # 2. ダッシュボードに表示するデータを整形
     circuit_data = []
     
-    # 全セッションログを取得（グラフ用）
     all_sessions_for_graph = base_query.options(
         db.joinedload(SessionLog.activity)
     ).order_by(ActivityLog.activity_date.asc()).all()
 
-    # サーキットごとにデータをまとめる
     for best_session in best_sessions:
         circuit_name = best_session.activity.circuit_name
         
         # 2a. 車両ごとのベストラップと統計を取得
-        # SessionLog.id を直接 group_by に含めると意図しない挙動になるため、ウィンドウ関数でベストセッションIDを特定
         best_session_id_subq = db.session.query(
             ActivityLog.motorcycle_id,
             func.first_value(SessionLog.id).over(
@@ -185,13 +198,24 @@ def index():
             ActivityLog.circuit_name == circuit_name
         ).order_by(ActivityLog.activity_date.desc(), SessionLog.id.desc()).first()
 
+        # ▼▼▼【ここから変更】目標タイムとフォームをデータに追加 ▼▼▼
+        target_lap_seconds = targets_map.get(circuit_name)
+        form = TargetLapTimeForm()
+        if target_lap_seconds:
+            form.target_time.data = format_seconds_to_time(target_lap_seconds)
+        # ▲▲▲【変更ここまで】▲▲▲
+
         circuit_data.append({
             'name': circuit_name,
             'best_session': best_session,
             'latest_session_id': latest_session.SessionLog.id if latest_session else None,
             'chart_data': chart_data,
             'leaderboard': leaderboard_info,
-            'vehicle_breakdown': vehicle_data
+            'vehicle_breakdown': vehicle_data,
+            # ▼▼▼【ここから変更】目標タイムとフォームをデータに追加 ▼▼▼
+            'target_lap_seconds': target_lap_seconds,
+            'form': form,
+            # ▲▲▲【変更ここまで】▲▲▲
         })
         
     # 3. 総合サマリー情報を計算
@@ -214,3 +238,49 @@ def index():
         circuit_data=circuit_data,
         format_seconds_to_time=format_seconds_to_time
     )
+
+# ▼▼▼【ここから追記】目標タイムを設定するための新しいルート ▼▼▼
+@circuit_dashboard_bp.route('/set-target/<path:circuit_name>', methods=['POST'])
+@login_required
+def set_target_lap_time(circuit_name):
+    """目標ラップタイムを設定・更新する"""
+    form = TargetLapTimeForm()
+    if form.validate_on_submit():
+        target_seconds = parse_time_to_seconds(form.target_time.data)
+        if target_seconds is None:
+            flash('無効なタイム形式です。', 'danger')
+            return redirect(url_for('.index'))
+
+        target_entry = UserCircuitTarget.query.filter_by(
+            user_id=current_user.id,
+            circuit_name=circuit_name
+        ).first()
+
+        if target_entry:
+            # 既存のエントリを更新
+            target_entry.target_lap_seconds = target_seconds
+            flash(f'「{circuit_name}」の目標タイムを更新しました。', 'success')
+        else:
+            # 新しいエントリを作成
+            new_target = UserCircuitTarget(
+                user_id=current_user.id,
+                circuit_name=circuit_name,
+                target_lap_seconds=target_seconds
+            )
+            db.session.add(new_target)
+            flash(f'「{circuit_name}」の目標タイムを新規設定しました。', 'success')
+        
+        try:
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Error setting target lap time for user {current_user.id} at {circuit_name}: {e}")
+            flash('目標タイムの保存中にエラーが発生しました。', 'danger')
+
+    else:
+        for field, errors in form.errors.items():
+            for error in errors:
+                flash(f'{form[field].label.text}: {error}', 'danger')
+
+    return redirect(url_for('.index'))
+# ▲▲▲【追記ここまで】▲▲▲
