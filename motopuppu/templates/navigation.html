@@ -11,14 +11,12 @@
         <div class="collapse navbar-collapse" id="navbarNav">
             <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                 
-                {# --- ダッシュボード --- #}
                 <li class="nav-item">
                     <a class="nav-link {% if request.endpoint == 'main.dashboard' %}active{% endif %}" aria-current="page" href="{{ url_for('main.dashboard') }}">
                         <i class="fas fa-tachometer-alt me-1"></i> ダッシュボード
                     </a>
                 </li>
 
-                {# --- マイガレージ Dropdown --- #}
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle {% if request.endpoint.startswith(('vehicle.', 'activity.', 'touring.', 'reminder.', 'maintenance.', 'fuel.', 'notes.')) and ('list' in request.endpoint or 'log' in request.endpoint) %}active{% endif %}" href="#" id="garageDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="fas fa-warehouse me-1"></i> マイガレージ
@@ -27,7 +25,8 @@
                         {% if g.user_motorcycles %}
                             {% for motorcycle in g.user_motorcycles %}
                             <li class="dropend">
-                                <a class="dropdown-item dropdown-toggle d-flex align-items-center" href="#" id="vehicleDropdown{{ motorcycle.id }}" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                {# ▼▼▼【ここを修正】data-bs-toggle="dropdown" を削除 ▼▼▼ #}
+                                <a class="dropdown-item dropdown-toggle d-flex align-items-center" href="#" id="vehicleDropdown{{ motorcycle.id }}" role="button" aria-expanded="false">
                                     {% if motorcycle.image_url %}
                                         <img src="{{ motorcycle.image_url }}" alt="{{ motorcycle.name }}" class="vehicle-icon-image me-2">
                                     {% endif %}
@@ -57,7 +56,6 @@
                     </ul>
                 </li>
                 
-                {# --- コミュニティ Dropdown --- #}
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle {% if request.endpoint.startswith(('team.', 'circuit_dashboard.', 'leaderboard.', 'event.', 'garage_settings.')) %}active{% endif %}" href="#" id="activityLogDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="fas fa-users me-1"></i> コミュニティ
@@ -127,9 +125,8 @@
         </div>
     </div>
 </nav>
-{# ▼▼▼【ここから変更】CSSのスタイルブロックを修正 ▼▼▼ #}
 <style>
-/* サブメニューを開く矢印のスタイル */
+/* ネストされたドロップダウンメニューのためのCSS (デスクトップでのホバー表示) */
 .dropdown-menu .dropend .dropdown-toggle::after {
     display: inline-block;
     width: 0;
@@ -147,9 +144,7 @@
 @media (min-width: 992px) {
     .dropdown-menu .dropend:hover > .dropdown-menu {
         display: block;
-        /* サブメニューの top の位置を親メニューアイテムの top に合わせる */
         top: 0;
-        /* 重なりの原因だったマイナスのマージンを削除 */
         margin-top: 0;
         left: 100%;
         margin-left: .125rem;
@@ -159,19 +154,16 @@
 /* --- スマートフォン・タブレット表示 (991.98px以下) --- */
 @media (max-width: 991.98px) {
     .dropdown-menu .dropend .dropdown-menu {
-        margin-left: 0.75rem; /* サブメニューを少しインデント */
+        margin-left: 0.75rem;
     }
     .dropdown-menu .dropend:hover > .dropdown-menu {
-        /* スマホではホバーで開かないようにする */
         display: none;
     }
     .dropdown-menu .dropend > .dropdown-menu.show {
-        /* JavaScriptで .show クラスが付いた時だけ表示 */
         display: block;
     }
 }
 </style>
-{# ▲▲▲【変更はここまで】▲▲▲ #}
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
