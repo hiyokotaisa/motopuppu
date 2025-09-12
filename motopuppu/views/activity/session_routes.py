@@ -224,16 +224,28 @@ def best_settings_finder(vehicle_id):
 @login_required
 def get_gps_data(session_id):
     """セッションのGPSデータとギア計算用の車両スペックをJSONで返す"""
+    # ▼▼▼【ここから権限チェックロジックを修正】▼▼▼
     session = SessionLog.query.options(
+        joinedload(SessionLog.activity).joinedload(ActivityLog.user),
         joinedload(SessionLog.activity).joinedload(ActivityLog.motorcycle),
         joinedload(SessionLog.setting_sheet)
-    ).join(ActivityLog).filter(
-        SessionLog.id == session_id,
-        ActivityLog.user_id == current_user.id
-    ).first_or_404()
+    ).filter_by(id=session_id).first_or_404()
+
+    is_owner = (session.activity.user_id == current_user.id)
+    is_team_member = False
+
+    if not is_owner:
+        owner_teams = set(team.id for team in session.activity.user.teams)
+        current_user_teams = set(team.id for team in current_user.teams)
+        if owner_teams.intersection(current_user_teams):
+            is_team_member = True
+    
+    if not is_owner and not is_team_member:
+        abort(403) # 所有者でもチームメンバーでもなければアクセスを拒否
 
     if not session.gps_tracks or not session.gps_tracks.get('laps'):
         return jsonify({'error': 'No GPS data available'}), 404
+    # ▲▲▲【修正はここまで】▲▲▲
 
     motorcycle = session.activity.motorcycle
     setting_sheet = session.setting_sheet
@@ -363,9 +375,7 @@ def import_laps(session_id):
         file_storage = form.csv_file.data
         device_type = form.device_type.data
         remove_outliers = form.remove_outliers.data
-        # ▼▼▼【ここから変更】▼▼▼
         threshold = form.outlier_threshold.data
-        # ▲▲▲【変更ここまで】▲▲▲
 
         try:
             parser = get_parser(device_type)
@@ -393,9 +403,7 @@ def import_laps(session_id):
             laps_removed_count = 0
             
             if remove_outliers:
-                # ▼▼▼【ここから変更】▼▼▼
                 filtered_laps = filter_outlier_laps(lap_times_list, threshold_multiplier=float(threshold))
-                # ▲▲▲【変更ここまで】▲▲▲
                 laps_removed_count = original_lap_count - len(filtered_laps)
                 lap_times_list = filtered_laps
             
