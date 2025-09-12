@@ -8,7 +8,6 @@
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h2 class="mb-0"><i class="fas fa-flag-checkered me-1"></i> 走行ログ <small class="text-muted fs-5">- {{ motorcycle.name }}</small></h2>
     
-    {# --- ▼▼▼ ここからが変更ブロック ▼▼▼ --- #}
     <div class="btn-group">
         <a href="{{ url_for('activity.list_settings', vehicle_id=motorcycle.id) }}" class="btn btn-outline-secondary">
             <i class="fas fa-cogs me-1"></i> セッティングシート管理
@@ -17,7 +16,6 @@
             <i class="fas fa-plus me-1"></i> 新しい走行ログを追加
         </a>
     </div>
-    {# --- ▲▲▲ 変更はここまで ▲▲▲ --- #}
 
 </div>
 
@@ -40,31 +38,32 @@
 {# =================================================================== #}
 <div class="d-none d-lg-block">
     <div class="table-responsive">
-        <table class="table table-striped table-hover">
-            {# --- ▼▼▼ 変更: テーブルヘッダーを修正 ▼▼▼ --- #}
+        <table class="table table-striped table-hover align-middle">
             <thead>
                 <tr>
                     <th>活動日</th>
                     <th>活動名</th>
                     <th>場所</th>
                     <th class="text-center">セッション数</th>
+                    {# ▼▼▼【ここから追記】チーム共有ヘッダー ▼▼▼ #}
+                    <th class="text-center">チーム共有</th>
+                    {# ▲▲▲【追記はここまで】▲▲▲ #}
                     <th>操作</th>
                 </tr>
             </thead>
-            {# --- ▲▲▲ 変更ここまで ▲▲▲ --- #}
             <tbody>
-                {# ▼▼▼ forループの受け取り方を変更 ▼▼▼ #}
                 {% for item in activities %}
                 <tr>
                     <td class="text-nowrap">{{ item.activity.activity_date.strftime('%Y-%m-%d') }}</td>
                     <td>
                         <a href="{{ url_for('activity.detail_activity', activity_id=item.activity.id) }}">
-                            {# activity_titleがあれば表示、なければ表示用の場所名でフォールバック #}
                             {{ item.activity.activity_title or item.activity.location_name_display }}
                         </a>
+                        {% if item.best_lap_formatted %}
+                            <br><small class="text-warning"><i class="fas fa-trophy fa-fw"></i> {{ item.best_lap_formatted }}</small>
+                        {% endif %}
                     </td>
                     <td class="text-nowrap">
-                        {# location_typeに応じて場所を表示 #}
                         {% if item.activity.location_type == 'circuit' %}
                             <span class="badge bg-primary"><i class="fas fa-flag-checkered me-1"></i> {{ item.activity.circuit_name }}</span>
                         {% elif item.activity.location_type == 'custom' and item.activity.custom_location %}
@@ -73,15 +72,25 @@
                             -
                         {% endif %}
                     </td>
-                    {# ▼▼▼ .count() に戻す ▼▼▼ #}
                     <td class="text-center">{{ item.activity.sessions.count() }}</td>
+                    {# ▼▼▼【ここから追記】チーム共有トグルスイッチ ▼▼▼ #}
+                    <td class="text-center">
+                        <div class="form-check form-switch d-inline-block">
+                            <input class="form-check-input team-share-switch" type="checkbox" role="switch"
+                                   id="teamShareSwitch-table-{{ item.activity.id }}"
+                                   data-activity-id="{{ item.activity.id }}"
+                                   data-csrf-token="{{ csrf_token() }}"
+                                   {% if item.activity.share_with_teams %}checked{% endif %}>
+                        </div>
+                    </td>
+                    {# ▲▲▲【追記はここまで】▲▲▲ #}
                     <td class="text-nowrap">
                         <a href="{{ url_for('activity.edit_activity', activity_id=item.activity.id) }}" class="btn btn-sm btn-outline-primary me-1" title="編集"><i class="fas fa-edit fa-fw"></i></a>
                         <form action="{{ url_for('activity.delete_activity', activity_id=item.activity.id) }}" method="POST" class="d-inline" onsubmit="return confirm('この走行ログを削除してもよろしいですか？\n関連するセッション記録も全て削除されます。');">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                             <button type="submit" class="btn btn-sm btn-outline-danger" title="削除"><i class="fas fa-trash fa-fw"></i></button>
                         </form>
-                        <button class="btn btn-sm btn-info btn-share-misskey"
+                        <button class="btn btn-sm btn-info btn-share-misskey ms-1"
                                 data-type="activity"
                                 data-vehicle-name="{{ motorcycle.name }}"
                                 data-date="{{ item.activity.activity_date.isoformat() }}"
@@ -113,35 +122,42 @@
         </div>
         <ul class="list-group list-group-flush">
             <li class="list-group-item">
-                <dl>
-                    <dt><i class="fas fa-calendar-alt me-2 text-primary"></i>活動日</dt>
-                    <dd>{{ item.activity.activity_date.strftime('%Y-%m-%d') }}</dd>
+                <dl class="row mb-0">
+                    <dt class="col-sm-4"><i class="fas fa-calendar-alt me-2 text-primary"></i>活動日</dt>
+                    <dd class="col-sm-8">{{ item.activity.activity_date.strftime('%Y-%m-%d') }}</dd>
+
+                    <dt class="col-sm-4"><i class="fas fa-map-marker-alt me-2 text-primary"></i>場所</dt>
+                    <dd class="col-sm-8">
+                        {% if item.activity.location_type == 'circuit' %}
+                            {{ item.activity.circuit_name }}
+                        {% elif item.activity.location_type == 'custom' and item.activity.custom_location %}
+                            {{ item.activity.custom_location }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </dd>
+
+                    <dt class="col-sm-4"><i class="fas fa-list-ol me-2 text-primary"></i>セッション数</dt>
+                    <dd class="col-sm-8">{{ item.activity.sessions.count() }}</dd>
+
+                    {% if item.best_lap_formatted %}
+                    <dt class="col-sm-4"><i class="fas fa-trophy me-2 text-warning"></i>ベスト</dt>
+                    <dd class="col-sm-8">{{ item.best_lap_formatted }}</dd>
+                    {% endif %}
                 </dl>
             </li>
-            <li class="list-group-item">
-                <div class="row">
-                    <div class="col-7">
-                        <dl>
-                            <dt><i class="fas fa-map-marker-alt me-2 text-primary"></i>場所</dt>
-                            <dd>
-                                {% if item.activity.location_type == 'circuit' %}
-                                    {{ item.activity.circuit_name }}
-                                {% elif item.activity.location_type == 'custom' and item.activity.custom_location %}
-                                    {{ item.activity.custom_location }}
-                                {% else %}
-                                    -
-                                {% endif %}
-                            </dd>
-                        </dl>
-                    </div>
-                    <div class="col-5">
-                        <dl>
-                            <dt><i class="fas fa-list-ol me-2 text-primary"></i>セッション数</dt>
-                            <dd>{{ item.activity.sessions.count() }}</dd>
-                        </dl>
-                    </div>
+            {# ▼▼▼【ここから追記】チーム共有設定の行 ▼▼▼ #}
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-users me-2 text-primary"></i>チームに共有</span>
+                <div class="form-check form-switch">
+                    <input class="form-check-input team-share-switch" type="checkbox" role="switch"
+                           id="teamShareSwitch-card-{{ item.activity.id }}"
+                           data-activity-id="{{ item.activity.id }}"
+                           data-csrf-token="{{ csrf_token() }}"
+                           {% if item.activity.share_with_teams %}checked{% endif %}>
                 </div>
             </li>
+            {# ▲▲▲【追記はここまで】▲▲▲ #}
         </ul>
         <div class="card-footer bg-white text-end">
             <a href="{{ url_for('activity.edit_activity', activity_id=item.activity.id) }}" class="btn btn-sm btn-outline-primary me-1" title="編集"><i class="fas fa-edit fa-fw"></i> 編集</a>
@@ -199,7 +215,48 @@ document.addEventListener('DOMContentLoaded', function() {
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
     var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
         return new bootstrap.Tooltip(tooltipTriggerEl)
-    })
+    });
+
+    // ▼▼▼【ここからJavaScriptを追記】▼▼▼
+    document.querySelectorAll('.team-share-switch').forEach(switchEl => {
+        switchEl.addEventListener('change', async function(event) {
+            const activityId = this.dataset.activityId;
+            const csrfToken = this.dataset.csrfToken;
+            const isChecked = this.checked;
+
+            try {
+                const response = await fetch(`/activity/${activityId}/toggle_team_share`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrfToken,
+                        'Content-Type': 'application/json'
+                    },
+                });
+
+                if (!response.ok) {
+                    throw new Error('サーバーとの通信に失敗しました。');
+                }
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // 成功した場合、スイッチの状態をサーバーからのレスポンスに合わせる
+                    this.checked = data.share_with_teams;
+                } else {
+                    // 失敗した場合、スイッチの状態を元に戻す
+                    this.checked = !isChecked;
+                    alert(data.message || '処理に失敗しました。');
+                }
+
+            } catch (error) {
+                // エラーが発生した場合、スイッチの状態を元に戻す
+                this.checked = !isChecked;
+                console.error('Team share toggle error:', error);
+                alert('エラーが発生しました。ページをリロードして再度お試しください。');
+            }
+        });
+    });
+    // ▲▲▲【追記はここまで】▲▲▲
 });
 </script>
 {% endblock %}

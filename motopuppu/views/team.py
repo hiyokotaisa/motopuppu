@@ -8,7 +8,6 @@ from sqlalchemy import func
 import uuid
 
 from .. import db, limiter
-# Motorcycle モデルをインポート
 from ..models import Team, User, ActivityLog, SessionLog, Motorcycle
 from ..forms import TeamForm
 from ..utils.lap_time_utils import format_seconds_to_time
@@ -53,7 +52,6 @@ def create_team():
     return render_template('team/team_form.html', form=form, form_action='create')
 
 
-# ▼▼▼【ここから追記】チーム名編集のルート ▼▼▼
 @team_bp.route('/<int:team_id>/edit', methods=['GET', 'POST'])
 @login_required
 def edit_team(team_id):
@@ -78,7 +76,6 @@ def edit_team(team_id):
             flash('チーム名の更新中にエラーが発生しました。', 'danger')
 
     return render_template('team/team_form.html', form=form, form_action='edit', team=team)
-# ▲▲▲【追記はここまで】▲▲▲
 
 
 @team_bp.route('/<int:team_id>/manage')
@@ -130,7 +127,6 @@ def dashboard(team_id):
 
     member_ids = [member.id for member in team.members]
 
-    # --- ベストタイムランキングの処理 (変更なし) ---
     best_lap_subquery = db.session.query(
         ActivityLog.user_id,
         ActivityLog.circuit_name,
@@ -140,7 +136,8 @@ def dashboard(team_id):
     ).filter(
         ActivityLog.user_id.in_(member_ids),
         ActivityLog.circuit_name.isnot(None),
-        SessionLog.best_lap_seconds.isnot(None)
+        SessionLog.best_lap_seconds.isnot(None),
+        ActivityLog.share_with_teams == True # 公開設定のログのみ対象
     ).group_by(
         ActivityLog.user_id,
         ActivityLog.circuit_name
@@ -168,17 +165,18 @@ def dashboard(team_id):
 
     members = team.members.order_by(User.display_name.asc()).all()
     
-    # ▼▼▼【ここから追記】チームメンバーの最新活動ログを取得 ▼▼▼
+    # ▼▼▼【ここから修正】チームメンバーの最新活動ログを取得するクエリにフィルタを追加 ▼▼▼
     recent_activities = ActivityLog.query.options(
         joinedload(ActivityLog.user),
         joinedload(ActivityLog.motorcycle)
     ).filter(
-        ActivityLog.user_id.in_(member_ids)
+        ActivityLog.user_id.in_(member_ids),
+        ActivityLog.share_with_teams == True  # 公開設定のログのみをフィルタ
     ).order_by(
         ActivityLog.activity_date.desc(),
         ActivityLog.created_at.desc()
     ).limit(15).all()
-    # ▲▲▲【追記はここまで】▲▲▲
+    # ▲▲▲【修正はここまで】▲▲▲
 
     return render_template(
         'team/team_dashboard.html',
@@ -186,7 +184,7 @@ def dashboard(team_id):
         members=members,
         circuit_data=circuit_data,
         format_seconds_to_time=format_seconds_to_time,
-        recent_activities=recent_activities  # テンプレートに活動ログを渡す
+        recent_activities=recent_activities
     )
 
 

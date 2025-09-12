@@ -321,6 +321,11 @@ class ActivityLog(db.Model):
     created_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
     updated_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now(), onupdate=db.func.now())
     sessions = db.relationship('SessionLog', backref='activity', lazy='dynamic', order_by="asc(SessionLog.id)", cascade="all, delete-orphan")
+    
+    # ▼▼▼【ここから追記】▼▼▼
+    share_with_teams = db.Column(db.Boolean, nullable=False, default=False, server_default='false', comment="この活動ログを所属チームに共有するか")
+    # ▲▲▲【追記はここまで】▲▲▲
+
     @property
     def location_name_display(self):
         if self.location_type == 'circuit' and self.circuit_name:
@@ -340,9 +345,7 @@ class SessionLog(db.Model):
     setting_sheet_id = db.Column(db.Integer, db.ForeignKey('setting_sheets.id', ondelete='SET NULL'), nullable=True)
     session_name = db.Column(db.String(100), nullable=True, default='Session 1')
     lap_times = db.Column(JSONB, nullable=True)
-    # ▼▼▼【ここから追記】▼▼▼
     gps_tracks = db.Column(JSONB, nullable=True, comment="ラップごとのGPS軌跡データ")
-    # ▲▲▲【追記はここまで】▲▲▲
     rider_feel = db.Column(db.Text, nullable=True)
     operating_hours_start = db.Column(db.Numeric(8, 2), nullable=True)
     operating_hours_end = db.Column(db.Numeric(8, 2), nullable=True)

@@ -198,7 +198,6 @@ def detail_activity(activity_id):
         joinedload(ActivityLog.user) # ログ所有者の情報も読み込む
     ).filter_by(id=activity_id).first_or_404()
 
-    # ▼▼▼【ここからアクセス制御ロジックを修正】▼▼▼
     is_owner = (activity.user_id == current_user.id)
     is_team_member = False
     
@@ -212,21 +211,15 @@ def detail_activity(activity_id):
     # 所有者でもなく、チームメンバーでもない場合はアクセスを拒否
     if not is_owner and not is_team_member:
         abort(403)
-    # ▲▲▲【修正はここまで】▲▲▲
         
     motorcycle = activity.motorcycle
     sessions = SessionLog.query.filter_by(activity_log_id=activity.id).order_by(SessionLog.id.asc()).all()
 
-    # --- ▼▼▼ ここからが修正箇所 ▼▼▼ ---
-
-    # 1. URLのクエリパラメータからソート順を取得
     sort_order = request.args.get('sort', 'record_asc')
 
     for session in sessions:
-        # 2. `calculate_lap_stats` にソート順を渡す
         session.best_lap, session.average_lap, session.lap_details = calculate_lap_stats(session.lap_times, sort_by=sort_order)
         
-        # グラフデータの生成ロジックは既存のものを維持
         lap_seconds_for_chart = []
         if session.lap_times and isinstance(session.lap_times, list):
             for lap_str in session.lap_times:
@@ -253,7 +246,6 @@ def detail_activity(activity_id):
     session_form.setting_sheet_id.choices.insert(0, (0, '--- セッティングなし ---'))
 
     if is_owner and session_form.validate_on_submit():
-        # POST時の処理 (セッション追加) は変更なし
         lap_times_list = json.loads(session_form.lap_times_json.data) if session_form.lap_times_json.data else []
         
         new_session = SessionLog(
@@ -282,7 +274,6 @@ def detail_activity(activity_id):
             db.session.add(new_session)
             db.session.commit()
             flash('新しいセッションを記録しました。', 'success')
-            # POST後にリダイレクトする際は、ソートパラメータは不要
             return redirect(url_for('activity.detail_activity', activity_id=activity.id))
         except Exception as e:
             db.session.rollback()
@@ -296,11 +287,33 @@ def detail_activity(activity_id):
                            session_form=session_form,
                            import_form=import_form,
                            setting_key_map=SETTING_KEY_MAP,
-                           # 3. テンプレートに現在のソート順を渡す
                            current_sort=sort_order,
-                           is_owner=is_owner # 所有者フラグをテンプレートに渡す
+                           is_owner=is_owner
                            )
-    # --- ▲▲▲ 変更ここまで ▲▲▲ ---
+
+# ▼▼▼【ここから追記】チーム共有設定を切り替えるAPIルート ▼▼▼
+@activity_bp.route('/<int:activity_id>/toggle_team_share', methods=['POST'])
+@login_required
+def toggle_team_share(activity_id):
+    """活動ログのチーム共有設定を切り替えるAPI"""
+    activity = ActivityLog.query.filter_by(
+        id=activity_id, 
+        user_id=current_user.id
+    ).first_or_404()
+
+    try:
+        activity.share_with_teams = not activity.share_with_teams
+        db.session.commit()
+        return jsonify({
+            'success': True,
+            'share_with_teams': activity.share_with_teams
+        })
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error toggling team share for activity {activity_id}: {e}", exc_info=True)
+        return jsonify({'success': False, 'message': 'サーバーエラーが発生しました。'}), 500
+# ▲▲▲【追記はここまで】▲▲▲
+
 
 # --- Public Routes (No Login Required) ---
 
