@@ -51,7 +51,7 @@
                         {% endif %}
                         <li>
                             <a class="dropdown-item {% if request.endpoint == 'vehicle.vehicle_list' %}active{% endif %}" href="{{ url_for('vehicle.vehicle_list') }}">
-                                <i class="fas fa-motorcycle fa-fw me-2"></i>車両管理
+                                <i class="fas fa-motorcycle fa-fw me-2"></i>車両を管理する
                             </a>
                         </li>
                     </ul>
@@ -70,12 +70,12 @@
                         </li>
                         <li>
                             <a class="dropdown-item {% if request.endpoint.startswith('team.') %}active{% endif %}" href="{{ url_for('team.list_teams') }}">
-                                <i class="fas fa-users-cog fa-fw me-2"></i>チーム
+                                <i class="fas fa-users-cog fa-fw me-2"></i>チーム管理
                             </a>
                         </li>
                         <li><a class="dropdown-item {% if request.endpoint.startswith('leaderboard.') %}active{% endif %}" href="{{ url_for('leaderboard.index') }}"><i class="fas fa-trophy fa-fw me-2"></i>リーダーボード</a></li>
-                        <li><a class="dropdown-item {% if request.endpoint.startswith('event.') %}active{% endif %}" href="{{ url_for('event.list_events') }}"><i class="fas fa-calendar-check fa-fw me-2"></i>イベント</a></li>
-                        <li><a class="dropdown-item {% if request.endpoint.startswith('garage_settings.') %}active{% endif %}" href="{{ url_for('garage_settings.settings') }}"><i class="fas fa-id-card fa-fw me-2"></i>ガレージカード</a></li>
+                        <li><a class="dropdown-item {% if request.endpoint.startswith('event.') %}active{% endif %}" href="{{ url_for('event.list_events') }}"><i class="fas fa-calendar-check fa-fw me-2"></i>イベント管理</a></li>
+                        <li><a class="dropdown-item {% if request.endpoint.startswith('garage_settings.') %}active{% endif %}" href="{{ url_for('garage_settings.settings') }}"><i class="fas fa-id-card fa-fw me-2"></i>ガレージ設定</a></li>
                     </ul>
                 </li>
             </ul>
@@ -102,12 +102,12 @@
                     <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarUserDropdown">
                         <li>
                             <a class="dropdown-item {% if request.endpoint == 'achievements.index' %}active{% endif %}" href="{{ url_for('achievements.index') }}">
-                                <i class="fas fa-trophy fa-fw me-2"></i>実績
+                                <i class="fas fa-trophy fa-fw me-2"></i>実績一覧
                             </a>
                         </li>
                         <li>
                             <a class="dropdown-item {% if request.endpoint == 'profile.settings' %}active{% endif %}" href="{{ url_for('profile.settings') }}">
-                                <i class="fas fa-user-cog fa-fw me-2"></i>プロフィール
+                                <i class="fas fa-user-cog fa-fw me-2"></i>プロフィール設定
                             </a>
                         </li>
                         <li>
@@ -127,8 +127,9 @@
         </div>
     </div>
 </nav>
+{# ▼▼▼【ここから変更】CSSのスタイルブロックを修正 ▼▼▼ #}
 <style>
-/* ネストされたドロップダウンメニューのためのCSS (デスクトップでのホバー表示) */
+/* サブメニューを開く矢印のスタイル */
 .dropdown-menu .dropend .dropdown-toggle::after {
     display: inline-block;
     width: 0;
@@ -142,56 +143,61 @@
     border-left: .3em solid;
 }
 
-.dropdown-menu .dropend:hover > .dropdown-menu {
-    display: block;
-    margin-top: -35px;
-    margin-left: 100%;
+/* --- デスクトップ表示 (992px以上) --- */
+@media (min-width: 992px) {
+    .dropdown-menu .dropend:hover > .dropdown-menu {
+        display: block;
+        /* サブメニューの top の位置を親メニューアイテムの top に合わせる */
+        top: 0;
+        /* 重なりの原因だったマイナスのマージンを削除 */
+        margin-top: 0;
+        left: 100%;
+        margin-left: .125rem;
+    }
 }
 
+/* --- スマートフォン・タブレット表示 (991.98px以下) --- */
 @media (max-width: 991.98px) {
     .dropdown-menu .dropend .dropdown-menu {
-        margin-left: 0.5rem; /* スマホ表示の際に少しインデント */
+        margin-left: 0.75rem; /* サブメニューを少しインデント */
     }
     .dropdown-menu .dropend:hover > .dropdown-menu {
-        margin-top: 0;
-        margin-left: 0;
+        /* スマホではホバーで開かないようにする */
+        display: none;
+    }
+    .dropdown-menu .dropend > .dropdown-menu.show {
+        /* JavaScriptで .show クラスが付いた時だけ表示 */
+        display: block;
     }
 }
 </style>
+{# ▲▲▲【変更はここまで】▲▲▲ #}
 
-{# ▼▼▼【ここから追記】スマートフォンでのサブメニュー表示を改善するスクリプト ▼▼▼ #}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // ナビゲーションバー内のサブメニュー開閉ボタン（例: 車両名のリンク）をすべて取得
     const submenuToggles = document.querySelectorAll('.navbar .dropdown-menu .dropend > .dropdown-toggle');
 
     submenuToggles.forEach(toggle => {
         toggle.addEventListener('click', function(e) {
-            // クリックされた要素の直接の親要素（<li>）を取得
+            e.preventDefault();
+            e.stopPropagation();
+
             const parentLi = this.parentElement;
-            if (!parentLi || !parentLi.classList.contains('dropend')) return;
+            const submenu = this.nextElementSibling;
             
-            // 兄弟要素にある他のサブメニューを一旦すべて閉じる
-            const siblings = Array.from(parentLi.parentElement.children).filter(child => child !== parentLi);
-            siblings.forEach(sibling => {
-                const otherSubmenu = sibling.querySelector('.dropdown-menu');
-                if (otherSubmenu) {
-                    otherSubmenu.classList.remove('show');
-                }
+            if (!submenu) return;
+
+            const isAlreadyOpen = submenu.classList.contains('show');
+            
+            parentLi.parentElement.querySelectorAll('.dropend .dropdown-menu').forEach(menu => {
+                menu.classList.remove('show');
             });
 
-            // クリックされた要素に対応するサブメニューを取得
-            const submenu = this.nextElementSibling;
-            if (submenu && submenu.classList.contains('dropdown-menu')) {
-                // デフォルトのリンク遷移や親メニューが閉じるのを防ぐ
-                e.preventDefault();
-                e.stopPropagation();
-                // サブメニューの表示/非表示を切り替える
-                submenu.classList.toggle('show');
+            if (!isAlreadyOpen) {
+                submenu.classList.add('show');
             }
         });
     });
 });
 </script>
-{# ▲▲▲【追記ここまで】▲▲▲ #}
 {% endif %}
