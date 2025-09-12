@@ -34,7 +34,6 @@
                                     <span>{{ motorcycle.name }}</span>
                                 </a>
                                 <ul class="dropdown-menu" aria-labelledby="vehicleDropdown{{ motorcycle.id }}">
-                                    {# ▼▼▼【ここから変更】カテゴリヘッダーを追加し、順序と項目を修正 ▼▼▼ #}
                                     <li><h6 class="dropdown-header"><i class="fas fa-tools fa-fw me-2"></i>日常の記録</h6></li>
                                     <li><a class="dropdown-item" href="{{ url_for('fuel.fuel_log', motorcycle_id=motorcycle.id) }}"><i class="fas fa-gas-pump fa-fw me-2"></i>給油記録</a></li>
                                     <li><a class="dropdown-item" href="{{ url_for('maintenance.maintenance_log', motorcycle_id=motorcycle.id) }}"><i class="fas fa-tools fa-fw me-2"></i>整備記録</a></li>
@@ -45,7 +44,6 @@
                                     <li><a class="dropdown-item" href="{{ url_for('touring.list_logs', vehicle_id=motorcycle.id) }}"><i class="fas fa-map-signs fa-fw me-2"></i>ツーリングログ</a></li>
                                     <li><hr class="dropdown-divider"></li>
                                     <li><a class="dropdown-item" href="{{ url_for('reminder.list_reminders', vehicle_id=motorcycle.id) }}"><i class="fas fa-bell fa-fw me-2"></i>リマインダー</a></li>
-                                    {# ▲▲▲【変更はここまで】▲▲▲ #}
                                 </ul>
                             </li>
                             {% endfor %}
@@ -53,13 +51,13 @@
                         {% endif %}
                         <li>
                             <a class="dropdown-item {% if request.endpoint == 'vehicle.vehicle_list' %}active{% endif %}" href="{{ url_for('vehicle.vehicle_list') }}">
-                                <i class="fas fa-motorcycle fa-fw me-2"></i>車両を管理する
+                                <i class="fas fa-motorcycle fa-fw me-2"></i>車両管理
                             </a>
                         </li>
                     </ul>
                 </li>
                 
-                {# --- アクティビティ Dropdown --- #}
+                {# --- コミュニティ Dropdown --- #}
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle {% if request.endpoint.startswith(('team.', 'circuit_dashboard.', 'leaderboard.', 'event.', 'garage_settings.')) %}active{% endif %}" href="#" id="activityLogDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="fas fa-users me-1"></i> コミュニティ
@@ -72,31 +70,14 @@
                         </li>
                         <li>
                             <a class="dropdown-item {% if request.endpoint.startswith('team.') %}active{% endif %}" href="{{ url_for('team.list_teams') }}">
-                                <i class="fas fa-users-cog fa-fw me-2"></i>チーム管理
+                                <i class="fas fa-users-cog fa-fw me-2"></i>チーム
                             </a>
                         </li>
                         <li><a class="dropdown-item {% if request.endpoint.startswith('leaderboard.') %}active{% endif %}" href="{{ url_for('leaderboard.index') }}"><i class="fas fa-trophy fa-fw me-2"></i>リーダーボード</a></li>
-                        <li><a class="dropdown-item {% if request.endpoint.startswith('event.') %}active{% endif %}" href="{{ url_for('event.list_events') }}"><i class="fas fa-calendar-check fa-fw me-2"></i>イベント管理</a></li>
-                        <li><a class="dropdown-item {% if request.endpoint.startswith('garage_settings.') %}active{% endif %}" href="{{ url_for('garage_settings.settings') }}"><i class="fas fa-id-card fa-fw me-2"></i>ガレージ設定</a></li>
+                        <li><a class="dropdown-item {% if request.endpoint.startswith('event.') %}active{% endif %}" href="{{ url_for('event.list_events') }}"><i class="fas fa-calendar-check fa-fw me-2"></i>イベント</a></li>
+                        <li><a class="dropdown-item {% if request.endpoint.startswith('garage_settings.') %}active{% endif %}" href="{{ url_for('garage_settings.settings') }}"><i class="fas fa-id-card fa-fw me-2"></i>ガレージカード</a></li>
                     </ul>
                 </li>
-                 
-                {# ▼▼▼【ここを削除】「記録」Dropdownを削除 ▼▼▼ #}
-                {#
-                <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle {% if request.endpoint.startswith(('notes.')) %}active{% endif %}" href="#" id="manageDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                        <i class="fas fa-book me-1"></i> 記録
-                    </a>
-                    <ul class="dropdown-menu" aria-labelledby="manageDropdown">
-                        <li>
-                            <a class="dropdown-item {% if request.endpoint.startswith('notes.') %}active{% endif %}" href="{{ url_for('notes.notes_log') }}">
-                                <i class="fas fa-sticky-note fa-fw me-2"></i>ノート
-                            </a>
-                        </li>
-                    </ul>
-                </li>
-                #}
-                {# ▲▲▲【削除ここまで】▲▲▲ #}
             </ul>
 
             <form class="d-flex mx-lg-auto" role="search" id="global-search-form" style="min-width: 300px;">
@@ -121,12 +102,12 @@
                     <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarUserDropdown">
                         <li>
                             <a class="dropdown-item {% if request.endpoint == 'achievements.index' %}active{% endif %}" href="{{ url_for('achievements.index') }}">
-                                <i class="fas fa-trophy fa-fw me-2"></i>実績一覧
+                                <i class="fas fa-trophy fa-fw me-2"></i>実績
                             </a>
                         </li>
                         <li>
                             <a class="dropdown-item {% if request.endpoint == 'profile.settings' %}active{% endif %}" href="{{ url_for('profile.settings') }}">
-                                <i class="fas fa-user-cog fa-fw me-2"></i>プロフィール設定
+                                <i class="fas fa-user-cog fa-fw me-2"></i>プロフィール
                             </a>
                         </li>
                         <li>
@@ -147,7 +128,7 @@
     </div>
 </nav>
 <style>
-/* ネストされたドロップダウンメニューのためのCSS */
+/* ネストされたドロップダウンメニューのためのCSS (デスクトップでのホバー表示) */
 .dropdown-menu .dropend .dropdown-toggle::after {
     display: inline-block;
     width: 0;
@@ -168,10 +149,49 @@
 }
 
 @media (max-width: 991.98px) {
+    .dropdown-menu .dropend .dropdown-menu {
+        margin-left: 0.5rem; /* スマホ表示の際に少しインデント */
+    }
     .dropdown-menu .dropend:hover > .dropdown-menu {
         margin-top: 0;
         margin-left: 0;
     }
 }
 </style>
+
+{# ▼▼▼【ここから追記】スマートフォンでのサブメニュー表示を改善するスクリプト ▼▼▼ #}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // ナビゲーションバー内のサブメニュー開閉ボタン（例: 車両名のリンク）をすべて取得
+    const submenuToggles = document.querySelectorAll('.navbar .dropdown-menu .dropend > .dropdown-toggle');
+
+    submenuToggles.forEach(toggle => {
+        toggle.addEventListener('click', function(e) {
+            // クリックされた要素の直接の親要素（<li>）を取得
+            const parentLi = this.parentElement;
+            if (!parentLi || !parentLi.classList.contains('dropend')) return;
+            
+            // 兄弟要素にある他のサブメニューを一旦すべて閉じる
+            const siblings = Array.from(parentLi.parentElement.children).filter(child => child !== parentLi);
+            siblings.forEach(sibling => {
+                const otherSubmenu = sibling.querySelector('.dropdown-menu');
+                if (otherSubmenu) {
+                    otherSubmenu.classList.remove('show');
+                }
+            });
+
+            // クリックされた要素に対応するサブメニューを取得
+            const submenu = this.nextElementSibling;
+            if (submenu && submenu.classList.contains('dropdown-menu')) {
+                // デフォルトのリンク遷移や親メニューが閉じるのを防ぐ
+                e.preventDefault();
+                e.stopPropagation();
+                // サブメニューの表示/非表示を切り替える
+                submenu.classList.toggle('show');
+            }
+        });
+    });
+});
+</script>
+{# ▲▲▲【追記ここまで】▲▲▲ #}
 {% endif %}
