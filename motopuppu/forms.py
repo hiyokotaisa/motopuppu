@@ -6,12 +6,14 @@ from wtforms.validators import DataRequired, Optional, NumberRange, Length, Vali
 from datetime import date, datetime
 from wtforms_sqlalchemy.fields import QuerySelectField
 
+# ▼▼▼【ここから変更】インポートする定数名を元に戻す ▼▼▼
 from .constants import (
     FUEL_TYPE_CHOICES,
     NOTE_CATEGORIES,
     MAX_TODO_ITEMS,
     JAPANESE_CIRCUITS
 )
+# ▲▲▲【変更はここまで】▲▲▲
 from .utils.lap_time_utils import is_valid_lap_time_format
 
 
@@ -223,7 +225,6 @@ class VehicleForm(FlaskForm):
         default=0.00
     )
     
-    # ▼▼▼【ここに追加】 エラー解決のためにフィールドを再追加します ▼▼▼
     show_in_garage = BooleanField(
         'ガレージに掲載する',
         default=True
@@ -240,9 +241,7 @@ class VehicleForm(FlaskForm):
         'カスタム・メモ',
         validators=[Optional(), Length(max=2000)]
     )
-    # ▲▲▲【追加はここまで】▲▲▲
 
-    # --- ▼▼▼ 変更箇所（ここから） ▼▼▼ ---
     primary_ratio = DecimalField(
         '一次減速比',
         places=3,
@@ -255,7 +254,6 @@ class VehicleForm(FlaskForm):
     gear_ratio_4 = DecimalField('4速', places=3, validators=[Optional(), NumberRange(min=0)])
     gear_ratio_5 = DecimalField('5速', places=3, validators=[Optional(), NumberRange(min=0)])
     gear_ratio_6 = DecimalField('6速', places=3, validators=[Optional(), NumberRange(min=0)])
-    # --- ▲▲▲ 変更箇所（ここまで） ▲▲▲ ---
 
     submit = SubmitField('登録する')
 
@@ -547,11 +545,13 @@ class ActivityLogForm(FlaskForm):
         validators=[DataRequired(message='場所の種別を選択してください。')],
         default='circuit'
     )
+    # ▼▼▼【ここから変更】choicesの生成で元の変数名 `JAPANESE_CIRCUITS` を使うように戻す ▼▼▼
     circuit_name = SelectField(
         'サーキット名',
         choices=[('', '--- サーキットを選択 ---')] + [(c, c) for c in JAPANESE_CIRCUITS],
         validators=[Optional()]
     )
+    # ▲▲▲【変更はここまで】▲▲▲
     custom_location = StringField(
         '場所名（自由入力）',
         validators=[Optional(), Length(max=200)],

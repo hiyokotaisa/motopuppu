@@ -4,9 +4,9 @@ from flask import Blueprint, render_template, current_app, redirect, url_for
 from sqlalchemy import func
 
 from ..models import db, ActivityLog, SessionLog, User, Motorcycle
-# ▼▼▼ インポート文を追加 ▼▼▼
-from ..constants import TARGET_CIRCUITS
-# ▲▲▲ ここまで追加 ▲▲▲
+# ▼▼▼【ここから変更】インポートする定数を修正 ▼▼▼
+from ..constants import CIRCUITS_BY_REGION, JAPANESE_CIRCUITS
+# ▲▲▲【変更はここまで】▲▲▲
 
 # リーダーボード機能のBlueprintを作成
 leaderboard_bp = Blueprint('leaderboard', __name__, url_prefix='/leaderboard')
@@ -26,15 +26,18 @@ def format_seconds_to_time(total_seconds):
 @leaderboard_bp.route('/')
 def index():
     """リーダーボードのトップページ（サーキット選択画面）"""
-    return render_template('leaderboard/index.html', circuits=TARGET_CIRCUITS)
+    # 地方別の辞書をテンプレートに渡す
+    return render_template('leaderboard/index.html', circuits_by_region=CIRCUITS_BY_REGION)
 
 
 @leaderboard_bp.route('/<path:circuit_name>')
 def ranking(circuit_name):
     """指定されたサーキットのランキングを表示"""
+    # ▼▼▼【ここから変更】バリデーションを元のリスト名で行う ▼▼▼
     # URLに含まれるサーキット名が対象外であれば、選択ページにリダイレクト
-    if circuit_name not in TARGET_CIRCUITS:
+    if circuit_name not in JAPANESE_CIRCUITS:
         return redirect(url_for('leaderboard.index'))
+    # ▲▲▲【変更はここまで】▲▲▲
 
     # 各ユーザーの各車両ごとのベストラップを特定するためのサブクエリ
     # ウィンドウ関数を使い、ユーザーと車両の組み合わせごとにベストラップ秒でランク付けする
@@ -45,9 +48,7 @@ def ranking(circuit_name):
         ActivityLog.activity_date,
         SessionLog.best_lap_seconds,
         func.row_number().over(
-            # ▼▼▼ ここから変更 ▼▼▼
             partition_by=(ActivityLog.user_id, ActivityLog.motorcycle_id),
-            # ▲▲▲ ここまで変更 ▲▲▲
             order_by=SessionLog.best_lap_seconds.asc()
         ).label('rn')
     ).join(ActivityLog, SessionLog.activity_log_id == ActivityLog.id)\
@@ -57,12 +58,11 @@ def ranking(circuit_name):
         SessionLog.best_lap_seconds.isnot(None)
     ).subquery()
 
-    # --- ▼▼▼ ここから変更 ▼▼▼ ---
     # ランク1位（各ユーザーの自己ベスト）の記録のみを抽出
     best_laps = db.session.query(
         User.misskey_username,
         User.display_name,
-        User.avatar_url, # アバターURLを取得するよう追加
+        User.avatar_url,
         Motorcycle.name.label('motorcycle_name'),
         subquery.c.best_lap_seconds,
         subquery.c.activity_date
@@ -78,11 +78,10 @@ def ranking(circuit_name):
         rankings.append({
             'rank': i + 1,
             'username': row.display_name or row.misskey_username,
-            'avatar_url': row.avatar_url, # 辞書にアバターURLを追加
+            'avatar_url': row.avatar_url,
             'motorcycle_name': row.motorcycle_name,
             'lap_time': format_seconds_to_time(row.best_lap_seconds),
             'date': row.activity_date.strftime('%Y-%m-%d')
         })
-    # --- ▲▲▲ ここまで変更 ▲▲▲ ---
 
     return render_template('leaderboard/ranking.html', circuit_name=circuit_name, rankings=rankings)

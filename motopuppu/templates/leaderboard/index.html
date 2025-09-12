@@ -16,17 +16,87 @@
     ランキングは、ユーザーがリーダーボードへの掲載を許可したセッション記録のうち、各ユーザーのベストラップタイムを元に作成されます。
 </div>
 
-<div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
-    {% for circuit in circuits %}
-    <div class="col">
-        <div class="card h-100">
-            <div class="card-body text-center d-flex flex-column justify-content-center">
-                <h5 class="card-title"><i class="fas fa-flag-checkered me-2"></i>{{ circuit }}</h5>
-                <p class="card-text text-muted small">このサーキットのランキングを表示します。</p>
-                <a href="{{ url_for('leaderboard.ranking', circuit_name=circuit) }}" class="btn btn-primary mt-auto">ランキングを見る <i class="fas fa-arrow-right ms-1"></i></a>
+{# ▼▼▼【ここから変更】絞り込み用の検索ボックスを追加 ▼▼▼ #}
+<div class="mb-4">
+    <div class="input-group">
+        <span class="input-group-text" id="circuit-search-addon"><i class="fas fa-search"></i></span>
+        <input type="text" id="circuit-filter" class="form-control" placeholder="サーキット名で絞り込み..." aria-label="サーキット名で絞り込み" aria-describedby="circuit-search-addon">
+    </div>
+</div>
+{# ▲▲▲【変更はここまで】▲▲▲ #}
+
+
+{# ▼▼▼【ここから変更】地方ごとにグループ化して表示 ▼▼▼ #}
+<div id="circuit-list">
+{% for region, circuits in circuits_by_region.items() %}
+    <div class="region-group mb-5">
+        <h3 class="region-title border-bottom pb-2 mb-3">{{ region }}</h3>
+        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+            {% for circuit in circuits %}
+            <div class="col circuit-card">
+                <div class="card h-100">
+                    <div class="card-body text-center d-flex flex-column justify-content-center">
+                        <h5 class="card-title"><i class="fas fa-flag-checkered me-2"></i>{{ circuit }}</h5>
+                        <p class="card-text text-muted small">このサーキットのランキングを表示します。</p>
+                        <a href="{{ url_for('leaderboard.ranking', circuit_name=circuit) }}" class="btn btn-primary mt-auto stretched-link">ランキングを見る <i class="fas fa-arrow-right ms-1"></i></a>
+                    </div>
+                </div>
             </div>
+            {% endfor %}
         </div>
     </div>
-    {% endfor %}
+{% endfor %}
+    <div id="no-results-message" class="alert alert-warning d-none text-center" role="alert">
+        一致するサーキットが見つかりません。
+    </div>
 </div>
+{# ▲▲▲【変更はここまで】▲▲▲ #}
 {% endblock %}
+
+{# ▼▼▼【ここから変更】絞り込み用のJavaScriptを追加 ▼▼▼ #}
+{% block scripts %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const filterInput = document.getElementById('circuit-filter');
+    const circuitList = document.getElementById('circuit-list');
+    const noResultsMessage = document.getElementById('no-results-message');
+
+    if (filterInput && circuitList) {
+        filterInput.addEventListener('input', () => {
+            const searchTerm = filterInput.value.toLowerCase().trim();
+            let totalVisibleCards = 0;
+
+            circuitList.querySelectorAll('.region-group').forEach(regionGroup => {
+                let visibleCardsInRegion = 0;
+                regionGroup.querySelectorAll('.circuit-card').forEach(card => {
+                    const circuitName = card.querySelector('.card-title').textContent.toLowerCase();
+                    if (circuitName.includes(searchTerm)) {
+                        card.style.display = '';
+                        visibleCardsInRegion++;
+                        totalVisibleCards++;
+                    } else {
+                        card.style.display = 'none';
+                    }
+                });
+
+                // 領域内に表示されるカードがなければ、領域のタイトルも非表示にする
+                if (visibleCardsInRegion > 0) {
+                    regionGroup.style.display = '';
+                } else {
+                    regionGroup.style.display = 'none';
+                }
+            });
+            
+            // 全てのカードが非表示になったらメッセージを表示
+            if (totalVisibleCards === 0 && searchTerm) {
+                noResultsMessage.classList.remove('d-none');
+            } else {
+                noResultsMessage.classList.add('d-none');
+            }
+        });
+    }
+});
+</script>
+{% endblock %}
+{# ▲▲▲【変更はここまで】▲▲▲ #}

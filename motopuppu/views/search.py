@@ -8,6 +8,10 @@ from ..models import (
     Motorcycle, MaintenanceEntry, FuelEntry, GeneralNote, 
     ActivityLog, SessionLog, SettingSheet
 )
+# ▼▼▼【ここから変更】インポートする定数名を元に戻す ▼▼▼
+from ..constants import JAPANESE_CIRCUITS
+# ▲▲▲【変更はここまで】▲▲▲
+
 
 search_bp = Blueprint('search', __name__, url_prefix='/search')
 
@@ -22,6 +26,7 @@ def global_search():
     JSON形式で結果を返すAPIエンドポイント。
     """
     query = request.args.get('q', '').strip()
+    query_lower = query.lower()
 
     if len(query) < MIN_QUERY_LENGTH:
         return jsonify({'results': []})
@@ -65,7 +70,6 @@ def global_search():
         })
 
     # 3. 給油記録 (FuelEntry) - メモやスタンド名
-    # ▼▼▼ 修正箇所: 検索対象に車両名と油種を追加 ▼▼▼
     fuel_entries = FuelEntry.query.join(Motorcycle).filter(
         Motorcycle.user_id == current_user.id,
         or_(
@@ -75,7 +79,6 @@ def global_search():
             Motorcycle.name.ilike(search_term) 
         )
     ).order_by(FuelEntry.entry_date.desc()).limit(MAX_RESULTS_PER_CATEGORY).all()
-    # ▲▲▲ 修正ここまで ▲▲▲
     for item in fuel_entries:
         results.append({
             'category': '給油記録',
@@ -105,22 +108,37 @@ def global_search():
         Motorcycle.user_id == current_user.id,
         or_(
             ActivityLog.activity_title.ilike(search_term),
-            ActivityLog.location_name.ilike(search_term),
+            ActivityLog.circuit_name.ilike(search_term),
+            ActivityLog.custom_location.ilike(search_term),
             ActivityLog.notes.ilike(search_term)
         )
     ).order_by(ActivityLog.activity_date.desc()).limit(MAX_RESULTS_PER_CATEGORY).all()
     for item in activities:
         results.append({
             'category': '活動ログ',
-            'title': f"[{item.motorcycle.name}] {item.activity_title or item.location_name}",
+            'title': f"[{item.motorcycle.name}] {item.activity_title or item.location_name_display}",
             'url': url_for('activity.detail_activity', activity_id=item.id),
             'text': f"{item.activity_date.strftime('%Y-%m-%d')} | {item.notes[:30] if item.notes else 'メモなし'}..."
         })
 
+    # ▼▼▼【ここから変更】リーダーボード検索で元の変数名 `JAPANESE_CIRCUITS` を使うように戻す ▼▼▼
+    leaderboard_results = []
+    for circuit_name in JAPANESE_CIRCUITS:
+        if query_lower in circuit_name.lower():
+            leaderboard_results.append({
+                'category': 'リーダーボード',
+                'title': circuit_name,
+                'url': url_for('leaderboard.ranking', circuit_name=circuit_name),
+                'text': 'このサーキットのランキングを表示します。'
+            })
+        if len(leaderboard_results) >= MAX_RESULTS_PER_CATEGORY:
+            break
+    results.extend(leaderboard_results)
+    # ▲▲▲【変更はここまで】▲▲▲
+
 
     # --- 機能ショートカット ---
     
-    # 辞書でキーワードと遷移先を定義
     shortcuts = {
         '燃費': {'url': url_for('fuel.fuel_log'), 'text': '給油記録と燃費グラフを確認します'},
         '給油': {'url': url_for('fuel.fuel_log'), 'text': '給油記録と燃費グラフを確認します'},
@@ -137,8 +155,7 @@ def global_search():
     }
 
     for keyword, info in shortcuts.items():
-        if query.lower() in keyword.lower():
-            # 重複を避ける
+        if query_lower in keyword.lower():
             if not any(r['title'] == keyword for r in results if r['category'] == '機能'):
                  results.append({
                     'category': '機能',
