@@ -18,7 +18,7 @@ from ...constants import SETTING_KEY_MAP
 # ▼▼▼ インポート文を修正 ▼▼▼
 from flask_login import login_required, current_user
 # ▲▲▲ 変更ここまで ▲▲▲
-from ...models import db, Motorcycle, ActivityLog, SessionLog, SettingSheet
+from ...models import db, Motorcycle, ActivityLog, SessionLog, SettingSheet, User # Userを追加
 from ...forms import ActivityLogForm, SessionLogForm, LapTimeImportForm
 from ... import limiter
 
@@ -190,16 +190,29 @@ def delete_activity(activity_id):
 
 @activity_bp.route('/<int:activity_id>/detail', methods=['GET', 'POST'])
 @limiter.limit("30 per hour", methods=["POST"])
-@login_required # ▼▼▼ デコレータを修正 ▼▼▼
+@login_required
 def detail_activity(activity_id):
     """活動ログの詳細とセッションの追加/一覧表示"""
-    activity = ActivityLog.query.options(joinedload(ActivityLog.motorcycle))\
-                               .filter_by(id=activity_id)\
-                               .first_or_404()
-    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
-    if activity.user_id != current_user.id:
+    activity = ActivityLog.query.options(
+        joinedload(ActivityLog.motorcycle),
+        joinedload(ActivityLog.user) # ログ所有者の情報も読み込む
+    ).filter_by(id=activity_id).first_or_404()
+
+    # ▼▼▼【ここからアクセス制御ロジックを修正】▼▼▼
+    is_owner = (activity.user_id == current_user.id)
+    is_team_member = False
+    
+    if not is_owner:
+        # ログ所有者とカレントユーザーが共通のチームに所属しているかチェック
+        owner_teams = set(team.id for team in activity.user.teams)
+        current_user_teams = set(team.id for team in current_user.teams)
+        if owner_teams.intersection(current_user_teams):
+            is_team_member = True
+
+    # 所有者でもなく、チームメンバーでもない場合はアクセスを拒否
+    if not is_owner and not is_team_member:
         abort(403)
-    # ▲▲▲ 変更ここまで ▲▲▲
+    # ▲▲▲【修正はここまで】▲▲▲
         
     motorcycle = activity.motorcycle
     sessions = SessionLog.query.filter_by(activity_log_id=activity.id).order_by(SessionLog.id.asc()).all()
@@ -239,7 +252,7 @@ def detail_activity(activity_id):
     session_form.setting_sheet_id.choices = [(s.id, s.sheet_name) for s in setting_sheets]
     session_form.setting_sheet_id.choices.insert(0, (0, '--- セッティングなし ---'))
 
-    if session_form.validate_on_submit():
+    if is_owner and session_form.validate_on_submit():
         # POST時の処理 (セッション追加) は変更なし
         lap_times_list = json.loads(session_form.lap_times_json.data) if session_form.lap_times_json.data else []
         
@@ -284,7 +297,9 @@ def detail_activity(activity_id):
                            import_form=import_form,
                            setting_key_map=SETTING_KEY_MAP,
                            # 3. テンプレートに現在のソート順を渡す
-                           current_sort=sort_order)
+                           current_sort=sort_order,
+                           is_owner=is_owner # 所有者フラグをテンプレートに渡す
+                           )
     # --- ▲▲▲ 変更ここまで ▲▲▲ ---
 
 # --- Public Routes (No Login Required) ---

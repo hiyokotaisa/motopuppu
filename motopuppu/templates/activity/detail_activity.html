@@ -124,9 +124,18 @@
 </style>
 
 <div class="d-flex align-items-center mb-3">
-    <a href="{{ url_for('activity.list_activities', vehicle_id=motorcycle.id) }}" class="btn btn-sm btn-outline-secondary me-3" title="走行ログ一覧へ戻る">
-        <i class="fas fa-arrow-left"></i>
-    </a>
+    {# ▼▼▼【ここから修正】チームダッシュボードからの遷移を考慮した戻るボタン ▼▼▼ #}
+    {% set referer = request.referrer %}
+    {% if referer and 'teams' in referer %}
+        <a href="{{ referer }}" class="btn btn-sm btn-outline-secondary me-3" title="チームダッシュボードへ戻る">
+            <i class="fas fa-arrow-left"></i>
+        </a>
+    {% else %}
+        <a href="{{ url_for('activity.list_activities', vehicle_id=motorcycle.id) }}" class="btn btn-sm btn-outline-secondary me-3" title="走行ログ一覧へ戻る">
+            <i class="fas fa-arrow-left"></i>
+        </a>
+    {% endif %}
+    {# ▲▲▲【修正はここまで】▲▲▲ #}
     <div>
         <h2 class="mb-0">走行ログ詳細</h2>
         <span class="text-muted">{{ motorcycle.name }}</span>
@@ -148,8 +157,17 @@
 {# --- 活動の基本情報 --- #}
 <div class="card mb-4">
     <div class="card-header d-flex justify-content-between align-items-center">
-        <strong>{{ activity.activity_title or activity.location_name }}</strong>
+        <div>
+            <strong>{{ activity.activity_title or activity.location_name }}</strong>
+            {# チームメンバー閲覧時に誰のログか分かるように追記 #}
+            {% if not is_owner %}
+            <span class="ms-2 badge bg-secondary">{{ activity.user.display_name or activity.user.misskey_username }}</span>
+            {% endif %}
+        </div>
+        {# 所有者のみ編集ボタンを表示 #}
+        {% if is_owner %}
         <a href="{{ url_for('activity.edit_activity', activity_id=activity.id) }}" class="btn btn-sm btn-outline-secondary"><i class="fas fa-edit me-1"></i> 活動情報を編集</a>
+        {% endif %}
     </div>
     <div class="card-body">
         <div class="row border-bottom pb-3 mb-3">
@@ -186,7 +204,7 @@
 {# --- セッション記録 --- #}
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h3 class="mb-0">セッション記録</h3>
-    {% if activity.location_type == 'circuit' %}
+    {% if is_owner and activity.location_type == 'circuit' %}
     <a href="{{ url_for('activity.best_settings_finder', vehicle_id=motorcycle.id) }}" class="btn btn-warning">
         <i class="fas fa-trophy me-1"></i> 各サーキットのベストセッティング
     </a>
@@ -195,6 +213,7 @@
 
 
 {# --- 新しいセッションを追加するフォーム (アコーディオン) --- #}
+{% if is_owner %}
 <div class="accordion mb-4" id="addSessionAccordion">
     <div class="accordion-item">
         <h2 class="accordion-header" id="headingOne">
@@ -279,18 +298,20 @@
         </div>
     </div>
 </div>
+{% endif %}
 
 
 {# --- 既存セッションの一覧 --- #}
 {% if sessions %}
+{% if is_owner %}
 <form id="compare-form" method="GET" action="{{ url_for('activity.compare_sessions') }}">
     <input type="hidden" name="vehicle_id" value="{{ motorcycle.id }}">
-
     <div class="d-flex justify-content-end mb-3">
         <button type="submit" id="compare-button" class="btn btn-info" disabled>
             <i class="fas fa-balance-scale-right me-1"></i> 選択したセッションを比較 (<span id="selected-count">0</span>)
         </button>
     </div>
+{% endif %}
     
     <div class="row">
         {% for session in sessions %}
@@ -298,7 +319,7 @@
             <div class="card h-100">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <div class="form-check">
-                        <input class="form-check-input session-checkbox" type="checkbox" name="session_ids" value="{{ session.id }}" id="sessionCheck{{ session.id }}">
+                        <input class="form-check-input session-checkbox" type="checkbox" name="session_ids" value="{{ session.id }}" id="sessionCheck{{ session.id }}" {% if not is_owner %}disabled{% endif %}>
                         <label class="form-check-label" for="sessionCheck{{ session.id }}">
                             <h5 class="mb-0 d-inline">{{ session.session_name }}</h5>
                         </label>
@@ -314,6 +335,7 @@
                             <i class="fas fa-route fa-fw"></i>
                         </button>
                         {% endif %}
+                        {% if is_owner %}
                         <button type="button" class="btn btn-sm btn-outline-success py-0 px-1 me-1" 
                                 data-bs-toggle="modal" data-bs-target="#importCsvModal-{{ session.id }}" title="CSVからインポート">
                             <i class="fas fa-file-csv fa-fw"></i>
@@ -327,10 +349,11 @@
                                 title="削除">
                             <i class="fas fa-trash fa-fw"></i>
                         </button>
+                        {% endif %}
                     </div>
                 </div>
                 <div class="card-body">
-                    {% if session.gps_tracks and session.gps_tracks.laps %}
+                    {% if is_owner and session.gps_tracks and session.gps_tracks.laps %}
                     <div class="border-bottom pb-3 mb-3">
                         <div class="form-check form-switch mb-2">
                             <input class="form-check-input share-session-switch" type="checkbox" role="switch" 
@@ -495,7 +518,9 @@
         </div>
         {% endfor %}
     </div>
+{% if is_owner %}
 </form>
+{% endif %}
 
 <div class="modal fade" id="mapModal" tabindex="-1" aria-labelledby="mapModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-xl">
@@ -566,6 +591,7 @@
 </div>
 
 
+{% if is_owner %}
 {% for session in sessions %}
     {# インポート用モーダル #}
     <div class="modal fade" id="importCsvModal-{{ session.id }}" tabindex="-1" aria-labelledby="importCsvModalLabel-{{ session.id }}" aria-hidden="true">
@@ -619,6 +645,7 @@
       </div>
     </div>
 {% endfor %}
+{% endif %}
 
 {% else %}
 <div class="alert alert-info">

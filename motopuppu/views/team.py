@@ -8,7 +8,8 @@ from sqlalchemy import func
 import uuid
 
 from .. import db, limiter
-from ..models import Team, User, ActivityLog, SessionLog
+# Motorcycle モデルをインポート
+from ..models import Team, User, ActivityLog, SessionLog, Motorcycle
 from ..forms import TeamForm
 from ..utils.lap_time_utils import format_seconds_to_time
 
@@ -129,6 +130,7 @@ def dashboard(team_id):
 
     member_ids = [member.id for member in team.members]
 
+    # --- ベストタイムランキングの処理 (変更なし) ---
     best_lap_subquery = db.session.query(
         ActivityLog.user_id,
         ActivityLog.circuit_name,
@@ -166,12 +168,25 @@ def dashboard(team_id):
 
     members = team.members.order_by(User.display_name.asc()).all()
     
+    # ▼▼▼【ここから追記】チームメンバーの最新活動ログを取得 ▼▼▼
+    recent_activities = ActivityLog.query.options(
+        joinedload(ActivityLog.user),
+        joinedload(ActivityLog.motorcycle)
+    ).filter(
+        ActivityLog.user_id.in_(member_ids)
+    ).order_by(
+        ActivityLog.activity_date.desc(),
+        ActivityLog.created_at.desc()
+    ).limit(15).all()
+    # ▲▲▲【追記はここまで】▲▲▲
+
     return render_template(
         'team/team_dashboard.html',
         team=team,
         members=members,
         circuit_data=circuit_data,
-        format_seconds_to_time=format_seconds_to_time
+        format_seconds_to_time=format_seconds_to_time,
+        recent_activities=recent_activities  # テンプレートに活動ログを渡す
     )
 
 
