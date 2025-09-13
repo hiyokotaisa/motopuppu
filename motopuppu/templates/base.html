@@ -83,6 +83,9 @@
           | <a href="{{ url_for('main.privacy_policy') }}">プライバシーポリシー</a>
           | <a href="{{ url_for('main.terms_of_service') }}">利用規約</a>
           | <a href="{{ url_for('help.index') }}">ヘルプ</a>
+          {# ▼▼▼ ここから追記 ▼▼▼ #}
+          | <a href="https://www.amazon.jp/hz/wishlist/ls/XAG2DQB43S80?ref_=wl_share" target="_blank" rel="noopener noreferrer"><i class="fas fa-gift fa-fw me-1"></i>もとぷっぷーを支援する</a>
+          {# ▲▲▲ 追記ここまで ▲▲▲ #}
         </span>
         {% if g.git_commit_hash %}
           <span class="ms-3 text-muted small">{{ g.git_commit_hash[:7] }}</span>
