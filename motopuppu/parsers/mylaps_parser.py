@@ -3,7 +3,7 @@ import csv
 from .base_parser import BaseLapTimeParser
 
 class MylapsParser(BaseLapTimeParser):
-    def parse(self, file_stream) -> list[str]:
+    def parse(self, file_stream) -> dict:
         laps = []
         reader = csv.reader(file_stream)
         
@@ -18,7 +18,6 @@ class MylapsParser(BaseLapTimeParser):
             try:
                 lap_time_str = row[5].strip()
                 if ':' in lap_time_str:
-                    # ▼▼▼ ここから変更 ▼▼▼
                     parts = lap_time_str.split(':')
                     normalized_lap_time = lap_time_str
 
@@ -34,8 +33,8 @@ class MylapsParser(BaseLapTimeParser):
                             continue
                     
                     laps.append(normalized_lap_time)
-                    # ▲▲▲ 変更ここまで ▲▲▲
             except IndexError:
                 continue
 
-        return laps
+        # GPSデータは存在しないため、空の辞書を返す
+        return {'lap_times': laps, 'gps_tracks': {}}

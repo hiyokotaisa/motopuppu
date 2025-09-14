@@ -3,14 +3,14 @@ import csv
 from .base_parser import BaseLapTimeParser
 
 class ZiixParser(BaseLapTimeParser):
-    def parse(self, file_stream) -> list[str]:
+    def parse(self, file_stream) -> dict:
         laps = []
         reader = csv.reader(file_stream)
         try:
             next(reader)  # ヘッダー行 "LAP, LAP TIME,..." をスキップ
             next(reader)  # BEST行 "BEST,..." をスキップ
         except StopIteration:
-            return [] # 空ファイルまたはヘッダーのみのファイル
+            return {'lap_times': [], 'gps_tracks': {}} # 空ファイルの場合は空の辞書を返す
 
         for i, row in enumerate(reader):
             if i >= self.MAX_LAPS:
@@ -20,13 +20,11 @@ class ZiixParser(BaseLapTimeParser):
                 continue
             
             try:
-                # ▼▼▼ ここから変更 ▼▼▼
                 raw_lap_time = row[1].strip()
 
                 # 0秒のラップタイムは無視する
                 if raw_lap_time == "0'00.000":
                     continue
-                # ▲▲▲ 変更ここまで ▲▲▲
 
                 # '0'41.878' という形式を '0:41.878' に正規化
                 lap_time_str = raw_lap_time.replace("'", ":", 1)
@@ -34,4 +32,6 @@ class ZiixParser(BaseLapTimeParser):
             except IndexError:
                 # データが欠損している行は無視
                 continue
-        return laps
+        
+        # GPSデータは存在しないため、空の辞書を返す
+        return {'lap_times': laps, 'gps_tracks': {}}

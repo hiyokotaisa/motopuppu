@@ -6,9 +6,9 @@ class BaseLapTimeParser(ABC):
     MAX_LAPS = 5000 # 1セッションあたりの最大ラップ数
 
     @abstractmethod
-    def parse(self, file_stream) -> list[str]:
+    def parse(self, file_stream) -> dict:
         """
-        ファイルストリームをパースし、ラップタイムの文字列リストを返す。
-        例: ["1:41.878", "1:42.765"]
+        ファイルストリームをパースし、ラップタイムとGPS軌跡を含む辞書を返す。
+        例: {'lap_times': ["1:41.878"], 'gps_tracks': {1: [{'lat':..., 'lng':...}]}}
         """
         pass
