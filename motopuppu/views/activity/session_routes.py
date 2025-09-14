@@ -23,7 +23,6 @@ from .activity_routes import get_motorcycle_or_404
 from flask_login import login_required, current_user
 from ...models import db, ActivityLog, SessionLog
 from ...forms import SessionLogForm, LapTimeImportForm
-# ▼▼▼ PARSERSをインポート ▼▼▼
 from ...parsers import get_parser, PARSERS
 from ... import limiter
 
@@ -222,7 +221,6 @@ def best_settings_finder(vehicle_id):
 @activity_bp.route('/session/<int:session_id>/gps_data', methods=['GET'])
 @login_required
 def get_gps_data(session_id):
-    """セッションのGPSデータとギア計算用の車両スペックをJSONで返す"""
     session = SessionLog.query.options(
         joinedload(SessionLog.activity).joinedload(ActivityLog.user),
         joinedload(SessionLog.activity).joinedload(ActivityLog.motorcycle),
@@ -364,12 +362,7 @@ def _find_best_parser_type(file_storage, excluded_type):
     """
     アップロードされたファイルを各パーサーで試し、最適な形式を推測する。
     """
-    PARSER_NAMES = {
-        'simple_csv': '手入力 / シンプルCSV',
-        'ziix': 'ZiiX',
-        'mylaps': 'MYLAPS(Speedhive)',
-        'drogger': 'Drogger'
-    }
+    PARSER_NAMES = dict(LapTimeImportForm().device_type.choices)
 
     for device_type, parser_class in PARSERS.items():
         if device_type == excluded_type:
@@ -382,12 +375,12 @@ def _find_best_parser_type(file_storage, excluded_type):
                 file_stream = file_storage.stream
             else:
                 encoding = 'shift_jis' if device_type == 'ziix' else 'utf-8'
-                file_stream = io.TextIOWrapper(file_storage.stream, encoding=encoding, errors='replace')
-
-            parser = parser_class()
-            if parser.probe(file_stream):
-                return PARSER_NAMES.get(device_type, device_type)
-        except Exception:
+                # TextIOWrapperはコンテキストマネージャー内で使い、ストリームを自動で閉じないようにする
+                with io.TextIOWrapper(file_storage.stream, encoding=encoding, errors='replace', newline='', closefd=False) as text_stream:
+                    if parser_class().probe(text_stream):
+                        return PARSER_NAMES.get(device_type, device_type)
+        except Exception as e:
+            current_app.logger.debug(f"Probe for {device_type} failed: {e}")
             continue
             
     return None
@@ -405,6 +398,10 @@ def import_laps(session_id):
         remove_outliers = form.remove_outliers.data
         threshold = form.outlier_threshold.data
         
+        parsed_successfully = False
+        lap_times_list = []
+        parsed_data = {}
+
         try:
             parser = get_parser(device_type)
             
@@ -413,25 +410,36 @@ def import_laps(session_id):
             else:
                 encoding = 'shift_jis' if device_type == 'ziix' else 'utf-8'
                 file_stream = io.TextIOWrapper(file_storage.stream, encoding=encoding, errors='replace')
-
+            
             parsed_data = parser.parse(file_stream)
             lap_times_list = parsed_data.get('lap_times', [])
+            
+            if lap_times_list:
+                # 形式検証もtryブロック内で行う
+                for lap in lap_times_list:
+                    if not is_valid_lap_time_format(lap):
+                        # 検証に失敗したら意図的にエラーを発生させ、提案ロジックへ移行
+                        raise ValueError(f"Invalid lap time format detected: {lap}")
+                parsed_successfully = True
+        
+        except Exception as e:
+            current_app.logger.warning(f"User-selected parser '{device_type}' failed to parse or validate the file: {e}")
+            lap_times_list = [] # 念のためクリア
+            parsed_successfully = False
 
-            if not lap_times_list:
-                suggested_format = _find_best_parser_type(file_storage, device_type)
-                if suggested_format:
-                    flash(f'選択された形式ではラップタイムを読み込めませんでした。このファイルは「{suggested_format}」形式ではありませんか？', 'warning')
-                else:
-                    flash('CSVファイルからラップタイムを読み込めませんでした。ファイルが空か、形式が異なっている可能性があります。', 'warning')
-                return redirect(url_for('activity.detail_activity', activity_id=session.activity_log_id))
+        # --- パース失敗時の提案ロジック ---
+        if not parsed_successfully:
+            suggested_format = _find_best_parser_type(file_storage, device_type)
+            if suggested_format:
+                display_name_failed = dict(form.device_type.choices).get(device_type, device_type)
+                flash(f'「{display_name_failed}」形式では読み込めませんでした。このファイルは「{suggested_format}」形式ではありませんか？', 'warning')
+            else:
+                flash('CSVファイルからラップタイムを読み込めませんでした。ファイルが空か、サポートされていない形式の可能性があります。', 'warning')
+            return redirect(url_for('activity.detail_activity', activity_id=session.activity_log_id))
 
+        # --- パース成功後の処理 ---
+        try:
             gps_tracks_dict = parsed_data.get('gps_tracks', {})
-
-            for lap in lap_times_list:
-                if not is_valid_lap_time_format(lap):
-                    flash(f"CSVをパースしましたが、ラップタイムの形式が無効です (検出された値: '{lap}')。正しい機種を選択しているか確認してください。", 'danger')
-                    return redirect(url_for('activity.detail_activity', activity_id=session.activity_log_id))
-
             original_lap_count = len(lap_times_list)
             laps_removed_count = 0
             
@@ -458,15 +466,12 @@ def import_laps(session_id):
             if laps_removed_count > 0:
                 success_message += f' ({laps_removed_count}件の異常なラップを除外しました)'
             flash(success_message, 'success')
-
-        except ValueError as e:
-            db.session.rollback()
-            flash(str(e), 'danger')
+        
         except Exception as e:
             db.session.rollback()
-            current_app.logger.error(f"Lap time import failed for session {session_id}: {e}", exc_info=True)
-            flash(f'インポートに失敗しました。ファイルのエンコーディングや形式を確認してください。', 'danger')
-            
+            current_app.logger.error(f"Error processing lap data for session {session_id}: {e}", exc_info=True)
+            flash('ラップデータの処理中にエラーが発生しました。', 'danger')
+
     else:
         for field, errors in form.errors.items():
             for error in errors:
