@@ -12,3 +12,11 @@ class BaseLapTimeParser(ABC):
         例: {'lap_times': ["1:41.878"], 'gps_tracks': {1: [{'lat':..., 'lng':...}]}}
         """
         pass
+
+    @abstractmethod
+    def probe(self, file_stream) -> bool:
+        """
+        ファイルストリームがこのパーサーの形式と一致するかどうかを簡易的に判定する。
+        ヘッダーや最初の数行をチェックし、True/Falseを返す。
+        """
+        pass

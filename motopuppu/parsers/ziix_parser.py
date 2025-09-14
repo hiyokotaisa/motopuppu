@@ -1,9 +1,13 @@
 # motopuppu/parsers/ziix_parser.py
 import csv
 from .base_parser import BaseLapTimeParser
+import io
 
 class ZiixParser(BaseLapTimeParser):
     def parse(self, file_stream) -> dict:
+        if isinstance(file_stream, io.TextIOWrapper):
+            file_stream.seek(0)
+        
         laps = []
         reader = csv.reader(file_stream)
         try:
@@ -21,17 +25,21 @@ class ZiixParser(BaseLapTimeParser):
             
             try:
                 raw_lap_time = row[1].strip()
-
-                # 0秒のラップタイムは無視する
                 if raw_lap_time == "0'00.000":
                     continue
-
-                # '0'41.878' という形式を '0:41.878' に正規化
                 lap_time_str = raw_lap_time.replace("'", ":", 1)
                 laps.append(lap_time_str)
             except IndexError:
-                # データが欠損している行は無視
                 continue
         
-        # GPSデータは存在しないため、空の辞書を返す
         return {'lap_times': laps, 'gps_tracks': {}}
+
+    def probe(self, file_stream) -> bool:
+        if isinstance(file_stream, io.TextIOWrapper):
+            file_stream.seek(0)
+            
+        try:
+            header_line = file_stream.readline().upper()
+            return '"LAP"' in header_line and '"LAP TIME"' in header_line
+        except (IOError, UnicodeDecodeError):
+            return False

@@ -19,13 +19,12 @@ from ...utils.lap_time_utils import (
 )
 from ...constants import SETTING_KEY_MAP
 
-# ▼▼▼ インポート文を修正 ▼▼▼
 from .activity_routes import get_motorcycle_or_404
 from flask_login import login_required, current_user
-# ▲▲▲ 変更ここまで ▲▲▲
 from ...models import db, ActivityLog, SessionLog
 from ...forms import SessionLogForm, LapTimeImportForm
-from ...parsers import get_parser
+# ▼▼▼ PARSERSをインポート ▼▼▼
+from ...parsers import get_parser, PARSERS
 from ... import limiter
 
 
@@ -144,7 +143,7 @@ def _prepare_comparison_data(sessions):
 
 
 @activity_bp.route('/compare', methods=['GET'])
-@login_required # ▼▼▼ デコレータを修正 ▼▼▼
+@login_required
 def compare_sessions():
     vehicle_id = request.args.get('vehicle_id', type=int)
     session_ids = request.args.getlist('session_ids', type=int)
@@ -183,7 +182,7 @@ def compare_sessions():
                            setting_key_map=SETTING_KEY_MAP)
 
 @activity_bp.route('/<int:vehicle_id>/best_settings')
-@login_required # ▼▼▼ デコレータを修正 ▼▼▼
+@login_required
 def best_settings_finder(vehicle_id):
     motorcycle = get_motorcycle_or_404(vehicle_id)
 
@@ -224,7 +223,6 @@ def best_settings_finder(vehicle_id):
 @login_required
 def get_gps_data(session_id):
     """セッションのGPSデータとギア計算用の車両スペックをJSONで返す"""
-    # ▼▼▼【ここから権限チェックロジックを修正】▼▼▼
     session = SessionLog.query.options(
         joinedload(SessionLog.activity).joinedload(ActivityLog.user),
         joinedload(SessionLog.activity).joinedload(ActivityLog.motorcycle),
@@ -241,16 +239,14 @@ def get_gps_data(session_id):
             is_team_member = True
     
     if not is_owner and not is_team_member:
-        abort(403) # 所有者でもチームメンバーでもなければアクセスを拒否
+        abort(403)
 
     if not session.gps_tracks or not session.gps_tracks.get('laps'):
         return jsonify({'error': 'No GPS data available'}), 404
-    # ▲▲▲【修正はここまで】▲▲▲
 
     motorcycle = session.activity.motorcycle
     setting_sheet = session.setting_sheet
     
-    # 車両スペックを収集
     vehicle_specs = {
         'primary_ratio': float(motorcycle.primary_ratio) if motorcycle.primary_ratio else None,
         'gear_ratios': {k: float(v) for k, v in motorcycle.gear_ratios.items()} if motorcycle.gear_ratios else None,
@@ -364,6 +360,38 @@ def delete_session(session_id):
     return redirect(url_for('activity.detail_activity', activity_id=activity_id))
 
 
+def _find_best_parser_type(file_storage, excluded_type):
+    """
+    アップロードされたファイルを各パーサーで試し、最適な形式を推測する。
+    """
+    PARSER_NAMES = {
+        'simple_csv': '手入力 / シンプルCSV',
+        'ziix': 'ZiiX',
+        'mylaps': 'MYLAPS(Speedhive)',
+        'drogger': 'Drogger'
+    }
+
+    for device_type, parser_class in PARSERS.items():
+        if device_type == excluded_type:
+            continue
+        
+        try:
+            file_storage.seek(0)
+            
+            if device_type == 'drogger':
+                file_stream = file_storage.stream
+            else:
+                encoding = 'shift_jis' if device_type == 'ziix' else 'utf-8'
+                file_stream = io.TextIOWrapper(file_storage.stream, encoding=encoding, errors='replace')
+
+            parser = parser_class()
+            if parser.probe(file_stream):
+                return PARSER_NAMES.get(device_type, device_type)
+        except Exception:
+            continue
+            
+    return None
+
 @activity_bp.route('/session/<int:session_id>/import_laps', methods=['POST'])
 @limiter.limit("10 per hour")
 @login_required
@@ -376,7 +404,7 @@ def import_laps(session_id):
         device_type = form.device_type.data
         remove_outliers = form.remove_outliers.data
         threshold = form.outlier_threshold.data
-
+        
         try:
             parser = get_parser(device_type)
             
@@ -385,14 +413,19 @@ def import_laps(session_id):
             else:
                 encoding = 'shift_jis' if device_type == 'ziix' else 'utf-8'
                 file_stream = io.TextIOWrapper(file_storage.stream, encoding=encoding, errors='replace')
-            
+
             parsed_data = parser.parse(file_stream)
             lap_times_list = parsed_data.get('lap_times', [])
-            gps_tracks_dict = parsed_data.get('gps_tracks', {})
 
             if not lap_times_list:
-                flash('CSVファイルからラップタイムを読み込めませんでした。ファイルが空か、形式が異なっている可能性があります。', 'warning')
+                suggested_format = _find_best_parser_type(file_storage, device_type)
+                if suggested_format:
+                    flash(f'選択された形式ではラップタイムを読み込めませんでした。このファイルは「{suggested_format}」形式ではありませんか？', 'warning')
+                else:
+                    flash('CSVファイルからラップタイムを読み込めませんでした。ファイルが空か、形式が異なっている可能性があります。', 'warning')
                 return redirect(url_for('activity.detail_activity', activity_id=session.activity_log_id))
+
+            gps_tracks_dict = parsed_data.get('gps_tracks', {})
 
             for lap in lap_times_list:
                 if not is_valid_lap_time_format(lap):
@@ -410,19 +443,14 @@ def import_laps(session_id):
             session.lap_times = lap_times_list
             _calculate_and_set_best_lap(session, lap_times_list)
 
-            # GPSデータをDB保存用の形式に整形
             if gps_tracks_dict:
                 laps_data_for_db = []
-                # 辞書のキー（ラップ番号）でソートして順序を保証
                 for lap_num in sorted(gps_tracks_dict.keys()):
                     track_points = gps_tracks_dict[lap_num]
-                    laps_data_for_db.append({
-                        "lap_number": lap_num,
-                        "track": track_points
-                    })
+                    laps_data_for_db.append({"lap_number": lap_num, "track": track_points})
                 session.gps_tracks = {"laps": laps_data_for_db} if laps_data_for_db else None
             else:
-                session.gps_tracks = None # GPSデータがない場合はNoneに設定
+                session.gps_tracks = None
 
             db.session.commit()
             
@@ -438,6 +466,7 @@ def import_laps(session_id):
             db.session.rollback()
             current_app.logger.error(f"Lap time import failed for session {session_id}: {e}", exc_info=True)
             flash(f'インポートに失敗しました。ファイルのエンコーディングや形式を確認してください。', 'danger')
+            
     else:
         for field, errors in form.errors.items():
             for error in errors:
@@ -457,10 +486,7 @@ def toggle_share_session(session_id):
     ).first_or_404()
 
     try:
-        # 公開状態を反転させる
         session.is_public = not session.is_public
-
-        # 初めて公開する場合、共有トークンを生成する
         if session.is_public and not session.public_share_token:
             session.public_share_token = str(uuid.uuid4())
         
