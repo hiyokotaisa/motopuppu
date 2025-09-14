@@ -44,12 +44,15 @@ class MylapsParser(BaseLapTimeParser):
         reader = csv.reader(file_stream)
         checked_rows = 0
         
-        # 最初の10行をチェック
+        # H:M:S.f と M:S.f の両形式に対応
+        lap_time_pattern = re.compile(r"^(?:\d{1,2}:)?\d{1,3}:\d{2}\.\d+$")
+        
+        # 最初の15行をチェック
         for i, row in enumerate(reader):
-            if i > 10: break
+            if i > 15: break
             if len(row) > 5:
-                # 6列目のデータが "数字:数字.数字" の形式に一致するか
-                if re.match(r"^\d{1,3}:\d{2}\.\d+$", row[5].strip()):
+                # 6列目のデータがラップタイム形式に一致するか
+                if lap_time_pattern.match(row[5].strip()):
                     checked_rows += 1
         
         # 2行以上一致すればMYLAPS形式と判断

@@ -362,7 +362,6 @@ def _find_best_parser_type(file_storage, excluded_type):
     """
     アップロードされたファイルを各パーサーで試し、最適な形式を推測する。
     """
-    # フォームの選択肢から表示名を取得できるように辞書を作成
     PARSER_NAMES = dict(LapTimeImportForm().device_type.choices)
 
     for device_type, parser_class in PARSERS.items():
@@ -370,22 +369,20 @@ def _find_best_parser_type(file_storage, excluded_type):
             continue
         
         try:
-            # 各試行の前に必ずストリームの先頭に戻す
             file_storage.seek(0)
+            
+            current_app.logger.debug(f"Probing with parser: {device_type}")
             
             parser = parser_class()
             
             if device_type == 'drogger':
-                # Droggerはバイナリファイルを直接読み取る
                 if parser.probe(file_storage.stream):
                      return PARSER_NAMES.get(device_type, device_type)
             else:
-                # 他のパーサーはテキストとして読み取る
                 encoding = 'shift_jis' if device_type == 'ziix' else 'utf-8'
-                # TextIOWrapperから不正な引数 'closefd' を削除
                 text_stream = io.TextIOWrapper(file_storage.stream, encoding=encoding, errors='replace', newline='')
                 if parser.probe(text_stream):
-                    text_stream.detach() # 基のストリームを閉じないようにする
+                    text_stream.detach()
                     return PARSER_NAMES.get(device_type, device_type)
                 text_stream.detach()
 
