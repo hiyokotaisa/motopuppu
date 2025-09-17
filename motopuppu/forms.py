@@ -254,6 +254,9 @@ class VehicleForm(FlaskForm):
     gear_ratio_4 = DecimalField('4速', places=3, validators=[Optional(), NumberRange(min=0)])
     gear_ratio_5 = DecimalField('5速', places=3, validators=[Optional(), NumberRange(min=0)])
     gear_ratio_6 = DecimalField('6速', places=3, validators=[Optional(), NumberRange(min=0)])
+    # ▼▼▼【ここから追記】▼▼▼
+    gear_ratio_7 = DecimalField('7速', places=3, validators=[Optional(), NumberRange(min=0)])
+    # ▲▲▲【追記はここまで】▲▲▲
 
     submit = SubmitField('登録する')
 

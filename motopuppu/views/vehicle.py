@@ -90,7 +90,7 @@ def add_vehicle():
         new_motorcycle.primary_ratio = form.primary_ratio.data
 
         ratios = {}
-        for i in range(1, 7):
+        for i in range(1, 8): # 7速まで対応
             field_name = f'gear_ratio_{i}'
             field = getattr(form, field_name)
             if field.data is not None:
@@ -170,7 +170,7 @@ def add_vehicle():
 @login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def edit_vehicle(vehicle_id):
     # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
-    motorcycle = Motorcycle.query.filter_by(id=vehicle_id, user_id=current_user.id).first_or_404()
+    motorcycle = Motorcycle.query.filter_by(id=vehicle_id, user_id=current_user.id).first_or_444()
     # ▲▲▲ 変更ここまで ▲▲▲
     original_is_racer = motorcycle.is_racer
     form = VehicleForm(obj=motorcycle)
@@ -194,7 +194,7 @@ def edit_vehicle(vehicle_id):
         # --- ▼▼▼ 変更箇所（ここから） ▼▼▼ ---
         # DBのJSONからフォームの各ギア比フィールドに値を設定
         if motorcycle.gear_ratios:
-            for i in range(1, 7):
+            for i in range(1, 8): # 7速まで対応
                 field_name = f'gear_ratio_{i}'
                 field = getattr(form, field_name)
                 if str(i) in motorcycle.gear_ratios:
@@ -221,7 +221,7 @@ def edit_vehicle(vehicle_id):
         motorcycle.primary_ratio = form.primary_ratio.data
 
         ratios = {}
-        for i in range(1, 7):
+        for i in range(1, 8): # 7速まで対応
             field_name = f'gear_ratio_{i}'
             field = getattr(form, field_name)
             if field.data is not None:
@@ -260,7 +260,7 @@ def edit_vehicle(vehicle_id):
 @login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def delete_vehicle(vehicle_id):
     # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
-    motorcycle = Motorcycle.query.filter_by(id=vehicle_id, user_id=current_user.id).first_or_404()
+    motorcycle = Motorcycle.query.filter_by(id=vehicle_id, user_id=current_user.id).first_or_444()
     # ▲▲▲ 変更ここまで ▲▲▲
     try:
         was_default = motorcycle.is_default
@@ -287,7 +287,7 @@ def delete_vehicle(vehicle_id):
 @login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def set_default_vehicle(vehicle_id):
     # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
-    target_vehicle = Motorcycle.query.filter_by(id=vehicle_id, user_id=current_user.id).first_or_404()
+    target_vehicle = Motorcycle.query.filter_by(id=vehicle_id, user_id=current_user.id).first_or_444()
     try:
         Motorcycle.query.filter(Motorcycle.user_id == current_user.id, Motorcycle.id != vehicle_id).update({'is_default': False}, synchronize_session='fetch')
         target_vehicle.is_default = True
@@ -305,7 +305,7 @@ def set_default_vehicle(vehicle_id):
 @login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def add_odo_reset_log(vehicle_id):
     # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
-    motorcycle = Motorcycle.query.filter_by(id=vehicle_id, user_id=current_user.id).first_or_404()
+    motorcycle = Motorcycle.query.filter_by(id=vehicle_id, user_id=current_user.id).first_or_444()
     # ▲▲▲ 変更ここまで ▲▲▲
     if motorcycle.is_racer:
         flash('レーサー車両にはODOメーターリセット機能はご利用いただけません。', 'warning')
@@ -366,7 +366,7 @@ def delete_odo_reset_log(log_id):
     log_to_delete = db.session.query(OdoResetLog).join(Motorcycle).filter(
         OdoResetLog.id == log_id,
         Motorcycle.user_id == current_user.id
-    ).first_or_404()
+    ).first_or_444()
     # ▲▲▲ 変更ここまで ▲▲▲
     motorcycle = log_to_delete.motorcycle
     if motorcycle.is_racer:
@@ -394,7 +394,7 @@ def edit_odo_reset_log(log_id):
     log_to_edit = db.session.query(OdoResetLog).join(Motorcycle).filter(
         OdoResetLog.id == log_id,
         Motorcycle.user_id == current_user.id
-    ).first_or_404()
+    ).first_or_444()
     # ▲▲▲ 変更ここまで ▲▲▲
     motorcycle = log_to_edit.motorcycle
     if motorcycle.is_racer:
@@ -437,7 +437,7 @@ def edit_odo_reset_log(log_id):
 @login_required
 def toggle_garage_display(vehicle_id):
     """車両のガレージ表示/非表示を切り替えるAPI"""
-    motorcycle = Motorcycle.query.filter_by(id=vehicle_id, user_id=current_user.id).first_or_404()
+    motorcycle = Motorcycle.query.filter_by(id=vehicle_id, user_id=current_user.id).first_or_444()
     try:
         motorcycle.show_in_garage = not motorcycle.show_in_garage
         db.session.commit()

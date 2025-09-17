@@ -145,6 +145,13 @@
                 {{ form.gear_ratio_6(class="form-control form-control-sm" + (" is-invalid" if form.gear_ratio_6.errors else "")) }}
                 {% if form.gear_ratio_6.errors %}<div class="invalid-feedback">!</div>{% endif %}
             </div>
+            {# ▼▼▼【ここから追記】▼▼▼ #}
+            <div class="col-md-2 col-4">
+                {{ form.gear_ratio_7.label(class="form-label small") }}
+                {{ form.gear_ratio_7(class="form-control form-control-sm" + (" is-invalid" if form.gear_ratio_7.errors else "")) }}
+                {% if form.gear_ratio_7.errors %}<div class="invalid-feedback">!</div>{% endif %}
+            </div>
+            {# ▲▲▲【追記はここまで】▲▲▲ #}
         </div>
     </div>
     {{ form.submit(class="btn btn-primary mt-3", value=('登録する' if form_action == 'add' else '更新する')) }}

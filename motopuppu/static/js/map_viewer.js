@@ -385,16 +385,22 @@ window.motopuppuMapViewer = {
                 
                 const labels = currentLapData.track.map(p => ((p.runtime || 0) - lapStartTime).toFixed(2));
                 
-                // ▼▼▼【ここからが今回の修正箇所です】▼▼▼
                 const gearDisplayContainer = container.querySelector('#gear-display-container');
                 const gearChartCanvas = document.getElementById('gearChart');
 
                 if (canEstimateGear) {
+                    // ▼▼▼【ここから変更】ギア数を動的に取得してY軸の最大値を設定 ▼▼▼
+                    const gearKeys = Object.keys(vehicleSpecs.gear_ratios);
+                    const maxGear = gearKeys.length > 0
+                        ? Math.max(...gearKeys.map(Number))
+                        : 6; // データがない場合のフォールバック値
+                    
                     charts.gear = setupChart('gearChart', '使用ギア', 'rgba(255, 159, 64, 1)', 'step', {
                          ticks: { stepSize: 1, callback: function(value) { if (Number.isInteger(value)) { return value; } } },
                          suggestedMin: 1,
-                         suggestedMax: 6
+                         suggestedMax: maxGear
                     });
+                    // ▲▲▲【変更はここまで】▲▲▲
                     
                     const estimatedGears = currentLapData.track.map(p => estimateGear(p, vehicleSpecs));
                     smoothedGears = applySmoothingFilter(estimatedGears, 5);
@@ -411,7 +417,6 @@ window.motopuppuMapViewer = {
                     if (gearDisplayContainer) gearDisplayContainer.classList.add('d-none');
                     if (gearChartCanvas) gearChartCanvas.parentElement.style.display = 'none';
                 }
-                // ▲▲▲【修正はここまで】▲▲▲
                 
                 charts.speed = setupChart('speedChart', '速度 (km/h)', 'rgba(54, 162, 235, 1)');
                 charts.rpm = setupChart('rpmChart', 'エンジン回転数 (rpm)', 'rgba(255, 99, 132, 1)');
@@ -459,7 +464,6 @@ window.motopuppuMapViewer = {
                 });
             }
             
-            // ▼▼▼【ここからが今回の修正箇所です】▼▼▼
             const toggleBrakingPoints = container.querySelector('#toggleBrakingPoints');
             if (toggleBrakingPoints) {
                 toggleBrakingPoints.addEventListener('change', (e) => {
@@ -472,7 +476,6 @@ window.motopuppuMapViewer = {
                     accelMarkers.forEach(m => m.setVisible(e.target.checked));
                 });
             }
-            // ▲▲▲【修正はここまで】▲▲▲
 
             if (!isPublicPage) {
                 const toggleTelemetryBtn = container.querySelector('#toggleTelemetryBtn');
