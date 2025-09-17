@@ -169,9 +169,9 @@ def add_vehicle():
 @limiter.limit("30 per hour")
 @login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def edit_vehicle(vehicle_id):
-    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
-    motorcycle = Motorcycle.query.filter_by(id=vehicle_id, user_id=current_user.id).first_or_444()
-    # ▲▲▲ 変更ここまで ▲▲▲
+    # ▼▼▼【ここから変更】 first_or_444 を first_or_404 に修正 ▼▼▼
+    motorcycle = Motorcycle.query.filter_by(id=vehicle_id, user_id=current_user.id).first_or_404()
+    # ▲▲▲【変更はここまで】▲▲▲
     original_is_racer = motorcycle.is_racer
     form = VehicleForm(obj=motorcycle)
     odo_form = OdoResetLogForm()
@@ -259,9 +259,9 @@ def edit_vehicle(vehicle_id):
 @limiter.limit("30 per hour")
 @login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def delete_vehicle(vehicle_id):
-    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
-    motorcycle = Motorcycle.query.filter_by(id=vehicle_id, user_id=current_user.id).first_or_444()
-    # ▲▲▲ 変更ここまで ▲▲▲
+    # ▼▼▼【ここから変更】 first_or_444 を first_or_404 に修正 ▼▼▼
+    motorcycle = Motorcycle.query.filter_by(id=vehicle_id, user_id=current_user.id).first_or_404()
+    # ▲▲▲【変更はここまで】▲▲▲
     try:
         was_default = motorcycle.is_default
         vehicle_name = motorcycle.name
@@ -286,8 +286,9 @@ def delete_vehicle(vehicle_id):
 @limiter.limit("30 per hour")
 @login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def set_default_vehicle(vehicle_id):
-    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
-    target_vehicle = Motorcycle.query.filter_by(id=vehicle_id, user_id=current_user.id).first_or_444()
+    # ▼▼▼【ここから変更】 first_or_444 を first_or_404 に修正 ▼▼▼
+    target_vehicle = Motorcycle.query.filter_by(id=vehicle_id, user_id=current_user.id).first_or_404()
+    # ▲▲▲【変更はここまで】▲▲▲
     try:
         Motorcycle.query.filter(Motorcycle.user_id == current_user.id, Motorcycle.id != vehicle_id).update({'is_default': False}, synchronize_session='fetch')
         target_vehicle.is_default = True
@@ -297,16 +298,15 @@ def set_default_vehicle(vehicle_id):
         db.session.rollback()
         flash(f'デフォルト車両の設定中にエラーが発生しました: {e}', 'danger')
         current_app.logger.error(f"Error setting default vehicle ID {vehicle_id}: {e}", exc_info=True)
-    # ▲▲▲ 変更ここまで ▲▲▲
     return redirect(url_for('vehicle.vehicle_list'))
 
 @vehicle_bp.route('/<int:vehicle_id>/odo_reset_log/add', methods=['GET', 'POST'])
 @limiter.limit("30 per hour")
 @login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def add_odo_reset_log(vehicle_id):
-    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
-    motorcycle = Motorcycle.query.filter_by(id=vehicle_id, user_id=current_user.id).first_or_444()
-    # ▲▲▲ 変更ここまで ▲▲▲
+    # ▼▼▼【ここから変更】 first_or_444 を first_or_404 に修正 ▼▼▼
+    motorcycle = Motorcycle.query.filter_by(id=vehicle_id, user_id=current_user.id).first_or_404()
+    # ▲▲▲【変更はここまで】▲▲▲
     if motorcycle.is_racer:
         flash('レーサー車両にはODOメーターリセット機能はご利用いただけません。', 'warning')
         return redirect(url_for('vehicle.edit_vehicle', vehicle_id=motorcycle.id))
@@ -366,7 +366,7 @@ def delete_odo_reset_log(log_id):
     log_to_delete = db.session.query(OdoResetLog).join(Motorcycle).filter(
         OdoResetLog.id == log_id,
         Motorcycle.user_id == current_user.id
-    ).first_or_444()
+    ).first_or_404()
     # ▲▲▲ 変更ここまで ▲▲▲
     motorcycle = log_to_delete.motorcycle
     if motorcycle.is_racer:
@@ -394,7 +394,7 @@ def edit_odo_reset_log(log_id):
     log_to_edit = db.session.query(OdoResetLog).join(Motorcycle).filter(
         OdoResetLog.id == log_id,
         Motorcycle.user_id == current_user.id
-    ).first_or_444()
+    ).first_or_404()
     # ▲▲▲ 変更ここまで ▲▲▲
     motorcycle = log_to_edit.motorcycle
     if motorcycle.is_racer:
@@ -437,7 +437,9 @@ def edit_odo_reset_log(log_id):
 @login_required
 def toggle_garage_display(vehicle_id):
     """車両のガレージ表示/非表示を切り替えるAPI"""
-    motorcycle = Motorcycle.query.filter_by(id=vehicle_id, user_id=current_user.id).first_or_444()
+    # ▼▼▼【ここから変更】 first_or_444 を first_or_404 に修正 ▼▼▼
+    motorcycle = Motorcycle.query.filter_by(id=vehicle_id, user_id=current_user.id).first_or_404()
+    # ▲▲▲【変更はここまで】▲▲▲
     try:
         motorcycle.show_in_garage = not motorcycle.show_in_garage
         db.session.commit()
