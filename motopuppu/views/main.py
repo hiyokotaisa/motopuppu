@@ -135,18 +135,25 @@ def dashboard():
             timeline_target_ids = user_motorcycle_ids_public
 
     # 2. サービスを呼び出してビジネスロジックを実行
-    # レイアウト順の読み込み（なければデフォルト順を定義）
-    dashboard_layout = current_user.dashboard_layout
-    if not dashboard_layout:
-        dashboard_layout = ['reminders', 'stats', 'vehicles', 'timeline', 'circuit', 'calendar']
+    # ▼▼▼【ここから変更】レイアウトの不整合を修正するロジックを追加 ▼▼▼
+    # コード側で定義されているウィジェットのマスターリスト
+    DEFAULT_WIDGETS = ['reminders', 'stats', 'vehicles', 'timeline', 'circuit', 'calendar']
+    
+    user_layout = current_user.dashboard_layout
+    
+    if user_layout:
+        # ユーザーの保存済みレイアウトに、マスターリストに存在するが欠けているウィジェットを追加
+        missing_widgets = [widget for widget in DEFAULT_WIDGETS if widget not in user_layout]
+        if missing_widgets:
+            dashboard_layout = user_layout + missing_widgets
+        else:
+            dashboard_layout = user_layout
+    else:
+        # ユーザーがレイアウトを一度も保存していない場合は、マスターリストをデフォルトとして使用
+        dashboard_layout = DEFAULT_WIDGETS
+    # ▲▲▲【変更はここまで】▲▲▲
 
     upcoming_reminders = services.get_upcoming_reminders(user_motorcycles_all, current_user.id)
-
-    # ▼▼▼【ここから変更】事前計算ループを削除 ▼▼▼
-    # for m in user_motorcycles_all:
-    #     if not m.is_racer:
-    #         m._average_kpl = services.calculate_average_kpl(m)
-    # ▲▲▲【変更はここまで】▲▲▲
 
     target_vehicle_for_stats = next((m for m in user_motorcycles_all if m.id == selected_stats_vehicle_id), None)
     
@@ -186,9 +193,9 @@ def dashboard():
         start_date_str=request.args.get('start_date', ''),
         end_date_str=request.args.get('end_date', ''),
         current_date_str=datetime.now(ZoneInfo("Asia/Tokyo")).date().isoformat(),
-        dashboard_layout=dashboard_layout,
+        dashboard_layout=dashboard_layout, # テンプレートにレイアウト順を渡す
         circuit_stats=circuit_stats,
-        format_seconds_to_time=format_seconds_to_time # ▼▼▼【ここを追記】テンプレートに渡す ▼▼▼
+        format_seconds_to_time=format_seconds_to_time
     )
 
 
