@@ -16,6 +16,9 @@ from .. import services
 # ▼▼▼ Flask-Login関連のインポートに切り替え ▼▼▼
 from flask_login import login_required, current_user
 # ▲▲▲ 変更ここまで ▲▲▲
+# ▼▼▼【ここから追記】▼▼▼
+from ..utils.lap_time_utils import format_seconds_to_time
+# ▲▲▲【追記はここまで】▲▲▲
 
 
 main_bp = Blueprint('main', __name__)
@@ -135,7 +138,7 @@ def dashboard():
     # レイアウト順の読み込み（なければデフォルト順を定義）
     dashboard_layout = current_user.dashboard_layout
     if not dashboard_layout:
-        dashboard_layout = ['reminders', 'stats', 'vehicles', 'timeline', 'calendar']
+        dashboard_layout = ['reminders', 'stats', 'vehicles', 'timeline', 'circuit', 'calendar']
 
     upcoming_reminders = services.get_upcoming_reminders(user_motorcycles_all, current_user.id)
 
@@ -166,6 +169,8 @@ def dashboard():
     if holidays_json == '{}':
         flash('祝日情報の取得または処理中にエラーが発生しました。', 'warning')
 
+    circuit_stats = services.get_circuit_activity_for_dashboard(current_user.id)
+
     # 4. テンプレートをレンダリング
     return render_template(
         'dashboard.html',
@@ -181,7 +186,9 @@ def dashboard():
         start_date_str=request.args.get('start_date', ''),
         end_date_str=request.args.get('end_date', ''),
         current_date_str=datetime.now(ZoneInfo("Asia/Tokyo")).date().isoformat(),
-        dashboard_layout=dashboard_layout # テンプレートにレイアウト順を渡す
+        dashboard_layout=dashboard_layout,
+        circuit_stats=circuit_stats,
+        format_seconds_to_time=format_seconds_to_time # ▼▼▼【ここを追記】テンプレートに渡す ▼▼▼
     )
 
 

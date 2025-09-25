@@ -13,7 +13,7 @@ from cryptography.fernet import Fernet
 # ▲▲▲ 追記ここまで ▲▲▲
 
 # ▼▼▼ モデルのインポートを追加 ▼▼▼
-from .models import db, Motorcycle, FuelEntry, MaintenanceEntry, MaintenanceReminder, ActivityLog, GeneralNote, UserAchievement, AchievementDefinition
+from .models import db, Motorcycle, FuelEntry, MaintenanceEntry, MaintenanceReminder, ActivityLog, GeneralNote, UserAchievement, AchievementDefinition, SessionLog
 # ▲▲▲ ここまで追加 ▲▲▲
 
 
@@ -433,6 +433,67 @@ def get_dashboard_stats(user_motorcycles_all, user_motorcycle_ids_public, target
                 stats['non_cost_label'] = "すべての公道車"
         
     return stats
+# ▲▲▲【変更はここまで】▲▲▲
+
+# ▼▼▼【ここから変更】ベストラップタイム取得ロジックを追加 ▼▼▼
+def get_circuit_activity_for_dashboard(user_id):
+    """ダッシュボードのサーキット活動ウィジェット用のデータを取得する"""
+    
+    # 1. サマリー統計の計算
+    total_circuits = db.session.query(
+        func.count(func.distinct(ActivityLog.circuit_name))
+    ).filter(
+        ActivityLog.user_id == user_id,
+        ActivityLog.circuit_name.isnot(None)
+    ).scalar() or 0
+
+    total_sessions = db.session.query(
+        func.count(SessionLog.id)
+    ).join(ActivityLog).filter(
+        ActivityLog.user_id == user_id
+    ).scalar() or 0
+
+    summary = {
+        'total_circuits': total_circuits,
+        'total_sessions': total_sessions,
+    }
+
+    # 2. 最近の活動ログ5件を取得
+    recent_activities = ActivityLog.query.options(
+        joinedload(ActivityLog.motorcycle)
+    ).filter(
+        ActivityLog.user_id == user_id
+    ).order_by(
+        ActivityLog.activity_date.desc(),
+        ActivityLog.created_at.desc()
+    ).limit(5).all()
+
+    # 3. 取得した活動ログのIDリストを作成
+    if recent_activities:
+        activity_ids = [act.id for act in recent_activities]
+
+        # 4. 活動ログごとのベストラップ（最小のbest_lap_seconds）を1回のクエリで取得
+        best_laps_query = db.session.query(
+            SessionLog.activity_log_id,
+            func.min(SessionLog.best_lap_seconds).label('activity_best_lap')
+        ).filter(
+            SessionLog.activity_log_id.in_(activity_ids),
+            SessionLog.best_lap_seconds.isnot(None)
+        ).group_by(
+            SessionLog.activity_log_id
+        ).all()
+
+        # 高速アクセスのために結果を辞書に変換
+        best_laps_map = {act_id: lap_time for act_id, lap_time in best_laps_query}
+
+        # 5. 各活動ログオブジェクトにベストラップ情報を追加
+        for activity in recent_activities:
+            activity.best_lap_for_activity = best_laps_map.get(activity.id)
+
+    return {
+        'summary': summary,
+        'recent_activities': recent_activities
+    }
 # ▲▲▲【変更はここまで】▲▲▲
 
 

@@ -199,6 +199,10 @@
             {% include 'dashboard/_vehicles_widget.html' %}
         {% elif widget_name == 'timeline' %}
             {% include 'dashboard/_timeline_widget.html' %}
+        {# ▼▼▼【ここから追記】▼▼▼ #}
+        {% elif widget_name == 'circuit' %}
+            {% include 'dashboard/_circuit_widget.html' %}
+        {# ▲▲▲【追記はここまで】▲▲▲ #}
         {% elif widget_name == 'calendar' %}
             {% include 'dashboard/_calendar_widget.html' %}
         {% endif %}
@@ -255,7 +259,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     let sortable = null;
     let originalOrder = [];
-    const defaultOrder = ['reminders', 'stats', 'vehicles', 'timeline', 'calendar'];
+    const defaultOrder = ['reminders', 'stats', 'vehicles', 'timeline', 'circuit', 'calendar'];
 
     const reorderWidgets = (order) => {
         const fragment = document.createDocumentFragment();

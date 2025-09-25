@@ -1,0 +1,59 @@
+{# motopuppu/templates/dashboard/_circuit_widget.html #}
+<div class="accordion-item card my-4" data-widget-name="circuit">
+    <h2 class="accordion-header d-flex align-items-center" id="heading-circuit">
+        <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-circuit" aria-expanded="true" aria-controls="collapse-circuit">
+            <span class="widget-grab-handle me-2" title="ドラッグして並び替え"><i class="fas fa-grip-vertical"></i></span>
+            <span class="me-auto"><i class="fas fa-flag-checkered me-1"></i> <strong>サーキット・活動ログ</strong></span>
+        </button>
+    </h2>
+    <div id="collapse-circuit" class="accordion-collapse collapse show" aria-labelledby="heading-circuit">
+        <div class="card-body">
+            
+            <div class="row text-center mb-3">
+                <div class="col-6">
+                    <div class="stat">
+                        <div class="fs-5 fw-bold">{{ circuit_stats.summary.total_circuits }}</div>
+                        <div class="text-muted small">走行サーキット数</div>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="stat">
+                        <div class="fs-5 fw-bold">{{ circuit_stats.summary.total_sessions }}</div>
+                        <div class="text-muted small">総セッション数</div>
+                    </div>
+                </div>
+            </div>
+
+            {% if circuit_stats.recent_activities %}
+                <div class="list-group list-group-flush">
+                    {% for activity in circuit_stats.recent_activities %}
+                    <a href="{{ url_for('activity.detail_activity', activity_id=activity.id) }}" class="list-group-item list-group-item-action">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1 text-primary">{{ activity.activity_title or activity.location_name_display }}</h6>
+                            <small class="text-muted">{{ activity.activity_date.strftime('%Y/%m/%d') }}</small>
+                        </div>
+                        <div class="d-flex align-items-center">
+                            <p class="mb-0 small text-muted">
+                                <i class="fas fa-motorcycle me-1"></i> {{ activity.motorcycle.name }}
+                            </p>
+                            {# ▼▼▼【ここから追記】ベストラップ表示 ▼▼▼ #}
+                            {% if activity.best_lap_for_activity %}
+                                <small class="ms-3 text-muted">
+                                    <i class="fas fa-trophy text-warning me-1"></i>
+                                    Best: <strong>{{ format_seconds_to_time(activity.best_lap_for_activity) }}</strong>
+                                </small>
+                            {% endif %}
+                            {# ▲▲▲【追記はここまで】▲▲▲ #}
+                        </div>
+                    </a>
+                    {% endfor %}
+                </div>
+                 <div class="text-end mt-2">
+                    <a href="{{ url_for('circuit_dashboard.index') }}" class="btn btn-sm btn-outline-primary">サーキットダッシュボードへ <i class="fas fa-arrow-right fa-xs"></i></a>
+                </div>
+            {% else %}
+                <p class="text-muted text-center mt-3">まだ活動ログがありません。</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
