@@ -148,7 +148,13 @@ def add_vehicle():
             check_achievements_for_event(current_user, EVENT_ADD_VEHICLE, event_data=event_data_for_ach)
             # ▲▲▲ 変更ここまで ▲▲▲
             
-            return redirect(url_for('vehicle.vehicle_list'))
+            # ▼▼▼【ここから変更】最初の車両登録後、ダッシュボードツアーにリダイレクト ▼▼▼
+            if vehicle_count_before_add == 0:
+                return redirect(url_for('main.dashboard', tutorial_completed='1'))
+            else:
+                return redirect(url_for('vehicle.vehicle_list'))
+            # ▲▲▲【変更はここまで】▲▲▲
+
         except Exception as e:
             db.session.rollback()
             flash(f'車両の登録中にエラーが発生しました。詳細は管理者にお問い合わせください。', 'error')
@@ -159,11 +165,13 @@ def add_vehicle():
     elif request.method == 'POST':
         flash('入力内容にエラーがあります。ご確認ください。', 'danger')
 
+    start_vehicle_tutorial = not current_user.completed_tutorials.get('vehicle_form', False)
+    
     return render_template('vehicle_form.html',
                            form_action='add',
                            form=form,
-                           current_year=current_year_for_validation)
-
+                           current_year=current_year_for_validation,
+                           start_vehicle_tutorial=start_vehicle_tutorial)
 
 @vehicle_bp.route('/<int:vehicle_id>/edit', methods=['GET', 'POST'])
 @limiter.limit("30 per hour")

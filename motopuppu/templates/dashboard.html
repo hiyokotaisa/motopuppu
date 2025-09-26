@@ -154,14 +154,19 @@
 {% block content %}
 {# --- ヘッダー --- #}
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-    <h1 class="h2">{% if current_user.is_authenticated %}ようこそ、{{ current_user.display_name or current_user.misskey_username }}さん{% else %}ダッシュボード{% endif %}</h1>
+    {# ▼▼▼【ここから変更】タイトルと「？」アイコンをグループ化 ▼▼▼ #}
+    <div class="d-flex align-items-center">
+        <h1 class="h2 mb-0 me-2">{% if current_user.is_authenticated %}ようこそ、{{ current_user.display_name or current_user.misskey_username }}さん{% else %}ダッシュボード{% endif %}</h1>
+        <button type="button" id="restart-dashboard-tour-btn" class="btn btn-sm btn-outline-secondary rounded-circle" style="width: 2rem; height: 2rem;" title="ダッシュボードツアーを開始">
+            <i class="fas fa-question"></i>
+        </button>
+    </div>
+    {# ▲▲▲【変更はここまで】▲▲▲ #}
     <div class="btn-toolbar mb-2 mb-md-0">
         <div id="layout-buttons-default" class="me-2">
-            {# ▼▼▼ 変更箇所 ▼▼▼ #}
             <button id="edit-layout-btn" type="button" class="btn btn-sm btn-outline-secondary" title="レイアウトを編集" aria-label="レイアウトを編集">
                 <i class="bi bi-gear-fill"></i>
             </button>
-            {# ▲▲▲ 変更ここまで ▲▲▲ #}
         </div>
         <div id="layout-buttons-editing" class="btn-group me-2" style="display: none;">
             <button id="save-layout-btn" type="button" class="btn btn-sm btn-success"><i class="fas fa-check me-1"></i> 保存</button>
@@ -188,7 +193,17 @@
     {% endif %}
 {% endwith %}
 
-{# ▼▼▼ accordionクラスを追加 ▼▼▼ #}
+{% if not motorcycles %}
+<div class="alert alert-info" role="alert">
+  <h4 class="alert-heading">はじめましょう！</h4>
+  <p>もとぷっぷーへようこそ！まずはあなたの愛車を登録して、記録を開始しましょう。</p>
+  <hr>
+  <a href="{{ url_for('vehicle.add_vehicle') }}" id="tutorial-start-add-vehicle" class="btn btn-primary btn-lg">
+      <i class="fas fa-plus-circle me-2"></i>最初の車両を登録する
+  </a>
+</div>
+{% endif %}
+
 <div id="dashboard-widgets-container" class="accordion dashboard-widgets">
     {% for widget_name in dashboard_layout %}
         {% if widget_name == 'reminders' %}
@@ -199,10 +214,8 @@
             {% include 'dashboard/_vehicles_widget.html' %}
         {% elif widget_name == 'timeline' %}
             {% include 'dashboard/_timeline_widget.html' %}
-        {# ▼▼▼【ここから追記】▼▼▼ #}
         {% elif widget_name == 'circuit' %}
             {% include 'dashboard/_circuit_widget.html' %}
-        {# ▲▲▲【追記はここまで】▲▲▲ #}
         {% elif widget_name == 'calendar' %}
             {% include 'dashboard/_calendar_widget.html' %}
         {% endif %}
@@ -241,10 +254,9 @@
 
 {% block scripts %}
 {{ super() }}
-{# ▼▼▼【重要】この行を追加して、FullCalendarライブラリを読み込みます ▼▼▼ #}
 <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js'></script>
-{# ▲▲▲ 追加はここまで ▲▲▲ #}
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+<script src="{{ url_for('static', filename='js/tutorial.js') }}"></script>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
@@ -300,11 +312,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 変更を保存
     saveBtn.addEventListener('click', function() {
-        // ▼▼▼ 変更・追記 ▼▼▼
-        // sortable.toArray() の代わりに、DOMから直接data-widget-name属性を読み取る
         const newOrder = Array.from(widgetsContainer.children).map(el => el.dataset.widgetName);
-        // ▲▲▲ 変更・追記 ここまで ▲▲▲
-
         const csrfTokenEl = document.querySelector('meta[name="csrf-token"]');
         if (!csrfTokenEl) {
             alert('エラー: CSRFトークンが見つかりません。base.htmlを確認してください。');
@@ -418,8 +426,6 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // --- カレンダー機能 ---
     var calendarEl = document.getElementById('calendar');
-    // (カレンダーのJSは長いため、変更がないのでここでは省略します)
-    // ... 既存のカレンダーJSコード ...
     let holidaysMap = {};
     try {
         const holidaysData = JSON.parse('{{ holidays_json | safe }}');
@@ -504,144 +510,77 @@ document.addEventListener('DOMContentLoaded', function() {
                     var props = info.event.extendedProps;
                     var popoverTitle = '';
                     var popoverContent = '';
-
                     var eventDateStr = '日付不明';
                     if (info.event.start) {
                         try {
                             eventDateStr = info.event.start.toLocaleDateString('ja-JP', { year: 'numeric', month: 'short', day: 'numeric' });
                         } catch (e) {
                             eventDateStr = info.event.start.toISOString().split('T')[0];
-                            console.warn("toLocaleDateString failed, using fallback date format:", eventDateStr, e);
                         }
                     }
-
                     var editUrl = props.editUrl;
-
                     if (props.type === 'fuel') {
                         popoverTitle = `⛽ 給油 (${escapeHtml(props.motorcycleName || '車両不明')})`;
-                        popoverContent = `<dl class="mb-0 small">` +
-                            `<dt>日付:</dt><dd>${escapeHtml(eventDateStr)}</dd>` +
-                            `<dt>ODO:</dt><dd>${props.odometer ? escapeHtml(props.odometer.toLocaleString()) + ' km' : '-'}</dd>` +
-                            `<dt>給油量:</dt><dd>${props.fuelVolume ? escapeHtml(props.fuelVolume.toFixed(2)) + ' L' : '-'}</dd>` +
-                            `<dt>燃費:</dt><dd>${props.kmPerLiter || '-'}</dd>` +
-                            `<dt>金額:</dt><dd>${props.totalCost ? escapeHtml(props.totalCost.toLocaleString()) + ' 円' : '-'}</dd>` +
-                            (props.stationName ? `<dt>スタンド:</dt><dd>${escapeHtml(props.stationName)}</dd>` : '') +
-                            (props.notes ? `<dt>メモ:</dt><dd style="white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(props.notes)}</dd>` : '') +
-                            `</dl>`;
+                        popoverContent = `<dl class="mb-0 small"><dt>日付:</dt><dd>${escapeHtml(eventDateStr)}</dd><dt>ODO:</dt><dd>${props.odometer ? escapeHtml(props.odometer.toLocaleString()) + ' km' : '-'}</dd><dt>給油量:</dt><dd>${props.fuelVolume ? escapeHtml(props.fuelVolume.toFixed(2)) + ' L' : '-'}</dd><dt>燃費:</dt><dd>${props.kmPerLiter || '-'}</dd><dt>金額:</dt><dd>${props.totalCost ? escapeHtml(props.totalCost.toLocaleString()) + ' 円' : '-'}</dd>` + (props.stationName ? `<dt>スタンド:</dt><dd>${escapeHtml(props.stationName)}</dd>` : '') + (props.notes ? `<dt>メモ:</dt><dd style="white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(props.notes)}</dd>` : '') + `</dl>`;
                     } else if (props.type === 'maintenance') {
                         popoverTitle = `🔧 ${escapeHtml(props.category || '整備')} (${escapeHtml(props.motorcycleName || '車両不明')})`;
-                        popoverContent = `<dl class="mb-0 small">` +
-                            `<dt>日付:</dt><dd>${escapeHtml(eventDateStr)}</dd>` +
-                            `<dt>ODO:</dt><dd>${props.odometer ? escapeHtml(props.odometer.toLocaleString()) + ' km' : '-'}</dd>` +
-                            `<dt>内容:</dt><dd style="white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(props.description || '記載なし')}</dd>` +
-                            (props.category ? `<dt>カテゴリ:</dt><dd>${escapeHtml(props.category)}</dd>` : '') +
-                            `<dt>費用:</dt><dd>${props.totalCost ? escapeHtml(props.totalCost.toLocaleString()) + ' 円' : '-'}</dd>` +
-                            (props.location ? `<dt>場所:</dt><dd>${escapeHtml(props.location)}</dd>` : '') +
-                            (props.notes ? `<dt>メモ:</dt><dd style="white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(props.notes)}</dd>` : '') +
-                            `</dl>`;
+                        popoverContent = `<dl class="mb-0 small"><dt>日付:</dt><dd>${escapeHtml(eventDateStr)}</dd><dt>ODO:</dt><dd>${props.odometer ? escapeHtml(props.odometer.toLocaleString()) + ' km' : '-'}</dd><dt>内容:</dt><dd style="white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(props.description || '記載なし')}</dd>` + (props.category ? `<dt>カテゴリ:</dt><dd>${escapeHtml(props.category)}</dd>` : '') + `<dt>費用:</dt><dd>${props.totalCost ? escapeHtml(props.totalCost.toLocaleString()) + ' 円' : '-'}</dd>` + (props.location ? `<dt>場所:</dt><dd>${escapeHtml(props.location)}</dd>` : '') + (props.notes ? `<dt>メモ:</dt><dd style="white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(props.notes)}</dd>` : '') + `</dl>`;
                     } else if (props.type === 'activity') {
                         let racerBadge = props.isRacer ? ' <span class="badge bg-info text-dark small">レーサー</span>' : '';
                         popoverTitle = `🏁 ${escapeHtml(props.activityTitle)} (${escapeHtml(props.motorcycleName || '車両不明')}${racerBadge})`;
-                        popoverContent = `<dl class="mb-0 small">` +
-                            `<dt>日付:</dt><dd>${escapeHtml(eventDateStr)}</dd>` +
-                            `<dt>場所:</dt><dd>${escapeHtml(props.location || '未設定')}</dd>` +
-                            (props.weather ? `<dt>天候:</dt><dd>${escapeHtml(props.weather)}</dd>` : '') +
-                            (props.temperature ? `<dt>気温:</dt><dd>${escapeHtml(props.temperature)}</dd>` : '') +
-                            (props.notes ? `<dt>メモ:</dt><dd style="white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(props.notes)}</dd>` : '') +
-                            `</dl>`;
+                        popoverContent = `<dl class="mb-0 small"><dt>日付:</dt><dd>${escapeHtml(eventDateStr)}</dd><dt>場所:</dt><dd>${escapeHtml(props.location || '未設定')}</dd>` + (props.weather ? `<dt>天候:</dt><dd>${escapeHtml(props.weather)}</dd>` : '') + (props.temperature ? `<dt>気温:</dt><dd>${escapeHtml(props.temperature)}</dd>` : '') + (props.notes ? `<dt>メモ:</dt><dd style="white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(props.notes)}</dd>` : '') + `</dl>`;
                     } else if (props.type === 'note') {
                         let noteTitle = props.title || '(無題のノート)';
                         let racerBadge = props.isRacer ? ' <span class="badge bg-info text-dark small">レーサー</span>' : '';
                         popoverTitle = `📝 ノート ${props.motorcycleName ? '(' + escapeHtml(props.motorcycleName) + racerBadge + ')' : ''}`;
-                        popoverContent = `<dl class="mb-0 small">` +
-                            `<dt>日付:</dt><dd>${escapeHtml(props.noteDate || eventDateStr)}</dd>` +
-                            `<dt>タイトル:</dt><dd>${escapeHtml(noteTitle)}</dd>` +
-                            `<dt>内容:</dt><dd style="white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(props.content || '記載なし')}</dd>` +
-                            (props.motorcycleName ? `<dt>関連車両:</dt><dd>${escapeHtml(props.motorcycleName)}</dd>` : '') +
-                            (props.createdAt ? `<dt>作成:</dt><dd>${escapeHtml(props.createdAt)}</dd>` : '') +
-                            (props.updatedAt ? `<dt>更新:</dt><dd>${escapeHtml(props.updatedAt)}</dd>` : '') +
-                            `</dl>`;
+                        popoverContent = `<dl class="mb-0 small"><dt>日付:</dt><dd>${escapeHtml(props.noteDate || eventDateStr)}</dd><dt>タイトル:</dt><dd>${escapeHtml(noteTitle)}</dd><dt>内容:</dt><dd style="white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(props.content || '記載なし')}</dd>` + (props.motorcycleName ? `<dt>関連車両:</dt><dd>${escapeHtml(props.motorcycleName)}</dd>` : '') + (props.createdAt ? `<dt>作成:</dt><dd>${escapeHtml(props.createdAt)}</dd>` : '') + (props.updatedAt ? `<dt>更新:</dt><dd>${escapeHtml(props.updatedAt)}</dd>` : '') + `</dl>`;
                     } else if (props.type === 'task') {
                         let taskTitle = props.title || '(無題のタスク)';
                         let racerBadge = props.isRacer ? ' <span class="badge bg-info text-dark small">レーサー</span>' : '';
                         popoverTitle = `✅ タスク ${props.motorcycleName ? '(' + escapeHtml(props.motorcycleName) + racerBadge + ')' : ''}`;
-                        popoverContent = `<dl class="mb-0 small">` +
-                            `<dt>日付:</dt><dd>${escapeHtml(props.noteDate || eventDateStr)}</dd>` +
-                            `<dt>タイトル:</dt><dd>${escapeHtml(taskTitle)}</dd>` +
-                            (props.motorcycleName ? `<dt>関連車両:</dt><dd>${escapeHtml(props.motorcycleName)}</dd>` : '') +
-                            '<dt>TODO:</dt><dd>';
+                        popoverContent = `<dl class="mb-0 small"><dt>日付:</dt><dd>${escapeHtml(props.noteDate || eventDateStr)}</dd><dt>タイトル:</dt><dd>${escapeHtml(taskTitle)}</dd>` + (props.motorcycleName ? `<dt>関連車両:</dt><dd>${escapeHtml(props.motorcycleName)}</dd>` : '') + '<dt>TODO:</dt><dd>';
                         if (props.todos && Array.isArray(props.todos) && props.todos.length > 0) {
                             popoverContent += '<ul class="list-unstyled mb-0 small ps-1">';
                             props.todos.forEach(function(todo, index) {
                                 const isChecked = todo && todo.checked;
                                 const text = todo && todo.text ? escapeHtml(todo.text) : '(空)';
                                 const checkboxId = `todo-${info.event.id}-${index}`;
-                                popoverContent += `<li class="d-flex align-items-center">` +
-                                    `<input type="checkbox" id="${checkboxId}" disabled ${isChecked ? 'checked' : ''} class="form-check-input me-1">` +
-                                    `<label for="${checkboxId}" class="${isChecked ? 'text-decoration-line-through text-muted' : ''}">${text}</label>` +
-                                    `</li>`;
+                                popoverContent += `<li class="d-flex align-items-center"><input type="checkbox" id="${checkboxId}" disabled ${isChecked ? 'checked' : ''} class="form-check-input me-1"><label for="${checkboxId}" class="${isChecked ? 'text-decoration-line-through text-muted' : ''}">${text}</label></li>`;
                             });
                             popoverContent += '</ul>';
                         } else {
                             popoverContent += '<span class="text-muted">TODOはありません</span>';
                         }
                         popoverContent += '</dd>';
-                        popoverContent += (props.createdAt ? `<dt>作成:</dt><dd>${escapeHtml(props.createdAt)}</dd>` : '') +
-                                        (props.updatedAt ? `<dt>更新:</dt><dd>${escapeHtml(props.updatedAt)}</dd>` : '');
+                        popoverContent += (props.createdAt ? `<dt>作成:</dt><dd>${escapeHtml(props.createdAt)}</dd>` : '') + (props.updatedAt ? `<dt>更新:</dt><dd>${escapeHtml(props.updatedAt)}</dd>` : '');
                         popoverContent += `</dl>`;
                     }
-
                     if (editUrl) {
                         popoverContent += `<a href="${escapeHtml(editUrl)}" class="btn btn-sm btn-outline-primary mt-2 py-0 px-1" title="編集"><i class="fas fa-edit fa-xs me-1"></i>編集</a>`;
                     }
-                    
                     if (popoverTitle && popoverContent) {
-                        var popover = new bootstrap.Popover(info.el, {
-                            title: popoverTitle,
-                            content: popoverContent,
-                            trigger: 'hover focus',
-                            placement: 'auto',
-                            boundary: 'viewport',
-                            html: true,
-                            sanitize: false,
-                            container: 'body',
-                            customClass: 'motopuppu-popover'
-                        });
-                        info.el.addEventListener('remove', () => {
-                            if(popover) {
-                                popover.dispose();
-                            }
-                        });
+                        var popover = new bootstrap.Popover(info.el, { title: popoverTitle, content: popoverContent, trigger: 'hover focus', placement: 'auto', boundary: 'viewport', html: true, sanitize: false, container: 'body', customClass: 'motopuppu-popover' });
+                        info.el.addEventListener('remove', () => { if(popover) { popover.dispose(); } });
                     }
                 }
             }
         });
         calendar.render();
-    } else {
-        console.error("Calendar element (#calendar) not found");
     }
 
-// ▼▼▼【ここから追記】ウィジェット開閉状態の保存・復元機能 ▼▼▼
     const WIDGET_STATE_KEY = 'dashboardWidgetStates';
-
-    // localStorageから状態を読み込み、ウィジェットに適用する関数
     const applyWidgetStates = () => {
         const savedStatesJSON = localStorage.getItem(WIDGET_STATE_KEY);
-        if (!savedStatesJSON) {
-            return; // 保存されたデータがなければ何もしない
-        }
-        
+        if (!savedStatesJSON) { return; }
         try {
             const savedStates = JSON.parse(savedStatesJSON);
             const widgets = widgetsContainer.querySelectorAll('.accordion-item');
-
             widgets.forEach(widget => {
                 const widgetName = widget.dataset.widgetName;
                 if (widgetName in savedStates) {
                     const shouldBeOpen = savedStates[widgetName];
                     const collapseElement = widget.querySelector('.accordion-collapse');
                     const button = widget.querySelector('.accordion-button');
-
                     if (shouldBeOpen) {
                         collapseElement.classList.add('show');
                         button.classList.remove('collapsed');
@@ -654,12 +593,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             });
         } catch (e) {
-            console.error('Failed to parse widget states from localStorage', e);
-            localStorage.removeItem(WIDGET_STATE_KEY); // 不正なデータを削除
+            localStorage.removeItem(WIDGET_STATE_KEY);
         }
     };
-
-    // 現在のウィジェットの状態をlocalStorageに保存する関数
     const saveWidgetStates = () => {
         const states = {};
         const widgets = widgetsContainer.querySelectorAll('.accordion-item');
@@ -670,56 +606,56 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         localStorage.setItem(WIDGET_STATE_KEY, JSON.stringify(states));
     };
-
-    // ページ読み込み時に状態を復元
     applyWidgetStates();
-
-    // ウィジェットが開かれたり閉じられたりした後に、状態を保存
     widgetsContainer.addEventListener('shown.bs.collapse', saveWidgetStates);
     widgetsContainer.addEventListener('hidden.bs.collapse', saveWidgetStates);
-    // ▲▲▲【追記はここまで】▲▲▲
 
-    // ▼▼▼【ここから追記】コスト表示トグル機能 ▼▼▼
     const costToggle = document.getElementById('cost-display-toggle');
     if (costToggle) {
         costToggle.addEventListener('change', function() {
             const csrfTokenEl = document.querySelector('meta[name="csrf-token"]');
-            if (!csrfTokenEl) {
-                alert('エラー: CSRFトークンが見つかりません。');
-                return;
-            }
+            if (!csrfTokenEl) { alert('エラー: CSRFトークンが見つかりません。'); return; }
             const csrfToken = csrfTokenEl.getAttribute('content');
-
-            // トグル操作中は操作不可にする
             this.disabled = true;
-
             fetch("{{ url_for('main.toggle_dashboard_cost_display') }}", {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': csrfToken
-                }
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken }
             })
             .then(response => {
-                if (response.ok) {
-                    // 成功したらページをリロードして表示を更新
-                    window.location.reload();
-                } else {
-                    // 失敗した場合、トグルを元の状態に戻してアラートを表示
-                    this.checked = !this.checked;
-                    this.disabled = false;
-                    alert('設定の変更に失敗しました。ページを再読み込みしてください。');
-                }
+                if (response.ok) { window.location.reload(); }
+                else { this.checked = !this.checked; this.disabled = false; alert('設定の変更に失敗しました。ページを再読み込みしてください。'); }
             })
             .catch(error => {
-                console.error('Error toggling cost display:', error);
-                this.checked = !this.checked;
-                this.disabled = false;
-                alert('通信エラーが発生しました。');
+                this.checked = !this.checked; this.disabled = false; alert('通信エラーが発生しました。');
             });
         });
     }
-    // ▲▲▲【追記はここまで】▲▲▲
+
+    // ▼▼▼【ここから変更】チュートリアル関連のスクリプトを全面的に修正 ▼▼▼
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+    // --- 初回チュートリアル（車両登録への誘導）の開始判定 ---
+    const shouldStartInitialTutorial = {{ start_initial_tutorial | tojson }};
+    if (shouldStartInitialTutorial) {
+        startInitialSetupTutorial(csrfToken);
+    }
+
+    // --- ダッシュボードツアーの開始判定 ---
+    const shouldShowDashboardTour = {{ show_dashboard_tour | tojson }};
+    const restartTourBtn = document.getElementById('restart-dashboard-tour-btn');
+
+    // 1. 車両登録完了後の自動開始
+    if (shouldShowDashboardTour) {
+        startDashboardTour(csrfToken);
+    }
+
+    // 2. 「？」ボタンクリックでの手動開始
+    if (restartTourBtn) {
+        restartTourBtn.addEventListener('click', function() {
+            startDashboardTour(csrfToken);
+        });
+    }
+    // ▲▲▲【変更はここまで】▲▲▲
 });
 </script>
 {% endblock %}

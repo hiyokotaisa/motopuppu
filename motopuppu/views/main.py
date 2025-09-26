@@ -8,6 +8,7 @@ from dateutil.relativedelta import relativedelta
 from zoneinfo import ZoneInfo
 from ..models import db, User, Motorcycle, FuelEntry, MaintenanceEntry, GeneralNote, ActivityLog
 from sqlalchemy.orm import joinedload
+from sqlalchemy import func
 import math
 import os
 import json
@@ -16,9 +17,7 @@ from .. import services
 # ▼▼▼ Flask-Login関連のインポートに切り替え ▼▼▼
 from flask_login import login_required, current_user
 # ▲▲▲ 変更ここまで ▲▲▲
-# ▼▼▼【ここから追記】▼▼▼
 from ..utils.lap_time_utils import format_seconds_to_time
-# ▲▲▲【追記はここまで】▲▲▲
 
 
 main_bp = Blueprint('main', __name__)
@@ -105,9 +104,18 @@ def dashboard():
 
     user_motorcycles_all = Motorcycle.query.filter_by(user_id=current_user.id).order_by(
         Motorcycle.is_default.desc(), Motorcycle.name).all()
-    if not user_motorcycles_all:
+
+    start_initial_tutorial = False
+    if not current_user.completed_tutorials.get('initial_setup') and not user_motorcycles_all:
+        start_initial_tutorial = True
+    elif not user_motorcycles_all:
         flash('ようこそ！最初に利用する車両を登録してください。', 'info')
         return redirect(url_for('vehicle.add_vehicle'))
+
+    # ▼▼▼【ここから変更】ダッシュボードツアー開始の判定を追加 ▼▼▼
+    show_dashboard_tour = request.args.get('tutorial_completed') == '1' and not current_user.completed_tutorials.get('dashboard_tour')
+    # ▲▲▲【変更はここまで】▲▲▲
+
 
     motorcycles_public = [m for m in user_motorcycles_all if not m.is_racer]
     user_motorcycle_ids_public = [m.id for m in motorcycles_public]
@@ -121,7 +129,6 @@ def dashboard():
         timeline_target_ids = user_motorcycle_ids_public
     else:
         try:
-            # IDが数値に変換でき、かつユーザーの所有車両であるか確認
             vehicle_id_int = int(selected_timeline_vehicle_id)
             if vehicle_id_int in [m.id for m in motorcycles_public]:
                 timeline_target_ids = [vehicle_id_int]
@@ -135,23 +142,9 @@ def dashboard():
             timeline_target_ids = user_motorcycle_ids_public
 
     # 2. サービスを呼び出してビジネスロジックを実行
-    # ▼▼▼【ここから変更】レイアウトの不整合を修正するロジックを追加 ▼▼▼
-    # コード側で定義されているウィジェットのマスターリスト
-    DEFAULT_WIDGETS = ['reminders', 'stats', 'vehicles', 'timeline', 'circuit', 'calendar']
-    
-    user_layout = current_user.dashboard_layout
-    
-    if user_layout:
-        # ユーザーの保存済みレイアウトに、マスターリストに存在するが欠けているウィジェットを追加
-        missing_widgets = [widget for widget in DEFAULT_WIDGETS if widget not in user_layout]
-        if missing_widgets:
-            dashboard_layout = user_layout + missing_widgets
-        else:
-            dashboard_layout = user_layout
-    else:
-        # ユーザーがレイアウトを一度も保存していない場合は、マスターリストをデフォルトとして使用
-        dashboard_layout = DEFAULT_WIDGETS
-    # ▲▲▲【変更はここまで】▲▲▲
+    dashboard_layout = current_user.dashboard_layout
+    if not dashboard_layout:
+        dashboard_layout = ['reminders', 'stats', 'vehicles', 'timeline', 'calendar']
 
     upcoming_reminders = services.get_upcoming_reminders(user_motorcycles_all, current_user.id)
 
@@ -193,9 +186,11 @@ def dashboard():
         start_date_str=request.args.get('start_date', ''),
         end_date_str=request.args.get('end_date', ''),
         current_date_str=datetime.now(ZoneInfo("Asia/Tokyo")).date().isoformat(),
-        dashboard_layout=dashboard_layout, # テンプレートにレイアウト順を渡す
+        dashboard_layout=dashboard_layout,
         circuit_stats=circuit_stats,
-        format_seconds_to_time=format_seconds_to_time
+        format_seconds_to_time=format_seconds_to_time,
+        start_initial_tutorial=start_initial_tutorial,
+        show_dashboard_tour=show_dashboard_tour # ◀◀◀ テンプレートにフラグを渡す
     )
 
 
@@ -252,7 +247,6 @@ def save_dashboard_layout():
     """ダッシュボードのウィジェットの並び順を保存する"""
     new_layout = request.json.get('layout')
 
-    # 受け取ったレイアウトがリスト形式で、中身が文字列であるかを検証
     if not isinstance(new_layout, list) or not all(isinstance(item, str) for item in new_layout):
         return jsonify({'status': 'error', 'message': 'Invalid layout data'}), 400
 
@@ -264,3 +258,35 @@ def save_dashboard_layout():
         db.session.rollback()
         current_app.logger.error(f"Error saving dashboard layout for user {current_user.id}: {e}", exc_info=True)
         return jsonify({'status': 'error', 'message': 'Could not save layout to the database'}), 500
+
+
+@main_bp.route('/api/tutorial/complete', methods=['POST'])
+@login_required
+def complete_tutorial():
+    """指定されたキーのチュートリアルを完了としてマークするAPI"""
+    data = request.get_json()
+    tutorial_key = data.get('key')
+
+    if not tutorial_key:
+        return jsonify({'status': 'error', 'message': 'Tutorial key is missing.'}), 400
+
+    try:
+        from sqlalchemy.orm.attributes import flag_modified
+        
+        completed = current_user.completed_tutorials or {}
+        
+        if completed.get(tutorial_key) is not True:
+            completed[tutorial_key] = True
+            
+            current_user.completed_tutorials = completed
+            flag_modified(current_user, "completed_tutorials")
+            
+            db.session.add(current_user)
+            db.session.commit()
+            
+        return jsonify({'status': 'success', 'message': f"Tutorial '{tutorial_key}' marked as complete."})
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error completing tutorial '{tutorial_key}' for user {current_user.id}: {e}", exc_info=True)
+        return jsonify({'status': 'error', 'message': 'Could not update tutorial status.'}), 500

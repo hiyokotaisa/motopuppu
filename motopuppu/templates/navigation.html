@@ -1,6 +1,8 @@
 {# motopuppu/templates/navigation.html #}
 {% if current_user.is_authenticated %}
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4 fixed-top">
+{# ▼▼▼【ここから変更】navタグにidを追加 ▼▼▼ #}
+<nav id="main-navbar" class="navbar navbar-expand-lg navbar-dark bg-dark mb-4 fixed-top">
+{# ▲▲▲【変更はここまで】▲▲▲ #}
     <div class="container">
         <a class="navbar-brand" href="{{ url_for('main.dashboard') }}">
             <i class="fas fa-motorcycle me-1"></i> もとぷっぷー
@@ -12,9 +14,11 @@
             <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                 
                 <li class="nav-item">
-                    <a class="nav-link {% if request.endpoint == 'main.dashboard' %}active{% endif %}" aria-current="page" href="{{ url_for('main.dashboard') }}">
+                    {# ▼▼▼【ここから変更】aタグにidを追加 ▼▼▼ #}
+                    <a id="nav-dashboard" class="nav-link {% if request.endpoint == 'main.dashboard' %}active{% endif %}" aria-current="page" href="{{ url_for('main.dashboard') }}">
                         <i class="fas fa-tachometer-alt me-1"></i> ダッシュボード
                     </a>
+                    {# ▲▲▲【変更はここまで】▲▲▲ #}
                 </li>
 
                 <li class="nav-item dropdown">

@@ -2,7 +2,9 @@
 from . import db
 from datetime import datetime, date
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy import Index, func
+# ▼▼▼ textをインポート ▼▼▼
+from sqlalchemy import Index, func, text
+# ▲▲▲ 変更ここまで ▲▲▲
 import uuid
 from enum import Enum as PyEnum
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -36,6 +38,10 @@ class User(UserMixin, db.Model):
     # ▲▲▲【追記はここまで】▲▲▲
 
     encrypted_misskey_api_token = db.Column(db.Text, nullable=True, comment="暗号化されたMisskey APIトークン")
+
+    # ▼▼▼【ここから変更】チュートリアル管理カラムをJSONB型に変更 ▼▼▼
+    completed_tutorials = db.Column(JSONB, nullable=False, server_default=text("'{}'::jsonb"), comment="完了したチュートリアルのキーを格納する (例: {'initial_setup': true})")
+    # ▲▲▲【変更はここまで】▲▲▲
 
     # ▼▼▼【ここから修正】foreign_keysを指定して曖昧さを解消 ▼▼▼
     motorcycles = db.relationship('Motorcycle', foreign_keys='Motorcycle.user_id', backref='owner', lazy=True, cascade="all, delete-orphan")
