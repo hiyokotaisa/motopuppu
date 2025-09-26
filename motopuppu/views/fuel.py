@@ -273,7 +273,7 @@ def fuel_log():
     current_sort_by = sort_by if sort_by in sort_column_map else 'date'
     sort_column = sort_column_map.get(current_sort_by, FuelEntry.entry_date)
     current_order = 'desc' if order == 'desc' else 'asc'
-    sort_modifier = desc if current_order == 'desc' else asc
+    sort_modifier = desc if current_order == 'desc' else 'asc'
 
     if sort_column == FuelEntry.entry_date:
         query = query.order_by(sort_modifier(FuelEntry.entry_date), desc(FuelEntry.total_distance), FuelEntry.id.desc())
@@ -401,7 +401,27 @@ def add_fuel():
                 'date': previous_fuel.entry_date.strftime('%Y-%m-%d'),
                 'odo': f"{previous_fuel.odometer_reading:,}km"
             }
-    return render_template('fuel_form.html', form_action='add', form=form, gas_station_brands=GAS_STATION_BRANDS, previous_entry_info=previous_entry_info)
+            
+    # ▼▼▼【ここから変更】チュートリアル表示判定ロジックを追加 ▼▼▼
+    start_fuel_tutorial = False
+    # ユーザーが公道車を1台以上所有しているか確認
+    if user_motorcycles_for_fuel:
+        # それらの車両IDリストを作成
+        user_motorcycle_ids_for_fuel = [m.id for m in user_motorcycles_for_fuel]
+        # その車両たちに紐づく給油記録が1件も存在しないかチェック
+        has_existing_fuel_logs = FuelEntry.query.filter(FuelEntry.motorcycle_id.in_(user_motorcycle_ids_for_fuel)).first() is not None
+        
+        # 記録がなく、かつチュートリアルが未完了の場合にフラグを立てる
+        if not has_existing_fuel_logs and not current_user.completed_tutorials.get('fuel_form', False):
+            start_fuel_tutorial = True
+    
+    return render_template('fuel_form.html', 
+                           form_action='add', 
+                           form=form, 
+                           gas_station_brands=GAS_STATION_BRANDS, 
+                           previous_entry_info=previous_entry_info,
+                           start_fuel_tutorial=start_fuel_tutorial)
+    # ▲▲▲【変更はここまで】▲▲▲
 
 
 @fuel_bp.route('/<int:entry_id>/edit', methods=['GET', 'POST'])

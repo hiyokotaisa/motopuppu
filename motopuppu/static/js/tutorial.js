@@ -161,7 +161,6 @@ function startDashboardTour(csrfToken) {
                 title: '車両一覧',
                 intro: 'あなたが登録した車両の一覧です。ここから各車両の詳細な記録ページへ移動できます。'
             },
-            // ▼▼▼【ここから修正】タイムラインとカレンダーのステップを追加 ▼▼▼
             {
                 element: document.querySelector('[data-widget-name="timeline"]'),
                 title: '給油・整備タイムライン',
@@ -172,7 +171,6 @@ function startDashboardTour(csrfToken) {
                 title: '記録カレンダー',
                 intro: 'すべての記録がカレンダー形式で表示されます。いつ何をしたか一目でわかります。'
             },
-            // ▲▲▲【修正はここまで】▲▲▲
             {
                 element: document.querySelector('#main-navbar'),
                 title: 'ナビゲーションバー',
@@ -193,6 +191,85 @@ function startDashboardTour(csrfToken) {
 
     intro.onexit(function() {
         markTutorialAsComplete(csrfToken, 'dashboard_tour');
+    });
+
+    intro.start();
+}
+
+
+/**
+ * 給油記録ページのチュートリアルを開始する
+ * @param {string} csrfToken - CSRFトークン
+ */
+function startFuelFormTutorial(csrfToken) {
+    const intro = introJs();
+
+    intro.setOptions({
+        steps: [
+            {
+                title: '給油記録の追加',
+                intro: 'ここでは給油した際の情報を記録します。満タン法での燃費は自動で計算されます。'
+            },
+            {
+                element: document.querySelector('#tutorial-entry-date'),
+                title: '給油日',
+                intro: '給油した日付を選択します。初期値は今日の日付になっています。'
+            },
+            {
+                element: document.querySelector('#tutorial-input-mode'),
+                title: '走行距離の入力方法',
+                intro: '走行距離は、バイクの総走行距離（ODO）を直接入力する方法と、前回給油時からの距離（TRIP）で入力する方法をここで切り替えられます。'
+            },
+            {
+                element: document.querySelector('#tutorial-odo-input'),
+                title: 'ODOメーター値',
+                intro: '給油した時点での、バイクのODOメーターに表示されている総走行距離を入力してください。'
+            },
+            {
+                element: document.querySelector('#tutorial-volume-input'),
+                title: '給油量',
+                intro: '給油した燃料の量をリットル単位で入力します。'
+            },
+            // ▼▼▼【ここから追記】▼▼▼
+            {
+                element: document.querySelector('#search-gas-station-btn'),
+                title: '給油スタンド検索',
+                intro: 'スタンド名がうろ覚えでも、ここから検索できます。キーワード（例：「エネオス 浦和」）を入力して検索ボタンを押してください。',
+                position: 'bottom'
+            },
+            // ▲▲▲【追記はここまで】▲▲▲
+            {
+                element: document.querySelector('#tutorial-full-tank-check'),
+                title: '満タン給油 (重要)',
+                intro: '正確な燃費を計算するために、<strong>満タン給油</strong>をした場合は必ずこのボックスにチェックを入れてください。',
+                position: 'right'
+            },
+            // ▼▼▼【ここから追記】▼▼▼
+            {
+                element: document.querySelector('#tutorial-exclude-check'),
+                title: '平均燃費から除外',
+                intro: '記録忘れなどで走行距離が不明な給油記録など、異常な燃費が計算されてしまう場合にこのチェックを入れると、全体の平均燃費からこの記録を除外できます。',
+                position: 'right'
+            },
+            // ▲▲▲【追記はここまで】▲▲▲
+            {
+                element: document.querySelector('#tutorial-fuel-submit'),
+                title: '記録の追加',
+                intro: 'すべての入力が終わったら、このボタンで記録を保存します。',
+                position: 'top'
+            }
+        ],
+        nextLabel: '次へ →',
+        prevLabel: '← 前へ',
+        doneLabel: 'わかった！',
+        skipLabel: 'スキップ',
+        showProgress: true,
+        exitOnOverlayClick: false,
+    });
+
+    // チュートリアルが完了またはスキップされたら、'fuel_form'を完了としてマークする
+    intro.onexit(function() {
+        markTutorialAsComplete(csrfToken, 'fuel_form');
     });
 
     intro.start();

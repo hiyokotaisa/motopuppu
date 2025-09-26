@@ -6,7 +6,13 @@
 
 {% block content %}
 {% include '_breadcrumbs.html' %}
-<h2>{{ page_title }}</h2>
+<div class="d-flex align-items-center mb-3">
+    <h2 class="mb-0 me-2">{{ page_title }}</h2>
+    <button type="button" id="restart-tutorial-btn" class="btn btn-sm btn-outline-secondary rounded-circle" style="width: 2rem; height: 2rem;" title="このページのチュートリアルを表示">
+        <i class="fas fa-question"></i>
+    </button>
+</div>
+
 
 {# Flash Messages (Flask-WTFのフォームエラーはフィールドごとに出るので、ここでは一般的なメッセージ用) #}
 {% with messages = get_flashed_messages(with_categories=true) %}
@@ -41,7 +47,7 @@
         <label for="{{ form.entry_date.id }}" class="form-label">
             <i class="bi bi-calendar-date me-2"></i>{{ form.entry_date.label.text }} {% if form.entry_date.flags.required %}<span class="text-danger">*</span>{% endif %}
         </label>
-        {{ form.entry_date(class="form-control" + (" is-invalid" if form.entry_date.errors else "")) }}
+        {{ form.entry_date(id="tutorial-entry-date", class="form-control" + (" is-invalid" if form.entry_date.errors else "")) }}
         {% if form.entry_date.errors %}
             <div class="invalid-feedback">
                 {% for error in form.entry_date.errors %}<span>{{ error }}</span><br>{% endfor %}
@@ -54,9 +60,8 @@
     </div>
 
 
-    {# --- ▼▼▼ トグルスイッチ UI変更 ▼▼▼ --- #}
     {# 入力モード選択 (トグルスイッチ) #}
-    <div class="form-check form-switch mb-3">
+    <div id="tutorial-input-mode" class="form-check form-switch mb-3">
         {{ form.input_mode(class="form-check-input", role="switch") }}
         <label for="{{ form.input_mode.id }}" class="form-check-label">
             <i class="bi bi-toggle-on me-2"></i>{{ form.input_mode.label.text }}
@@ -73,7 +78,7 @@
         <label for="{{ form.odometer_reading.id }}" class="form-label">
             <i class="bi bi-speedometer2 me-2"></i>{{ form.odometer_reading.label.text }} <span class="text-danger">*</span>
         </label>
-        {{ form.odometer_reading(class="form-control" + (" is-invalid" if form.odometer_reading.errors else ""), min="0", step="1", placeholder=(form.odometer_reading.render_kw.get("placeholder", "") if form.odometer_reading.render_kw else "")) }}
+        {{ form.odometer_reading(id="tutorial-odo-input", class="form-control" + (" is-invalid" if form.odometer_reading.errors else ""), min="0", step="1", placeholder=(form.odometer_reading.render_kw.get("placeholder", "") if form.odometer_reading.render_kw else "")) }}
         {% if form.odometer_reading.errors %}
             <div class="invalid-feedback">
                 {% for error in form.odometer_reading.errors %}<span>{{ error }}</span><br>{% endfor %}
@@ -99,7 +104,6 @@
             </div>
         {% endif %}
     </div>
-    {# --- ▲▲▲ トグルスイッチ UI変更 ▲▲▲ --- #}
 
 
     {# 給油量 #}
@@ -107,7 +111,7 @@
         <label for="{{ form.fuel_volume.id }}" class="form-label">
             <i class="bi bi-fuel-pump me-2"></i>{{ form.fuel_volume.label.text }} {% if form.fuel_volume.flags.required %}<span class="text-danger">*</span>{% endif %}
         </label>
-        {{ form.fuel_volume(class="form-control" + (" is-invalid" if form.fuel_volume.errors else ""), min="0.01", step=(form.fuel_volume.render_kw.get("step", "0.01") if form.fuel_volume.render_kw else "0.01"), placeholder=(form.fuel_volume.render_kw.get("placeholder", "") if form.fuel_volume.render_kw else "")) }}
+        {{ form.fuel_volume(id="tutorial-volume-input", class="form-control" + (" is-invalid" if form.fuel_volume.errors else ""), min="0.01", step=(form.fuel_volume.render_kw.get("step", "0.01") if form.fuel_volume.render_kw else "0.01"), placeholder=(form.fuel_volume.render_kw.get("placeholder", "") if form.fuel_volume.render_kw else "")) }}
         {% if form.fuel_volume.errors %}
             <div class="invalid-feedback">
                 {% for error in form.fuel_volume.errors %}<span>{{ error }}</span><br>{% endfor %}
@@ -121,7 +125,6 @@
             <label for="{{ form.price_per_liter.id }}" class="form-label">
                 <i class="bi bi-tag me-2"></i>{{ form.price_per_liter.label.text }}
             </label>
-            {# IntegerFieldなのでstepは基本的に1。placeholderはforms.pyのrender_kwから取得 #}
             {{ form.price_per_liter(class="form-control" + (" is-invalid" if form.price_per_liter.errors else ""), min="0", placeholder=(form.price_per_liter.render_kw.get("placeholder", "") if form.price_per_liter.render_kw else "")) }}
             {% if form.price_per_liter.errors %}
                 <div class="invalid-feedback">
@@ -150,14 +153,12 @@
             <i class="bi bi-building me-2"></i>{{ form.station_name.label.text }}
         </label>
         
-        {# ▼▼▼▼▼ ここから変更 ▼▼▼▼▼ #}
         <div class="input-group">
             {{ form.station_name(class="form-control" + (" is-invalid" if form.station_name.errors else ""), list="station-brands-list", placeholder=(form.station_name.render_kw.get("placeholder", "") if form.station_name.render_kw else "")) }}
             <button class="btn btn-outline-secondary" type="button" id="search-gas-station-btn">
                 <i class="bi bi-search"></i> 検索
             </button>
         </div>
-        {# ▲▲▲▲▲ ここまで変更 ▲▲▲▲▲ #}
 
         <datalist id="station-brands-list">
             {% for brand in gas_station_brands %}
@@ -170,9 +171,7 @@
             </div>
         {% endif %}
         
-        {# ▼▼▼▼▼ ここから追加 ▼▼▼▼▼ #}
         <div id="gas-station-results" class="list-group mt-2"></div>
-        {# ▲▲▲▲▲ ここまで追加 ▲▲▲▲▲ #}
     </div>
 
     {# 油種 #}
@@ -190,7 +189,7 @@
 
     {# 満タンチェック #}
     <div class="mb-3 form-check">
-        {{ form.is_full_tank(class="form-check-input" + (" is-invalid" if form.is_full_tank.errors else "")) }}
+        {{ form.is_full_tank(id="tutorial-full-tank-check", class="form-check-input" + (" is-invalid" if form.is_full_tank.errors else "")) }}
         <label for="{{ form.is_full_tank.id }}" class="form-check-label">
             <i class="bi bi-check2-square me-2"></i>{{ form.is_full_tank.label.text }}
         </label>
@@ -203,7 +202,9 @@
 
     {# 計算除外チェック #}
     <div class="mb-3 form-check">
-        {{ form.exclude_from_average(class="form-check-input" + (" is-invalid" if form.exclude_from_average.errors else "")) }}
+        {# ▼▼▼【ここから変更】inputにidを追加 ▼▼▼ #}
+        {{ form.exclude_from_average(id="tutorial-exclude-check", class="form-check-input" + (" is-invalid" if form.exclude_from_average.errors else "")) }}
+        {# ▲▲▲【変更はここまで】▲▲▲ #}
         <label for="{{ form.exclude_from_average.id }}" class="form-check-label">
             <i class="bi bi-calculator me-2"></i>{{ form.exclude_from_average.label.text }}
         </label>
@@ -231,7 +232,7 @@
 
     {# 送信ボタンとキャンセルボタン #}
     <div class="mt-4">
-        {{ form.submit(class="btn btn-primary") }}
+        {{ form.submit(id="tutorial-fuel-submit", class="btn btn-primary") }}
         <a href="{{ url_for('fuel.fuel_log') }}" class="btn btn-secondary">
             <i class="fas fa-times me-1"></i> キャンセル
         </a>
@@ -242,9 +243,8 @@
 {% block scripts %}
 {{ super() }}
 
-{# ▼▼▼▼▼ ここから追加 ▼▼▼▼▼ #}
 <script src="{{ url_for('static', filename='js/gas_station_search.js') }}"></script>
-{# ▲▲▲▲▲ ここまで追加 ▲▲▲▲▲ #}
+<script src="{{ url_for('static', filename='js/tutorial.js') }}"></script>
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
@@ -264,8 +264,6 @@
         if (volumeInput && priceInput && costInput) {
             volumeInput.addEventListener('input', calculateTotalCost);
             priceInput.addEventListener('input', calculateTotalCost);
-        } else {
-            console.warn("One or more elements for cost calculation not found by ID. Check IDs: fuel_volume, price_per_liter, total_cost");
         }
 
         const inputModeToggle = document.getElementById('input_mode');
@@ -294,19 +292,14 @@
         async function updatePreviousEntryInfo() {
             const motorcycleId = motorcycleSelect.value;
             const entryDate = entryDateInput.value;
-            // --- ▼▼▼ ここから修正 ▼▼▼ ---
-            const entryId = "{{ entry_id or '' }}"; // 編集中のIDを取得
-            // --- ▲▲▲ ここまで修正 ▲▲▲ ---
+            const entryId = "{{ entry_id or '' }}";
 
             if (!motorcycleId || !entryDate) {
                 return;
             }
 
             try {
-                // --- ▼▼▼ ここから修正 ▼▼▼ ---
-                // APIにentry_idも渡す
                 const response = await fetch(`/fuel/get-previous-entry?motorcycle_id=${motorcycleId}&entry_date=${entryDate}&entry_id=${entryId}`);
-                // --- ▲▲▲ ここまで修正 ▲▲▲ ---
                 if (!response.ok) {
                     console.error("Failed to fetch previous entry info. Status:", response.status);
                     previousInfoContainer.style.display = 'none';
@@ -331,6 +324,24 @@
             entryDateInput.addEventListener('change', updatePreviousEntryInfo);
             updatePreviousEntryInfo();
         }
+
+        // --- ▼▼▼【ここから追記】チュートリアル関連のスクリプト ▼▼▼ ---
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+        const shouldStartTutorial = {{ start_fuel_tutorial | tojson }};
+        const restartBtn = document.getElementById('restart-tutorial-btn');
+
+        // 1. 新規ユーザー向けに自動開始
+        if (shouldStartTutorial) {
+            startFuelFormTutorial(csrfToken);
+        }
+
+        // 2. 「？」ボタンクリックで手動開始
+        if (restartBtn) {
+            restartBtn.addEventListener('click', function() {
+                startFuelFormTutorial(csrfToken);
+            });
+        }
+        // --- ▲▲▲【追記はここまで】▲▲▲
     });
 </script>
 {% endblock %}
