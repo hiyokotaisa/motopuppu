@@ -75,28 +75,31 @@
 
 ### **6.  現在のプロジェクトディレクトリ:**
 
-kyagisaw@kyagisaw-mac motopuppu % tree
+kyagisaw@hiyoko-fedora:~/Dev/motopuppu$ tree
 .
+├── Dockerfile
+├── LICENSE
+├── README.md
 ├── announcements.json
 ├── compose.yml
-├── Dockerfile
 ├── drafts
 │   ├── gemini_prompt.txt
 │   └── racer_draft.md
 ├── fonts
 │   └── ipaexg.ttf
 ├── instance
-├── LICENSE
 ├── migrations
+│   ├── README
 │   ├── alembic.ini
 │   ├── env.py
-│   ├── README
 │   ├── script.py.mako
 │   └── versions
+│       ├── 2b2e0801467f_add_has_completed_tutorial_to_user_model.py
 │       ├── 309af67c371a_add_primary_and_gear_ratios_to_.py
 │       ├── 65cb43e34218_add_team_models_for_team_functionality.py
 │       ├── 8ffa50023b83_add_gps_tracks_to_sessionlog.py
 │       ├── bf41f9654c05_add_usercircuittarget_model_for_target_.py
+│       ├── cd8c6f685e48_add_share_with_teams_to_activitylog.py
 │       ├── e391d758c56d_initial_consolidated_migration_from_.py
 │       └── e41c7c921b61_add_public_share_fields_to_sessionlog.py
 ├── motopuppu
@@ -143,7 +146,8 @@ kyagisaw@kyagisaw-mac motopuppu % tree
 │   │   │   ├── lap_time_manager.js
 │   │   │   ├── map_viewer.js
 │   │   │   ├── misskey_share.js
-│   │   │   └── odo_toggle.js
+│   │   │   ├── odo_toggle.js
+│   │   │   └── tutorial.js
 │   │   └── manifest.json
 │   ├── templates
 │   │   ├── _breadcrumbs.html
@@ -166,6 +170,7 @@ kyagisaw@kyagisaw-mac motopuppu % tree
 │   │   │   └── index.html
 │   │   ├── dashboard
 │   │   │   ├── _calendar_widget.html
+│   │   │   ├── _circuit_widget.html
 │   │   │   ├── _reminders_widget.html
 │   │   │   ├── _stats_widget.html
 │   │   │   ├── _timeline_widget.html
@@ -246,8 +251,8 @@ kyagisaw@kyagisaw-mac motopuppu % tree
 │       ├── dev_auth.py
 │       ├── event.py
 │       ├── fuel.py
-│       ├── garage_settings.py
 │       ├── garage.py
+│       ├── garage_settings.py
 │       ├── help.py
 │       ├── leaderboard.py
 │       ├── main.py
@@ -260,11 +265,10 @@ kyagisaw@kyagisaw-mac motopuppu % tree
 │       ├── team.py
 │       ├── touring.py
 │       └── vehicle.py
-├── README.md
-├── requirements.txt
-└── tests
+└── requirements.txt
 
-35 directories, 152 files
+34 directories, 156 files
+
 
 ### **7.  今回のセッションでの目標 [毎回更新]**
 

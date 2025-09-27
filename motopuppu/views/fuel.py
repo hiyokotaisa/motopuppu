@@ -333,7 +333,7 @@ def add_fuel():
         # ▲▲▲ 変更ここまで ▲▲▲
         if not motorcycle:
             flash('選択された車両が見つからないか、給油記録の対象外です。再度お試しください。', 'danger')
-            return render_template('fuel_form.html', form_action='add', form=form, gas_station_brands=GAS_STATION_BRANDS)
+            return render_template('fuel_form.html', form_action='add', form=form, gas_station_brands=GAS_STATION_BRANDS, start_fuel_tutorial=False)
 
         previous_fuel = get_previous_fuel_entry(motorcycle.id, form.entry_date.data)
 
@@ -350,7 +350,7 @@ def add_fuel():
 
         if form.errors:
             flash('入力内容にエラーがあります。ご確認ください。', 'danger')
-            return render_template('fuel_form.html', form_action='add', form=form, gas_station_brands=GAS_STATION_BRANDS)
+            return render_template('fuel_form.html', form_action='add', form=form, gas_station_brands=GAS_STATION_BRANDS, start_fuel_tutorial=False)
 
         offset_at_entry_date = motorcycle.calculate_cumulative_offset_from_logs(target_date=form.entry_date.data)
         total_distance = form.odometer_reading.data + offset_at_entry_date
@@ -451,7 +451,7 @@ def edit_fuel(entry_id):
         # ▲▲▲ 変更ここまで ▲▲▲
         if not new_motorcycle:
             flash('選択された車両が見つからないか、給油記録の対象外です。再度お試しください。', 'danger')
-            return render_template('fuel_form.html', form_action='edit', form=form, entry_id=entry.id, gas_station_brands=GAS_STATION_BRANDS)
+            return render_template('fuel_form.html', form_action='edit', form=form, entry_id=entry.id, gas_station_brands=GAS_STATION_BRANDS, start_fuel_tutorial=False)
 
         vehicle_changed = entry.motorcycle_id != new_motorcycle.id
         if vehicle_changed:
@@ -472,7 +472,7 @@ def edit_fuel(entry_id):
 
         if form.errors:
             flash('入力内容にエラーがあります。ご確認ください。', 'danger')
-            return render_template('fuel_form.html', form_action='edit', form=form, entry_id=entry.id, gas_station_brands=GAS_STATION_BRANDS)
+            return render_template('fuel_form.html', form_action='edit', form=form, entry_id=entry.id, gas_station_brands=GAS_STATION_BRANDS, start_fuel_tutorial=False)
 
         offset_at_entry_date = new_motorcycle.calculate_cumulative_offset_from_logs(target_date=form.entry_date.data)
         total_distance = form.odometer_reading.data + offset_at_entry_date
@@ -521,7 +521,16 @@ def edit_fuel(entry_id):
                 'date': previous_fuel.entry_date.strftime('%Y-%m-%d'),
                 'odo': f"{previous_fuel.odometer_reading:,}km"
             }
-    return render_template('fuel_form.html', form_action='edit', form=form, entry_id=entry.id, gas_station_brands=GAS_STATION_BRANDS, previous_entry_info=previous_entry_info)
+    # ▼▼▼【ここから変更】チュートリアル変数を常時Falseで渡す ▼▼▼
+    start_fuel_tutorial = False
+    return render_template('fuel_form.html', 
+                           form_action='edit', 
+                           form=form, 
+                           entry_id=entry.id, 
+                           gas_station_brands=GAS_STATION_BRANDS, 
+                           previous_entry_info=previous_entry_info,
+                           start_fuel_tutorial=start_fuel_tutorial)
+    # ▲▲▲【変更はここまで】▲▲▲
 
 
 @fuel_bp.route('/<int:entry_id>/delete', methods=['POST'])
