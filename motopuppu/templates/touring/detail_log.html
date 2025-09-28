@@ -184,6 +184,8 @@ document.addEventListener('DOMContentLoaded', function () {
         .then(data => {
             for (const noteId in data) {
                 const note = data[noteId];
+                // ▼▼▼ デバッグ用にこの行を追加 ▼▼▼
+                console.log(note); 
                 const placeholderWrapper = container.querySelector(`[data-note-id="${noteId}"]`);
                 if (!placeholderWrapper) continue;
 
