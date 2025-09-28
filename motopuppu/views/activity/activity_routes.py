@@ -75,40 +75,47 @@ def list_activities(vehicle_id):
 def add_activity(vehicle_id):
     """新しい活動ログを作成する"""
     motorcycle = get_motorcycle_or_404(vehicle_id)
-    if request.method == 'POST':
-        event_id = request.form.get('event_id', type=int)
-    else:
-        event_id = request.args.get('event_id', type=int)
+    event_id = request.form.get('event_id', type=int) if request.method == 'POST' else request.args.get('event_id', type=int)
 
     form = ActivityLogForm(request.form)
     
-    if form.validate_on_submit():
-        new_activity = ActivityLog(
-            motorcycle_id=motorcycle.id,
-            # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
-            user_id=current_user.id,
-            # ▲▲▲ 変更ここまで ▲▲▲
-            event_id=event_id,
-            activity_date=form.activity_date.data,
-            activity_title=form.activity_title.data,
-            location_type=form.location_type.data,
-            circuit_name=form.circuit_name.data if form.location_type.data == 'circuit' else None,
-            custom_location=form.custom_location.data if form.location_type.data == 'custom' else None,
-            weather=form.weather.data,
-            temperature=form.temperature.data,
-            notes=form.notes.data
-        )
-        try:
-            db.session.add(new_activity)
-            db.session.commit()
-            flash('新しい活動記録を作成しました。走行セッションを記録してください。', 'success')
-            return redirect(url_for('activity.detail_activity', activity_id=new_activity.id))
-        except Exception as e:
-            db.session.rollback()
-            current_app.logger.error(f"Error adding new activity log: {e}", exc_info=True)
-            flash('活動記録の保存中にエラーが発生しました。', 'danger')
+    # ▼▼▼【ここから追記】車両選択肢をフォームに設定（バリデーション通過のため）▼▼▼
+    user_motorcycles = Motorcycle.query.filter_by(user_id=current_user.id).order_by(Motorcycle.name).all()
+    form.motorcycle_id.choices = [(m.id, m.name) for m in user_motorcycles]
+    # ▲▲▲【追記はここまで】▲▲▲
+
+    if request.method == 'POST':
+        # ▼▼▼【ここから追記】hiddenではないので、ここで値を設定してバリデーションを通す▼▼▼
+        form.motorcycle_id.data = vehicle_id
+        # ▲▲▲【追記はここまで】▲▲▲
+        if form.validate_on_submit():
+            new_activity = ActivityLog(
+                motorcycle_id=vehicle_id, # URLから取得したIDを正とする
+                user_id=current_user.id,
+                event_id=event_id,
+                activity_date=form.activity_date.data,
+                activity_title=form.activity_title.data,
+                location_type=form.location_type.data,
+                circuit_name=form.circuit_name.data if form.location_type.data == 'circuit' else None,
+                custom_location=form.custom_location.data if form.location_type.data == 'custom' else None,
+                weather=form.weather.data,
+                temperature=form.temperature.data,
+                notes=form.notes.data
+            )
+            try:
+                db.session.add(new_activity)
+                db.session.commit()
+                flash('新しい活動記録を作成しました。走行セッションを記録してください。', 'success')
+                return redirect(url_for('activity.detail_activity', activity_id=new_activity.id))
+            except Exception as e:
+                db.session.rollback()
+                current_app.logger.error(f"Error adding new activity log: {e}", exc_info=True)
+                flash('活動記録の保存中にエラーが発生しました。', 'danger')
 
     if request.method == 'GET':
+        # ▼▼▼【ここから追記】▼▼▼
+        form.motorcycle_id.data = vehicle_id
+        # ▲▲▲【追記はここまで】▲▲▲
         form.activity_title.data = request.args.get('activity_title', '')
         activity_date_str = request.args.get('activity_date')
         if activity_date_str:
@@ -133,13 +140,32 @@ def add_activity(vehicle_id):
 @login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def edit_activity(activity_id):
     """活動ログを編集する"""
-    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
     activity = ActivityLog.query.filter_by(id=activity_id, user_id=current_user.id).first_or_404()
-    # ▲▲▲ 変更ここまで ▲▲▲
     motorcycle = activity.motorcycle
     form = ActivityLogForm(obj=activity)
 
+    # ▼▼▼【ここから追記】▼▼▼
+    # ユーザーの所有車両リストを取得してフォームの選択肢に設定
+    user_motorcycles = Motorcycle.query.filter_by(user_id=current_user.id).order_by(Motorcycle.name).all()
+    form.motorcycle_id.choices = [(m.id, m.name) for m in user_motorcycles]
+    # ▲▲▲【追記はここまで】▲▲▲
+
     if form.validate_on_submit():
+        # ▼▼▼【ここから変更・追記】車両変更処理▼▼▼
+        original_motorcycle_id = activity.motorcycle_id
+        new_motorcycle_id = form.motorcycle_id.data
+
+        if original_motorcycle_id != new_motorcycle_id:
+            # 車両が変更された場合、紐づく全セッションのセッティングシートをリセット
+            sessions_to_reset = SessionLog.query.filter_by(activity_log_id=activity.id).all()
+            if sessions_to_reset:
+                for session in sessions_to_reset:
+                    session.setting_sheet_id = None
+                flash('車両を変更したため、関連する全セッションのセッティングシート紐付けが解除されました。', 'info')
+            
+            activity.motorcycle_id = new_motorcycle_id
+        # ▲▲▲【変更・追記はここまで】▲▲▲
+
         activity.activity_date = form.activity_date.data
         activity.activity_title = form.activity_title.data
         activity.location_type = form.location_type.data
@@ -158,6 +184,9 @@ def edit_activity(activity_id):
             flash('活動ログの更新中にエラーが発生しました。', 'danger')
     
     if request.method == 'GET':
+        # ▼▼▼【ここから追記】GETリクエスト時にも現在の車両をフォームに設定▼▼▼
+        form.motorcycle_id.data = activity.motorcycle_id
+        # ▲▲▲【追記はここまで】▲▲▲
         form.location_type.data = activity.location_type or 'circuit'
         form.circuit_name.data = activity.circuit_name
         form.custom_location.data = activity.custom_location

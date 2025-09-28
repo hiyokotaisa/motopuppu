@@ -37,6 +37,23 @@
     <div class="card">
         <div class="card-body">
             
+            {# --- ▼▼▼ ここから追加 ▼▼▼ --- #}
+            {% if form_action == 'edit' %}
+            <div class="alert alert-warning small" role="alert">
+                <i class="fas fa-exclamation-triangle me-1"></i>
+                <strong>注意:</strong> 車両を変更すると、この活動ログに紐づく全てのセッションからセッティングシートの関連付けが解除されます。
+            </div>
+            <div class="mb-3">
+                {{ form.motorcycle_id.label(class="form-label") }} {% if form.motorcycle_id.flags.required %}<span class="text-danger">*</span>{% endif %}
+                {{ form.motorcycle_id(class="form-select" + (" is-invalid" if form.motorcycle_id.errors else ""), style="max-width: 300px;") }}
+                {% if form.motorcycle_id.errors %}
+                    <div class="invalid-feedback">{% for error in form.motorcycle_id.errors %}<span>{{ error }}</span><br>{% endfor %}</div>
+                {% endif %}
+            </div>
+            <hr class="my-4">
+            {% endif %}
+            {# --- ▲▲▲ 追加ここまで ▲▲▲ --- #}
+            
             {# 活動日 #}
             <div class="mb-3">
                 {{ form.activity_date.label(class="form-label") }} {% if form.activity_date.flags.required %}<span class="text-danger">*</span>{% endif %}

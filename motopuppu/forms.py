@@ -531,6 +531,13 @@ class SettingSheetForm(FlaskForm):
 
 class ActivityLogForm(FlaskForm):
     """活動ログ用のフォーム"""
+    # ▼▼▼【ここから追記】▼▼▼
+    motorcycle_id = SelectField(
+        '車両',
+        coerce=int,
+        validators=[DataRequired(message='車両を選択してください。')]
+    )
+    # ▲▲▲【追記はここまで】▲▲▲
     activity_date = DateField(
         '活動日',
         validators=[DataRequired(message='活動日は必須です。')],
