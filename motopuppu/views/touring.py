@@ -1,4 +1,5 @@
 # motopuppu/views/touring.py
+
 import json
 from datetime import datetime, date, timezone, timedelta
 import requests
@@ -174,7 +175,23 @@ def detail_log(log_id):
     ).filter_by(id=log_id, user_id=current_user.id).first_or_404()
     # ▲▲▲ 変更ここまで ▲▲▲
     
-    return render_template('touring/detail_log.html', log=log)
+    # ▼▼▼ Misskeyインスタンスの絵文字リストを取得する処理を追加 ▼▼▼
+    emojis_json = '[]'
+    try:
+        misskey_instance_url = current_app.config.get('MISSKEY_INSTANCE_URL', 'https://misskey.io')
+        # /api/emojis は POST リクエストを必要とする場合があるため、空のjsonを送信
+        response = requests.post(f"{misskey_instance_url}/api/emojis", json={}, timeout=10)
+        response.raise_for_status()
+        # レスポンスが {"emojis": [...]} という形式であることを想定
+        emojis_data = response.json().get("emojis", [])
+        emojis_json = json.dumps(emojis_data)
+    except requests.RequestException as e:
+        current_app.logger.error(f"Failed to fetch Misskey emojis: {e}")
+    except Exception as e:
+        current_app.logger.error(f"An unexpected error occurred while fetching emojis: {e}", exc_info=True)
+    # ▲▲▲ 変更ここまで ▲▲▲
+
+    return render_template('touring/detail_log.html', log=log, emojis_json=emojis_json)
 
 
 @touring_bp.route('/api/misskey_notes')

@@ -131,124 +131,123 @@
 {% block scripts %}
 {{ super() }}
 <script>
-// MisskeyのMFMを簡易的にHTMLに変換する処理（カスタム絵文字対応）
-function parseMfm(text, emojis = []) {
-    if (!text) return '';
+    // Pythonから渡されたインスタンス全体の絵文字リストをJavaScript変数に格納
+    const instanceEmojis = {{ emojis_json | safe }};
 
-    // 1. カスタム絵文字を <img> タグに置換
-    if (emojis && emojis.length > 0) {
-        const emojiMap = emojis.reduce((map, emoji) => {
-            map[emoji.name] = emoji.url;
-            return map;
-        }, {});
+    // パフォーマンス向上のため、最初に絵文字名とURLのマップを作成
+    const emojiMap = instanceEmojis.reduce((map, emoji) => {
+        map[emoji.name] = emoji.url;
+        return map;
+    }, {});
 
-        text = text.replace(/:(\w+):/g, (match, name) => {
+    // MisskeyのMFMを簡易的にHTMLに変換する処理
+    function parseMfm(text) {
+        if (!text) return '';
+
+        // 1. カスタム絵文字を <img> タグに置換（作成済みの emojiMap を使用）
+        text = text.replace(/:([\w\-\+]+):/g, (match, name) => {
             if (emojiMap[name]) {
                 return `<img src="${emojiMap[name]}" alt="${match}" class="custom-emoji" title="${match}">`;
             }
             return match; // マップにない絵文字コードはそのまま返す
         });
+
+        // 2. 安全のためにHTMLエスケープ
+        text = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        
+        // 3. <img> タグだけ元に戻す
+        text = text.replace(/&lt;img src=&quot;(.+?)&quot; alt=&quot;(.+?)&quot; class=&quot;custom-emoji&quot; title=&quot;(.+?)&quot;&gt;/g, '<img src="$1" alt="$2" class="custom-emoji" title="$3">');
+
+        // 4. URL、ハッシュタグ、改行を変換
+        text = text.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
+        const instanceDomain = "{{ misskey_instance_domain }}";
+        text = text.replace(/#([\w\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF_]+)/g, `<a href="https://${instanceDomain}/tags/$1" target="_blank" rel="noopener noreferrer">#$1</a>`);
+        text = text.replace(/\n/g, '<br>');
+
+        return text;
     }
 
-    // 2. 安全のためにHTMLエスケープ
-    text = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-    
-    // 3. <img> タグだけ元に戻す（この実装に特化した簡易的な方法）
-    text = text.replace(/&lt;img src=&quot;(.+?)&quot; alt=&quot;(.+?)&quot; class=&quot;custom-emoji&quot; title=&quot;(.+?)&quot;&gt;/g, '<img src="$1" alt="$2" class="custom-emoji" title="$3">');
+    document.addEventListener('DOMContentLoaded', function () {
+        const container = document.getElementById('scrapbook-notes-container');
+        const notePlaceholders = container.querySelectorAll('.misskey-note-card-placeholder');
 
-    // 4. URL、ハッシュタグ、改行を変換
-    text = text.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
-    const instanceDomain = "{{ misskey_instance_domain }}";
-    text = text.replace(/#([\w\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF_]+)/g, `<a href="https://${instanceDomain}/tags/$1" target="_blank" rel="noopener noreferrer">#$1</a>`);
-    text = text.replace(/\n/g, '<br>');
+        if (notePlaceholders.length > 0) {
+            const noteIds = Array.from(notePlaceholders).map(el => el.parentElement.dataset.noteId);
 
-    return text;
-}
+            fetch("{{ url_for('touring.fetch_note_details_api') }}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify({ note_ids: noteIds })
+            })
+            .then(response => response.json())
+            .then(data => {
+                for (const noteId in data) {
+                    const note = data[noteId];
+                    const placeholderWrapper = container.querySelector(`[data-note-id="${noteId}"]`);
+                    if (!placeholderWrapper) continue;
 
-document.addEventListener('DOMContentLoaded', function () {
-    const container = document.getElementById('scrapbook-notes-container');
-    const notePlaceholders = container.querySelectorAll('.misskey-note-card-placeholder');
+                    let cardHtml = '';
+                    if (note && note.user) {
+                        const imageHtml = note.files && note.files.length > 0
+                            ? `<a href="${note.files[0].url}" target="_blank" rel="noopener noreferrer"><img src="${note.files[0].thumbnailUrl}" class="card-img-top" alt="Note Image"></a>` : '';
+                        
+                        // note.emojis を渡す必要がなくなり、note.text のみを渡す
+                        const textHtml = note.text ? `<div class="card-text small mfm-content">${parseMfm(note.text)}</div>` : '';
 
-    if (notePlaceholders.length > 0) {
-        const noteIds = Array.from(notePlaceholders).map(el => el.parentElement.dataset.noteId);
+                        const noteUrl = `{{ url_for('main.misskey_redirect', note_id='__NOTE_ID__') }}`.replace('__NOTE_ID__', note.id);
+                        const userProfileUrl = `{{ misskey_instance_url }}/@${note.user.username}`;
 
-        fetch("{{ url_for('touring.fetch_note_details_api') }}", {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': '{{ csrf_token() }}'
-            },
-            body: JSON.stringify({ note_ids: noteIds })
-        })
-        .then(response => response.json())
-        .then(data => {
-            for (const noteId in data) {
-                const note = data[noteId];
-                // ▼▼▼ デバッグ用にこの行を追加 ▼▼▼
-                console.log(note); 
-                const placeholderWrapper = container.querySelector(`[data-note-id="${noteId}"]`);
-                if (!placeholderWrapper) continue;
-
-                let cardHtml = '';
-                if (note && note.user) { // note と note.user の存在を確認
-                    const imageHtml = note.files && note.files.length > 0
-                        ? `<a href="${note.files[0].url}" target="_blank" rel="noopener noreferrer"><img src="${note.files[0].thumbnailUrl}" class="card-img-top" alt="Note Image"></a>` : '';
-                    
-                    const textHtml = note.text ? `<div class="card-text small mfm-content">${parseMfm(note.text, note.emojis)}</div>` : '';
-
-                    const noteUrl = `{{ url_for('main.misskey_redirect', note_id='__NOTE_ID__') }}`.replace('__NOTE_ID__', note.id);
-
-                    // note.user.username を使って、各ノートの投稿者のプロフィールURLを動的に生成します
-                    const userProfileUrl = `{{ misskey_instance_url }}/@${note.user.username}`;
-
-                    const cardHeaderHtml = `
-                        <div class="card-header bg-white d-flex align-items-center p-2">
-                           <a href="${userProfileUrl}" target="_blank" rel="noopener noreferrer">
-                               <img src="${note.user.avatarUrl}" alt="${note.user.name}" class="rounded-circle me-2" width="32" height="32">
-                           </a>
-                           <div class="flex-grow-1">
-                               <a href="${userProfileUrl}" class="text-dark text-decoration-none fw-bold small">${note.user.name || note.user.username}</a>
-                               <div class="text-muted small">
-                                   <a href="${noteUrl}" target="_blank" rel="noopener noreferrer" class="text-muted text-decoration-none">
-                                       ${new Date(note.createdAt).toLocaleString()}
-                                   </a>
+                        const cardHeaderHtml = `
+                            <div class="card-header bg-white d-flex align-items-center p-2">
+                               <a href="${userProfileUrl}" target="_blank" rel="noopener noreferrer">
+                                   <img src="${note.user.avatarUrl}" alt="${note.user.name}" class="rounded-circle me-2" width="32" height="32">
+                               </a>
+                               <div class="flex-grow-1">
+                                   <a href="${userProfileUrl}" class="text-dark text-decoration-none fw-bold small">${note.user.name || note.user.username}</a>
+                                   <div class="text-muted small">
+                                       <a href="${noteUrl}" target="_blank" rel="noopener noreferrer" class="text-muted text-decoration-none">
+                                           ${new Date(note.createdAt).toLocaleString()}
+                                       </a>
+                                   </div>
                                </div>
-                           </div>
-                        </div>`;
+                            </div>`;
 
-                    cardHtml = `
-                        <div class="card h-100 misskey-note-card">
-                            ${cardHeaderHtml}
-                            ${imageHtml}
-                            <div class="card-body p-2">
-                                ${textHtml}
-                            </div>
-                        </div>`;
+                        cardHtml = `
+                            <div class="card h-100 misskey-note-card">
+                                ${cardHeaderHtml}
+                                ${imageHtml}
+                                <div class="card-body p-2">
+                                    ${textHtml}
+                                </div>
+                            </div>`;
 
-                } else {
-                    cardHtml = `
+                    } else {
+                        cardHtml = `
+                            <div class="card h-100">
+                                <div class="card-body text-danger d-flex align-items-center justify-content-center">
+                                    <p class="card-text small mb-0">ノートの読み込みに失敗しました。</p>
+                                </div>
+                            </div>`;
+                    }
+                    placeholderWrapper.innerHTML = cardHtml;
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching note details:', error);
+                notePlaceholders.forEach(ph => {
+                    ph.parentElement.innerHTML = `
                         <div class="card h-100">
                             <div class="card-body text-danger d-flex align-items-center justify-content-center">
-                                <p class="card-text small mb-0">ノートの読み込みに失敗しました。</p>
+                                <p class="card-text small mb-0">エラーが発生しました。</p>
                             </div>
                         </div>`;
-                }
-                placeholderWrapper.innerHTML = cardHtml;
-            }
-        })
-        .catch(error => {
-            console.error('Error fetching note details:', error);
-            notePlaceholders.forEach(ph => {
-                ph.parentElement.innerHTML = `
-                    <div class="card h-100">
-                        <div class="card-body text-danger d-flex align-items-center justify-content-center">
-                            <p class="card-text small mb-0">エラーが発生しました。</p>
-                        </div>
-                    </div>`;
+                });
             });
-        });
-    }
-});
+        }
+    });
 </script>
 <style>
 /* Misskeyカード内のテキストが長すぎる場合にスクロールさせる */
