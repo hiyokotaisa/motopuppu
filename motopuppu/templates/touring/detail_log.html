@@ -202,7 +202,7 @@
                                    <img src="${note.user.avatarUrl}" alt="${note.user.name}" class="rounded-circle me-2" width="32" height="32">
                                </a>
                                <div class="flex-grow-1">
-                                   <a href="${userProfileUrl}" class="text-dark text-decoration-none fw-bold small">${note.user.name || note.user.username}</a>
+                                   <a href="${userProfileUrl}" class="text-dark text-decoration-none fw-bold small">${parseMfm(note.user.name || note.user.username)}</a>
                                    <div class="text-muted small">
                                        <a href="${noteUrl}" target="_blank" rel="noopener noreferrer" class="text-muted text-decoration-none">
                                            ${new Date(note.createdAt).toLocaleString()}
