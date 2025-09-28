@@ -140,31 +140,28 @@
         return map;
     }, {});
 
-    // MisskeyのMFMを簡易的にHTMLに変換する処理
+    // MisskeyのMFMを簡易的にHTMLに変換する処理（修正版）
     function parseMfm(text) {
         if (!text) return '';
 
-        // 1. カスタム絵文字を <img> タグに置換（作成済みの emojiMap を使用）
-        text = text.replace(/:([\w\-\+]+):/g, (match, name) => {
+        // 1. 最初に全体をHTMLエスケープして安全な文字列に変換
+        let processedText = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+        // 2. URL、ハッシュタグ、改行をHTMLタグに変換
+        const instanceDomain = "{{ misskey_instance_domain }}";
+        processedText = processedText.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
+        processedText = processedText.replace(/#([\w\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF_]+)/g, `<a href="https://${instanceDomain}/tags/$1" target="_blank" rel="noopener noreferrer">#$1</a>`);
+        processedText = processedText.replace(/\n/g, '<br>');
+
+        // 3. 最後に絵文字コードを <img> タグに置換
+        processedText = processedText.replace(/:([\w\-\+]+):/g, (match, name) => {
             if (emojiMap[name]) {
                 return `<img src="${emojiMap[name]}" alt="${match}" class="custom-emoji" title="${match}">`;
             }
             return match; // マップにない絵文字コードはそのまま返す
         });
 
-        // 2. 安全のためにHTMLエスケープ
-        text = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-        
-        // 3. <img> タグだけ元に戻す
-        text = text.replace(/&lt;img src=&quot;(.+?)&quot; alt=&quot;(.+?)&quot; class=&quot;custom-emoji&quot; title=&quot;(.+?)&quot;&gt;/g, '<img src="$1" alt="$2" class="custom-emoji" title="$3">');
-
-        // 4. URL、ハッシュタグ、改行を変換
-        text = text.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
-        const instanceDomain = "{{ misskey_instance_domain }}";
-        text = text.replace(/#([\w\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF_]+)/g, `<a href="https://${instanceDomain}/tags/$1" target="_blank" rel="noopener noreferrer">#$1</a>`);
-        text = text.replace(/\n/g, '<br>');
-
-        return text;
+        return processedText;
     }
 
     document.addEventListener('DOMContentLoaded', function () {
@@ -194,7 +191,6 @@
                         const imageHtml = note.files && note.files.length > 0
                             ? `<a href="${note.files[0].url}" target="_blank" rel="noopener noreferrer"><img src="${note.files[0].thumbnailUrl}" class="card-img-top" alt="Note Image"></a>` : '';
                         
-                        // note.emojis を渡す必要がなくなり、note.text のみを渡す
                         const textHtml = note.text ? `<div class="card-text small mfm-content">${parseMfm(note.text)}</div>` : '';
 
                         const noteUrl = `{{ url_for('main.misskey_redirect', note_id='__NOTE_ID__') }}`.replace('__NOTE_ID__', note.id);
