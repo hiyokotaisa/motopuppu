@@ -1,8 +1,8 @@
 # motopuppu/views/touring.py
-
 import json
 from datetime import datetime, date, timezone, timedelta
 import requests
+import time # ◀◀◀ timeモジュールをインポート
 
 from flask import (
     Blueprint, flash, redirect, render_template, request, url_for, current_app, jsonify
@@ -18,6 +18,14 @@ from ..forms import TouringLogForm
 from ..services import CryptoService
 
 touring_bp = Blueprint('touring', __name__, url_prefix='/touring')
+
+# ▼▼▼ 絵文字キャッシュ用の変数をグローバルスコープに定義 ▼▼▼
+emoji_cache = {
+    "data": None,
+    "timestamp": 0
+}
+CACHE_DURATION_SECONDS = 86400  # 24時間 (60秒 * 60分 * 24時間)
+# ▲▲▲ 変更ここまで ▲▲▲
 
 def get_motorcycle_or_404(vehicle_id):
     """指定されたIDの車両を取得し、所有者でなければ404を返す"""
@@ -175,20 +183,37 @@ def detail_log(log_id):
     ).filter_by(id=log_id, user_id=current_user.id).first_or_404()
     # ▲▲▲ 変更ここまで ▲▲▲
     
-    # ▼▼▼ Misskeyインスタンスの絵文字リストを取得する処理を追加 ▼▼▼
-    emojis_json = '[]'
-    try:
-        misskey_instance_url = current_app.config.get('MISSKEY_INSTANCE_URL', 'https://misskey.io')
-        # /api/emojis は POST リクエストを必要とする場合があるため、空のjsonを送信
-        response = requests.post(f"{misskey_instance_url}/api/emojis", json={}, timeout=10)
-        response.raise_for_status()
-        # レスポンスが {"emojis": [...]} という形式であることを想定
-        emojis_data = response.json().get("emojis", [])
-        emojis_json = json.dumps(emojis_data)
-    except requests.RequestException as e:
-        current_app.logger.error(f"Failed to fetch Misskey emojis: {e}")
-    except Exception as e:
-        current_app.logger.error(f"An unexpected error occurred while fetching emojis: {e}", exc_info=True)
+    # ▼▼▼ Misskey絵文字の取得処理をキャッシュ対応に変更 ▼▼▼
+    current_time = time.time()
+    
+    # キャッシュが有効期限切れかチェック
+    if emoji_cache["data"] and (current_time - emoji_cache["timestamp"] < CACHE_DURATION_SECONDS):
+        # キャッシュが有効な場合はキャッシュからデータを取得
+        emojis_json = emoji_cache["data"]
+        current_app.logger.info("Using cached Misskey emojis.")
+    else:
+        # キャッシュがない、または期限切れの場合はAPIから取得
+        current_app.logger.info("Fetching new Misskey emojis from API.")
+        try:
+            misskey_instance_url = current_app.config.get('MISSKEY_INSTANCE_URL', 'https://misskey.io')
+            # /api/emojis は POST リクエストを必要とする場合があるため、空のjsonを送信
+            response = requests.post(f"{misskey_instance_url}/api/emojis", json={}, timeout=10)
+            response.raise_for_status()
+            # レスポンスが {"emojis": [...]} という形式であることを想定
+            emojis_data = response.json().get("emojis", [])
+            emojis_json = json.dumps(emojis_data)
+            
+            # 取得したデータと現在時刻をキャッシュに保存
+            emoji_cache["data"] = emojis_json
+            emoji_cache["timestamp"] = current_time
+            
+        except requests.RequestException as e:
+            current_app.logger.error(f"Failed to fetch Misskey emojis: {e}")
+            # エラー発生時は、もし古いキャッシュがあればそれを使う (なければ空)
+            emojis_json = emoji_cache["data"] if emoji_cache["data"] else '[]'
+        except Exception as e:
+            current_app.logger.error(f"An unexpected error occurred while fetching emojis: {e}", exc_info=True)
+            emojis_json = emoji_cache["data"] if emoji_cache["data"] else '[]'
     # ▲▲▲ 変更ここまで ▲▲▲
 
     return render_template('touring/detail_log.html', log=log, emojis_json=emojis_json)
