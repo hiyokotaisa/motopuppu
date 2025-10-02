@@ -253,6 +253,12 @@ def edit_vehicle(vehicle_id):
         flash('入力内容にエラーがあります。ご確認ください。', 'danger')
         form.is_racer.data = original_is_racer
 
+    # ▼▼▼【ここから修正】チュートリアル用の変数を定義 ▼▼▼
+    # 編集ページではチュートリアルを自動開始しないため False 固定でも良いが、
+    # 「？」ボタンでの手動開始機能を考慮し、追加ページとロジックを合わせておく
+    start_vehicle_tutorial = not current_user.completed_tutorials.get('vehicle_form', False)
+    # ▲▲▲【修正はここまで】▲▲▲
+
     return render_template('vehicle_form.html',
                            form_action='edit',
                            form=form,
@@ -261,7 +267,10 @@ def edit_vehicle(vehicle_id):
                            odo_logs=odo_logs,
                            current_year=current_year_for_validation,
                            now_date_iso=today_jst_iso,
-                           is_racer_vehicle=motorcycle.is_racer)
+                           is_racer_vehicle=motorcycle.is_racer,
+                           # ▼▼▼【ここから修正】テンプレートに変数を渡す ▼▼▼
+                           start_vehicle_tutorial=start_vehicle_tutorial)
+                           # ▲▲▲【修正はここまで】▲▲▲
 
 @vehicle_bp.route('/<int:vehicle_id>/delete', methods=['POST'])
 @limiter.limit("30 per hour")

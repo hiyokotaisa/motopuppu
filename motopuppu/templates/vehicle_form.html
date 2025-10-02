@@ -279,7 +279,6 @@
 
 {% block scripts %}
 {{ super() }}
-{# ▼▼▼【ここから変更】スクリプト全体を修正 ▼▼▼ #}
 <script src="{{ url_for('static', filename='js/tutorial.js') }}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
@@ -317,7 +316,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // --- チュートリアル関連のスクリプト ---
     const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
-    const shouldStartTutorial = {{ start_vehicle_tutorial | tojson }};
+    
+    {# ▼▼▼【ここから修正】default(false) フィルタを追加して、変数が未定義でもエラーにならないようにする ▼▼▼ #}
+    const shouldStartTutorial = {{ start_vehicle_tutorial | default(false) | tojson }};
+    {# ▲▲▲【修正はここまで】▲▲▲ #}
+    
     const restartBtn = document.getElementById('restart-tutorial-btn');
 
     // 1. 新規ユーザー向けに自動開始
@@ -333,5 +336,4 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 </script>
-{# ▲▲▲【変更はここまで】▲▲▲ #}
 {% endblock %}
