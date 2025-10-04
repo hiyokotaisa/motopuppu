@@ -23,7 +23,19 @@
                                 {% if motorcycle_item.is_racer %}<span class="badge bg-info ms-1">レーサー</span>{% else %}<span class="badge bg-secondary ms-1">公道車</span>{% endif %}
                                 <small class="text-muted">({{ motorcycle_item.maker or 'メーカー不明' }} / {{ motorcycle_item.year or '年式不明' }})</small>
                                 <br>
-                                {% if not motorcycle_item.is_racer and motorcycle_item._average_kpl is defined and motorcycle_item._average_kpl is not none %}<small class="text-info"><i class="fas fa-tachometer-alt me-1"></i> 平均燃費: <strong>{{"%.2f"|format(motorcycle_item._average_kpl)}}</strong> km/L</small>{% elif motorcycle_item.is_racer %}<small class="text-info"><i class="fas fa-stopwatch me-1"></i> 総稼働: <strong>{{ "%.2f"|format(motorcycle_item.total_operating_hours if motorcycle_item.total_operating_hours is not none else 0) }}</strong> 時間</small>{% endif %}
+                                
+                                {# ▼▼▼【ここから変更】車両タイプごとの情報表示を if/else に変更 ▼▼▼ #}
+                                {% if motorcycle_item.is_racer %}
+                                    <small class="text-info"><i class="fas fa-stopwatch me-1"></i> 総稼働: <strong>{{ "%.2f"|format(motorcycle_item.total_operating_hours if motorcycle_item.total_operating_hours is not none else 0) }}</strong> 時間</small>
+                                {% else %}
+                                    {% set log_info = latest_log_info.get(motorcycle_item.id) %}
+                                    {% if log_info %}
+                                        <small class="text-info"><i class="fas fa-road me-1"></i> 最新ODO: <strong>{{ log_info.odo | int }}</strong> km <span class="text-muted">({{ log_info.date.strftime('%Y-%m-%d') }})</span></small>
+                                    {% else %}
+                                        <small class="text-muted">走行記録がありません</small>
+                                    {% endif %}
+                                {% endif %}
+                                {# ▲▲▲【変更はここまで】▲▲▲ #}
                             </div>
                             {# ▲▲▲【変更はここまで】▲▲▲ #}
                         </span>

@@ -171,6 +171,10 @@ def dashboard():
 
     circuit_stats = services.get_circuit_activity_for_dashboard(current_user.id)
 
+    # ▼▼▼【ここから変更】最新のログ情報を取得するサービスを呼び出す ▼▼▼
+    latest_log_info = services.get_latest_log_info_for_vehicles(user_motorcycles_all)
+    # ▲▲▲【変更はここまで】▲▲▲
+
     # 4. テンプレートをレンダリング
     return render_template(
         'dashboard.html',
@@ -190,7 +194,8 @@ def dashboard():
         circuit_stats=circuit_stats,
         format_seconds_to_time=format_seconds_to_time,
         start_initial_tutorial=start_initial_tutorial,
-        show_dashboard_tour=show_dashboard_tour # ◀◀◀ テンプレートにフラグを渡す
+        show_dashboard_tour=show_dashboard_tour, # ◀◀◀ テンプレートにフラグを渡す
+        latest_log_info=latest_log_info # ◀◀◀ テンプレートに辞書を渡す
     )
 
 

@@ -439,6 +439,66 @@ def get_dashboard_stats(user_motorcycles_all, user_motorcycle_ids_public, target
     return stats
 # ▲▲▲【変更はここまで】▲▲▲
 
+# ▼▼▼【ここから変更】新しい関数を追加 ▼▼▼
+def get_latest_log_info_for_vehicles(motorcycles):
+    """
+    複数の車両について、給油記録または整備記録から最新のログ情報を1クエリで取得する。
+
+    Args:
+        motorcycles (list): Motorcycleオブジェクトのリスト。
+
+    Returns:
+        dict: {motorcycle_id: {'odo': odo, 'date': date}} の形式の辞書。
+    """
+    if not motorcycles:
+        return {}
+
+    motorcycle_ids = [m.id for m in motorcycles]
+
+    # 給油記録から必要な情報を選択
+    fuel_q = db.session.query(
+        FuelEntry.motorcycle_id.label('motorcycle_id'),
+        FuelEntry.odometer_reading.label('odo'),
+        FuelEntry.entry_date.label('log_date')
+    ).filter(FuelEntry.motorcycle_id.in_(motorcycle_ids))
+
+    # 整備記録から必要な情報を選択
+    maint_q = db.session.query(
+        MaintenanceEntry.motorcycle_id.label('motorcycle_id'),
+        MaintenanceEntry.odometer_reading_at_maintenance.label('odo'),
+        MaintenanceEntry.maintenance_date.label('log_date')
+    ).filter(MaintenanceEntry.motorcycle_id.in_(motorcycle_ids))
+
+    # 2つのクエリをUNIONで結合
+    combined_q = union_all(fuel_q, maint_q).subquery()
+
+    # ウィンドウ関数を使い、車両ごとに日付で降順にランク付け
+    ranked_q = db.session.query(
+        combined_q.c.motorcycle_id,
+        combined_q.c.odo,
+        combined_q.c.log_date,
+        func.row_number().over(
+            partition_by=combined_q.c.motorcycle_id,
+            order_by=combined_q.c.log_date.desc()
+        ).label('rn')
+    ).subquery()
+
+    # ランクが1のもの（＝最新の記録）のみを抽出
+    latest_logs = db.session.query(
+        ranked_q.c.motorcycle_id,
+        ranked_q.c.odo,
+        ranked_q.c.log_date
+    ).filter(ranked_q.c.rn == 1).all()
+
+    # 結果を使いやすい辞書形式に変換
+    result_dict = {
+        log.motorcycle_id: {'odo': log.odo, 'date': log.log_date}
+        for log in latest_logs
+    }
+    
+    return result_dict
+# ▲▲▲【変更はここまで】▲▲▲
+
 # ▼▼▼【ここから変更】ベストラップタイム取得ロジックを追加 ▼▼▼
 def get_circuit_activity_for_dashboard(user_id):
     """ダッシュボードのサーキット活動ウィジェット用のデータを取得する"""
