@@ -30,7 +30,9 @@
                                 {% else %}
                                     {% set log_info = latest_log_info.get(motorcycle_item.id) %}
                                     {% if log_info %}
-                                        <small class="text-info"><i class="fas fa-road me-1"></i> 最新ODO: <strong>{{ log_info.odo | int }}</strong> km <span class="text-muted">({{ log_info.date.strftime('%Y-%m-%d') }})</span></small>
+                                        {# ▼▼▼【ここから変更】クラスを text-info から text-muted に変更し、日付部分のspanを統合 ▼▼▼ #}
+                                        <small class="text-muted"><i class="fas fa-road me-1"></i> 最新ODO: <strong>{{ log_info.odo | int }}</strong> km ({{ log_info.date.strftime('%Y-%m-%d') }})</small>
+                                        {# ▲▲▲【変更はここまで】▲▲▲ #}
                                     {% else %}
                                         <small class="text-muted">走行記録がありません</small>
                                     {% endif %}
