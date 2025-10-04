@@ -229,6 +229,12 @@ class MaintenanceReminder(db.Model):
     last_done_odo = db.Column(db.Integer, nullable=True, comment="最終実施時の『メーターODO値』(手動入力用)") 
     last_maintenance_entry_id = db.Column(db.Integer, db.ForeignKey('maintenance_entries.id', ondelete='SET NULL'), nullable=True)
     auto_update_from_category = db.Column(db.Boolean, nullable=False, default=True, server_default='true', comment="カテゴリ名が一致した整備記録で自動更新するか")
+
+    # ▼▼▼【ここから追記】▼▼▼
+    snoozed_until = db.Column(db.DateTime, nullable=True, comment="スヌーズ期限 (UTC)")
+    is_dismissed = db.Column(db.Boolean, nullable=False, default=False, server_default='false', comment="非表示フラグ")
+    # ▲▲▲【追記ここまで】▲▲▲
+
     last_maintenance_entry = db.relationship(
         'MaintenanceEntry', 
         foreign_keys=[last_maintenance_entry_id],

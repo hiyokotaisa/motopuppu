@@ -1,6 +1,6 @@
 # motopuppu/services.py
 from flask import current_app, url_for
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime, timezone
 from dateutil.relativedelta import relativedelta
 from sqlalchemy import func, union_all
 from sqlalchemy.orm import joinedload
@@ -203,7 +203,11 @@ def get_upcoming_reminders(user_motorcycles_all, user_id):
     all_reminders = MaintenanceReminder.query.options(
         db.joinedload(MaintenanceReminder.motorcycle),
         db.joinedload(MaintenanceReminder.last_maintenance_entry) # N+1問題対策で追加
-    ).join(Motorcycle).filter(Motorcycle.user_id == user_id).all()
+    ).join(Motorcycle).filter(
+        Motorcycle.user_id == user_id,
+        MaintenanceReminder.is_dismissed == False,
+        (MaintenanceReminder.snoozed_until == None) | (MaintenanceReminder.snoozed_until <= datetime.now(timezone.utc))
+    ).all()
 
 
     for reminder in all_reminders:

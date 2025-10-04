@@ -24,6 +24,7 @@
     {% endif %}
 {% endwith %}
 
+<h4 class="mb-3 mt-4">アクティブなリマインダー</h4>
 {% if reminders %}
     <div class="row row-cols-1 row-cols-md-2 g-4">
     {% for reminder in reminders %}
@@ -80,10 +81,59 @@
     {% endfor %}
     </div>
 {% else %}
-    <div class="alert alert-info">
-        <h4 class="alert-heading">リマインダーがありません</h4>
-        <p>この車両にはまだメンテナンスリマインダーが設定されていません。上の「新しいリマインダーを追加」ボタンから最初の項目を追加しましょう。</p>
+    <div class="alert alert-light">
+        現在アクティブなリマインダーはありません。
     </div>
 {% endif %}
+
+<hr class="my-5">
+
+<div class="accordion" id="inactiveRemindersAccordion">
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="headingInactive">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseInactive" aria-expanded="false" aria-controls="collapseInactive">
+                非表示のリマインダー ({{ inactive_reminders|length }})
+            </button>
+        </h2>
+        <div id="collapseInactive" class="accordion-collapse collapse" aria-labelledby="headingInactive" data-bs-parent="#inactiveRemindersAccordion">
+            <div class="accordion-body">
+                {% if inactive_reminders %}
+                    <div class="row row-cols-1 row-cols-md-2 g-4">
+                    {# ▼▼▼【ここから変更】ループ変数とプロパティアクセスを修正 ▼▼▼ #}
+                    {% for item in inactive_reminders %}
+                        <div class="col">
+                            <div class="card h-100 bg-light">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <h5 class="card-title mb-1 text-muted">{{ item.reminder.task_description }}</h5>
+                                        <div class="btn-group">
+                                            <form action="{{ url_for('reminder.reactivate_reminder', reminder_id=item.reminder.id) }}" method="POST" class="d-inline">
+                                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                                <button type="submit" class="btn btn-sm btn-outline-success" title="再表示"><i class="fas fa-eye fa-fw"></i></button>
+                                            </form>
+                                            <a href="{{ url_for('reminder.edit_reminder', reminder_id=item.reminder.id) }}" class="btn btn-sm btn-outline-secondary" title="編集"><i class="fas fa-edit fa-fw"></i></a>
+                                        </div>
+                                    </div>
+                                    <p class="card-text">
+                                        {% if item.status == 'dismissed' %}
+                                            <span class="badge bg-secondary"><i class="fas fa-ban me-1"></i>非表示に設定済み</span>
+                                        {% elif item.status == 'snoozed' %}
+                                            <span class="badge bg-info"><i class="fas fa-clock me-1"></i>スヌーズ中</span>
+                                            <small class="text-muted ms-2">({{ item.snoozed_until_aware.astimezone(config.get('TZ')).strftime('%Y-%m-%d %H:%M') }} まで)</small>
+                                        {% endif %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                    {# ▲▲▲【変更はここまで】▲▲▲ #}
+                    </div>
+                {% else %}
+                    <p class="text-muted mb-0">非表示に設定されたリマインダーはありません。</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
 
 {% endblock %}
