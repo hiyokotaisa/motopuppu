@@ -48,11 +48,12 @@
     </div>
     {% endif %}
 
-    <div class="card mb-4">
-        <h5 class="card-header">全体設定</h5>
-        <div class="card-body">
-            <form method="POST" action="{{ url_for('garage_settings.settings') }}" novalidate>
-                {{ form.hidden_tag() }}
+    {# ▼▼▼【ここから変更】フォーム全体をカードで囲み、設定をセクション分け ▼▼▼ #}
+    <form method="POST" action="{{ url_for('garage_settings.settings') }}" novalidate>
+        {{ form.hidden_tag() }}
+        <div class="card mb-4">
+            <h5 class="card-header">全体設定</h5>
+            <div class="card-body">
                 <div class="mb-4 form-check form-switch fs-5">
                     {{ form.is_garage_public(class="form-check-input" + (" is-invalid" if form.is_garage_public.errors else "")) }}
                     {{ form.is_garage_public.label(class="form-check-label") }}
@@ -68,22 +69,70 @@
                     {{ form.garage_theme(class="form-select" + (" is-invalid" if form.garage_theme.errors else "")) }}
                     <div class="form-text mt-1">{{ form.garage_theme.description }}</div>
                 </div>
-                {{ form.submit(class="btn btn-primary") }}
-            </form>
+            </div>
         </div>
-    </div>
+
+        <div class="card mb-4">
+            <h5 class="card-header">表示項目設定</h5>
+            <div class="card-body">
+                <p class="card-text">公開ガレージに表示する情報のセクションを個別にON/OFFできます。</p>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <div class="form-check form-switch">
+                            {{ form.show_hero_stats(class="form-check-input") }}
+                            {{ form.show_hero_stats.label(class="form-check-label") }}
+                            <div class="form-text">{{ form.show_hero_stats.description }}</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <div class="form-check form-switch">
+                            {{ form.show_custom_details(class="form-check-input") }}
+                            {{ form.show_custom_details.label(class="form-check-label") }}
+                            <div class="form-text">{{ form.show_custom_details.description }}</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <div class="form-check form-switch">
+                            {{ form.show_other_vehicles(class="form-check-input") }}
+                            {{ form.show_other_vehicles.label(class="form-check-label") }}
+                            <div class="form-text">{{ form.show_other_vehicles.description }}</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <div class="form-check form-switch">
+                            {{ form.show_achievements(class="form-check-input") }}
+                            {{ form.show_achievements.label(class="form-check-label") }}
+                            <div class="form-text">{{ form.show_achievements.description }}</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <div class="form-check form-switch">
+                            {{ form.show_circuit_info(class="form-check-input") }}
+                            {{ form.show_circuit_info.label(class="form-check-label") }}
+                            <div class="form-text">{{ form.show_circuit_info.description }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {{ form.submit(class="btn btn-primary btn-lg") }}
+    </form>
+    {# ▲▲▲【変更はここまで】▲▲▲ #}
+
+    <hr class="my-5">
 
     <div class="card">
         <h5 class="card-header">車両ごとの掲載設定</h5>
         <div class="list-group list-group-flush">
             {% for vehicle in vehicles_for_toggle %}
-            <div class="list-group-item d-flex justify-content-between align-items-center">
-                <div>
+            <div class="list-group-item d-flex justify-content-between align-items-center flex-wrap">
+                <div class="me-auto my-1">
                     <i class="fas fa-motorcycle me-2"></i>
                     {{ vehicle.name }} 
                     <small class="text-muted">({{ vehicle.maker or 'メーカー未設定' }})</small>
                 </div>
-                <div class="btn-group" role="group">
+                <div class="d-flex align-items-center my-1">
                     <button type="button" class="btn btn-sm btn-outline-secondary edit-details-btn" 
                             data-bs-toggle="modal" data-bs-target="#detailsModal"
                             data-vehicle-id="{{ vehicle.id }}"

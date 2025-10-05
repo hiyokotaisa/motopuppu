@@ -33,6 +33,10 @@ class User(UserMixin, db.Model):
     garage_hero_vehicle_id = db.Column(db.Integer, db.ForeignKey('motorcycles.id', ondelete='SET NULL'), nullable=True, comment="ガレージの主役車両ID")
     # ▲▲▲ 変更・追記 ここまで ▲▲▲
 
+    # ▼▼▼【ここから追記】ガレージ表示設定用のカラムを追加 ▼▼▼
+    garage_display_settings = db.Column(JSONB, nullable=False, server_default=text("'{}'::jsonb"), comment="ガレージカードの表示項目設定")
+    # ▲▲▲【追記はここまで】▲▲▲
+
     # ▼▼▼【ここから追記】▼▼▼
     show_cost_in_dashboard = db.Column(db.Boolean, nullable=False, default=True, server_default='true', comment="ダッシュボードでコスト関連情報を表示するか")
     # ▲▲▲【追記はここまで】▲▲▲

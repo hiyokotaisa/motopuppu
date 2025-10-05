@@ -747,6 +747,33 @@ class GarageSettingsForm(FlaskForm):
         validators=[DataRequired()],
         description='ガレージカードの見た目を変更します。'
     )
+    # ▼▼▼【ここから追記】表示設定のフィールドを追加 ▼▼▼
+    show_hero_stats = BooleanField(
+        '統計情報を表示する',
+        default=True,
+        description='走行距離や平均燃費などの統計データを表示します。'
+    )
+    show_custom_details = BooleanField(
+        'カスタム・メモを表示する',
+        default=True,
+        description='ヒーロー車両に登録されたカスタム内容やメモを表示します。'
+    )
+    show_other_vehicles = BooleanField(
+        '他の所有車両一覧を表示する',
+        default=True,
+        description='ヒーロー以外の車両リストを表示します。'
+    )
+    show_achievements = BooleanField(
+        '実績を表示する',
+        default=True,
+        description='最近解除した実績のリストを表示します。'
+    )
+    show_circuit_info = BooleanField(
+        'サーキット情報を表示する',
+        default=True,
+        description='サーキットでのベストラップや活動ログへのリンクなどを表示します。'
+    )
+    # ▲▲▲【追記はここまで】▲▲▲
     submit = SubmitField('設定を保存する')
 
 class GarageVehicleDetailsForm(FlaskForm):

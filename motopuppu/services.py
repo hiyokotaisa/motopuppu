@@ -2,7 +2,7 @@
 from flask import current_app, url_for
 from datetime import date, timedelta, datetime, timezone
 from dateutil.relativedelta import relativedelta
-from sqlalchemy import func, union_all
+from sqlalchemy import func, union_all, and_
 from sqlalchemy.orm import joinedload
 import jpholiday
 import json
@@ -13,8 +13,11 @@ from cryptography.fernet import Fernet
 # ▲▲▲ 追記ここまで ▲▲▲
 
 # ▼▼▼ モデルのインポートを追加 ▼▼▼
-from .models import db, Motorcycle, FuelEntry, MaintenanceEntry, MaintenanceReminder, ActivityLog, GeneralNote, UserAchievement, AchievementDefinition, SessionLog
+from .models import db, Motorcycle, FuelEntry, MaintenanceEntry, MaintenanceReminder, ActivityLog, GeneralNote, UserAchievement, AchievementDefinition, SessionLog, User
 # ▲▲▲ ここまで追加 ▲▲▲
+# ▼▼▼【ここから変更】正しい関数名をインポート ▼▼▼
+from .utils.lap_time_utils import format_seconds_to_time
+# ▲▲▲【変更はここまで】▲▲▲
 
 
 # --- データ取得・計算ヘルパー ---
@@ -104,7 +107,6 @@ def calculate_average_kpl(motorcycle: Motorcycle, start_date=None, end_date=None
 
 # --- ダッシュボード用サービス関数 ---
 
-# (get_timeline_events, get_upcoming_reminders, get_recent_logs は変更なし)
 def get_timeline_events(motorcycle_ids, start_date=None, end_date=None):
     """指定された車両IDリストの給油・整備記録を時系列で取得する"""
     if not motorcycle_ids:
@@ -751,7 +753,7 @@ class CryptoService:
             return None
         return self.fernet.decrypt(encrypted_data.encode()).decode()
 
-def get_user_garage_data(user) -> dict:
+def get_user_garage_data(user: User) -> dict:
     """ユーザーの公開ガレージ表示に必要なデータをまとめて取得する"""
     if not user:
         return None
@@ -762,20 +764,13 @@ def get_user_garage_data(user) -> dict:
         Motorcycle.show_in_garage == True
     ).order_by(Motorcycle.is_default.desc(), Motorcycle.id.asc()).all()
 
-    # ▼▼▼【ここから変更】ヒーロー車両の決定ロジック ▼▼▼
     hero_vehicle = None
-    # 1. ユーザーがヒーロー車両を明示的に指定している場合
     if user.garage_hero_vehicle_id:
         hero_vehicle = next((v for v in vehicles_in_garage if v.id == user.garage_hero_vehicle_id), None)
-    
-    # 2. 明示的な指定がない場合、従来のデフォルト車両をヒーローにする
     if not hero_vehicle:
         hero_vehicle = next((v for v in vehicles_in_garage if v.is_default), None)
-
-    # 3. それでも決まらない場合、リストの最初の車両をヒーローにする
     if not hero_vehicle and vehicles_in_garage:
         hero_vehicle = vehicles_in_garage[0]
-    # ▲▲▲【変更はここまで】▲▲▲
     
     other_vehicles = [v for v in vehicles_in_garage if v != hero_vehicle]
     
@@ -794,8 +789,6 @@ def get_user_garage_data(user) -> dict:
             hero_stats['primary_metric_unit'] = 'km'
             hero_stats['avg_kpl'] = f"{avg_kpl:.2f} km/L" if avg_kpl else "---"
 
-        # ▼▼▼【ここから追記】追加の統計情報を計算 ▼▼▼
-        # 総メンテナンス費用
         total_maint_cost = db.session.query(
             func.sum(func.coalesce(MaintenanceEntry.parts_cost, 0) + func.coalesce(MaintenanceEntry.labor_cost, 0))
         ).filter(
@@ -803,14 +796,93 @@ def get_user_garage_data(user) -> dict:
         ).scalar() or 0
         hero_stats['total_maint_cost'] = f"{total_maint_cost:,.0f} 円"
 
-        # 活動ログ回数
         total_activities = db.session.query(
             func.count(ActivityLog.id)
         ).filter(
             ActivityLog.motorcycle_id == hero_vehicle.id
         ).scalar() or 0
         hero_stats['total_activities'] = f"{total_activities} 回"
-        # ▲▲▲【追記はここまで】▲▲▲
+
+    # ▼▼▼【ここから変更】ユーザーの総合サーキット実績を取得するロジック ▼▼▼
+    user_circuit_performance = []
+    if user.garage_display_settings.get('show_circuit_info', True):
+        # サブクエリ1: ユーザー自身の各サーキットでのベストタイムを持つセッションをランク付けして特定
+        user_sessions_ranked_sq = db.session.query(
+            ActivityLog.circuit_name,
+            SessionLog.best_lap_seconds,
+            Motorcycle.name.label('vehicle_name'),
+            func.row_number().over(
+                partition_by=ActivityLog.circuit_name,
+                order_by=SessionLog.best_lap_seconds.asc()
+            ).label('rn')
+        ).join(ActivityLog, SessionLog.activity_log_id == ActivityLog.id)\
+         .join(Motorcycle, ActivityLog.motorcycle_id == Motorcycle.id)\
+         .filter(ActivityLog.user_id == user.id)\
+         .filter(ActivityLog.circuit_name.isnot(None))\
+         .filter(SessionLog.best_lap_seconds.isnot(None))\
+         .subquery('user_sessions_ranked')
+
+        # クエリ1: ユーザーのサーキットごとのベストラップ（車両名含む）
+        user_best_laps_q = db.session.query(
+            user_sessions_ranked_sq.c.circuit_name,
+            user_sessions_ranked_sq.c.best_lap_seconds,
+            user_sessions_ranked_sq.c.vehicle_name
+        ).filter(user_sessions_ranked_sq.c.rn == 1).subquery('user_best_laps')
+
+        # クエリ2: ユーザーのサーキットごとのセッション回数
+        session_counts_q = db.session.query(
+            ActivityLog.circuit_name,
+            func.count(SessionLog.id).label('session_count')
+        ).join(SessionLog, SessionLog.activity_log_id == ActivityLog.id)\
+         .filter(ActivityLog.user_id == user.id)\
+         .filter(ActivityLog.circuit_name.isnot(None))\
+         .group_by(ActivityLog.circuit_name)\
+         .subquery('session_counts')
+         
+        # サブクエリ2: 全ユーザーのリーダーボード対象タイムをランク付け
+        leaderboard_ranked_sq = db.session.query(
+            ActivityLog.circuit_name,
+            SessionLog.best_lap_seconds,
+            ActivityLog.user_id,
+            func.rank().over(
+                partition_by=ActivityLog.circuit_name,
+                order_by=SessionLog.best_lap_seconds.asc()
+            ).label('rank')
+        ).join(ActivityLog, SessionLog.activity_log_id == ActivityLog.id)\
+         .filter(SessionLog.include_in_leaderboard == True)\
+         .filter(ActivityLog.circuit_name.isnot(None))\
+         .filter(SessionLog.best_lap_seconds.isnot(None))\
+         .subquery('leaderboard_ranks')
+
+        # 最終クエリ: 上記の情報を結合してユーザーの実績をまとめる
+        final_query = db.session.query(
+            user_best_laps_q.c.circuit_name,
+            session_counts_q.c.session_count,
+            user_best_laps_q.c.best_lap_seconds,
+            user_best_laps_q.c.vehicle_name,
+            leaderboard_ranked_sq.c.rank
+        ).select_from(user_best_laps_q)\
+         .join(session_counts_q, user_best_laps_q.c.circuit_name == session_counts_q.c.circuit_name)\
+         .outerjoin(leaderboard_ranked_sq, 
+                    and_(
+                        user_best_laps_q.c.circuit_name == leaderboard_ranked_sq.c.circuit_name,
+                        user_best_laps_q.c.best_lap_seconds == leaderboard_ranked_sq.c.best_lap_seconds,
+                        leaderboard_ranked_sq.c.user_id == user.id
+                    )
+         ).order_by(user_best_laps_q.c.circuit_name)
+
+        # クエリ結果を整形
+        results = final_query.all()
+        user_circuit_performance = [
+            {
+                'circuit_name': row.circuit_name,
+                'session_count': row.session_count,
+                'best_lap_time': format_seconds_to_time(row.best_lap_seconds),
+                'best_lap_vehicle': row.vehicle_name,
+                'leaderboard_rank': row.rank,
+            } for row in results
+        ]
+    # ▲▲▲【変更はここまで】▲▲▲
 
     # ユーザーの実績
     unlocked_achievements = db.session.query(
@@ -830,4 +902,7 @@ def get_user_garage_data(user) -> dict:
         'other_vehicles': other_vehicles,
         'hero_stats': hero_stats,
         'achievements': unlocked_achievements,
+        # ▼▼▼【ここから変更】戻り値を新しい実績データに差し替え ▼▼▼
+        'user_circuit_performance': user_circuit_performance,
+        # ▲▲▲【変更はここまで】▲▲▲
     }

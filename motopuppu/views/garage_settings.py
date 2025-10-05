@@ -12,7 +12,10 @@ garage_settings_bp = Blueprint('garage_settings', __name__, url_prefix='/garage/
 @login_required
 def settings():
     """ガレージカードの統合設定ページ"""
-    form = GarageSettingsForm(obj=current_user)
+    # ▼▼▼【ここから変更】GETリクエスト時のデータ読み込みを修正 ▼▼▼
+    # obj=current_user だとJSONカラムをうまく扱えないため、手動で設定する
+    form = GarageSettingsForm()
+    # ▲▲▲【変更はここまで】▲▲▲
     
     # ヒーロー車両選択肢をユーザーの所有車両で動的に設定
     user_motorcycles = Motorcycle.query.filter_by(user_id=current_user.id).order_by(Motorcycle.name).all()
@@ -31,6 +34,16 @@ def settings():
         if current_user.is_garage_public and not current_user.public_id:
             current_user.public_id = str(uuid.uuid4())
         
+        # ▼▼▼【ここから追記】表示設定をJSONにまとめて保存 ▼▼▼
+        current_user.garage_display_settings = {
+            'show_hero_stats': form.show_hero_stats.data,
+            'show_custom_details': form.show_custom_details.data,
+            'show_other_vehicles': form.show_other_vehicles.data,
+            'show_achievements': form.show_achievements.data,
+            'show_circuit_info': form.show_circuit_info.data,
+        }
+        # ▲▲▲【追記はここまで】▲▲▲
+        
         try:
             db.session.commit()
             flash('ガレージ設定を更新しました。', 'success')
@@ -39,9 +52,20 @@ def settings():
             db.session.rollback()
             flash(f'設定の更新中にエラーが発生しました: {e}', 'danger')
 
-    # GETリクエスト時にフォームの初期値を設定
-    if request.method == 'GET' and current_user.garage_hero_vehicle_id:
-        form.garage_hero_vehicle_id.data = current_user.garage_hero_vehicle_id
+    # ▼▼▼【ここから変更】GETリクエスト時にDBから設定を読み込みフォームに設定 ▼▼▼
+    if request.method == 'GET':
+        form.is_garage_public.data = current_user.is_garage_public
+        form.garage_theme.data = current_user.garage_theme
+        form.garage_hero_vehicle_id.data = current_user.garage_hero_vehicle_id or 0
+        
+        # DBのJSON設定をフォームに反映 (設定がない項目はデフォルト値 True を使用)
+        settings = current_user.garage_display_settings or {}
+        form.show_hero_stats.data = settings.get('show_hero_stats', True)
+        form.show_custom_details.data = settings.get('show_custom_details', True)
+        form.show_other_vehicles.data = settings.get('show_other_vehicles', True)
+        form.show_achievements.data = settings.get('show_achievements', True)
+        form.show_circuit_info.data = settings.get('show_circuit_info', True)
+    # ▲▲▲【変更はここまで】▲▲▲
 
     # 車両ごとの「ガレージ掲載」設定のためのリスト
     vehicles_for_toggle = Motorcycle.query.filter_by(user_id=current_user.id).order_by(Motorcycle.name).all()

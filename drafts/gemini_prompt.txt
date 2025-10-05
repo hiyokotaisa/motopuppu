@@ -94,11 +94,13 @@ kyagisaw@hiyoko-fedora:~/Dev/motopuppu$ tree
 │   ├── env.py
 │   ├── script.py.mako
 │   └── versions
+│       ├── 008bd7bcf7a1_add_garage_display_settings_to_user_.py
 │       ├── 2b2e0801467f_add_has_completed_tutorial_to_user_model.py
 │       ├── 309af67c371a_add_primary_and_gear_ratios_to_.py
 │       ├── 65cb43e34218_add_team_models_for_team_functionality.py
 │       ├── 8ffa50023b83_add_gps_tracks_to_sessionlog.py
 │       ├── bf41f9654c05_add_usercircuittarget_model_for_target_.py
+│       ├── cd3f0707d765_add_snooze_and_dismiss_fields_to_.py
 │       ├── cd8c6f685e48_add_share_with_teams_to_activitylog.py
 │       ├── e391d758c56d_initial_consolidated_migration_from_.py
 │       └── e41c7c921b61_add_public_share_fields_to_sessionlog.py
@@ -267,7 +269,7 @@ kyagisaw@hiyoko-fedora:~/Dev/motopuppu$ tree
 │       └── vehicle.py
 └── requirements.txt
 
-34 directories, 156 files
+34 directories, 158 files
 
 
 ### **7.  今回のセッションでの目標 [毎回更新]**

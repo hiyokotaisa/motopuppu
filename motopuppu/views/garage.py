@@ -5,8 +5,10 @@ import requests
 from flask import (
     Blueprint, render_template, abort, current_app, send_file, url_for
 )
+# ▼▼▼【ここから変更】不要なインポートを削除し、シンプルに ▼▼▼
 from ..models import User
 from .. import services
+# ▲▲▲【変更はここまで】▲▲▲
 from PIL import Image, ImageDraw, ImageFont
 
 # ガレージ公開ページ用のBlueprintを作成
@@ -17,12 +19,14 @@ def garage_detail(public_id):
     """ユーザーの公開ガレージHTMLページ"""
     user = User.query.filter_by(public_id=public_id, is_garage_public=True).first_or_404()
     
-    # サービスをリネームする想定: get_user_garage_data
+    # ▼▼▼【ここから変更】サービス関数を呼び出すだけで全てのデータが揃う ▼▼▼
     garage_data = services.get_user_garage_data(user)
     if not garage_data:
         abort(500, "ガレージデータの生成に失敗しました。")
     
+    # データを展開してテンプレートに渡す
     return render_template('garage/public_garage.html', **garage_data)
+    # ▲▲▲【変更はここまで】▲▲▲
 
 
 @garage_bp.route('/<public_id>/image.png')

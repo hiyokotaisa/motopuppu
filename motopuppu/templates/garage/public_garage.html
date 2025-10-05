@@ -17,7 +17,7 @@
 
     {# --- スタイルシート (BootstrapとFont Awesome) --- #}
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     
     {# --- Google Fontsの読み込み --- #}
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -50,6 +50,7 @@
             <h3>{{ hero_vehicle.name }}</h3>
             <p class="text-muted">{{ hero_vehicle.maker or '' }} {{ hero_vehicle.year or '' }}</p>
 
+            {% if owner.garage_display_settings.get('show_hero_stats', True) %}
             <div class="row">
                 <div class="col-sm-6 mb-3">
                     <div class="card h-100">
@@ -87,13 +88,49 @@
                     </div>
                 </div>
             </div>
-
-            {% if hero_vehicle.custom_details %}
-            <h4 class="mt-4"><i class="fas fa-wrench me-2"></i>カスタム・メモ</h4>
-            {# ▼▼▼【ここを変更】preタグから .bg-light クラスを削除 ▼▼▼ #}
-            <pre class="p-3 rounded">{{ hero_vehicle.custom_details }}</pre>
-            {# ▲▲▲【変更はここまで】▲▲▲ #}
             {% endif %}
+
+            {% if hero_vehicle.custom_details and owner.garage_display_settings.get('show_custom_details', True) %}
+            <h4 class="mt-4"><i class="fas fa-wrench me-2"></i>カスタム・メモ</h4>
+            <pre class="p-3 rounded">{{ hero_vehicle.custom_details }}</pre>
+            {% endif %}
+
+            {# ▼▼▼【ここから変更】サーキットパフォーマンスセクションの表示内容を刷新 ▼▼▼ #}
+            {% if owner.garage_display_settings.get('show_circuit_info', True) and user_circuit_performance %}
+            <h4 class="mt-4"><i class="fas fa-tachometer-alt me-2"></i>サーキットパフォーマンス</h4>
+            <p class="text-muted">全車両を通してのサーキットごとの総合実績です。</p>
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th>サーキット</th>
+                            <th class="text-center">走行回数</th>
+                            <th>ベストタイム</th>
+                            <th>使用車両</th>
+                            <th class="text-center">リーダーボード順位</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for perf in user_circuit_performance %}
+                        <tr>
+                            <td class="fw-bold">{{ perf.circuit_name }}</td>
+                            <td class="text-center">{{ perf.session_count }} 回</td>
+                            <td><span class="badge bg-primary fs-6">{{ perf.best_lap_time }}</span></td>
+                            <td>{{ perf.best_lap_vehicle }}</td>
+                            <td class="text-center">
+                                {% if perf.leaderboard_rank %}
+                                    <span class="fw-bold"><i class="fas fa-trophy text-warning me-1"></i> {{ perf.leaderboard_rank }} 位</span>
+                                {% else %}
+                                    <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+            {# ▲▲▲【変更はここまで】▲▲▲ #}
         </div>
         <div class="col-lg-5">
             {% if hero_vehicle.image_url %}
@@ -112,7 +149,7 @@
     </div>
     {% endif %}
 
-    {% if other_vehicles %}
+    {% if other_vehicles and owner.garage_display_settings.get('show_other_vehicles', True) %}
     <hr class="my-5">
     <h2 class="border-bottom pb-2 mb-4"><i class="fas fa-motorcycle me-2"></i>Other Machines</h2>
     <div class="row">
@@ -136,7 +173,7 @@
     </div>
     {% endif %}
 
-    {% if achievements %}
+    {% if achievements and owner.garage_display_settings.get('show_achievements', True) %}
     <hr class="my-5">
     <h2 class="border-bottom pb-2 mb-4"><i class="fas fa-trophy me-2"></i>Recent Achievements</h2>
     <div class="list-group">
