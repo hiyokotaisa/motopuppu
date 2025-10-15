@@ -108,8 +108,30 @@ class DroggerParser(BaseLapTimeParser):
                         formatted_time = f"{minutes}:{seconds:06.3f}"
                         lap_times.append(formatted_time)
                     
-                    processed_lap_numbers.add(current_lap_number)
+                        processed_lap_numbers.add(current_lap_number)
             except (ValueError, InvalidOperation, KeyError, IndexError):
                 continue
         
-        return {'lap_times': lap_times, 'gps_tracks': dict(gps_tracks)}
+        # ▼▼▼ 変更箇所（ここから） ▼▼▼
+        # タイムが記録されたラップ（例：2, 3, ..., 11）を昇順にソート
+        # これが実際の軌跡データが含まれるラップ番号のリストになる
+        sorted_track_lap_numbers = sorted(list(processed_lap_numbers))
+        
+        final_gps_tracks = {}
+        # 収集したラップタイムの数だけループを回す
+        for i, lap_time in enumerate(lap_times):
+            # 新しいキーは 1 から始まる連番 (1, 2, 3...)
+            new_lap_key = i + 1
+            
+            # sorted_track_lap_numbersがlap_timesより短い場合に対応
+            if i < len(sorted_track_lap_numbers):
+                # 対応する元の軌跡データが格納されているキーを取得
+                # (i=0 のとき、sorted_track_lap_numbers[0] は 2 になる)
+                original_track_key = sorted_track_lap_numbers[i]
+                
+                # 新しいキーで、正しい軌跡データを格納し直す
+                if original_track_key in gps_tracks:
+                    final_gps_tracks[new_lap_key] = gps_tracks[original_track_key]
+        # ▲▲▲ 変更箇所（ここまで） ▲▲▲
+        
+        return {'lap_times': lap_times, 'gps_tracks': final_gps_tracks}
