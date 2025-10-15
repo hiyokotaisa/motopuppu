@@ -69,8 +69,9 @@ class DroggerParser(BaseLapTimeParser):
                     continue
                 
                 current_lap_number = int(float(current_lap_str))
-                if current_lap_number < 1:
-                    continue
+                
+                # ▼▼▼ 修正点1: ラップ番号 < 1 のフィルタを削除 ▼▼▼
+                # Lapが-1や0のGPSデータもすべて収集する
                 
                 if has_gps_data:
                     try:
@@ -112,26 +113,26 @@ class DroggerParser(BaseLapTimeParser):
             except (ValueError, InvalidOperation, KeyError, IndexError):
                 continue
         
-        # ▼▼▼ 変更箇所（ここから） ▼▼▼
-        # タイムが記録されたラップ（例：2, 3, ..., 11）を昇順にソート
-        # これが実際の軌跡データが含まれるラップ番号のリストになる
-        sorted_track_lap_numbers = sorted(list(processed_lap_numbers))
+        # ▼▼▼ 修正点2: 紐付けロジックを全面的に修正 ▼▼▼
+        # タイムが記録された行のラップ番号（例：1, 2, 3...）を昇順にソート
+        sorted_trigger_laps = sorted(list(processed_lap_numbers))
         
         final_gps_tracks = {}
         # 収集したラップタイムの数だけループを回す
         for i, lap_time in enumerate(lap_times):
-            # 新しいキーは 1 から始まる連番 (1, 2, 3...)
+            # アプリケーション上のラップ番号は 1 から始まる連番
             new_lap_key = i + 1
             
-            # sorted_track_lap_numbersがlap_timesより短い場合に対応
-            if i < len(sorted_track_lap_numbers):
-                # 対応する元の軌跡データが格納されているキーを取得
-                # (i=0 のとき、sorted_track_lap_numbers[0] は 2 になる)
-                original_track_key = sorted_track_lap_numbers[i]
+            if i < len(sorted_trigger_laps):
+                # ラップタイムが記録された行のラップ番号を取得 (i=0のとき、trigger_lapは '1')
+                trigger_lap = sorted_trigger_laps[i]
+                
+                # 実際の軌跡データは、トリガーとなったラップ番号の「-1」したキーに格納されている
+                # (trigger_lapが '1' の場合、軌跡は '0' のキーに入っている)
+                original_track_key = trigger_lap - 1
                 
                 # 新しいキーで、正しい軌跡データを格納し直す
                 if original_track_key in gps_tracks:
                     final_gps_tracks[new_lap_key] = gps_tracks[original_track_key]
-        # ▲▲▲ 変更箇所（ここまで） ▲▲▲
         
         return {'lap_times': lap_times, 'gps_tracks': final_gps_tracks}
