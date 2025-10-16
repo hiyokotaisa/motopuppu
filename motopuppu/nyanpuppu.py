@@ -7,6 +7,9 @@ from zoneinfo import ZoneInfo
 from flask import current_app
 from sqlalchemy import desc, func
 from .models import db, Motorcycle, FuelEntry, MaintenanceEntry, ActivityLog, MaintenanceReminder, SessionLog
+# ▼▼▼【ここから追記】ベストラップタイムをフォーマットする関数をインポート ▼▼▼
+from .utils.lap_time_utils import format_seconds_to_time
+# ▲▲▲【追記はここまで】▲▲▲
 
 def get_advice(user, motorcycles):
     """
@@ -128,7 +131,7 @@ def get_advice(user, motorcycles):
                 ("君のバイク、かっこいいにゃね！にゃんぷっぷーも乗ってみたいにゃ。", "blobcataww.png"),
                 ("今日の夜ご飯、何にするかにゃ？にゃんぷっぷーは焼き魚がいいにゃ！", None),
                 ("にゃんぷっぷー、いつでも君の味方だにゃ！困ったことがあったら話しかけてにゃん。", "blobcat_uwu.png"),
-                ("道の駅たちばなっていうところが一部の界隈で人気らしいにゃん。いつか行ってみたいにゃ！", "blobcataww.png"), # 追加
+                ("道の駅たちばなっていうところが一部の界隈で人気らしいにゃん。いつか行ってみたいにゃ！", "blobcataww.png"),
             ]
             advice_pool.extend(humor_greetings)
 
@@ -244,14 +247,15 @@ def get_advice(user, motorcycles):
                     advice_pool.append(("最近サーキット走ってないのかにゃ？うずうずしてくる頃じゃないかにゃ？", "blobcat_pity.webp"))
 
                 if unique_circuit_count == 1 and total_circuit_activities >= 5:
-                    advice_pool.append((f"{latest_circuit_log.circuit_name}は君のホームコースにゃんね！熟知してるって感じだにゃ！", "blobcat_doya.png"))
+                    advice_pool.append((f"{latest_circuit_log.circuit_name}は君のホームコースにゃんね！走り込んでてえらいにゃん！", "blobcat_doya.png"))
                 elif unique_circuit_count > 1 and total_circuit_activities >= 3:
                     advice_pool.append((f"いろんなサーキットを攻略してるんだにゃ！次はどのコースに挑戦するのかにゃ？", "blobcat_binoculars.webp"))
 
-                # 最新のセッションログからベストラップを取得
-                latest_session = SessionLog.query.join(ActivityLog).filter(ActivityLog.user_id == user.id, ActivityLog.id == latest_circuit_log.id).order_by(desc(SessionLog.session_date)).first()
-                if latest_session and latest_session.best_lap_time:
-                    advice_pool.append((f"この前の{latest_circuit_log.circuit_name}でのベストラップは{latest_session.best_lap_time}にゃんね！", "blobcat_rider.gif"))
+                # ▼▼▼【ここから修正】エラー箇所を修正 ▼▼▼
+                latest_session = SessionLog.query.join(ActivityLog).filter(ActivityLog.user_id == user.id, ActivityLog.id == latest_circuit_log.id).order_by(desc(SessionLog.id)).first()
+                if latest_session and latest_session.best_lap_seconds:
+                    advice_pool.append((f"この前の{latest_circuit_log.circuit_name}でのベストラップは{format_seconds_to_time(latest_session.best_lap_seconds)}にゃんね！", "blobcat_rider.gif"))
+                # ▲▲▲【修正はここまで】▲▲▲
                 
                 # ユーザーがレース車両を所有している場合
                 if any(m.is_racer for m in motorcycles):
