@@ -23,8 +23,9 @@ def settings():
 
     # 表示名更新フォームの処理
     if profile_form.submit_profile.data and profile_form.validate_on_submit():
-        # ▼▼▼ user を current_user に変更 ▼▼▼
+        # ▼▼▼【ここから変更】にゃんぷっぷー設定の保存処理を追加 ▼▼▼
         current_user.display_name = profile_form.display_name.data
+        current_user.nyanpuppu_simple_mode = profile_form.nyanpuppu_simple_mode.data
         try:
             db.session.commit()
             flash('プロフィール情報を更新しました。', 'success')
@@ -33,7 +34,7 @@ def settings():
             db.session.rollback()
             current_app.logger.error(f"Error updating profile for user {current_user.id}: {e}")
             flash('プロフィール情報の更新中にエラーが発生しました。', 'danger')
-        # ▲▲▲ 変更ここまで ▲▲▲
+        # ▲▲▲【変更はここまで】▲▲▲
 
     # アカウント削除フォームの処理
     if delete_form.submit_delete.data and delete_form.validate_on_submit():
@@ -66,9 +67,10 @@ def settings():
 
     # GETリクエスト時、またはバリデーション失敗時にフォームに初期値を設定
     if request.method == 'GET':
-        # ▼▼▼ user を current_user に変更 ▼▼▼
+        # ▼▼▼【ここから変更】フォームの初期値を設定 ▼▼▼
         profile_form.display_name.data = current_user.display_name or current_user.misskey_username
-        # ▲▲▲ 変更ここまで ▲▲▲
+        profile_form.nyanpuppu_simple_mode.data = current_user.nyanpuppu_simple_mode
+        # ▲▲▲【変更はここまで】▲▲▲
 
     return render_template('profile/settings.html',
                            title='プロフィール設定',

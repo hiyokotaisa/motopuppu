@@ -432,6 +432,14 @@ class ProfileForm(FlaskForm):
                                 validators=[DataRequired(message="表示名を入力してください。"),
                                             Length(min=1, max=20, message="表示名は20文字以内で入力してください。")],
                                 render_kw={"placeholder": "例: もとぷー太郎"})
+    
+    # ▼▼▼【ここから追記】▼▼▼
+    nyanpuppu_simple_mode = BooleanField(
+        'にゃんぷっぷーから知能を取り上げる',
+        description='ONにすると、ダッシュボードのにゃんぷっぷーが知的なアドバイスをしなくなり、「ぷにゃあん」などとしか話さなくなります。'
+    )
+    # ▲▲▲【追記はここまで】▲▲▲
+
     submit_profile = SubmitField('更新する')
 
 

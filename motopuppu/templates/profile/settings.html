@@ -41,7 +41,20 @@
                     {% endif %}
                 </div>
                 
-                {{ profile_form.submit_profile(class="btn btn-primary") }}
+                {# ▼▼▼【ここから追記】にゃんぷっぷー設定のトグルスイッチを追加 ▼▼▼ #}
+                <hr>
+                <div class="mb-3">
+                    <div class="form-check form-switch">
+                        {{ profile_form.nyanpuppu_simple_mode(class="form-check-input") }}
+                        {{ profile_form.nyanpuppu_simple_mode.label(class="form-check-label") }}
+                    </div>
+                    {% if profile_form.nyanpuppu_simple_mode.description %}
+                    <small class="form-text text-muted">{{ profile_form.nyanpuppu_simple_mode.description }}</small>
+                    {% endif %}
+                </div>
+                {# ▲▲▲【追記はここまで】▲▲▲ #}
+                
+                {{ profile_form.submit_profile(class="btn btn-primary mt-3") }}
             </form>
         </div>
     </div>

@@ -39,6 +39,8 @@ class User(UserMixin, db.Model):
 
     # ▼▼▼【ここから追記】▼▼▼
     show_cost_in_dashboard = db.Column(db.Boolean, nullable=False, default=True, server_default='true', comment="ダッシュボードでコスト関連情報を表示するか")
+    # ▼▼▼【ここから追記】にゃんぷっぷーの設定を追加 ▼▼▼
+    nyanpuppu_simple_mode = db.Column(db.Boolean, nullable=False, default=False, server_default='false', comment="にゃんぷっぷーの知能を取り上げるか")
     # ▲▲▲【追記はここまで】▲▲▲
 
     encrypted_misskey_api_token = db.Column(db.Text, nullable=True, comment="暗号化されたMisskey APIトークン")
