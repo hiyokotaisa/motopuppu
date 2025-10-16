@@ -6,6 +6,50 @@
 {% block styles %}
 {{ super() }}
 <style>
+    /* ▼▼▼【ここから変更】にゃんぷっぷー吹き出しのスタイルを修正 ▼▼▼ */
+    .nyanpuppu-image {
+        height: 60px;
+        width: auto;
+        flex-shrink: 0;
+    }
+    .nyanpuppu-bubble {
+        position: relative;
+        background: #ffffff; /* 背景を白に変更 */
+        border-radius: .4em;
+        padding: 0.75rem 1rem;
+        border: 1px solid #ced4da; /* 枠線をBootstrap標準の灰色に変更 */
+        width: 100%;
+    }
+    /* 吹き出しのしっぽ（枠線部分） */
+    .nyanpuppu-bubble:before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 50%;
+        width: 0;
+        height: 0;
+        border: 11px solid transparent;
+        border-right-color: #ced4da; /* 枠線の色に合わせる */
+        border-left: 0;
+        margin-top: -11px;
+        margin-left: -12px;
+    }
+    /* 吹き出しのしっぽ（内側の塗りつぶし部分） */
+    .nyanpuppu-bubble:after {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 50%;
+        width: 0;
+        height: 0;
+        border: 10px solid transparent;
+        border-right-color: #ffffff; /* 背景色に合わせる */
+        border-left: 0;
+        margin-top: -10px;
+        margin-left: -11px;
+    }
+    /* ▲▲▲【変更はここまで】▲▲▲ */
+
     /* タイムラインのスタイル */
     .dashboard-timeline {
         list-style: none;
@@ -206,7 +250,9 @@
 
 <div id="dashboard-widgets-container" class="accordion dashboard-widgets">
     {% for widget_name in dashboard_layout %}
-        {% if widget_name == 'reminders' %}
+        {% if widget_name == 'nyanpuppu' %}
+            {% include 'dashboard/_nyanpuppu_widget.html' %}
+        {% elif widget_name == 'reminders' %}
             {% include 'dashboard/_reminders_widget.html' %}
         {% elif widget_name == 'stats' %}
             {% include 'dashboard/_stats_widget.html' %}
@@ -221,6 +267,7 @@
         {% endif %}
     {% endfor %}
 </div>
+
 
 <div class="modal fade" id="timelineDetailModal" tabindex="-1" aria-labelledby="timelineDetailModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
@@ -271,7 +318,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     let sortable = null;
     let originalOrder = [];
-    const defaultOrder = ['reminders', 'stats', 'vehicles', 'timeline', 'circuit', 'calendar'];
+    const defaultOrder = ['nyanpuppu', 'reminders', 'stats', 'vehicles', 'timeline', 'circuit', 'calendar'];
 
     const reorderWidgets = (order) => {
         const fragment = document.createDocumentFragment();

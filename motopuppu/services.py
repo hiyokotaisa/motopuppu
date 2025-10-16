@@ -12,6 +12,10 @@ from zoneinfo import ZoneInfo
 from cryptography.fernet import Fernet
 # ▲▲▲ 追記ここまで ▲▲▲
 
+# ▼▼▼【ここから変更】nyanpuppu.pyからget_advice関数を直接インポート ▼▼▼
+from .nyanpuppu import get_advice
+# ▲▲▲【変更はここまで】▲▲▲
+
 # ▼▼▼ モデルのインポートを追加 ▼▼▼
 from .models import db, Motorcycle, FuelEntry, MaintenanceEntry, MaintenanceReminder, ActivityLog, GeneralNote, UserAchievement, AchievementDefinition, SessionLog, User
 # ▲▲▲ ここまで追加 ▲▲▲
@@ -906,3 +910,12 @@ def get_user_garage_data(user: User) -> dict:
         'user_circuit_performance': user_circuit_performance,
         # ▲▲▲【変更はここまで】▲▲▲
     }
+
+# ▼▼▼【ここから変更】にゃんぷっぷーの処理を別ファイルに委譲 ▼▼▼
+def get_nyanpuppu_advice(user, motorcycles):
+    """
+    ダッシュボードに表示する「にゃんぷっぷー」のアドバイスと画像を決定して返す。
+    実際のロジックは nyanpuppu.py に委譲する。
+    """
+    return get_advice(user, motorcycles)
+# ▲▲▲【変更はここまで】▲▲▲

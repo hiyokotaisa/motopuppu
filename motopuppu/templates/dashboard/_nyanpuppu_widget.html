@@ -1,0 +1,26 @@
+{# motopuppu/templates/dashboard/_nyanpuppu_widget.html #}
+{# ▼▼▼【ここから変更】ウィジェット全体をアコーディオン形式に変更 ▼▼▼ #}
+{% if nyanpuppu_advice and nyanpuppu_advice.image_filename %}
+<div class="accordion-item card mb-4" data-widget-name="nyanpuppu">
+    <h2 class="accordion-header" id="heading-nyanpuppu">
+        <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-nyanpuppu" aria-expanded="true" aria-controls="collapse-nyanpuppu">
+            <span class="widget-grab-handle me-2" title="ドラッグして並び替え"><i class="fas fa-grip-vertical"></i></span>
+            <span class="me-auto"><i class="fa-solid fa-cat me-1"></i> <strong>にゃんぷっぷーからの一言</strong></span>
+        </button>
+    </h2>
+    <div id="collapse-nyanpuppu" class="accordion-collapse collapse show" aria-labelledby="heading-nyanpuppu">
+        <div class="card-body">
+            <div class="d-flex align-items-center">
+                <img src="{{ url_for('static', filename='images/nyanpuppu/' + nyanpuppu_advice.image_filename) }}" 
+                     alt="にゃんぷっぷー" 
+                     class="nyanpuppu-image me-3"
+                     aria-hidden="true">
+                <div class="nyanpuppu-bubble">
+                    <p class="mb-0">{{ nyanpuppu_advice.text }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{# ▲▲▲【変更はここまで】▲▲▲ #}

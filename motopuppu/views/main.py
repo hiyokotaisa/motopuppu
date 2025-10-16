@@ -142,9 +142,17 @@ def dashboard():
             timeline_target_ids = user_motorcycle_ids_public
 
     # 2. サービスを呼び出してビジネスロジックを実行
+    # ▼▼▼【ここから変更】レイアウト処理を修正 ▼▼▼
     dashboard_layout = current_user.dashboard_layout
+    # デフォルトのレイアウトに 'nyanpuppu' を追加
+    default_layout = ['nyanpuppu', 'reminders', 'stats', 'vehicles', 'timeline', 'circuit', 'calendar']
+    
     if not dashboard_layout:
-        dashboard_layout = ['reminders', 'stats', 'vehicles', 'timeline', 'calendar']
+        dashboard_layout = default_layout
+    # 既存ユーザーの保存済みレイアウトに 'nyanpuppu' がなければ先頭に追加
+    elif 'nyanpuppu' not in dashboard_layout:
+        dashboard_layout.insert(0, 'nyanpuppu')
+    # ▲▲▲【変更はここまで】▲▲▲
 
     upcoming_reminders = services.get_upcoming_reminders(user_motorcycles_all, current_user.id)
 
@@ -175,6 +183,11 @@ def dashboard():
     latest_log_info = services.get_latest_log_info_for_vehicles(user_motorcycles_all)
     # ▲▲▲【変更はここまで】▲▲▲
 
+    # ▼▼▼【ここから追記】▼▼▼
+    nyanpuppu_advice = services.get_nyanpuppu_advice(current_user, user_motorcycles_all)
+    # ▲▲▲【追記はここまで】▲▲▲
+
+
     # 4. テンプレートをレンダリング
     return render_template(
         'dashboard.html',
@@ -195,7 +208,8 @@ def dashboard():
         format_seconds_to_time=format_seconds_to_time,
         start_initial_tutorial=start_initial_tutorial,
         show_dashboard_tour=show_dashboard_tour, # ◀◀◀ テンプレートにフラグを渡す
-        latest_log_info=latest_log_info # ◀◀◀ テンプレートに辞書を渡す
+        latest_log_info=latest_log_info, # ◀◀◀ テンプレートに辞書を渡す
+        nyanpuppu_advice=nyanpuppu_advice # ◀◀◀ テンプレートに辞書を渡す
     )
 
 
