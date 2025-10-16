@@ -5,8 +5,8 @@ from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
 from flask import current_app
-from sqlalchemy import desc
-from .models import db, Motorcycle, FuelEntry, MaintenanceEntry, ActivityLog, MaintenanceReminder
+from sqlalchemy import desc, func
+from .models import db, Motorcycle, FuelEntry, MaintenanceEntry, ActivityLog, MaintenanceReminder, SessionLog
 
 def get_advice(user, motorcycles):
     """
@@ -95,17 +95,6 @@ def get_advice(user, motorcycles):
                 ("ツーリングの荷物は、重いものをなるべく低く、中心に積むのが安定のコツにゃ。", "blobcat_transport.png"),
                 ("インカムがあると、仲間とのおしゃべりやナビ音声が聞けてツーリングがもっと楽しくなるにゃん。", "blobcat_sing.png"),
                 ("エンジンをかける前の日常点検、「ねん・お・しゃ・ち・え・ぶ・く・とう・ば・しめ」って知ってるかにゃ？", "blobcatthinking.png"),
-                
-                # --- メーカー・車種トリビア ---
-                ("ホンダのスーパーカブは世界で一番たくさん作られたバイクにゃん。すごい数だにゃ！", "blobcatmeltlove.png"),
-                ("ホンダのウイングマークは、ギリシャ神話の勝利の女神「ニケ」の翼がモチーフにゃんだって。かっこいいにゃ！", "blobcatmeltlove.png"),
-                ("ヤマハはもともと楽器の会社にゃん。だからロゴが音叉のマークなんだにゃ。エンジン音も調律されてるのかにゃ？", "blobcat_sing.png"),
-                ("カワサキのライムグリーンは、昔のアメリカのレースで「不吉な色」をあえて使って勝ったのが始まりらしいにゃ。漢だにゃ！", "blobcat_mukimuki.png"),
-                ("「Ninja」っていう名前、最初はアメリカ向けだったのが世界中に広まったんだにゃ。クールにゃん！", "blobcat_rider.gif"),
-                ("スズキは昔、織物を作る機械の会社だったにゃ。すごい転身だにゃ！", "ablobcat_cheer.gif"),
-                ("GSX1100Sカタナのデザインは、日本の「刀」がモチーフにゃん。今見ても斬新だにゃ！", "blobcat_thumbsup.png"),
-                ("ドゥカティの「デスモドロミック」っていうバルブ機構は、超高回転でも正確に動くための特別な仕組みにゃん。", "ablobcat_cheer.gif"),
-                ("ハーレーダビッドソンの「三拍子」と呼ばれるアイドリング音は、独特の点火タイミングから生まれるんだにゃ。", None),
             ]
             advice_pool.extend(bike_tips)
 
@@ -126,7 +115,7 @@ def get_advice(user, motorcycles):
                 ("四輪は体を運び、二輪は魂を運ぶ…にゃんてね。", "blobcat_tea.png"),
                 ("悩み事があるなら、とりあえず走ってみるにゃ。風が何かを教えてくれるかもしれにゃい。", "blobcat_wind_chime.gif"),
                 ("ガソリンの匂いって、なんだか落ち着くにゃん…。", "blobcat_uwu.png"),
-                ("バイク乗りの朝は早いにゃ。渋滞も暑さも避けるにゃん。", "blobcat_ohayo.png"),
+                ("バイク乗りの朝は早いにゃ。渋滞も暑さも避けるにゃん。冬はちゃんとあったかくするにゃ。", "blobcat_ohayo.png"),
                 ("今日はなんだか眠いにゃ…ごろごろ…", "blobcat_8bit_sleep.gif"),
                 ("なでなでするにゃ？", "ablobcatfloofpat.gif"),
                 ("お腹すいたにゃん…おいしいラーメンが食べたいにゃ。", "blobcat_mogumogu.gif"),
@@ -139,11 +128,72 @@ def get_advice(user, motorcycles):
                 ("君のバイク、かっこいいにゃね！にゃんぷっぷーも乗ってみたいにゃ。", "blobcataww.png"),
                 ("今日の夜ご飯、何にするかにゃ？にゃんぷっぷーは焼き魚がいいにゃ！", None),
                 ("にゃんぷっぷー、いつでも君の味方だにゃ！困ったことがあったら話しかけてにゃん。", "blobcat_uwu.png"),
+                ("道の駅たちばなっていうところが一部の界隈で人気らしいにゃん。いつか行ってみたいにゃ！", "blobcataww.png"), # 追加
             ]
             advice_pool.extend(humor_greetings)
+
+            # =================================================================
+            # カテゴリ4: バイクメーカー・車種トリビア
+            # =================================================================
+            makers_in_garage = {m.maker.lower() for m in motorcycles if m.maker}
+            
+            # --- ホンダのトリビア ---
+            honda_trivia = [
+                ("ホンダのスーパーカブは世界で一番たくさん作られたバイクにゃん。すごい数だにゃ！", "blobcatmeltlove.png"),
+                ("ホンダのウイングマークは、ギリシャ神話の勝利の女神「ニケ」の翼がモチーフにゃんだって。かっこいいにゃ！", "blobcatmeltlove.png"),
+                ("ホンダのCB400SFのVTECは、ある回転数でバルブの数が変わる魔法の仕組みにゃん。音が変わる瞬間がたまらないにゃ！", "blobcat_yay.apng"),
+                ("NSR250Rの「ガルアーム」は、チャンバーの取り回しを良くするために生まれた、ホンダの独創的なスイングアームにゃん。", None),
+            ]
+            if 'ホンダ' in makers_in_garage or 'honda' in makers_in_garage:
+                advice_pool.extend(honda_trivia)
+            else:
+                advice_pool.append(random.choice(honda_trivia))
+
+            # --- ヤマハのトリビア ---
+            yamaha_trivia = [
+                ("ヤマハはもともと楽器の会社にゃん。だからロゴが音叉のマークなんだにゃ。エンジン音も調律されてるのかにゃ？", "blobcat_sing.png"),
+                ("ヤマハのSR400は、40年以上も基本設計を変えずに作られ続けた伝説のバイクにゃ。キックスタートは儀式にゃん！", "blobcat_doya.png"),
+                ("ヤマハのバイクのフレーム番号には、アルファベットの「I」が使われないらしいにゃ。数字の「1」と見間違えないようにするためだとか。", None),
+            ]
+            if 'ヤマハ' in makers_in_garage or 'yamaha' in makers_in_garage:
+                advice_pool.extend(yamaha_trivia)
+            else:
+                advice_pool.append(random.choice(yamaha_trivia))
+
+            # --- カワサキのトリビア ---
+            kawasaki_trivia = [
+                ("カワサキのライムグリーンは、昔のアメリカのレースで「不吉な色」をあえて使って勝ったのが始まりらしいにゃ。漢だにゃ！", "blobcat_mukimuki.png"),
+                ("「Ninja」っていう名前、最初はアメリカ向けだったのが世界中に広まったんだにゃ。クールにゃん！", "blobcat_rider.gif"),
+                ("カワサキのバイクは、川崎重工っていう大きな会社のほんの一部門にゃん。船とか飛行機も作ってるんだにゃ！", None),
+            ]
+            if 'カワサキ' in makers_in_garage or 'kawasaki' in makers_in_garage:
+                advice_pool.extend(kawasaki_trivia)
+            else:
+                advice_pool.append(random.choice(kawasaki_trivia))
+
+            # --- スズキのトリビア ---
+            suzuki_trivia = [
+                ("スズキは昔、織物を作る機械の会社だったにゃ。すごい転身だにゃ！", "ablobcat_cheer.gif"),
+                ("GSX1100Sカタナのデザインは、日本の「刀」がモチーフにゃん。今見ても斬新だにゃ！", "blobcat_thumbsup.png"),
+                ("スズキのハヤブサは日本語の「隼」から来てるにゃ。ホンダのブラックバード(ツグミ)を狩る猛禽類っていう意味が込められてるらしいにゃ！", None),
+                ("スズキの「湯呑み」は、イベントとかで配られる非売品だけど、なぜかバイク乗りの間ですごく有名にゃん。", None),
+            ]
+            if 'スズキ' in makers_in_garage or 'suzuki' in makers_in_garage:
+                advice_pool.extend(suzuki_trivia)
+            else:
+                advice_pool.append(random.choice(suzuki_trivia))
+
+            # --- 海外メーカーのトリビア ---
+            foreign_trivia = [
+                ("ドゥカティの「デスモドロミック」っていうバルブ機構は、超高回転でも正確に動くための特別な仕組みにゃん。", "ablobcat_cheer.gif"),
+                ("ハーレーダビッドソンの「三拍子」と呼ばれるアイドリング音は、独特の点火タイミングから生まれるんだにゃ。", None),
+                ("BMWのボクサーエンジンは、重心が低くて安定感があるのが特徴にゃ。独特な見た目もいいにゃ！", "blobcatuwu.png"),
+                ("KTMは「READY TO RACE」がスローガンにゃ。オフロードにすごく強いメーカーとして有名にゃん！", "blobcat_rider.gif"),
+            ]
+            advice_pool.extend(foreign_trivia)
             
             # =================================================================
-            # カテゴリ4: ユーザーのデータ状況に応じた動的なアドバイス
+            # カテゴリ5: ユーザーのデータ状況に応じた動的なアドバイス
             # =================================================================
             
             # --- 初心者・利用頻度が低いユーザー向け ---
@@ -157,9 +207,9 @@ def get_advice(user, motorcycles):
             # --- 給油記録関連 ---
             last_fuel_entry = FuelEntry.query.join(Motorcycle).filter(Motorcycle.user_id == user.id).order_by(desc(FuelEntry.entry_date)).first()
             if last_fuel_entry and last_fuel_entry.km_per_liter:
-                if last_fuel_entry.km_per_liter > 35: # 仮の燃費が良い基準
+                if last_fuel_entry.km_per_liter > 35:
                     advice_pool.append((f"最近の燃費、すごくいいにゃ！エコ運転の達人にゃん！", "blobcat_zekkoutyou.webp"))
-                elif last_fuel_entry.km_per_liter < 15: # 仮の燃費が悪い基準
+                elif last_fuel_entry.km_per_liter < 15:
                     advice_pool.append((f"最近の燃費、ちょっとお疲れ気味かにゃ…？空気圧とか確認してみるにゃ？", "blobcat_zehhutyou.webp"))
 
             # --- メンテナンス記録関連 ---
@@ -175,24 +225,44 @@ def get_advice(user, motorcycles):
             last_tire_change = MaintenanceEntry.query.join(Motorcycle).filter(Motorcycle.user_id == user.id, MaintenanceEntry.category == 'タイヤ交換').order_by(desc(MaintenanceEntry.maintenance_date)).first()
             if last_tire_change and (today.date() - last_tire_change.maintenance_date).days < 30:
                 advice_pool.append(("新しいタイヤは気持ちいいにゃ！皮むきが終わるまでは慎重に運転するにゃん。", "blobcat_niko_hohoemi.png"))
+            
+            # --- サーキット活動関連 ---
+            latest_circuit_log = ActivityLog.query.filter(ActivityLog.user_id == user.id, ActivityLog.circuit_name != None).order_by(desc(ActivityLog.activity_date)).first()
+            unique_circuit_count = db.session.query(func.count(func.distinct(ActivityLog.circuit_name))).filter(ActivityLog.user_id == user.id).scalar()
+            total_circuit_activities = ActivityLog.query.filter(ActivityLog.user_id == user.id, ActivityLog.circuit_name != None).count()
 
-            # --- 活動ログ関連 ---
-            latest_activity = ActivityLog.query.filter_by(user_id=user.id).order_by(desc(ActivityLog.activity_date)).first()
-            if latest_activity:
-                days_since = (today.date() - latest_activity.activity_date).days
-                if days_since <= 14:
-                    location = latest_activity.location_name_display or "この間の活動"
-                    advice_pool.append((f"{location}での活動、お疲れ様にゃ！セッティングや走りの感想を記録しておくと次に繋がるにゃ。", "blobcat_yay.apng"))
-                elif days_since > 60:
-                    advice_pool.append(("最近、活動の記録がないみたいにゃ…？たまにはサーキットや峠で思いっきり走るのもいいにゃん！", "blobcat_pity.webp"))
+            if not latest_circuit_log:
+                advice_pool.append(("サーキット走行の記録がまだないみたいだにゃ。活動ログ機能でセッティングやタイムを記録すると、上達が早まるかもにゃん！", "blobcat_rider.gif"))
+            else:
+                days_since_circuit = (today.date() - latest_circuit_log.activity_date).days
+                
+                if total_circuit_activities == 1:
+                    advice_pool.append((f"初めてのサーキット走行記録、おめでとうにゃ！また走るのが楽しみだにゃんね！", "blobcat_yay.apng"))
+                elif days_since_circuit <= 14:
+                    advice_pool.append((f"{latest_circuit_log.circuit_name}での走行、お疲れ様にゃ！ラップタイムの変化を見返してみるにゃ？", "blobcat_yay.apng"))
+                elif days_since_circuit > 90 and total_circuit_activities > 1:
+                    advice_pool.append(("最近サーキット走ってないのかにゃ？うずうずしてくる頃じゃないかにゃ？", "blobcat_pity.webp"))
+
+                if unique_circuit_count == 1 and total_circuit_activities >= 5:
+                    advice_pool.append((f"{latest_circuit_log.circuit_name}は君のホームコースにゃんね！熟知してるって感じだにゃ！", "blobcat_doya.png"))
+                elif unique_circuit_count > 1 and total_circuit_activities >= 3:
+                    advice_pool.append((f"いろんなサーキットを攻略してるんだにゃ！次はどのコースに挑戦するのかにゃ？", "blobcat_binoculars.webp"))
+
+                # 最新のセッションログからベストラップを取得
+                latest_session = SessionLog.query.join(ActivityLog).filter(ActivityLog.user_id == user.id, ActivityLog.id == latest_circuit_log.id).order_by(desc(SessionLog.session_date)).first()
+                if latest_session and latest_session.best_lap_time:
+                    advice_pool.append((f"この前の{latest_circuit_log.circuit_name}でのベストラップは{latest_session.best_lap_time}にゃんね！", "blobcat_rider.gif"))
+                
+                # ユーザーがレース車両を所有している場合
+                if any(m.is_racer for m in motorcycles):
+                    advice_pool.append(("レース用車両のセッティング、うまくいってるかにゃ？活動ログで微調整を記録するにゃ！", "blobcat_asterisk.png"))
 
             # --- リマインダー関連 ---
-            overdue_reminders_query = MaintenanceReminder.query.join(Motorcycle).filter(
+            overdue_reminders_count = MaintenanceReminder.query.join(Motorcycle).filter(
                 Motorcycle.user_id == user.id,
                 MaintenanceReminder.is_dismissed == False,
                 (MaintenanceReminder.snoozed_until == None) | (MaintenanceReminder.snoozed_until <= datetime.now(timezone.utc))
-            )
-            overdue_reminders_count = overdue_reminders_query.count()
+            ).count()
             if overdue_reminders_count > 0:
                 advice_pool.append((f"期限が近い（または過ぎた）リマインダーが{overdue_reminders_count}件あるにゃ。確認を忘れずににゃん！", "blobcat_aseri.png"))
 
@@ -211,16 +281,16 @@ def get_advice(user, motorcycles):
                         advice_pool.append((f"{m.name}がもうすぐ大台に乗りそうにゃ！記念すべき瞬間を見逃さないようににゃ！", "blobcat_oh.png"))
 
             # =================================================================
-            # カテゴリ5: 日付、時間、季節に基づいたアドバイス
+            # カテゴリ6: 日付、時間、季節に基づいたアドバイス
             # =================================================================
             
             # --- 曜日 ---
             weekday = today.weekday()
-            if weekday in [4, 5]: # 金・土
+            if weekday in [4, 5]:
                 advice_pool.append(("週末にゃ！絶好のツーリング日和かもしれにゃい！", "blobcat_uwu.png"))
-            if weekday == 6: # 日
+            if weekday == 6:
                 advice_pool.append(("日曜の夜はなんだか寂しい気分になるにゃ…明日からまた一週間がんばるにゃん！", "blobcat_tereru.png"))
-            if weekday == 0: # 月
+            if weekday == 0:
                 advice_pool.append(("新しい一週間の始まりにゃ！今週はどこか走りに行く予定はあるかにゃ？", "blobcatthinking.png"))
 
             # --- 時間帯 ---
@@ -237,15 +307,36 @@ def get_advice(user, motorcycles):
             # --- 季節 ---
             month = today.month
             if month in [3, 4, 5]:
-                advice_pool.append(("春はツーリングに最高の季節にゃ！花粉対策は忘れずににゃん。", "blobcat_yay.apng"))
-            elif month in [6, 7]: # 梅雨
-                advice_pool.append(("梅雨の季節にゃ。バイクを磨いて次の晴れ間を待つのも一興にゃん。", "ablobcatcomfy_raincoat.apng"))
-            elif month in [8]: # 真夏
-                advice_pool.append(("夏は暑いけど、早朝や高原ツーリングが気持ちいいにゃ！水分補給はこまめににゃ。", "ablobcatsweatsip.apng"))
+                advice_pool.extend([
+                    ("春はツーリングに最高の季節にゃ！花粉対策は忘れずににゃん。", "blobcat_yay.apng"),
+                    ("桜のトンネルを走るの、最高にゃん！でも見とれて脇見運転はダメにゃんよ。", "blobcat_pensive.png"),
+                    ("春は虫さんが元気だから、シールドはこまめに拭くにゃ。", "blobcat_woozy.png"),
+                ])
+            elif month in [6, 7]:
+                advice_pool.extend([
+                    ("梅雨の季節にゃ。バイクを磨いて次の晴れ間を待つのも一興にゃん。", "ablobcatcomfy_raincoat.apng"),
+                    ("雨の日は視界が悪くなりがちにゃ。後続車に気づいてもらえるように、早めにアピールするにゃん。", None),
+                ])
+            elif month in [8]:
+                advice_pool.extend([
+                    ("夏は暑いけど、早朝や高原ツーリングが気持ちいいにゃ！水分補給はこまめににゃ。", "ablobcatsweatsip.apng"),
+                    ("メッシュジャケットは夏の相棒にゃ！風を感じて走るにゃん！", "blobcat_running.gif"),
+                    ("暑い日のアスファルトはタイヤが溶けやすいから気をつけるにゃ。", "blobcat_melting.webp"),
+                    ("夕立に注意にゃ。天気予報はしっかり見るにゃん。", "blobcat_aseri.png"),
+                ])
             elif month in [9, 10, 11]:
-                advice_pool.append(("秋は紅葉が綺麗にゃね。美味しいものを食べるツーリングも最高にゃ！", "blobcat_nomming.gif"))
+                advice_pool.extend([
+                    ("秋は紅葉が綺麗にゃね。美味しいものを食べるツーリングも最高にゃ！", "blobcat_nomming.gif"),
+                    ("落ち葉は滑りやすいから気をつけて走るにゃん。", "blobcat_pity.webp"),
+                    ("だんだん日が短くなってきたにゃ。早めのライト点灯を心がけるにゃ。", "blobcat_ohayo.png"),
+                ])
             elif month in [12, 1, 2]:
-                advice_pool.append(("冬は空気が澄んでて景色がいいにゃ。でも路面凍結には十分気をつけるにゃん！", "ablobcatsnowjoy.gif"))
+                advice_pool.extend([
+                    ("冬は空気が澄んでて景色がいいにゃ。でも路面凍結には十分気をつけるにゃん！", "ablobcatsnowjoy.gif"),
+                    ("グリップヒーターは冬の神様にゃ。一度使ったらやめられないにゃ…。", "blobcat_daisuki.webp"),
+                    ("路面のブラックアイスバーンは本当に見えないから、橋の上とか日陰は特に注意にゃ！", "blobcat_kowaii.png"),
+                    ("寒い日のエンジン始動は、少し暖気してあげるとバイクが喜ぶにゃん。", "blobcat_tea.png"),
+                ])
 
             if not advice_pool:
                 selected_advice, specific_image = ("今日も一日、ご安全ににゃ！", "ablobcat_wave.gif")
@@ -253,7 +344,7 @@ def get_advice(user, motorcycles):
                 selected_advice, specific_image = random.choice(advice_pool)
     
     # =================================================================
-    # 6. アドバイスと画像の選択
+    # 7. アドバイスと画像の選択
     # =================================================================
     image_filename = None
     nyanpuppu_dir = os.path.join(current_app.static_folder, 'images', 'nyanpuppu')
