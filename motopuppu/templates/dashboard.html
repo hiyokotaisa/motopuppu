@@ -6,7 +6,7 @@
 {% block styles %}
 {{ super() }}
 <style>
-    /* ▼▼▼【ここから変更】にゃんぷっぷー吹き出しのスタイルを修正 ▼▼▼ */
+    /* ▼▼▼【ここから変更】吹き出しデザインとウィジェットの線を修正 ▼▼▼ */
     .nyanpuppu-image {
         height: 60px;
         width: auto;
@@ -14,39 +14,42 @@
     }
     .nyanpuppu-bubble {
         position: relative;
-        background: #ffffff; /* 背景を白に変更 */
+        background: #ffffff;
+        border: 1px solid #ced4da;
         border-radius: .4em;
         padding: 0.75rem 1rem;
-        border: 1px solid #ced4da; /* 枠線をBootstrap標準の灰色に変更 */
         width: 100%;
     }
-    /* 吹き出しのしっぽ（枠線部分） */
-    .nyanpuppu-bubble:before {
+    /* 吹き出しのしっぽ（外枠部分） */
+    .nyanpuppu-bubble::before {
         content: '';
         position: absolute;
-        left: 0;
         top: 50%;
+        left: -11px; /* 枠線の太さ分だけ左に配置 */
+        transform: translateY(-50%);
         width: 0;
         height: 0;
-        border: 11px solid transparent;
-        border-right-color: #ced4da; /* 枠線の色に合わせる */
-        border-left: 0;
-        margin-top: -11px;
-        margin-left: -12px;
+        border-style: solid;
+        border-width: 11px 11px 11px 0; /* 右向きの三角形を作成 */
+        border-color: transparent #ced4da transparent transparent; /* 三角形の右辺だけに色を付ける */
     }
     /* 吹き出しのしっぽ（内側の塗りつぶし部分） */
-    .nyanpuppu-bubble:after {
+    .nyanpuppu-bubble::after {
         content: '';
         position: absolute;
-        left: 0;
         top: 50%;
+        left: -10px; /* 外枠より1px内側に配置 */
+        transform: translateY(-50%);
         width: 0;
         height: 0;
-        border: 10px solid transparent;
-        border-right-color: #ffffff; /* 背景色に合わせる */
-        border-left: 0;
-        margin-top: -10px;
-        margin-left: -11px;
+        border-style: solid;
+        border-width: 10px 10px 10px 0; /* 外枠より一回り小さい三角形 */
+        border-color: transparent #ffffff transparent transparent; /* 背景色で塗りつぶす */
+    }
+
+    /* Bootstrapによって消されるアコーディオンの上線を復活させる */
+    #dashboard-widgets-container > .accordion-item + .accordion-item {
+        border-top: 1px solid rgba(0, 0, 0, 0.125);
     }
     /* ▲▲▲【変更はここまで】▲▲▲ */
 

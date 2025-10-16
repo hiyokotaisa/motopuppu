@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
 from flask import current_app
+from sqlalchemy import desc
 from .models import db, Motorcycle, FuelEntry, MaintenanceEntry, ActivityLog, MaintenanceReminder
 
 def get_advice(user, motorcycles):
@@ -37,21 +38,31 @@ def get_advice(user, motorcycles):
         # --- バイクTIPS (メンテナンス) ---
         ("タイヤの空気圧はこまめにチェックするにゃ。安全運転の基本にゃん！", "blobcat_aseri.png"),
         ("チェーンの掃除と注油、忘れてないかにゃ？走りが見違えることもあるにゃん。", "blobcat_mukimuki.png"),
-        ("雨の日のマンホールや白線は滑りやすいから気をつけるにゃ。するりと行かずに、そーっと通るにゃ。", "ablobcatcomfy_raincoat.apng"),
         ("ブレーキフルードは1〜2年で交換するのがおすすめにゃ。色が濃くなってきたら交換のサインにゃん。", "blobcat_aseri2.png"),
         ("ヘルメットの有効期限は3年って言われてるにゃ。大事な頭を守るものだから、たまには確認してにゃ。", "blobcat_oh.png"),
         ("バッテリーが弱ってないかにゃ？冬は特に上がりやすいから注意にゃ。", "blobcat_zehhutyou.webp"),
         ("チェーンのたるみ、大丈夫かにゃ？指二本分くらいが目安にゃん。", "blobcat_pity.webp"),
         ("ブレーキパッドの残量、溝を確認するにゃ。キーキー鳴ったら末期症状にゃん！", "blobcat_kowaii.png"),
         ("たまにはバイクを洗車してあげるにゃ。汚れの下にトラブルが隠れてることも…にゃんてね。", "blobcat_shower.png"),
-        ("エンジンをかける前の日常点検、「ねん・お・しゃ・ち・え・ぶ・く・とう・ば・しめ」って知ってるかにゃ？", "blobcatthinking.png"),
+        ("エンジンオイルはバイクの血液にゃ。定期的に窓から色と量を確認するクセをつけるにゃ。", "blobcat_meow_ponponpain.png"),
+        ("タイヤの製造年月日、見たことあるかにゃ？4桁の数字で週と年がわかるにゃん。古すぎると危険にゃ！", "blobcat_fun.apng"),
 
         # --- バイクTIPS (ライディング) ---
         ("コーナーの先を見て走ると、スムーズに曲がれるようににゃるにゃん。", "blobcat_binoculars.webp"),
         ("急ブレーキは禁物にゃ。じわーっとかけて、タイヤをロックさせないようにするにゃ。", "blobcat_frustration.png"),
+        ("雨の日のマンホールや白線は滑りやすいから気をつけるにゃ。そろーっと通るにゃ。", "ablobcatcomfy_raincoat.apng"),
         ("すり抜けは危ないから、ほどほどににゃ。心と車間に余裕を持つにゃん。", "blobcat_policepeek.png"),
         ("服装は大事にゃ。「ちょっとそこまで」でも、肌の露出は避けるにゃ。", "blobcat_thumbsup.png"),
         ("向かい風が強い日は、少し前傾姿勢になると楽になるにゃ。風と友達になるにゃん。", "blobcat_running.gif"),
+        ("バイクを曲げたいときは、曲がりたい方向のハンドルを「押す」って意識すると曲がりやすいにゃん。不思議にゃね。", "blobcat_aomuke.webp"),
+        ("高速道路を走るときは、耳栓をすると疲れ方が全然違うらしいにゃ。試してみる価値ありにゃ！", "blobcat_nemunemu.png"),
+        ("ニーグリップ、しっかりできてるかにゃ？下半身でバイクをホールドすると上半身の力が抜けて楽になるにゃん。", "blobcat_mukimuki.png"),
+
+        # --- バイクTIPS (その他) ---
+        ("ヘルメットのシールド、綺麗かにゃ？視界がクリアだと安全性も気分も上がるにゃん！", "blobcat_smile_face.webp"),
+        ("ツーリングの荷物は、重いものをなるべく低く、中心に積むのが安定のコツにゃ。", "blobcat_transport.png"),
+        ("インカムがあると、仲間とのおしゃべりやナビ音声が聞けてツーリングがもっと楽しくなるにゃん。", "blobcat_sing.png"),
+        ("エンジンをかける前の日常点検、「ねん・お・しゃ・ち・え・ぶ・く・とう・ば・しめ」って知ってるかにゃ？", "blobcatthinking.png"),
     ]
     advice_pool.extend(static_tips)
 
@@ -66,29 +77,52 @@ def get_advice(user, motorcycles):
         ("にゃんぷっぷー！今日も元気に記録するにゃ！", "ablobcat_eieiou.gif"),
         ("ヤエー！(・∀・)v ってすると、ツーリング仲間が増えるかもしれにゃい！", "ablobcat_wave.gif"),
         ("また新しいパーツを買ったのかにゃ…？ご利用は計画的ににゃん！", "blobcat_ziainokaitou.png"),
-        ("にゃーん（エンジンの音）", "blobcat_sing.png"),
+        ("にゃーん（アイドリングの音）", "blobcat_sing.png"),
         ("バイクに乗りたい…乗せてほしいにゃん…", "blobcataww.png"),
         ("ヘルメットについた虫、ちゃんと取ったかにゃ？放置すると取れなくなるにゃん…。", "blobcat_woozy.png"),
         ("四輪は体を運び、二輪は魂を運ぶ…にゃんてね。", "blobcat_yoyuunoemi.webp"),
         ("悩み事があるなら、とりあえず走ってみるにゃ。風が何かを教えてくれるかもしれにゃい。", "blobcat_wind_chime.gif"),
+        ("ガソリンの匂いって、なんだか落ち着くにゃん…。", "blobcat_uwu.png"),
+        ("バイク乗りの朝は早いにゃ。渋滞も暑さも避けるにゃん。", "blobcat_ohayo.png"),
     ]
     advice_pool.extend(humor_greetings)
     
     # =================================================================
-    # カテゴリ3: ユーザーデータに応じた動的なアドバイス
+    # カテゴリ3: ユーザーのデータ状況に応じた動的なアドバイス
     # =================================================================
     
-    # --- 初心者向け ---
-    has_any_log = db.session.query(FuelEntry.id).join(Motorcycle).filter(Motorcycle.user_id == user.id).first() or \
-                  db.session.query(MaintenanceEntry.id).join(Motorcycle).filter(Motorcycle.user_id == user.id, MaintenanceEntry.category != '初期設定').first()
-    if not has_any_log:
+    # --- 初心者・利用頻度が低いユーザー向け ---
+    all_logs_count = db.session.query(FuelEntry.id).join(Motorcycle).filter(Motorcycle.user_id == user.id).count() + \
+                     db.session.query(MaintenanceEntry.id).join(Motorcycle).filter(Motorcycle.user_id == user.id, MaintenanceEntry.category != '初期設定').count()
+    if all_logs_count == 0:
         advice_pool.append(("まずは最初の記録をつけてみようにゃ！給油記録が一番簡単でおすすめにゃん。", "blobcataww.png"))
+    elif all_logs_count < 5:
+        advice_pool.append(("おっ、記録が増えてきたにゃ！この調子にゃん！", "blobcat_yay.apng"))
 
-    if not MaintenanceEntry.query.join(Motorcycle).filter(Motorcycle.user_id == user.id, MaintenanceEntry.category != '初期設定').first():
-        advice_pool.append(("愛車のメンテナンスは大事にゃ。最初の整備記録としてオイル交換でも記録してみるにゃ？", "blobcat_hamigaki.png"))
+    # --- 給油記録関連 ---
+    last_fuel_entry = FuelEntry.query.join(Motorcycle).filter(Motorcycle.user_id == user.id).order_by(desc(FuelEntry.entry_date)).first()
+    if last_fuel_entry and last_fuel_entry.km_per_liter:
+        if last_fuel_entry.km_per_liter > 35: # 仮の燃費が良い基準
+            advice_pool.append((f"最近の燃費、すごくいいにゃ！エコ運転の達人にゃん！", "blobcat_zekkoutyou.webp"))
+        elif last_fuel_entry.km_per_liter < 15: # 仮の燃費が悪い基準
+            advice_pool.append((f"最近の燃費、ちょっとお疲れ気味かにゃ…？空気圧とか確認してみるにゃ？", "blobcat_zehhutyou.webp"))
 
-    # --- アクティビティ関連 ---
-    latest_activity = ActivityLog.query.filter_by(user_id=user.id).order_by(ActivityLog.activity_date.desc()).first()
+    # --- メンテナンス記録関連 ---
+    last_maintenance = MaintenanceEntry.query.join(Motorcycle).filter(Motorcycle.user_id == user.id, MaintenanceEntry.category != '初期設定').order_by(desc(MaintenanceEntry.maintenance_date)).first()
+    if last_maintenance:
+        if (today.date() - last_maintenance.maintenance_date).days < 7:
+            advice_pool.append(("最近メンテナンスしたんだにゃ！愛車も喜んでるにゃん。", "blobcat_daisuki.webp"))
+    
+    last_oil_change = MaintenanceEntry.query.join(Motorcycle).filter(Motorcycle.user_id == user.id, MaintenanceEntry.category == 'エンジンオイル交換').order_by(desc(MaintenanceEntry.maintenance_date)).first()
+    if last_oil_change and (today.date() - last_oil_change.maintenance_date).days > 365:
+        advice_pool.append(("最後にオイル交換してから1年以上経ってるみたいにゃ。そろそろ交換時期かもしれにゃい。", "blobcat_aseri.png"))
+
+    last_tire_change = MaintenanceEntry.query.join(Motorcycle).filter(Motorcycle.user_id == user.id, MaintenanceEntry.category == 'タイヤ交換').order_by(desc(MaintenanceEntry.maintenance_date)).first()
+    if last_tire_change and (today.date() - last_tire_change.maintenance_date).days < 30:
+        advice_pool.append(("新しいタイヤは気持ちいいにゃ！皮むきが終わるまでは慎重に運転するにゃん。", "blobcat_niko_hohoemi.png"))
+
+    # --- 活動ログ関連 ---
+    latest_activity = ActivityLog.query.filter_by(user_id=user.id).order_by(desc(ActivityLog.activity_date)).first()
     if latest_activity:
         days_since = (today.date() - latest_activity.activity_date).days
         if days_since <= 14:
@@ -113,6 +147,13 @@ def get_advice(user, motorcycles):
 
     if len(motorcycles) > 1:
         advice_pool.append(("たくさん愛車がいてうらやましいにゃ！デフォルト車両の設定はちゃんとしてるかにゃ？", "blobcat_uwu.png"))
+    
+    for m in motorcycles:
+        if not m.is_racer:
+            from .services import get_latest_total_distance
+            mileage = get_latest_total_distance(m.id, m.odometer_offset)
+            if 50000 > mileage > 49500 or 100000 > mileage > 99500:
+                advice_pool.append((f"{m.name}がもうすぐ大台に乗りそうにゃ！記念すべき瞬間を見逃さないようににゃ！", "blobcat_oh.png"))
 
     # =================================================================
     # カテゴリ4: 日付、時間、季節に基づいたアドバイス
