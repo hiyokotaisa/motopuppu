@@ -126,7 +126,7 @@ def get_advice(user, motorcycles):
                 ("時にはなにも考えずにぼーっとするのも大事にゃん。", None),
                 ("もしかして、にゃんぷっぷー鬱陶しいにゃ……？ 喋ってほしくないときは「プロフィール」から喋らないようにもできるにゃ……", "blobcatnoplease.png"),
                 ("にゃんぷっぷーはここでずっと待ってるにゃん。", "blobcatcomfy.png"),
-                ("きゅるるん！ 今日もかわいいにゃんぷっぷーに会えてラッキーだにゃ！", "blobcat_pity.webp"),
+                ("きゅるるん！ 今日もかわいいにゃんぷっぷーに会えてラッキーだにゃ！", "blobcat_daisuki.webp"),
                 ("なんかおやつ欲しいにゃ…ちゅ～るでもいいにゃん。", "blobcat_mogumogu.gif"),
                 ("君のバイク、かっこいいにゃね！にゃんぷっぷーも乗ってみたいにゃ。", "blobcataww.png"),
                 ("今日の夜ご飯、何にするかにゃ？にゃんぷっぷーは焼き魚がいいにゃ！", None),
@@ -244,7 +244,7 @@ def get_advice(user, motorcycles):
                 elif days_since_circuit <= 14:
                     advice_pool.append((f"{latest_circuit_log.circuit_name}での走行、お疲れ様にゃ！ラップタイムの変化を見返してみるにゃ？", "blobcat_yay.apng"))
                 elif days_since_circuit > 90 and total_circuit_activities > 1:
-                    advice_pool.append(("最近サーキット走ってないのかにゃ？うずうずしてくる頃じゃないかにゃ？", "blobcat_pity.webp"))
+                    advice_pool.append(("最近サーキット走ってないのかにゃ？うずうずしてくる頃じゃないかにゃ？", "blobcat_daisuki.webp"))
 
                 if unique_circuit_count == 1 and total_circuit_activities >= 5:
                     advice_pool.append((f"{latest_circuit_log.circuit_name}は君のホームコースにゃんね！走り込んでてえらいにゃん！", "blobcat_doya.png"))
@@ -331,7 +331,7 @@ def get_advice(user, motorcycles):
             elif month in [9, 10, 11]:
                 advice_pool.extend([
                     ("秋は紅葉が綺麗にゃね。美味しいものを食べるツーリングも最高にゃ！", "blobcat_nomming.gif"),
-                    ("落ち葉は滑りやすいから気をつけて走るにゃん。", "blobcat_pity.webp"),
+                    ("落ち葉は滑りやすいから気をつけて走るにゃん。", "blobcat_daisuki.webp"),
                     ("だんだん日が短くなってきたにゃ。早めのライト点灯を心がけるにゃ。", "blobcat_ohayo.png"),
                 ])
             elif month in [12, 1, 2]:
