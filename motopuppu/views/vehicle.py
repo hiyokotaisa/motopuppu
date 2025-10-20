@@ -9,7 +9,12 @@ from sqlalchemy import func
 # ▼▼▼ インポート文を修正 ▼▼▼
 from flask_login import login_required, current_user
 # ▲▲▲ 変更ここまで ▲▲▲
-from ..models import db, User, Motorcycle, MaintenanceReminder, OdoResetLog, MaintenanceEntry, ActivityLog
+# ▼▼▼【ここから変更】削除対象のモデルをインポート ▼▼▼
+from ..models import (
+    db, User, Motorcycle, MaintenanceReminder, OdoResetLog, MaintenanceEntry, ActivityLog,
+    GeneralNote, Event
+)
+# ▲▲▲【変更はここまで】▲▲▲
 from ..forms import VehicleForm, OdoResetLogForm
 from ..achievement_evaluator import check_achievements_for_event, EVENT_ADD_VEHICLE, EVENT_ADD_ODO_RESET
 from .. import services, limiter
@@ -279,20 +284,33 @@ def delete_vehicle(vehicle_id):
     # ▼▼▼【ここから変更】 first_or_444 を first_or_404 に修正 ▼▼▼
     motorcycle = Motorcycle.query.filter_by(id=vehicle_id, user_id=current_user.id).first_or_404()
     # ▲▲▲【変更はここまで】▲▲▲
+    
+    # ▼▼▼【ここから変更】関連データを明示的に削除する処理を修正 ▼▼▼
     try:
         was_default = motorcycle.is_default
         vehicle_name = motorcycle.name
-        MaintenanceReminder.query.filter_by(motorcycle_id=motorcycle.id).delete(synchronize_session=False)
-        OdoResetLog.query.filter_by(motorcycle_id=motorcycle.id).delete(synchronize_session=False)
+
+        # ondelete='SET NULL' が設定されている関連データを先に手動で削除する
+        GeneralNote.query.filter_by(motorcycle_id=motorcycle.id).delete(synchronize_session=False)
+        Event.query.filter_by(motorcycle_id=motorcycle.id).delete(synchronize_session=False)
+
+        # この車両の削除を実行
+        # models.pyで cascade="all, delete-orphan" や ondelete='CASCADE' が
+        # 設定されている他の全ての関連データ (FuelEntry, MaintenanceEntry, ActivityLog,
+        # OdoResetLog, MaintenanceReminder など) は
+        # この db.session.delete() によって自動的に削除されます。
         db.session.delete(motorcycle)
+        
         if was_default:
-                # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
-                other_vehicle = Motorcycle.query.filter(Motorcycle.user_id == current_user.id).order_by(Motorcycle.id).first()
-                # ▲▲▲ 変更ここまで ▲▲▲
-                if other_vehicle:
-                    other_vehicle.is_default = True
+            # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
+            other_vehicle = Motorcycle.query.filter(Motorcycle.user_id == current_user.id).order_by(Motorcycle.id).first()
+            # ▲▲▲ 変更ここまで ▲▲▲
+            if other_vehicle:
+                other_vehicle.is_default = True
+        
         db.session.commit()
-        flash(f'車両「{vehicle_name}」と関連データを削除しました。', 'success')
+        flash(f'車両「{vehicle_name}」と、それに紐づく全ての関連データを削除しました。', 'success')
+    # ▲▲▲【変更はここまで】▲▲▲
     except Exception as e:
         db.session.rollback()
         flash(f'車両の削除中にエラーが発生しました: {e}', 'danger')

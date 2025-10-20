@@ -303,9 +303,11 @@ document.addEventListener('DOMContentLoaded', function() {
     if (isRacerCheckbox) {
         {% if form_action == 'edit' %}
             isRacerCheckbox.disabled = true;
-            {% if vehicle and vehicle.is_racer and not isRacerCheckbox.checked %}
+            {# ▼▼▼【ここから修正】 'isRacerCheckbox.checked' を 'form.is_racer.data' に変更 ▼▼▼ #}
+            {% if vehicle and vehicle.is_racer and not form.is_racer.data %}
                 isRacerCheckbox.checked = true;
             {% endif %}
+            {# ▲▲▲【修正はここまで】▲▲▲ #}
             if (initialOdometerFieldContainer) {
                 initialOdometerFieldContainer.style.display = 'none';
             }
