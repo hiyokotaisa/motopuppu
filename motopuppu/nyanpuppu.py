@@ -182,7 +182,7 @@ def get_advice(user, motorcycles):
                 ("ぷっぷー！（汽笛のまねにゃん）", "ablobcat_wave.gif"),
                 ("記録をさぼると、にゃんぷっぷーが拗ねるにゃん...。", "blobcat_pensive.png"),
                 ("今日はどっちの向きに走るかにゃ？太陽に向かって走るにゃん！", "blobcat_binoculars.webp"),
-                ("ガレージがピカピカだと、気分も上がるにゃん！お掃除えらいにゃ！", "blobcat_zekkoutyou.webp"),
+                ("ガレージがピカピカだと、気分も上がるにゃん！お掃除えらいにゃ！", "ablobcat_cheer.gif"),
                 ("（じーっ...）...ちゃんと整備してるか見てるにゃん。", "blobcatpolicepeek.png"),
                 ("にゃにゃ！？今、いい音しなかったかにゃ？", "blobcat_oh.png"),
                 ("ヘルメット、ちゃんと「カチッ」てするにゃんよ。あごひも大事にゃ。", "blobcat_thumbsup.png"),
@@ -235,8 +235,8 @@ def get_advice(user, motorcycles):
                 ("ヤマハが世界で初めて「モノクロスサスペンション」っていう、リアショックが1本のバイクを市販化したにゃん。", "blobcat_oh.png"),
                 ("「セロー」は「カモシカ」って意味にゃん。山道をカモシカみたいにスイスイ走れるようにって願いがこもってるにゃ。", "blobcat_rider.gif"),
                 ("YZF-R1の「クロスプレーンクランクシャフト」は、MotoGPマシンから来た技術にゃ。独特の排気音がするにゃん。", "blobcat_asterisk.png"),
-                ("ヤマハの「TZR250R」の後方排気は、シリンダーが逆さまでマフラーが前に伸びてる変態設計だったにゃ！", "blobcat_kowaii.png"),
-                ("ヤマハの青色は「ヤマハレーシングブルー」って呼ばれてるにゃ。レースで勝つための色だにゃん！", "blobcat_zekkoutyou.webp"),
+                ("ヤマハの「TZR250R」の後方排気は、シリンダーが逆さまでマフラーが前に伸びてる変態設計だったにゃ！", "blobcatcomfy.png"),
+                ("ヤマハの青色は「ヤマハレーシングブルー」って呼ばれてるにゃ。レースで勝つための色だにゃん！", "ablobcat_cheer.gif"),
                 # ▲▲▲【追記はここまで】▲▲▲
             ]
             if 'ヤマハ' in makers_in_garage or 'yamaha' in makers_in_garage:
@@ -252,7 +252,7 @@ def get_advice(user, motorcycles):
                 # ▼▼▼【ここから追記】カワサキのトリビアを追加 ▼▼▼
                 ("カワサキの「Z1」は、ホンダのCB750に対抗して作られた伝説の名車にゃ。「ニューヨークステーキ」って呼ばれてたにゃん。", "blobcat_doya.png"),
                 ("カワサキのバイクは「漢（おとこ）カワサキ」って呼ばれることがあるにゃ。無骨でかっこいいデザインが多いからかにゃ？", "blobcat_mukimuki.png"),
-                ("「H2R」はスーパーチャージャーがついてる化け物バイクにゃ。公道は走れないけど、300馬力以上出るんだにゃ...こわいにゃん！", "blobcat_kowaii.png"),
+                ("「H2R」はスーパーチャージャーがついてる化け物バイクにゃ。公道は走れないけど、300馬力以上出るんだにゃ...こわいにゃん！", "blobcatcomfy.png"),
                 ("GPZ900R Ninjaは、映画「トップガン」で有名になったにゃ。あれを見て憧れた人も多いにゃん。", "blobcat_rider.gif"),
                 ("「W1（ダブワン）」は、カワサキが作った初めての大型バイクにゃ。今の「W800」とかのご先祖様にゃん。", "blobcat_tea.png"),
                 ("カワサキのバイクは、なぜかメーターに「フューエル」ってカタカナで書いてあることが多いにゃん。", None),
@@ -272,7 +272,7 @@ def get_advice(user, motorcycles):
                 # ▼▼▼【ここから追記】スズキのトリビアを追加 ▼▼▼
                 ("スズキの「ハヤブサ」は、時速300km/hの壁を市販車で初めて超えたバイクとして有名にゃ。空力がすごいにゃん。", "blobcat_running.gif"),
                 ("スズキの「GSX-R」シリーズは、レースで勝つために作られた「レプリカ」ブームの火付け役にゃん。", "blobcat_rider.gif"),
-                ("スズキは「変態」って言われることがあるにゃ...（褒め言葉にゃん！）。B-KINGとか、個性が強すぎるバイクを作るからだにゃ。", "blobcat_kowaii.png"),
+                ("スズキは「変態」って言われることがあるにゃ...（褒め言葉にゃん！）。B-KINGとか、個性が強すぎるバイクを作るからだにゃ。", "blobcatcomfy.png"),
                 ("「Vストローム」シリーズは、アドベンチャーバイクとして人気にゃ。クチバシみたいなフロントフェンダーが特徴にゃん。", "blobcat_binoculars.webp"),
                 ("スズキの「RGV250Γ（ガンマ）」は、レースで培った技術が詰まったすごい2ストバイクだったにゃん。", None),
                 ("スズキの「ジクサー」は、安くて高性能で人気が出たにゃ。スズキは時々すごいコスパのバイクを作るにゃん。", "blobcat_yay.apng"),
@@ -295,7 +295,7 @@ def get_advice(user, motorcycles):
                 ("BMWのバイクは、車と同じで「駆け抜ける歓び」があるにゃ。水平対向エンジンは「ボクサー」って呼ばれてるにゃん。", "blobcat_running.gif"),
                 ("ドゥカティの赤い色は「ドゥカティ・レッド」って呼ばれる特別な赤色にゃ。情熱の色だにゃん。", "blobcatmeltlove.png"),
                 ("KTMはオフロードバイクでめちゃくちゃ強いメーカーだにゃ。オレンジ色がイメージカラーにゃん！", "blobcat_rider.gif"),
-                ("アプリリアはイタリアのメーカーで、レースにすごく強いにゃ。特に小さい排気量のバイクが得意だったにゃん。", "blobcat_zekkoutyou.webp"),
+                ("アプリリアはイタリアのメーカーで、レースにすごく強いにゃ。特に小さい排気量のバイクが得意だったにゃん。", "ablobcat_cheer.gif"),
                 ("モト・グッツィもイタリアのメーカーにゃ。エンジンが横に飛び出てる「縦置きVツイン」がアイデンティティだにゃん。", None),
                 ("インディアンは、ハーレーよりも歴史が古いアメリカのバイクメーカーなんだにゃ。すごいライバルだにゃん。", "blobcat_oh.png"),
                 ("ロイヤルエンフィールドは、インドのメーカーだにゃ。クラシックな見た目がずーっと人気にゃん。", "blobcat_tea.png"),
@@ -320,7 +320,7 @@ def get_advice(user, motorcycles):
             last_fuel_entry = FuelEntry.query.join(Motorcycle).filter(Motorcycle.user_id == user.id).order_by(desc(FuelEntry.entry_date)).first()
             if last_fuel_entry and last_fuel_entry.km_per_liter:
                 if last_fuel_entry.km_per_liter > 35:
-                    advice_pool.append((f"最近の燃費、すごくいいにゃ！エコ運転の達人にゃん！", "blobcat_zekkoutyou.webp"))
+                    advice_pool.append((f"最近の燃費、すごくいいにゃ！エコ運転の達人にゃん！", "ablobcat_cheer.gif"))
                 elif last_fuel_entry.km_per_liter < 15:
                     advice_pool.append((f"最近の燃費、ちょっとお疲れ気味かにゃ…？空気圧とか確認してみるにゃ？", "blobcat_zehhutyou.webp"))
 
@@ -478,10 +478,10 @@ def get_advice(user, motorcycles):
                     ("冬は空気が澄んでて景色がいいにゃ。でも路面凍結には十分気をつけるにゃん！", "ablobcatsnowjoy.gif"),
                     ("グリップヒーターは冬の神様にゃ。一度使ったらやめられないにゃ…。", "blobcat_daisuki.webp"),
                     # ▼▼▼【ここから修正】エラーの原因となった行を削除しました ▼▼▼
-                    ("路面のブラックアイスバーンは本当に見えないから、橋の上とか日陰は特に注意にゃ！", "blobcat_kowaii.png"),
+                    ("路面のブラックアイスバーンは本当に見えないから、橋の上とか日陰は特に注意にゃ！", "blobcatcomfy.png"),
                     ("寒い日のエンジン始動は、少し暖気してあげるとバイクが喜ぶにゃん。", "blobcat_tea.png"),
                     # ▼▼▼【前回の追記】季節のセリフを追加 ▼▼▼
-                    ("電熱ウェアは人類の宝にゃ...。一度体験したら戻れないにゃん...", "blobcat_zekkoutyou.webp"),
+                    ("電熱ウェアは人類の宝にゃ...。一度体験したら戻れないにゃん...", "ablobcat_cheer.gif"),
                     ("寒いとバッテリーが弱りやすいにゃ。しばらく乗らない時は注意にゃ。", "blobcat_aseri2.png"),
                     # ▲▲▲【追記はここまで】▲▲▲
                 ])
