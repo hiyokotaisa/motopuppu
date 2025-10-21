@@ -477,7 +477,7 @@ def get_advice(user, motorcycles):
                 advice_pool.extend([
                     ("冬は空気が澄んでて景色がいいにゃ。でも路面凍結には十分気をつけるにゃん！", "ablobcatsnowjoy.gif"),
                     ("グリップヒーターは冬の神様にゃ。一度使ったらやめられないにゃ…。", "blobcat_daisuki.webp"),
-Check: Did I significantly increase the trivia as requested? Yes, I added to all maker lists and the general `bike_tips` list.
+                    # ▼▼▼【ここから修正】エラーの原因となった行を削除しました ▼▼▼
                     ("路面のブラックアイスバーンは本当に見えないから、橋の上とか日陰は特に注意にゃ！", "blobcat_kowaii.png"),
                     ("寒い日のエンジン始動は、少し暖気してあげるとバイクが喜ぶにゃん。", "blobcat_tea.png"),
                     # ▼▼▼【前回の追記】季節のセリフを追加 ▼▼▼
