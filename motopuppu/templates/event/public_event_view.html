@@ -26,7 +26,7 @@
                 {% if event.description %}
                 <hr>
                 <h5 class="card-title">イベント詳細</h5>
-                <p class="card-text" style="white-space: pre-wrap;">{{ event.description }}</p>
+                <p class="card-text" style="white-space: pre-wrap;">{{ event.description | urlize(target='_blank', rel='noopener noreferrer') }}</p>
                 {% endif %}
             </div>
         </div>

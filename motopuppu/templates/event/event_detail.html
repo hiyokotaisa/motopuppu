@@ -42,7 +42,7 @@
                 <p><strong><i class="fas fa-motorcycle fa-fw me-2 text-secondary"></i>関連車両:</strong> {{ event.motorcycle.name }}</p>
                 {% endif %}
                 <hr>
-                <p class="card-text" style="white-space: pre-wrap;">{{ event.description }}</p>
+                <p class="card-text" style="white-space: pre-wrap;">{{ event.description | urlize(target='_blank', rel='noopener noreferrer') }}</p>
             </div>
         </div>
 
