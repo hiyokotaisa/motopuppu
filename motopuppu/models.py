@@ -2,21 +2,15 @@
 from . import db
 from datetime import datetime, date
 from sqlalchemy.dialects.postgresql import JSONB
-# ▼▼▼ textをインポート ▼▼▼
 from sqlalchemy import Index, func, text
-# ▲▲▲ 変更ここまで ▲▲▲
 import uuid
 from enum import Enum as PyEnum
 from werkzeug.security import generate_password_hash, check_password_hash
-# ▼▼▼ UserMixinをインポート ▼▼▼
 from flask_login import UserMixin
-# ▲▲▲ 変更ここまで ▲▲▲
 
 # --- データベースモデル定義 ---
 
-# ▼▼▼ UserクラスにUserMixinを継承させる ▼▼▼
 class User(UserMixin, db.Model):
-# ▲▲▲ 変更ここまで ▲▲▲
     __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
     misskey_user_id = db.Column(db.String(100), unique=True, nullable=False)
@@ -25,41 +19,28 @@ class User(UserMixin, db.Model):
     avatar_url = db.Column(db.String(2048), nullable=True, comment="MisskeyのアバターURL")
     is_admin = db.Column(db.Boolean, default=False, nullable=False)
     
-    # ▼▼▼ 変更・追記 ▼▼▼
     dashboard_layout = db.Column(db.JSON, nullable=True, comment="ダッシュボードのウィジェットの並び順")
     public_id = db.Column(db.String(36), unique=True, nullable=True, index=True, comment="公開ガレージ用の一意なID")
     is_garage_public = db.Column(db.Boolean, nullable=False, default=False, server_default='false', comment="ガレージカードを公開するか")
     garage_theme = db.Column(db.String(50), nullable=False, default='default', server_default='default', comment="ガレージカードのデザインテーマ")
     garage_hero_vehicle_id = db.Column(db.Integer, db.ForeignKey('motorcycles.id', ondelete='SET NULL'), nullable=True, comment="ガレージの主役車両ID")
-    # ▲▲▲ 変更・追記 ここまで ▲▲▲
 
-    # ▼▼▼【ここから追記】ガレージ表示設定用のカラムを追加 ▼▼▼
     garage_display_settings = db.Column(JSONB, nullable=False, server_default=text("'{}'::jsonb"), comment="ガレージカードの表示項目設定")
-    # ▲▲▲【追記はここまで】▲▲▲
 
-    # ▼▼▼【ここから追記】▼▼▼
     show_cost_in_dashboard = db.Column(db.Boolean, nullable=False, default=True, server_default='true', comment="ダッシュボードでコスト関連情報を表示するか")
-    # ▼▼▼【ここから追記】にゃんぷっぷーの設定を追加 ▼▼▼
     nyanpuppu_simple_mode = db.Column(db.Boolean, nullable=False, default=False, server_default='false', comment="にゃんぷっぷーの知能を取り上げるか")
-    # ▲▲▲【追記はここまで】▲▲▲
 
     encrypted_misskey_api_token = db.Column(db.Text, nullable=True, comment="暗号化されたMisskey APIトークン")
 
-    # ▼▼▼【ここから変更】チュートリアル管理カラムをJSONB型に変更 ▼▼▼
     completed_tutorials = db.Column(JSONB, nullable=False, server_default=text("'{}'::jsonb"), comment="完了したチュートリアルのキーを格納する (例: {'initial_setup': true})")
-    # ▲▲▲【変更はここまで】▲▲▲
 
-    # ▼▼▼【ここから修正】foreign_keysを指定して曖昧さを解消 ▼▼▼
     motorcycles = db.relationship('Motorcycle', foreign_keys='Motorcycle.user_id', backref='owner', lazy=True, cascade="all, delete-orphan")
-    # ▲▲▲【修正はここまで】▲▲▲
     general_notes = db.relationship('GeneralNote', backref='owner', lazy=True, cascade="all, delete-orphan")
     achievements = db.relationship('UserAchievement', backref='user', lazy='dynamic', cascade="all, delete-orphan")
     setting_sheets = db.relationship('SettingSheet', backref='user', lazy='dynamic', cascade="all, delete-orphan")
     activity_logs = db.relationship('ActivityLog', backref='user', lazy='dynamic', cascade="all, delete-orphan")
     
-    # ▼▼▼【ここから追記】▼▼▼
     circuit_targets = db.relationship('UserCircuitTarget', backref='user', lazy='dynamic', cascade="all, delete-orphan")
-    # ▲▲▲【追記ここまで】▲▲▲
 
     def __repr__(self):
         return f'<User id={self.id} username={self.misskey_username}>'
@@ -77,16 +58,12 @@ class Motorcycle(db.Model):
     is_racer = db.Column(db.Boolean, nullable=False, default=False, server_default='false')
     total_operating_hours = db.Column(db.Numeric(8, 2), nullable=True, default=0.00)
 
-    # ▼▼▼ ここから変更 ▼▼▼
     image_url = db.Column(db.String(2048), nullable=True, comment="車両画像のURL")
     custom_details = db.Column(db.Text, nullable=True, comment="カスタム箇所のメモ")
     show_in_garage = db.Column(db.Boolean, nullable=False, default=True, server_default='true', comment="ガレージカードに掲載するか")
-    # ▲▲▲ 変更ここまで ▲▲▲
 
-    # --- ▼▼▼ 変更箇所（ここから） ▼▼▼ ---
     primary_ratio = db.Column(db.Numeric(7, 4), nullable=True, comment="一次減速比")
     gear_ratios = db.Column(JSONB, nullable=True, comment="各ギアの変速比 (例: {'1': 2.846, '2': 2.000, ...})")
-    # --- ▲▲▲ 変更箇所（ここまで） ▲▲▲ ---
 
     fuel_entries = db.relationship('FuelEntry', backref='motorcycle', lazy='dynamic', order_by="desc(FuelEntry.entry_date)", cascade="all, delete-orphan")
     maintenance_entries = db.relationship('MaintenanceEntry', backref='motorcycle', lazy='dynamic', order_by="desc(MaintenanceEntry.maintenance_date)", cascade="all, delete-orphan")
@@ -100,9 +77,7 @@ class Motorcycle(db.Model):
     setting_sheets = db.relationship('SettingSheet', backref='motorcycle', lazy='dynamic', cascade="all, delete-orphan")
     activity_logs = db.relationship('ActivityLog', backref='motorcycle', lazy='dynamic', order_by="desc(ActivityLog.activity_date)", cascade="all, delete-orphan")
 
-    # ▼▼▼ 以下を追記 ▼▼▼
     maintenance_spec_sheets = db.relationship('MaintenanceSpecSheet', backref='motorcycle', lazy='dynamic', order_by="desc(MaintenanceSpecSheet.updated_at)", cascade="all, delete-orphan")
-    # ▲▲▲ 追記ここまで ▲▲▲
 
     def calculate_cumulative_offset_from_logs(self, target_date=None):
         if self.is_racer:
@@ -138,35 +113,24 @@ class FuelEntry(db.Model):
     exclude_from_average = db.Column(db.Boolean, nullable=False, default=False, server_default='false')
     __table_args__ = (Index('ix_fuel_entries_entry_date', 'entry_date'),)
 
-    # ▼▼▼▼▼ ここからが修正箇所です ▼▼▼▼▼
     @property
     def km_per_liter(self):
-        # レーサー車両は燃費計算の対象外
         if self.motorcycle and self.motorcycle.is_racer:
             return None
             
-        # 燃費計算は「満タン給油」の記録でのみ行う
         if not self.is_full_tank:
             return None
         
-        # この記録の「直前」の給油記録を取得
-        # is_full_tank == True の条件も追加し、満タン給油間の燃費を正しく計算する
         prev_entry = FuelEntry.query.filter(
             FuelEntry.motorcycle_id == self.motorcycle_id,
             FuelEntry.total_distance < self.total_distance,
             FuelEntry.is_full_tank == True
         ).order_by(FuelEntry.total_distance.desc()).first()
 
-        # 直前の満タン給油記録が存在しない場合は計算不可
         if not prev_entry:
             return None
 
-        # 走行距離を計算します。
-        # total_distanceにはODOリセット分が補正された「仮想的な総走行距離」が保存されているため、
-        # この差分を取るだけでリセットを跨いだ走行距離が正しく計算できます。
         distance_diff = self.total_distance - prev_entry.total_distance
-        
-        # 消費燃料は今回の給油量
         fuel_consumed = self.fuel_volume
 
         if fuel_consumed is not None and fuel_consumed > 0 and distance_diff > 0:
@@ -176,7 +140,6 @@ class FuelEntry(db.Model):
                 return None
                 
         return None
-    # ▲▲▲▲▲ ここまでが修正箇所です ▲▲▲▲▲
 
     def __repr__(self):
         return f'<FuelEntry id={self.id} date={self.entry_date}>'
@@ -236,10 +199,8 @@ class MaintenanceReminder(db.Model):
     last_maintenance_entry_id = db.Column(db.Integer, db.ForeignKey('maintenance_entries.id', ondelete='SET NULL'), nullable=True)
     auto_update_from_category = db.Column(db.Boolean, nullable=False, default=True, server_default='true', comment="カテゴリ名が一致した整備記録で自動更新するか")
 
-    # ▼▼▼【ここから追記】▼▼▼
     snoozed_until = db.Column(db.DateTime, nullable=True, comment="スヌーズ期限 (UTC)")
     is_dismissed = db.Column(db.Boolean, nullable=False, default=False, server_default='false', comment="非表示フラグ")
-    # ▲▲▲【追記ここまで】▲▲▲
 
     last_maintenance_entry = db.relationship(
         'MaintenanceEntry', 
@@ -340,9 +301,7 @@ class ActivityLog(db.Model):
     updated_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now(), onupdate=db.func.now())
     sessions = db.relationship('SessionLog', backref='activity', lazy='dynamic', order_by="asc(SessionLog.id)", cascade="all, delete-orphan")
     
-    # ▼▼▼【ここから追記】▼▼▼
     share_with_teams = db.Column(db.Boolean, nullable=False, default=False, server_default='false', comment="この活動ログを所属チームに共有するか")
-    # ▲▲▲【追記はここまで】▲▲▲
 
     @property
     def location_name_display(self):
@@ -418,6 +377,7 @@ class EventParticipant(db.Model):
     event_id = db.Column(db.Integer, db.ForeignKey('events.id', ondelete='CASCADE'), nullable=False, index=True)
     name = db.Column(db.String(100), nullable=False, comment="参加者名")
     status = db.Column(db.Enum(ParticipationStatus, values_callable=lambda x: [e.value for e in x]), nullable=False, comment="出欠ステータス")
+    comment = db.Column(db.String(100), nullable=True, comment="参加者の一言コメント")
     passcode_hash = db.Column(db.String(255), nullable=True, comment="出欠変更用のパスコードのハッシュ")
     created_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
     __table_args__ = (db.UniqueConstraint('event_id', 'name', name='uq_event_participant_name'),)
@@ -550,5 +510,3 @@ class Team(db.Model):
 
     def __repr__(self):
         return f'<Team id={self.id} name="{self.name}">'
-
-# --- チーム機能関連ここまで ---

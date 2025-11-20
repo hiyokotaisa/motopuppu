@@ -63,6 +63,16 @@
                     </div>
                     
                     <div class="mb-3">
+                        {{ form.comment.label(class="form-label") }}
+                        {{ form.comment(class="form-control" + (" is-invalid" if form.comment.errors else "")) }}
+                        {% if form.comment.errors %}
+                        <div class="invalid-feedback">
+                            {% for error in form.comment.errors %}{{ error }}{% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-3">
                         {{ form.passcode.label(class="form-label") }}
                         {{ form.passcode(class="form-control" + (" is-invalid" if form.passcode.errors else ""), placeholder="4文字以上で設定") }}
                         <div class="form-text">出欠ステータスを変更、または参加を取り消す際に必要になります。忘れないようにしてください。</div>
@@ -109,11 +119,23 @@
                     <i class="fas fa-check-circle me-1"></i> 参加 ({{ participants_attending|length }}名)
                 </h6>
                 {% if participants_attending %}
-                <p>
+                <div class="list-group list-group-flush mb-3">
                     {% for p in participants_attending %}
-                    <span class="badge bg-light text-dark me-1 mb-1 fs-6">{{ p.name }}</span>
+                    <div class="list-group-item px-0 py-2">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <span class="fw-bold">{{ p.name }}</span>
+                                {% if p.comment %}
+                                <div class="small text-muted mt-1 ms-2 border-start border-3 border-success ps-2">
+                                    {{ p.comment }}
+                                </div>
+                                {% endif %}
+                            </div>
+                            <span class="badge bg-success rounded-pill">参加</span>
+                        </div>
+                    </div>
                     {% endfor %}
-                </p>
+                </div>
                 {% else %}
                 <p class="text-muted">まだいません</p>
                 {% endif %}
@@ -123,32 +145,54 @@
                 <h6 class="card-subtitle mb-2 text-warning">
                     <i class="fas fa-question-circle me-1"></i> 保留 ({{ participants_tentative|length }}名)
                 </h6>
-                 {% if participants_tentative %}
-                 <p>
+                {% if participants_tentative %}
+                <div class="list-group list-group-flush mb-3">
                     {% for p in participants_tentative %}
-                    <span class="badge bg-light text-dark me-1 mb-1 fs-6">{{ p.name }}</span>
+                    <div class="list-group-item px-0 py-2">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <span class="fw-bold">{{ p.name }}</span>
+                                {% if p.comment %}
+                                <div class="small text-muted mt-1 ms-2 border-start border-3 border-warning ps-2">
+                                    {{ p.comment }}
+                                </div>
+                                {% endif %}
+                            </div>
+                            <span class="badge bg-warning text-dark rounded-pill">保留</span>
+                        </div>
+                    </div>
                     {% endfor %}
-                </p>
+                </div>
                 {% else %}
                 <p class="text-muted">まだいません</p>
                 {% endif %}
-                
-                {# --- ▼▼▼ ここから追加 ▼▼▼ --- #}
+
                 <hr>
 
                 <h6 class="card-subtitle mb-2 text-secondary">
                     <i class="fas fa-times-circle me-1"></i> 不参加 ({{ participants_not_attending|length }}名)
                 </h6>
                  {% if participants_not_attending %}
-                 <p>
+                 <div class="list-group list-group-flush mb-3">
                     {% for p in participants_not_attending %}
-                    <span class="badge bg-light text-dark me-1 mb-1 fs-6">{{ p.name }}</span>
+                    <div class="list-group-item px-0 py-2">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <span class="fw-bold">{{ p.name }}</span>
+                                {% if p.comment %}
+                                <div class="small text-muted mt-1 ms-2 border-start border-3 border-secondary ps-2">
+                                    {{ p.comment }}
+                                </div>
+                                {% endif %}
+                            </div>
+                            <span class="badge bg-secondary rounded-pill">不参加</span>
+                        </div>
+                    </div>
                     {% endfor %}
-                </p>
+                </div>
                 {% else %}
                 <p class="text-muted">まだいません</p>
                 {% endif %}
-                {# --- ▲▲▲ 追加ここまで ▲▲▲ --- #}
             </div>
         </div>
 

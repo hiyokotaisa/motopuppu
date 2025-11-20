@@ -4,12 +4,9 @@ from flask import (
 )
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime, timezone, date
-
-# ▼▼▼ 変更ここから ▼▼▼
 from sqlalchemy import func
 from flask_login import login_required, current_user
 from ..models import db, Event, EventParticipant, Motorcycle, ParticipationStatus, User
-# ▲▲▲ 変更ここまで ▲▲▲
 from ..forms import EventForm, ParticipantForm
 from ..utils.datetime_helpers import JST
 from .. import limiter
@@ -30,7 +27,6 @@ def public_events_list():
     now_utc = datetime.now(timezone.utc)
     page = request.args.get('page', 1, type=int)
     
-    # ▼▼▼ 変更ここから ▼▼▼
     # 参加者数をステータス別にカウントする相関サブクエリを作成
     attending_count_subquery = db.session.query(
         func.count(EventParticipant.id)
@@ -58,32 +54,27 @@ def public_events_list():
     ).order_by(Event.start_datetime.asc())
     
     events_pagination = events_query.paginate(page=page, per_page=15, error_out=False)
-    # ▲▲▲ 変更ここまで ▲▲▲
     
     return render_template('event/public_list_events.html', events_pagination=events_pagination)
 
 
 @event_bp.route('/')
-@login_required # ▼▼▼ デコレータを修正 ▼▼▼
+@login_required
 def list_events():
     """ログインユーザーが作成したイベントの一覧を表示する"""
     page = request.args.get('page', 1, type=int)
-    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
     events_pagination = Event.query.filter_by(user_id=current_user.id).order_by(Event.start_datetime.desc()).paginate(page=page, per_page=10, error_out=False)
-    # ▲▲▲ 変更ここまで ▲▲▲
     
     return render_template('event/list_events.html', events_pagination=events_pagination)
 
 
 @event_bp.route('/add', methods=['GET', 'POST'])
 @limiter.limit("20 per hour")
-@login_required # ▼▼▼ デコレータを修正 ▼▼▼
+@login_required
 def add_event():
     """新しいイベントを作成する"""
     form = EventForm()
-    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
     form.motorcycle_id.choices = [(m.id, m.name) for m in Motorcycle.query.filter_by(user_id=current_user.id).order_by('name')]
-    # ▲▲▲ 変更ここまで ▲▲▲
     form.motorcycle_id.choices.insert(0, (0, '--- 車両を関連付けない ---'))
 
     if form.validate_on_submit():
@@ -91,18 +82,14 @@ def add_event():
         end_dt_utc = form.end_datetime.data.replace(tzinfo=JST).astimezone(timezone.utc) if form.end_datetime.data else None
 
         new_event = Event(
-            # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
             user_id=current_user.id,
-            # ▲▲▲ 変更ここまで ▲▲▲
             motorcycle_id=form.motorcycle_id.data if form.motorcycle_id.data != 0 else None,
             title=form.title.data,
             description=form.description.data,
             location=form.location.data,
             start_datetime=start_dt_utc,
             end_datetime=end_dt_utc,
-            # ▼▼▼ 変更点 2: is_publicの値をフォームから取得 ▼▼▼
             is_public=form.is_public.data
-            # ▲▲▲ 変更ここまで ▲▲▲
         )
         try:
             db.session.add(new_event)
@@ -119,17 +106,13 @@ def add_event():
 
 @event_bp.route('/<int:event_id>/edit', methods=['GET', 'POST'])
 @limiter.limit("30 per hour")
-@login_required # ▼▼▼ デコレータを修正 ▼▼▼
+@login_required
 def edit_event(event_id):
     """イベントを編集する"""
-    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
     event = Event.query.filter_by(id=event_id, user_id=current_user.id).first_or_404()
-    # ▲▲▲ 変更ここまで ▲▲▲
     form = EventForm(request.form)
 
-    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
     form.motorcycle_id.choices = [(m.id, m.name) for m in Motorcycle.query.filter_by(user_id=current_user.id).order_by('name')]
-    # ▲▲▲ 変更ここまで ▲▲▲
     form.motorcycle_id.choices.insert(0, (0, '--- 車両を関連付けない ---'))
 
     if form.validate_on_submit():
@@ -142,9 +125,7 @@ def edit_event(event_id):
         event.location = form.location.data
         event.start_datetime = start_dt_utc
         event.end_datetime = end_dt_utc
-        # ▼▼▼ 変更点 3: is_publicの値をフォームから取得して更新 ▼▼▼
         event.is_public = form.is_public.data
-        # ▲▲▲ 変更ここまで ▲▲▲
         try:
             db.session.commit()
             flash('イベント情報を更新しました。', 'success')
@@ -162,21 +143,17 @@ def edit_event(event_id):
         form.start_datetime.data = event.start_datetime.astimezone(JST)
         if event.end_datetime:
             form.end_datetime.data = event.end_datetime.astimezone(JST)
-        # ▼▼▼ 変更点 4: 既存のis_publicの値をフォームにセット ▼▼▼
         form.is_public.data = event.is_public
-        # ▲▲▲ 変更ここまで ▲▲▲
     
     return render_template('event/event_form.html', form=form, mode='edit', event=event)
 
 
 @event_bp.route('/<int:event_id>/delete', methods=['POST'])
 @limiter.limit("30 per hour")
-@login_required # ▼▼▼ デコレータを修正 ▼▼▼
+@login_required
 def delete_event(event_id):
     """イベントを削除する"""
-    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
     event = Event.query.filter_by(id=event_id, user_id=current_user.id).first_or_404()
-    # ▲▲▲ 変更ここまで ▲▲▲
     try:
         db.session.delete(event)
         db.session.commit()
@@ -189,12 +166,10 @@ def delete_event(event_id):
 
 
 @event_bp.route('/<int:event_id>')
-@login_required # ▼▼▼ デコレータを修正 ▼▼▼
+@login_required
 def event_detail(event_id):
     """イベントの詳細ページ（作成者向け）"""
-    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
     event = Event.query.filter_by(id=event_id, user_id=current_user.id).first_or_404()
-    # ▲▲▲ 変更ここまで ▲▲▲
     
     participants_attending = event.participants.filter_by(status=ParticipationStatus.ATTENDING).order_by(EventParticipant.created_at).all()
     participants_tentative = event.participants.filter_by(status=ParticipationStatus.TENTATIVE).order_by(EventParticipant.created_at).all()
@@ -221,6 +196,8 @@ def public_event_view(public_id):
         participant_name = form.name.data
         passcode = form.passcode.data
         status = form.status.data
+        comment = form.comment.data
+        
         existing_participant = event.participants.filter_by(name=participant_name).first()
 
         try:
@@ -234,7 +211,8 @@ def public_event_view(public_id):
                     flash(f'「{participant_name}」さんの参加登録を取り消しました。', 'info')
                 else:
                     existing_participant.status = ParticipationStatus(status)
-                    flash(f'「{participant_name}」さんの出欠を更新しました。', 'success')
+                    existing_participant.comment = comment
+                    flash(f'「{participant_name}」さんの出欠情報を更新しました。', 'success')
             else:
                 if status == 'delete':
                     flash('まだ参加登録されていません。', 'warning')
@@ -243,7 +221,8 @@ def public_event_view(public_id):
                 new_participant = EventParticipant(
                     event_id=event.id,
                     name=participant_name,
-                    status=ParticipationStatus(status)
+                    status=ParticipationStatus(status),
+                    comment=comment
                 )
                 new_participant.set_passcode(passcode)
                 db.session.add(new_participant)
@@ -276,16 +255,14 @@ def public_event_view(public_id):
 
 @event_bp.route('/participant/<int:participant_id>/delete', methods=['POST'])
 @limiter.limit("30 per hour")
-@login_required # ▼▼▼ デコレータを修正 ▼▼▼
+@login_required
 def delete_participant(participant_id):
     """主催者が参加者を削除する"""
     participant = EventParticipant.query.get_or_404(participant_id)
     event = participant.event
     
-    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
     if event.user_id != current_user.id:
         abort(403)
-    # ▲▲▲ 変更ここまで ▲▲▲
         
     try:
         db.session.delete(participant)
@@ -300,16 +277,14 @@ def delete_participant(participant_id):
 
 
 @event_bp.route('/<int:event_id>/export.ics')
-@login_required # ▼▼▼ デコレータを修正 ▼▼▼
+@login_required
 def export_ics(event_id):
     """iCal形式でイベントをエクスポートする"""
     if not ICALENDAR_AVAILABLE:
         flash('カレンダーエクスポート機能は現在利用できません。', 'danger')
         return redirect(url_for('event.event_detail', event_id=event_id))
 
-    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
     event = Event.query.filter_by(id=event_id, user_id=current_user.id).first_or_404()
-    # ▲▲▲ 変更ここまで ▲▲▲
 
     cal = Calendar()
     cal.add('prodid', '-//もとぷっぷー Event//motopuppu.app//')

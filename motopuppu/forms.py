@@ -6,14 +6,12 @@ from wtforms.validators import DataRequired, Optional, NumberRange, Length, Vali
 from datetime import date, datetime
 from wtforms_sqlalchemy.fields import QuerySelectField
 
-# ▼▼▼【ここから変更】インポートする定数名を元に戻す ▼▼▼
 from .constants import (
     FUEL_TYPE_CHOICES,
     NOTE_CATEGORIES,
     MAX_TODO_ITEMS,
     JAPANESE_CIRCUITS
 )
-# ▲▲▲【変更はここまで】▲▲▲
 from .utils.lap_time_utils import is_valid_lap_time_format
 
 
@@ -254,9 +252,7 @@ class VehicleForm(FlaskForm):
     gear_ratio_4 = DecimalField('4速', places=3, validators=[Optional(), NumberRange(min=0)])
     gear_ratio_5 = DecimalField('5速', places=3, validators=[Optional(), NumberRange(min=0)])
     gear_ratio_6 = DecimalField('6速', places=3, validators=[Optional(), NumberRange(min=0)])
-    # ▼▼▼【ここから追記】▼▼▼
     gear_ratio_7 = DecimalField('7速', places=3, validators=[Optional(), NumberRange(min=0)])
-    # ▲▲▲【追記はここまで】▲▲▲
 
     submit = SubmitField('登録する')
 
@@ -433,12 +429,10 @@ class ProfileForm(FlaskForm):
                                             Length(min=1, max=20, message="表示名は20文字以内で入力してください。")],
                                 render_kw={"placeholder": "例: もとぷー太郎"})
     
-    # ▼▼▼【ここから追記】▼▼▼
     nyanpuppu_simple_mode = BooleanField(
         'にゃんぷっぷーから知能を取り上げる',
         description='ONにすると、ダッシュボードのにゃんぷっぷーが知的なアドバイスをしなくなり、「ぷにゃあん」などとしか話さなくなります。'
     )
-    # ▲▲▲【追記はここまで】▲▲▲
 
     submit_profile = SubmitField('更新する')
 
@@ -539,13 +533,11 @@ class SettingSheetForm(FlaskForm):
 
 class ActivityLogForm(FlaskForm):
     """活動ログ用のフォーム"""
-    # ▼▼▼【ここから追記】▼▼▼
     motorcycle_id = SelectField(
         '車両',
         coerce=int,
         validators=[DataRequired(message='車両を選択してください。')]
     )
-    # ▲▲▲【追記はここまで】▲▲▲
     activity_date = DateField(
         '活動日',
         validators=[DataRequired(message='活動日は必須です。')],
@@ -563,13 +555,11 @@ class ActivityLogForm(FlaskForm):
         validators=[DataRequired(message='場所の種別を選択してください。')],
         default='circuit'
     )
-    # ▼▼▼【ここから変更】choicesの生成で元の変数名 `JAPANESE_CIRCUITS` を使うように戻す ▼▼▼
     circuit_name = SelectField(
         'サーキット名',
         choices=[('', '--- サーキットを選択 ---')] + [(c, c) for c in JAPANESE_CIRCUITS],
         validators=[Optional()]
     )
-    # ▲▲▲【変更はここまで】▲▲▲
     custom_location = StringField(
         '場所名（自由入力）',
         validators=[Optional(), Length(max=200)],
@@ -707,6 +697,14 @@ class ParticipantForm(FlaskForm):
             Length(max=20, message='お名前は20文字以内で入力してください。')
         ]
     )
+    comment = StringField(
+        '一言コメント (任意)',
+        validators=[
+            Optional(),
+            Length(max=50, message='コメントは50文字以内で入力してください。')
+        ],
+        render_kw={"placeholder": "例: テント持参します / 途中参加です (50文字以内)"}
+    )
     passcode = PasswordField(
         'パスコード (4〜20文字)',
         validators=[
@@ -755,7 +753,6 @@ class GarageSettingsForm(FlaskForm):
         validators=[DataRequired()],
         description='ガレージカードの見た目を変更します。'
     )
-    # ▼▼▼【ここから追記】表示設定のフィールドを追加 ▼▼▼
     show_hero_stats = BooleanField(
         '統計情報を表示する',
         default=True,
@@ -781,7 +778,6 @@ class GarageSettingsForm(FlaskForm):
         default=True,
         description='サーキットでのベストラップや活動ログへのリンクなどを表示します。'
     )
-    # ▲▲▲【追記はここまで】▲▲▲
     submit = SubmitField('設定を保存する')
 
 class GarageVehicleDetailsForm(FlaskForm):
