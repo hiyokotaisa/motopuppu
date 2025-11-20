@@ -197,6 +197,9 @@ def public_event_view(public_id):
         passcode = form.passcode.data
         status = form.status.data
         comment = form.comment.data
+        # ▼▼▼【ここから追記】▼▼▼
+        vehicle_name = form.vehicle_name.data
+        # ▲▲▲【追記ここまで】▲▲▲
         
         existing_participant = event.participants.filter_by(name=participant_name).first()
 
@@ -212,6 +215,9 @@ def public_event_view(public_id):
                 else:
                     existing_participant.status = ParticipationStatus(status)
                     existing_participant.comment = comment
+                    # ▼▼▼【ここから追記】▼▼▼
+                    existing_participant.vehicle_name = vehicle_name
+                    # ▲▲▲【追記ここまで】▲▲▲
                     flash(f'「{participant_name}」さんの出欠情報を更新しました。', 'success')
             else:
                 if status == 'delete':
@@ -222,7 +228,10 @@ def public_event_view(public_id):
                     event_id=event.id,
                     name=participant_name,
                     status=ParticipationStatus(status),
-                    comment=comment
+                    comment=comment,
+                    # ▼▼▼【ここから追記】▼▼▼
+                    vehicle_name=vehicle_name
+                    # ▲▲▲【追記ここまで】▲▲▲
                 )
                 new_participant.set_passcode(passcode)
                 db.session.add(new_participant)
@@ -231,7 +240,9 @@ def public_event_view(public_id):
             db.session.commit()
         except IntegrityError:
             db.session.rollback()
-            flash('出欠の登録に失敗しました。同じ名前の参加者が既に登録されている可能性があります。', 'danger')
+            # ▼▼▼【ここから修正】エラーメッセージを具体化 ▼▼▼
+            flash('その名前は既に使用されています。別のニックネーム（例: Taro_H）を使用してください。', 'danger')
+            # ▲▲▲【修正ここまで】▲▲▲
         except Exception as e:
             db.session.rollback()
             current_app.logger.error(f"Error registering participant for event public_id {public_id}: {e}", exc_info=True)

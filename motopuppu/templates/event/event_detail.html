@@ -79,6 +79,13 @@
                             <li class="list-group-item d-flex justify-content-between align-items-center">
                                 <div>
                                     <span class="fw-bold">{{ p.name }}</span>
+                                    {# ▼▼▼【ここから追記】車種表示 ▼▼▼ #}
+                                    {% if p.vehicle_name %}
+                                    <div class="small text-muted">
+                                        <i class="fas fa-motorcycle me-1"></i>{{ p.vehicle_name }}
+                                    </div>
+                                    {% endif %}
+                                    {# ▲▲▲【追記ここまで】▲▲▲ #}
                                     {% if p.comment %}
                                     <div class="small text-muted mt-1">
                                         <i class="fas fa-comment-dots me-1 text-secondary"></i>{{ p.comment }}
@@ -113,6 +120,11 @@
                             <li class="list-group-item d-flex justify-content-between align-items-center">
                                 <div>
                                     <span class="fw-bold">{{ p.name }}</span>
+                                    {% if p.vehicle_name %}
+                                    <div class="small text-muted">
+                                        <i class="fas fa-motorcycle me-1"></i>{{ p.vehicle_name }}
+                                    </div>
+                                    {% endif %}
                                     {% if p.comment %}
                                     <div class="small text-muted mt-1">
                                         <i class="fas fa-comment-dots me-1 text-secondary"></i>{{ p.comment }}

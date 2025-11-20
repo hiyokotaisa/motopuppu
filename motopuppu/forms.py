@@ -697,6 +697,16 @@ class ParticipantForm(FlaskForm):
             Length(max=20, message='お名前は20文字以内で入力してください。')
         ]
     )
+    # ▼▼▼【ここから追記】▼▼▼
+    vehicle_name = StringField(
+        '車種 (任意)',
+        validators=[
+            Optional(),
+            Length(max=50, message='車種は50文字以内で入力してください。')
+        ],
+        render_kw={"placeholder": "例: YZF-R1 / 徒歩"}
+    )
+    # ▲▲▲【追記ここまで】▲▲▲
     comment = StringField(
         '一言コメント (任意)',
         validators=[

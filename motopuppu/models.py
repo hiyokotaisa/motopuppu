@@ -378,6 +378,9 @@ class EventParticipant(db.Model):
     name = db.Column(db.String(100), nullable=False, comment="参加者名")
     status = db.Column(db.Enum(ParticipationStatus, values_callable=lambda x: [e.value for e in x]), nullable=False, comment="出欠ステータス")
     comment = db.Column(db.String(100), nullable=True, comment="参加者の一言コメント")
+    # ▼▼▼【ここから追記】▼▼▼
+    vehicle_name = db.Column(db.String(50), nullable=True, comment="参加車両名")
+    # ▲▲▲【追記ここまで】▲▲▲
     passcode_hash = db.Column(db.String(255), nullable=True, comment="出欠変更用のパスコードのハッシュ")
     created_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
     __table_args__ = (db.UniqueConstraint('event_id', 'name', name='uq_event_participant_name'),)
