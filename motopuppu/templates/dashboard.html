@@ -6,7 +6,7 @@
 {% block styles %}
 {{ super() }}
 <style>
-    /* ▼▼▼【ここから変更】吹き出しデザインとウィジェットの線を修正 ▼▼▼ */
+    /* 吹き出しデザインとウィジェットの線を修正 */
     .nyanpuppu-image {
         height: 60px;
         width: auto;
@@ -51,7 +51,6 @@
     #dashboard-widgets-container > .accordion-item + .accordion-item {
         border-top: 1px solid rgba(0, 0, 0, 0.125);
     }
-    /* ▲▲▲【変更はここまで】▲▲▲ */
 
     /* タイムラインのスタイル */
     .dashboard-timeline {
@@ -201,14 +200,12 @@
 {% block content %}
 {# --- ヘッダー --- #}
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-    {# ▼▼▼【ここから変更】タイトルと「？」アイコンをグループ化 ▼▼▼ #}
     <div class="d-flex align-items-center">
         <h1 class="h2 mb-0 me-2">{% if current_user.is_authenticated %}ようこそ、{{ current_user.display_name or current_user.misskey_username }}さん{% else %}ダッシュボード{% endif %}</h1>
         <button type="button" id="restart-dashboard-tour-btn" class="btn btn-sm btn-outline-secondary rounded-circle" style="width: 2rem; height: 2rem;" title="ダッシュボードツアーを開始">
             <i class="fas fa-question"></i>
         </button>
     </div>
-    {# ▲▲▲【変更はここまで】▲▲▲ #}
     <div class="btn-toolbar mb-2 mb-md-0">
         <div id="layout-buttons-default" class="me-2">
             <button id="edit-layout-btn" type="button" class="btn btn-sm btn-outline-secondary" title="レイアウトを編集" aria-label="レイアウトを編集">
@@ -681,7 +678,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // ▼▼▼【ここから変更】チュートリアル関連のスクリプトを全面的に修正 ▼▼▼
     const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 
     // --- 初回チュートリアル（車両登録への誘導）の開始判定 ---
@@ -705,7 +701,6 @@ document.addEventListener('DOMContentLoaded', function() {
             startDashboardTour(csrfToken);
         });
     }
-    // ▲▲▲【変更はここまで】▲▲▲
 });
 </script>
 {% endblock %}

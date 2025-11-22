@@ -24,9 +24,8 @@ db = SQLAlchemy()
 migrate = Migrate()
 csrf = CSRFProtect()
 login_manager = LoginManager()
-# ▼▼▼【ここを修正】リダイレクト先を 'auth.login_page' から 'auth.login' に変更 ▼▼▼
+# ログインページへのリダイレクト先エンドポイントを修正
 login_manager.login_view = 'auth.login'
-# ▲▲▲【修正はここまで】▲▲▲
 login_manager.login_message = 'このページにアクセスするにはログインが必要です。'
 login_manager.login_message_category = 'warning'
 
@@ -112,10 +111,17 @@ def create_app(config_name=None):
     
     @app.before_request
     def load_global_g_variables():
+        """
+        全リクエスト共通で利用する変数をロードする。
+        ナビゲーションバーの表示などに使用。
+        """
         g.user_motorcycles = []
         g.user_teams = []
         if current_user.is_authenticated:
             from .models import Motorcycle, Team
+            # パフォーマンス考慮: ここではナビゲーションに必要な基本情報のみを取得するのが望ましいが、
+            # テンプレート側の依存関係が複雑なため、まずは標準的なクエリで取得する。
+            # 重いカラム(Text型など)がある場合は defer() を検討すること。
             g.user_motorcycles = Motorcycle.query.filter_by(user_id=current_user.id).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
             g.user_teams = current_user.teams.order_by(Team.name.asc()).all()
 

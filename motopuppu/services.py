@@ -8,20 +8,11 @@ import jpholiday
 import json
 import math
 from zoneinfo import ZoneInfo
-# ▼▼▼ cryptographyのインポートを追記 ▼▼▼
 from cryptography.fernet import Fernet
-# ▲▲▲ 追記ここまで ▲▲▲
 
-# ▼▼▼【ここから変更】nyanpuppu.pyからget_advice関数を直接インポート ▼▼▼
 from .nyanpuppu import get_advice
-# ▲▲▲【変更はここまで】▲▲▲
-
-# ▼▼▼ モデルのインポートを追加 ▼▼▼
 from .models import db, Motorcycle, FuelEntry, MaintenanceEntry, MaintenanceReminder, ActivityLog, GeneralNote, UserAchievement, AchievementDefinition, SessionLog, User
-# ▲▲▲ ここまで追加 ▲▲▲
-# ▼▼▼【ここから変更】正しい関数名をインポート ▼▼▼
 from .utils.lap_time_utils import format_seconds_to_time
-# ▲▲▲【変更はここまで】▲▲▲
 
 
 # --- データ取得・計算ヘルパー ---
@@ -35,7 +26,6 @@ def get_latest_total_distance(motorcycle_id, offset_val):
     return max(latest_fuel_dist, latest_maint_dist, offset_val if offset_val is not None else 0)
 
 
-# ▼▼▼【ここから変更】関数が期間を受け取れるようにし、クエリを修正 ▼▼▼
 def calculate_average_kpl(motorcycle: Motorcycle, start_date=None, end_date=None):
     """車両の平均燃費を計算する。期間が指定されていれば、その期間で計算する。"""
     if motorcycle.is_racer:
@@ -107,7 +97,7 @@ def calculate_average_kpl(motorcycle: Motorcycle, start_date=None, end_date=None
         except ZeroDivisionError:
             return None
     return None
-# ▲▲▲【変更はここまで】▲▲▲
+
 
 # --- ダッシュボード用サービス関数 ---
 
@@ -119,7 +109,7 @@ def get_timeline_events(motorcycle_ids, start_date=None, end_date=None):
     timeline_events = []
     is_multiple_vehicles = len(motorcycle_ids) > 1
 
-    # 1. 給油記録を取得
+    # 1. 給油記録を取得 (N+1対策: joinedloadを追加)
     fuel_query = FuelEntry.query.options(db.joinedload(FuelEntry.motorcycle)).filter(FuelEntry.motorcycle_id.in_(motorcycle_ids))
     if start_date and end_date:
         fuel_query = fuel_query.filter(FuelEntry.entry_date.between(start_date, end_date))
@@ -150,7 +140,7 @@ def get_timeline_events(motorcycle_ids, start_date=None, end_date=None):
             'edit_url': url_for('fuel.edit_fuel', entry_id=entry.id)
         })
 
-    # 2. 整備記録を取得
+    # 2. 整備記録を取得 (N+1対策: joinedloadを追加)
     maint_query = MaintenanceEntry.query.options(db.joinedload(MaintenanceEntry.motorcycle)).filter(MaintenanceEntry.motorcycle_id.in_(motorcycle_ids)).filter(MaintenanceEntry.category != '初期設定')
     if start_date and end_date:
         maint_query = maint_query.filter(MaintenanceEntry.maintenance_date.between(start_date, end_date))
@@ -183,9 +173,7 @@ def get_timeline_events(motorcycle_ids, start_date=None, end_date=None):
         })
 
     # 3. 日付(降順)、次にID(降順)でソート
-    # ▼▼▼▼▼ ここからが修正箇所です ▼▼▼▼▼
     timeline_events.sort(key=lambda x: (x['date'], x['id']), reverse=True)
-    # ▲▲▲▲▲ ここまでが修正箇所です ▲▲▲▲▲
 
     return timeline_events
 
@@ -206,9 +194,10 @@ def get_upcoming_reminders(user_motorcycles_all, user_id):
             current_public_distances[m.id] = get_latest_total_distance(
                 m.id, m.odometer_offset)
 
+    # N+1対策: joinedloadで関連データを一括取得
     all_reminders = MaintenanceReminder.query.options(
         db.joinedload(MaintenanceReminder.motorcycle),
-        db.joinedload(MaintenanceReminder.last_maintenance_entry) # N+1問題対策で追加
+        db.joinedload(MaintenanceReminder.last_maintenance_entry)
     ).join(Motorcycle).filter(
         Motorcycle.user_id == user_id,
         MaintenanceReminder.is_dismissed == False,
@@ -322,7 +311,6 @@ def get_recent_logs(model, vehicle_ids, order_by_cols, selected_vehicle_id=None,
     return query.order_by(*order_by_cols).limit(limit).all()
 
 
-# ▼▼▼【ここから変更】get_dashboard_stats内の燃費計算を期間指定で行うように修正 ▼▼▼
 def get_dashboard_stats(user_motorcycles_all, user_motorcycle_ids_public, target_vehicle_for_stats=None, start_date=None, end_date=None, show_cost=True):
     """ダッシュボードの統計カード情報を計算して返す"""
     stats = {
@@ -367,7 +355,6 @@ def get_dashboard_stats(user_motorcycles_all, user_motorcycle_ids_public, target
             stats['primary_metric_unit'] = 'km'
             stats['primary_metric_label'] = target_vehicle_for_stats.name
             
-            # _average_kpl を使うのではなく、期間を指定して再計算する
             stats['average_kpl_val'] = calculate_average_kpl(target_vehicle_for_stats, start_date, end_date)
             stats['average_kpl_label'] = target_vehicle_for_stats.name
 
@@ -413,7 +400,6 @@ def get_dashboard_stats(user_motorcycles_all, user_motorcycle_ids_public, target
         # 平均燃費
         default_vehicle = next((m for m in user_motorcycles_all if m.is_default), user_motorcycles_all[0] if user_motorcycles_all else None)
         if default_vehicle and not default_vehicle.is_racer:
-            # _average_kpl を使うのではなく、期間を指定して再計算する
             stats['average_kpl_val'] = calculate_average_kpl(default_vehicle, start_date, end_date)
             stats['average_kpl_label'] = f"デフォルト ({default_vehicle.name})"
         else:
@@ -443,18 +429,11 @@ def get_dashboard_stats(user_motorcycles_all, user_motorcycle_ids_public, target
                 stats['non_cost_label'] = "すべての公道車"
         
     return stats
-# ▲▲▲【変更はここまで】▲▲▲
 
-# ▼▼▼【ここから変更】新しい関数を追加 ▼▼▼
+
 def get_latest_log_info_for_vehicles(motorcycles):
     """
     複数の車両について、給油記録または整備記録から最新のログ情報を1クエリで取得する。
-
-    Args:
-        motorcycles (list): Motorcycleオブジェクトのリスト。
-
-    Returns:
-        dict: {motorcycle_id: {'odo': odo, 'date': date}} の形式の辞書。
     """
     if not motorcycles:
         return {}
@@ -503,9 +482,8 @@ def get_latest_log_info_for_vehicles(motorcycles):
     }
     
     return result_dict
-# ▲▲▲【変更はここまで】▲▲▲
 
-# ▼▼▼【ここから変更】ベストラップタイム取得ロジックを追加 ▼▼▼
+
 def get_circuit_activity_for_dashboard(user_id):
     """ダッシュボードのサーキット活動ウィジェット用のデータを取得する"""
     
@@ -528,7 +506,7 @@ def get_circuit_activity_for_dashboard(user_id):
         'total_sessions': total_sessions,
     }
 
-    # 2. 最近の活動ログ5件を取得
+    # 2. 最近の活動ログ5件を取得 (N+1対策: joinedload)
     recent_activities = ActivityLog.query.options(
         joinedload(ActivityLog.motorcycle)
     ).filter(
@@ -564,7 +542,6 @@ def get_circuit_activity_for_dashboard(user_id):
         'summary': summary,
         'recent_activities': recent_activities
     }
-# ▲▲▲【変更はここまで】▲▲▲
 
 
 def get_holidays_json():
@@ -585,6 +562,7 @@ def get_holidays_json():
     except Exception as e:
         current_app.logger.error(f"Error processing holidays data: {e}")
         return '{}' # エラーが発生した場合は空のJSONを返す
+
 
 def get_calendar_events_for_user(user):
     """指定されたユーザーのカレンダーイベントをすべて取得・整形して返す"""
@@ -721,41 +699,19 @@ class CryptoService:
         if not key_str:
             raise ValueError("SECRET_CRYPTO_KEY is not set in the application configuration.")
         
-        # ▼▼▼ キーをバイト列に変換する処理を修正 ▼▼▼
-        # Fernetキーはbase64でエンコードされているため、そのままバイト列として扱う
         key_bytes = key_str.encode()
-        # ▲▲▲ 修正ここまで ▲▲▲
-            
         self.fernet = Fernet(key_bytes)
 
     def encrypt(self, data: str) -> str | None:
-        """
-        与えられた文字列を暗号化します。
-
-        Args:
-            data: 暗号化する文字列。
-
-        Returns:
-            暗号化された文字列。データが空の場合はNone。
-        """
         if not data:
             return None
         return self.fernet.encrypt(data.encode()).decode()
 
     def decrypt(self, encrypted_data: str) -> str | None:
-        """
-        与えられた暗号化文字列を復号します。
-
-        Args:
-            encrypted_data: 復号する文字列。
-
-        Returns:
-            復号された文字列。データが空の場合はNone。
-            復号に失敗した場合は例外が発生します。
-        """
         if not encrypted_data:
             return None
         return self.fernet.decrypt(encrypted_data.encode()).decode()
+
 
 def get_user_garage_data(user: User) -> dict:
     """ユーザーの公開ガレージ表示に必要なデータをまとめて取得する"""
@@ -807,10 +763,9 @@ def get_user_garage_data(user: User) -> dict:
         ).scalar() or 0
         hero_stats['total_activities'] = f"{total_activities} 回"
 
-    # ▼▼▼【ここから変更】ユーザーの総合サーキット実績を取得するロジック ▼▼▼
+    # ユーザーの総合サーキット実績を取得するロジック
     user_circuit_performance = []
     if user.garage_display_settings.get('show_circuit_info', True):
-        # サブクエリ1: ユーザー自身の各サーキットでのベストタイムを持つセッションをランク付けして特定
         user_sessions_ranked_sq = db.session.query(
             ActivityLog.circuit_name,
             SessionLog.best_lap_seconds,
@@ -826,14 +781,12 @@ def get_user_garage_data(user: User) -> dict:
          .filter(SessionLog.best_lap_seconds.isnot(None))\
          .subquery('user_sessions_ranked')
 
-        # クエリ1: ユーザーのサーキットごとのベストラップ（車両名含む）
         user_best_laps_q = db.session.query(
             user_sessions_ranked_sq.c.circuit_name,
             user_sessions_ranked_sq.c.best_lap_seconds,
             user_sessions_ranked_sq.c.vehicle_name
         ).filter(user_sessions_ranked_sq.c.rn == 1).subquery('user_best_laps')
 
-        # クエリ2: ユーザーのサーキットごとのセッション回数
         session_counts_q = db.session.query(
             ActivityLog.circuit_name,
             func.count(SessionLog.id).label('session_count')
@@ -843,7 +796,6 @@ def get_user_garage_data(user: User) -> dict:
          .group_by(ActivityLog.circuit_name)\
          .subquery('session_counts')
          
-        # サブクエリ2: 全ユーザーのリーダーボード対象タイムをランク付け
         leaderboard_ranked_sq = db.session.query(
             ActivityLog.circuit_name,
             SessionLog.best_lap_seconds,
@@ -858,7 +810,6 @@ def get_user_garage_data(user: User) -> dict:
          .filter(SessionLog.best_lap_seconds.isnot(None))\
          .subquery('leaderboard_ranks')
 
-        # 最終クエリ: 上記の情報を結合してユーザーの実績をまとめる
         final_query = db.session.query(
             user_best_laps_q.c.circuit_name,
             session_counts_q.c.session_count,
@@ -875,7 +826,6 @@ def get_user_garage_data(user: User) -> dict:
                     )
          ).order_by(user_best_laps_q.c.circuit_name)
 
-        # クエリ結果を整形
         results = final_query.all()
         user_circuit_performance = [
             {
@@ -886,7 +836,6 @@ def get_user_garage_data(user: User) -> dict:
                 'leaderboard_rank': row.rank,
             } for row in results
         ]
-    # ▲▲▲【変更はここまで】▲▲▲
 
     # ユーザーの実績
     unlocked_achievements = db.session.query(
@@ -906,16 +855,13 @@ def get_user_garage_data(user: User) -> dict:
         'other_vehicles': other_vehicles,
         'hero_stats': hero_stats,
         'achievements': unlocked_achievements,
-        # ▼▼▼【ここから変更】戻り値を新しい実績データに差し替え ▼▼▼
         'user_circuit_performance': user_circuit_performance,
-        # ▲▲▲【変更はここまで】▲▲▲
     }
 
-# ▼▼▼【ここから変更】にゃんぷっぷーの処理を別ファイルに委譲 ▼▼▼
+
 def get_nyanpuppu_advice(user, motorcycles):
     """
     ダッシュボードに表示する「にゃんぷっぷー」のアドバイスと画像を決定して返す。
     実際のロジックは nyanpuppu.py に委譲する。
     """
     return get_advice(user, motorcycles)
-# ▲▲▲【変更はここまで】▲▲▲

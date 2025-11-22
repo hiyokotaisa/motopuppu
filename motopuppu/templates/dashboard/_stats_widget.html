@@ -1,17 +1,14 @@
 {# motopuppu/templates/dashboard/_stats_widget.html #}
 <div class="accordion-item card mb-4" data-widget-name="stats">
-    {# ▼▼▼【ここから変更】ヘッダーからフォームとトグルスイッチを削除し、シンプルにします ▼▼▼ #}
     <h2 class="accordion-header" id="heading-stats">
         <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-stats" aria-expanded="true" aria-controls="collapse-stats">
             <span class="widget-grab-handle me-2" title="ドラッグして並び替え"><i class="fas fa-grip-vertical"></i></span>
             <span class="me-auto"><i class="fas fa-chart-line me-1"></i> <strong>統計情報</strong></span>
         </button>
     </h2>
-    {# ▲▲▲【変更はここまで】▲▲▲ #}
     <div id="collapse-stats" class="accordion-collapse collapse show" aria-labelledby="heading-stats">
         {% if dashboard_stats %}
         <div class="card-body pb-0">
-            {# ▼▼▼【ここから変更】操作コントロールをカード本体の先頭に移動・再配置 ▼▼▼ #}
             <div class="row gx-3 gy-2 mb-3 align-items-center">
                 <div class="col-md-auto">
                     <form method="GET" action="{{ url_for('main.dashboard') }}" class="d-flex align-items-center">
@@ -37,7 +34,6 @@
                     </div>
                 </div>
             </div>
-            {# ▲▲▲【変更はここまで】▲▲▲ #}
             
             <form method="GET" action="{{ url_for('main.dashboard') }}" id="period-filter-form">
                 <input type="hidden" name="timeline_vehicle_id" value="{{ selected_timeline_vehicle_id or '' }}">

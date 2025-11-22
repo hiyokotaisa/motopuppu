@@ -14,9 +14,7 @@ import os
 import json
 
 from .. import services
-# ▼▼▼ Flask-Login関連のインポートに切り替え ▼▼▼
 from flask_login import login_required, current_user
-# ▲▲▲ 変更ここまで ▲▲▲
 from ..utils.lap_time_utils import format_seconds_to_time
 
 
@@ -61,10 +59,8 @@ def parse_period_from_request(req):
 # --- ルート定義 ---
 @main_bp.route('/')
 def index():
-    # ▼▼▼ g.userをcurrent_userに置き換え ▼▼▼
     if current_user.is_authenticated:
         return redirect(url_for('main.dashboard'))
-    # ▲▲▲ 変更ここまで ▲▲▲
 
     announcements_for_modal = []
     important_notice_content = None
@@ -97,7 +93,7 @@ def index():
 
 
 @main_bp.route('/dashboard')
-@login_required  # ▼▼▼ デコレータを@login_requiredに変更 ▼▼▼
+@login_required
 def dashboard():
     # 1. リクエストの解析と基本データの準備
     period, start_date, end_date = parse_period_from_request(request)
@@ -112,10 +108,7 @@ def dashboard():
         flash('ようこそ！最初に利用する車両を登録してください。', 'info')
         return redirect(url_for('vehicle.add_vehicle'))
 
-    # ▼▼▼【ここから変更】ダッシュボードツアー開始の判定を追加 ▼▼▼
     show_dashboard_tour = request.args.get('tutorial_completed') == '1' and not current_user.completed_tutorials.get('dashboard_tour')
-    # ▲▲▲【変更はここまで】▲▲▲
-
 
     motorcycles_public = [m for m in user_motorcycles_all if not m.is_racer]
     user_motorcycle_ids_public = [m.id for m in motorcycles_public]
@@ -142,7 +135,6 @@ def dashboard():
             timeline_target_ids = user_motorcycle_ids_public
 
     # 2. サービスを呼び出してビジネスロジックを実行
-    # ▼▼▼【ここから変更】レイアウト処理を修正 ▼▼▼
     dashboard_layout = current_user.dashboard_layout
     # デフォルトのレイアウトに 'nyanpuppu' を追加
     default_layout = ['nyanpuppu', 'reminders', 'stats', 'vehicles', 'timeline', 'circuit', 'calendar']
@@ -152,7 +144,6 @@ def dashboard():
     # 既存ユーザーの保存済みレイアウトに 'nyanpuppu' がなければ先頭に追加
     elif 'nyanpuppu' not in dashboard_layout:
         dashboard_layout.insert(0, 'nyanpuppu')
-    # ▲▲▲【変更はここまで】▲▲▲
 
     upcoming_reminders = services.get_upcoming_reminders(user_motorcycles_all, current_user.id)
 
@@ -179,13 +170,10 @@ def dashboard():
 
     circuit_stats = services.get_circuit_activity_for_dashboard(current_user.id)
 
-    # ▼▼▼【ここから変更】最新のログ情報を取得するサービスを呼び出す ▼▼▼
+    # 最新のログ情報を1クエリで一括取得
     latest_log_info = services.get_latest_log_info_for_vehicles(user_motorcycles_all)
-    # ▲▲▲【変更はここまで】▲▲▲
 
-    # ▼▼▼【ここから追記】▼▼▼
     nyanpuppu_advice = services.get_nyanpuppu_advice(current_user, user_motorcycles_all)
-    # ▲▲▲【追記はここまで】▲▲▲
 
 
     # 4. テンプレートをレンダリング
@@ -207,9 +195,9 @@ def dashboard():
         circuit_stats=circuit_stats,
         format_seconds_to_time=format_seconds_to_time,
         start_initial_tutorial=start_initial_tutorial,
-        show_dashboard_tour=show_dashboard_tour, # ◀◀◀ テンプレートにフラグを渡す
-        latest_log_info=latest_log_info, # ◀◀◀ テンプレートに辞書を渡す
-        nyanpuppu_advice=nyanpuppu_advice # ◀◀◀ テンプレートに辞書を渡す
+        show_dashboard_tour=show_dashboard_tour,
+        latest_log_info=latest_log_info,
+        nyanpuppu_advice=nyanpuppu_advice
     )
 
 
