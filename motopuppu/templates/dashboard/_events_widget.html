@@ -73,15 +73,18 @@
         {% else %}
         <div class="card-body">
             <p class="text-muted mb-0">現在、参加予定または主催しているイベントはありません。</p>
-            <div class="mt-3 text-center">
-                <a href="{{ url_for('event.add_event') }}" class="btn btn-sm btn-outline-primary">
-                    <i class="fas fa-plus me-1"></i> イベントを作成する
-                </a>
-                <a href="{{ url_for('event.public_events_list') }}" class="btn btn-sm btn-outline-info ms-2">
-                    <i class="fas fa-search me-1"></i> イベントを探す
-                </a>
-            </div>
         </div>
         {% endif %}
+
+        {# ▼▼▼ 変更: ボタンエリアをif文の外に出し、card-footerとして常に表示 ▼▼▼ #}
+        <div class="card-footer bg-white text-center border-top">
+            <a href="{{ url_for('event.add_event') }}" class="btn btn-sm btn-outline-primary">
+                <i class="fas fa-plus me-1"></i> イベントを作成
+            </a>
+            <a href="{{ url_for('event.public_events_list') }}" class="btn btn-sm btn-outline-info ms-2">
+                <i class="fas fa-search me-1"></i> イベントを探す
+            </a>
+        </div>
+        {# ▲▲▲ 変更ここまで ▲▲▲ #}
     </div>
 </div>
