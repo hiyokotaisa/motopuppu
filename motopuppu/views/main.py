@@ -3,12 +3,12 @@ from flask import (
     Blueprint, render_template, redirect, url_for, g, flash,
     current_app, jsonify, request
 )
-from datetime import date, timedelta, datetime
+from datetime import date, timedelta, datetime, timezone
 from dateutil.relativedelta import relativedelta
 from zoneinfo import ZoneInfo
-from ..models import db, User, Motorcycle, FuelEntry, MaintenanceEntry, GeneralNote, ActivityLog
+from ..models import db, User, Motorcycle, FuelEntry, MaintenanceEntry, GeneralNote, ActivityLog, Event, EventParticipant, ParticipationStatus
 from sqlalchemy.orm import joinedload
-from sqlalchemy import func
+from sqlalchemy import func, or_, and_
 import math
 import os
 import json
@@ -119,6 +119,21 @@ def dashboard():
     nyanpuppu_advice = services.get_nyanpuppu_advice(current_user, user_motorcycles_all)
     holidays_json = services.get_holidays_json()
 
+    # ▼▼▼ 追加: イベント情報の取得 ▼▼▼
+    # 条件: (自分が主催) OR (自分が参加 または 保留) かつ (現在時刻以降の開始)
+    now_utc = datetime.now(timezone.utc)
+    dashboard_events = Event.query.outerjoin(EventParticipant).filter(
+        or_(
+            Event.user_id == current_user.id,  # 主催
+            and_(
+                EventParticipant.user_id == current_user.id,  # 参加者として紐付いている
+                EventParticipant.status.in_([ParticipationStatus.ATTENDING, ParticipationStatus.TENTATIVE]) # 参加 or 保留
+            )
+        ),
+        Event.start_datetime >= now_utc
+    ).order_by(Event.start_datetime.asc()).distinct().all()
+    # ▲▲▲ 追加ここまで ▲▲▲
+
     # --- 削除された重い処理 ---
     # dashboard_stats (統計) -> dashboard_stats_widgetへ移動
     # timeline_events (タイムライン) -> dashboard_timeline_widgetへ移動
@@ -126,11 +141,27 @@ def dashboard():
 
     # レイアウト設定
     dashboard_layout = current_user.dashboard_layout
-    default_layout = ['nyanpuppu', 'reminders', 'stats', 'vehicles', 'timeline', 'circuit', 'calendar']
+    # ▼▼▼ 変更: 'events' を 'reminders' の後ろに追加 ▼▼▼
+    default_layout = ['nyanpuppu', 'reminders', 'events', 'stats', 'vehicles', 'timeline', 'circuit', 'calendar']
+    # ▲▲▲ 変更ここまで ▲▲▲
+
     if not dashboard_layout:
         dashboard_layout = default_layout
     elif 'nyanpuppu' not in dashboard_layout:
         dashboard_layout.insert(0, 'nyanpuppu')
+    
+    # ▼▼▼ 追加: 既存ユーザーでレイアウト保存済みの場合、'events' が含まれていない可能性があるので補完する ▼▼▼
+    if 'events' not in dashboard_layout:
+        # remindersの後ろ、なければnyanpuppuの後ろ、それもなければ先頭に追加
+        if 'reminders' in dashboard_layout:
+            idx = dashboard_layout.index('reminders') + 1
+            dashboard_layout.insert(idx, 'events')
+        elif 'nyanpuppu' in dashboard_layout:
+            idx = dashboard_layout.index('nyanpuppu') + 1
+            dashboard_layout.insert(idx, 'events')
+        else:
+            dashboard_layout.insert(0, 'events')
+    # ▲▲▲ 追加ここまで ▲▲▲
 
     # パラメータの維持
     period = request.args.get('period', 'all')
@@ -144,6 +175,7 @@ def dashboard():
         motorcycles=user_motorcycles_all,
         motorcycles_public=motorcycles_public,
         upcoming_reminders=upcoming_reminders, # 同期読み込みのまま
+        dashboard_events=dashboard_events, # 追加
         selected_timeline_vehicle_id=request.args.get('timeline_vehicle_id', 'all'),
         selected_stats_vehicle_id=request.args.get('stats_vehicle_id', type=int),
         holidays_json=holidays_json,

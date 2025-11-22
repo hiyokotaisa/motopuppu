@@ -256,7 +256,11 @@
         {% elif widget_name == 'reminders' %}
             {% include 'dashboard/_reminders_widget.html' %}
         
-        {# ▼▼▼ HTMXによる統計ウィジェットの遅延読み込み ▼▼▼ #}
+        {# ▼▼▼ 新規追加: イベントウィジェット読み込み ▼▼▼ #}
+        {% elif widget_name == 'events' %}
+            {% include 'dashboard/_events_widget.html' %}
+        {# ▲▲▲ 追加ここまで ▲▲▲ #}
+        
         {% elif widget_name == 'stats' %}
             <div class="accordion-item card mb-4" 
                  data-widget-name="stats" 
@@ -274,7 +278,6 @@
                 </div>
             </div>
         
-        {# ▼▼▼ HTMXによる車両リストウィジェットの遅延読み込み ▼▼▼ #}
         {% elif widget_name == 'vehicles' %}
             <div class="accordion-item card mb-4" 
                  data-widget-name="vehicles" 
@@ -292,7 +295,6 @@
                 </div>
             </div>
         
-        {# ▼▼▼ HTMXによるタイムラインウィジェットの遅延読み込み ▼▼▼ #}
         {% elif widget_name == 'timeline' %}
             <div class="accordion-item card my-4" 
                  data-widget-name="timeline"
@@ -368,7 +370,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     let sortable = null;
     let originalOrder = [];
-    const defaultOrder = ['nyanpuppu', 'reminders', 'stats', 'vehicles', 'timeline', 'circuit', 'calendar'];
+    // ▼▼▼ 変更: デフォルトの並び順に 'events' を追加 ▼▼▼
+    const defaultOrder = ['nyanpuppu', 'reminders', 'events', 'stats', 'vehicles', 'timeline', 'circuit', 'calendar'];
+    // ▲▲▲ 変更ここまで ▲▲▲
 
     const reorderWidgets = (order) => {
         const fragment = document.createDocumentFragment();
