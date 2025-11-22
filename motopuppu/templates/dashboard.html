@@ -252,14 +252,64 @@
     {% for widget_name in dashboard_layout %}
         {% if widget_name == 'nyanpuppu' %}
             {% include 'dashboard/_nyanpuppu_widget.html' %}
+        
         {% elif widget_name == 'reminders' %}
             {% include 'dashboard/_reminders_widget.html' %}
+        
+        {# ▼▼▼ HTMXによる統計ウィジェットの遅延読み込み ▼▼▼ #}
         {% elif widget_name == 'stats' %}
-            {% include 'dashboard/_stats_widget.html' %}
+            <div class="accordion-item card mb-4" 
+                 data-widget-name="stats" 
+                 hx-get="{{ url_for('main.dashboard_stats_widget', **request.args) }}" 
+                 hx-trigger="load" 
+                 hx-swap="outerHTML">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" disabled>
+                        <span class="me-auto"><i class="fas fa-chart-line me-1"></i> <strong>統計情報</strong></span>
+                    </button>
+                </h2>
+                <div class="card-body text-center py-4">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="text-muted small mt-2">統計を計算中...</p>
+                </div>
+            </div>
+        
+        {# ▼▼▼ HTMXによる車両リストウィジェットの遅延読み込み ▼▼▼ #}
         {% elif widget_name == 'vehicles' %}
-            {% include 'dashboard/_vehicles_widget.html' %}
+            <div class="accordion-item card mb-4" 
+                 data-widget-name="vehicles" 
+                 hx-get="{{ url_for('main.dashboard_vehicles_widget') }}" 
+                 hx-trigger="load" 
+                 hx-swap="outerHTML">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" disabled>
+                        <span class="me-auto"><i class="fas fa-motorcycle me-1"></i> <strong>登録車両</strong></span>
+                    </button>
+                </h2>
+                <div class="card-body text-center py-4">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="text-muted small mt-2">車両情報を取得中...</p>
+                </div>
+            </div>
+        
+        {# ▼▼▼ HTMXによるタイムラインウィジェットの遅延読み込み ▼▼▼ #}
         {% elif widget_name == 'timeline' %}
-            {% include 'dashboard/_timeline_widget.html' %}
+            <div class="accordion-item card my-4" 
+                 data-widget-name="timeline"
+                 hx-get="{{ url_for('main.dashboard_timeline_widget', **request.args) }}" 
+                 hx-trigger="load" 
+                 hx-swap="outerHTML">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" disabled>
+                        <span class="me-auto"><i class="fas fa-stream me-1"></i> <strong>給油・整備タイムライン</strong></span>
+                    </button>
+                </h2>
+                <div class="card-body text-center py-4">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="text-muted small mt-2">タイムラインを取得中...</p>
+                </div>
+            </div>
+
         {% elif widget_name == 'circuit' %}
             {% include 'dashboard/_circuit_widget.html' %}
         {% elif widget_name == 'calendar' %}
@@ -403,31 +453,32 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // --- タイムライン機能 ---
-    const filterButtons = document.getElementById('timeline-filter-buttons');
-    if (filterButtons) {
-        filterButtons.addEventListener('click', function(e) {
-            const button = e.target.closest('button');
-            if (button) {
-                const filter = button.dataset.filter;
-                
-                filterButtons.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
-                button.classList.add('active');
+    // HTMXで読み込まれた要素にも反応するように、document全体でデリゲート
+    document.addEventListener('click', function(e) {
+        const filterBtn = e.target.closest('#timeline-filter-buttons button');
+        if (filterBtn) {
+            const filter = filterBtn.dataset.filter;
+            const buttonsContainer = filterBtn.closest('#timeline-filter-buttons');
+            
+            buttonsContainer.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
+            filterBtn.classList.add('active');
 
-                document.querySelectorAll('.timeline-item').forEach(item => {
-                    if (filter === 'all' || item.dataset.eventType === filter) {
-                        item.style.display = 'block';
-                    } else {
-                        item.style.display = 'none';
-                    }
-                });
-            }
-        });
-    }
+            document.querySelectorAll('.timeline-item').forEach(item => {
+                if (filter === 'all' || item.dataset.eventType === filter) {
+                    item.style.display = 'block';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        }
+    });
 
     const timelineDetailModal = document.getElementById('timelineDetailModal');
     if (timelineDetailModal) {
         timelineDetailModal.addEventListener('show.bs.modal', function (event) {
             const item = event.relatedTarget;
+            if (!item) return;
+
             const eventType = item.dataset.eventType;
             const details = JSON.parse(item.dataset.eventDetails);
             const editUrl = item.dataset.eventEditUrl;
@@ -680,22 +731,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 
-    // --- 初回チュートリアル（車両登録への誘導）の開始判定 ---
     const shouldStartInitialTutorial = {{ start_initial_tutorial | tojson }};
     if (shouldStartInitialTutorial) {
         startInitialSetupTutorial(csrfToken);
     }
 
-    // --- ダッシュボードツアーの開始判定 ---
     const shouldShowDashboardTour = {{ show_dashboard_tour | tojson }};
     const restartTourBtn = document.getElementById('restart-dashboard-tour-btn');
 
-    // 1. 車両登録完了後の自動開始
     if (shouldShowDashboardTour) {
         startDashboardTour(csrfToken);
     }
 
-    // 2. 「？」ボタンクリックでの手動開始
     if (restartTourBtn) {
         restartTourBtn.addEventListener('click', function() {
             startDashboardTour(csrfToken);

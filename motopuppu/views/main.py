@@ -42,6 +42,7 @@ def parse_period_from_request(req):
             start_date_obj = date.fromisoformat(custom_start_date_str)
             end_date_obj = date.fromisoformat(custom_end_date_str)
             if start_date_obj > end_date_obj:
+                # HTMXリクエストの場合はフラッシュメッセージを出さないなどの制御も可能だが今回はそのまま
                 flash('開始日は終了日より前の日付を選択してください。', 'warning')
                 start_date_obj, end_date_obj = end_date_obj, start_date_obj
     except (ValueError, TypeError):
@@ -95,9 +96,11 @@ def index():
 @main_bp.route('/dashboard')
 @login_required
 def dashboard():
-    # 1. リクエストの解析と基本データの準備
-    period, start_date, end_date = parse_period_from_request(request)
-
+    """
+    メインのダッシュボードルート。
+    重い処理（統計、車両詳細、タイムライン）はここでは行わず、HTMXによって後から読み込まれる。
+    """
+    # 1. 基本データの準備 (ナビゲーションバーなどで必要)
     user_motorcycles_all = Motorcycle.query.filter_by(user_id=current_user.id).order_by(
         Motorcycle.is_default.desc(), Motorcycle.name).all()
 
@@ -110,45 +113,70 @@ def dashboard():
 
     show_dashboard_tour = request.args.get('tutorial_completed') == '1' and not current_user.completed_tutorials.get('dashboard_tour')
 
-    motorcycles_public = [m for m in user_motorcycles_all if not m.is_racer]
-    user_motorcycle_ids_public = [m.id for m in motorcycles_public]
-    
-    selected_stats_vehicle_id = request.args.get('stats_vehicle_id', type=int)
+    # 軽いデータのみ取得 (リマインダー、サーキットサマリー、祝日、にゃんぷっぷー)
+    upcoming_reminders = services.get_upcoming_reminders(user_motorcycles_all, current_user.id)
+    circuit_stats = services.get_circuit_activity_for_dashboard(current_user.id)
+    nyanpuppu_advice = services.get_nyanpuppu_advice(current_user, user_motorcycles_all)
+    holidays_json = services.get_holidays_json()
 
-    selected_timeline_vehicle_id = request.args.get('timeline_vehicle_id', 'all')
-    
-    timeline_target_ids = []
-    if selected_timeline_vehicle_id == 'all':
-        timeline_target_ids = user_motorcycle_ids_public
-    else:
-        try:
-            vehicle_id_int = int(selected_timeline_vehicle_id)
-            if vehicle_id_int in [m.id for m in motorcycles_public]:
-                timeline_target_ids = [vehicle_id_int]
-            else:
-                flash('不正な車両が指定されました。', 'danger')
-                selected_timeline_vehicle_id = 'all'
-                timeline_target_ids = user_motorcycle_ids_public
-        except (ValueError, TypeError):
-            flash('不正な車両IDが指定されました。', 'danger')
-            selected_timeline_vehicle_id = 'all'
-            timeline_target_ids = user_motorcycle_ids_public
+    # --- 削除された重い処理 ---
+    # dashboard_stats (統計) -> dashboard_stats_widgetへ移動
+    # timeline_events (タイムライン) -> dashboard_timeline_widgetへ移動
+    # latest_log_info (車両詳細ログ) -> dashboard_vehicles_widgetへ移動
 
-    # 2. サービスを呼び出してビジネスロジックを実行
+    # レイアウト設定
     dashboard_layout = current_user.dashboard_layout
-    # デフォルトのレイアウトに 'nyanpuppu' を追加
     default_layout = ['nyanpuppu', 'reminders', 'stats', 'vehicles', 'timeline', 'circuit', 'calendar']
-    
     if not dashboard_layout:
         dashboard_layout = default_layout
-    # 既存ユーザーの保存済みレイアウトに 'nyanpuppu' がなければ先頭に追加
     elif 'nyanpuppu' not in dashboard_layout:
         dashboard_layout.insert(0, 'nyanpuppu')
 
-    upcoming_reminders = services.get_upcoming_reminders(user_motorcycles_all, current_user.id)
+    # パラメータの維持
+    period = request.args.get('period', 'all')
+    start_date_str = request.args.get('start_date', '')
+    end_date_str = request.args.get('end_date', '')
+    
+    motorcycles_public = [m for m in user_motorcycles_all if not m.is_racer]
+
+    return render_template(
+        'dashboard.html',
+        motorcycles=user_motorcycles_all,
+        motorcycles_public=motorcycles_public,
+        upcoming_reminders=upcoming_reminders, # 同期読み込みのまま
+        selected_timeline_vehicle_id=request.args.get('timeline_vehicle_id', 'all'),
+        selected_stats_vehicle_id=request.args.get('stats_vehicle_id', type=int),
+        holidays_json=holidays_json,
+        period=period,
+        start_date_str=start_date_str,
+        end_date_str=end_date_str,
+        current_date_str=datetime.now(ZoneInfo("Asia/Tokyo")).date().isoformat(),
+        dashboard_layout=dashboard_layout,
+        circuit_stats=circuit_stats,
+        format_seconds_to_time=format_seconds_to_time,
+        start_initial_tutorial=start_initial_tutorial,
+        show_dashboard_tour=show_dashboard_tour,
+        nyanpuppu_advice=nyanpuppu_advice
+    )
+
+
+# ▼▼▼ 新規追加: 統計ウィジェット専用ルート (HTMX用) ▼▼▼
+@main_bp.route('/dashboard/widgets/stats')
+@login_required
+def dashboard_stats_widget():
+    period, start_date, end_date = parse_period_from_request(request)
+    selected_stats_vehicle_id = request.args.get('stats_vehicle_id', type=int)
+    selected_timeline_vehicle_id = request.args.get('timeline_vehicle_id', 'all') # リンク維持のため
+
+    # 必要なデータを再取得
+    user_motorcycles_all = Motorcycle.query.filter_by(user_id=current_user.id).order_by(
+        Motorcycle.is_default.desc(), Motorcycle.name).all()
+    motorcycles_public = [m for m in user_motorcycles_all if not m.is_racer]
+    user_motorcycle_ids_public = [m.id for m in motorcycles_public]
 
     target_vehicle_for_stats = next((m for m in user_motorcycles_all if m.id == selected_stats_vehicle_id), None)
-    
+
+    # 重い処理: 統計計算
     dashboard_stats = services.get_dashboard_stats(
         user_motorcycles_all=user_motorcycles_all,
         user_motorcycle_ids_public=user_motorcycle_ids_public,
@@ -158,46 +186,81 @@ def dashboard():
         show_cost=current_user.show_cost_in_dashboard
     )
 
+    return render_template(
+        'dashboard/_stats_widget.html',
+        dashboard_stats=dashboard_stats,
+        motorcycles=user_motorcycles_all,
+        selected_stats_vehicle_id=selected_stats_vehicle_id,
+        selected_timeline_vehicle_id=selected_timeline_vehicle_id,
+        period=period,
+        start_date_str=request.args.get('start_date', ''),
+        end_date_str=request.args.get('end_date', ''),
+        current_date_str=datetime.now(ZoneInfo("Asia/Tokyo")).date().isoformat()
+    )
+
+
+# ▼▼▼ 新規追加: タイムラインウィジェット専用ルート (HTMX用) ▼▼▼
+@main_bp.route('/dashboard/widgets/timeline')
+@login_required
+def dashboard_timeline_widget():
+    period, start_date, end_date = parse_period_from_request(request)
+    selected_timeline_vehicle_id = request.args.get('timeline_vehicle_id', 'all')
+    selected_stats_vehicle_id = request.args.get('stats_vehicle_id', '') # リンク維持のため
+
+    user_motorcycles_all = Motorcycle.query.filter_by(user_id=current_user.id).order_by(
+        Motorcycle.is_default.desc(), Motorcycle.name).all()
+    motorcycles_public = [m for m in user_motorcycles_all if not m.is_racer]
+    user_motorcycle_ids_public = [m.id for m in motorcycles_public]
+
+    timeline_target_ids = []
+    if selected_timeline_vehicle_id == 'all':
+        timeline_target_ids = user_motorcycle_ids_public
+    else:
+        try:
+            vehicle_id_int = int(selected_timeline_vehicle_id)
+            if vehicle_id_int in user_motorcycle_ids_public:
+                timeline_target_ids = [vehicle_id_int]
+            else:
+                timeline_target_ids = user_motorcycle_ids_public
+                selected_timeline_vehicle_id = 'all'
+        except (ValueError, TypeError):
+            timeline_target_ids = user_motorcycle_ids_public
+            selected_timeline_vehicle_id = 'all'
+
+    # 重い処理: タイムライン取得
     timeline_events = services.get_timeline_events(
         motorcycle_ids=timeline_target_ids,
         start_date=start_date,
         end_date=end_date
     )
 
-    holidays_json = services.get_holidays_json()
-    if holidays_json == '{}':
-        flash('祝日情報の取得または処理中にエラーが発生しました。', 'warning')
-
-    circuit_stats = services.get_circuit_activity_for_dashboard(current_user.id)
-
-    # 最新のログ情報を1クエリで一括取得
-    latest_log_info = services.get_latest_log_info_for_vehicles(user_motorcycles_all)
-
-    nyanpuppu_advice = services.get_nyanpuppu_advice(current_user, user_motorcycles_all)
-
-
-    # 4. テンプレートをレンダリング
     return render_template(
-        'dashboard.html',
-        motorcycles=user_motorcycles_all,
-        motorcycles_public=motorcycles_public,
-        upcoming_reminders=upcoming_reminders,
+        'dashboard/_timeline_widget.html',
         timeline_events=timeline_events,
+        motorcycles_public=motorcycles_public,
         selected_timeline_vehicle_id=selected_timeline_vehicle_id,
         selected_stats_vehicle_id=selected_stats_vehicle_id,
-        dashboard_stats=dashboard_stats,
-        holidays_json=holidays_json,
         period=period,
         start_date_str=request.args.get('start_date', ''),
-        end_date_str=request.args.get('end_date', ''),
-        current_date_str=datetime.now(ZoneInfo("Asia/Tokyo")).date().isoformat(),
-        dashboard_layout=dashboard_layout,
-        circuit_stats=circuit_stats,
-        format_seconds_to_time=format_seconds_to_time,
-        start_initial_tutorial=start_initial_tutorial,
-        show_dashboard_tour=show_dashboard_tour,
-        latest_log_info=latest_log_info,
-        nyanpuppu_advice=nyanpuppu_advice
+        end_date_str=request.args.get('end_date', '')
+    )
+
+
+# ▼▼▼ 新規追加: 車両リストウィジェット専用ルート (HTMX用) ▼▼▼
+@main_bp.route('/dashboard/widgets/vehicles')
+@login_required
+def dashboard_vehicles_widget():
+    # ウィジェット表示に必要なデータを再取得
+    user_motorcycles_all = Motorcycle.query.filter_by(user_id=current_user.id).order_by(
+        Motorcycle.is_default.desc(), Motorcycle.name).all()
+    
+    # 重い処理: 最新ログ情報の計算
+    latest_log_info = services.get_latest_log_info_for_vehicles(user_motorcycles_all)
+
+    return render_template(
+        'dashboard/_vehicles_widget.html',
+        motorcycles=user_motorcycles_all,
+        latest_log_info=latest_log_info
     )
 
 
