@@ -6,17 +6,12 @@ from datetime import date, datetime
 from flask import (
     Blueprint, flash, redirect, render_template, request, url_for, abort, current_app, Response, jsonify
 )
-# ▼▼▼ or_, and_ をインポート ▼▼▼
 from sqlalchemy import or_, asc, desc, func, and_
-# ▲▲▲ 変更ここまで ▲▲▲
+from sqlalchemy.orm import joinedload # N+1対策のためにインポート
 
-# ▼▼▼ インポート文を修正 ▼▼▼
 from flask_login import login_required, current_user
-# ▲▲▲ 変更ここまで ▲▲▲
 from ..models import db, Motorcycle, MaintenanceEntry, MaintenanceReminder
-# ▼▼▼ MaintenanceCsvUploadForm をインポート ▼▼▼
 from ..forms import MaintenanceForm, MaintenanceCsvUploadForm
-# ▲▲▲ 変更ここまで ▲▲▲
 from ..constants import MAINTENANCE_CATEGORIES
 from ..achievement_evaluator import check_achievements_for_event, EVENT_ADD_MAINTENANCE_LOG
 from .. import limiter
@@ -24,7 +19,6 @@ from .. import limiter
 
 maintenance_bp = Blueprint('maintenance', __name__, url_prefix='/maintenance')
 
-# ▼▼▼ ここからCSVインポート用ヘルパー関数を追記 ▼▼▼
 def _process_maintenance_csv_import(file_stream, motorcycle: Motorcycle):
     """
     アップロードされた整備記録CSVを解析し、DBに登録する。
@@ -65,7 +59,7 @@ def _process_maintenance_csv_import(file_stream, motorcycle: Motorcycle):
                 entry_date = date.fromisoformat(row_data.get('maintenance_date', '').strip())
                 odometer_reading = int(row_data.get('odometer_reading_at_maintenance', '').strip())
                 description = row_data.get('description', '').strip()
-                if not description: # descriptionもキーとして必須
+                if not description:
                     raise ValueError("description is empty")
 
                 valid_rows_to_check.append({'date': entry_date, 'odo': odometer_reading, 'desc': description, 'row_num': row_num})
@@ -134,7 +128,7 @@ def _process_maintenance_csv_import(file_stream, motorcycle: Motorcycle):
 
         if not errors and entries_to_add:
             db.session.add_all(entries_to_add)
-            db.session.flush() # IDなどを確定させる
+            db.session.flush()
             for entry in entries_to_add:
                 _update_reminder_if_applicable(entry)
                 event_data_for_ach = {'new_maintenance_log_id': entry.id, 'motorcycle_id': motorcycle.id, 'category': entry.category}
@@ -149,7 +143,6 @@ def _process_maintenance_csv_import(file_stream, motorcycle: Motorcycle):
         db.session.rollback()
         errors.append(f"ファイル処理中に致命的なエラーが発生しました: {e}")
         return 0, errors, []
-# ▲▲▲ 追記ここまで ▲▲▲
 
 def get_previous_maintenance_entry(motorcycle_id, current_maintenance_date, current_entry_id=None):
     """指定された車両・日付に基づき、直前の整備記録を取得する"""
@@ -215,7 +208,7 @@ def _update_reminder_if_applicable(maintenance_entry: MaintenanceEntry):
 
 
 @maintenance_bp.route('/')
-@login_required # ▼▼▼ デコレータを修正 ▼▼▼
+@login_required
 def maintenance_log():
     start_date_str = request.args.get('start_date'); end_date_str = request.args.get('end_date')
     vehicle_id_str = request.args.get('vehicle_id'); category_filter = request.args.get('category', '').strip()
@@ -223,9 +216,7 @@ def maintenance_log():
     order = request.args.get('order', 'desc'); page = request.args.get('page', 1, type=int)
     per_page = current_app.config.get('MAINTENANCE_ENTRIES_PER_PAGE', 20)
 
-    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
     user_motorcycles_all = Motorcycle.query.filter_by(user_id=current_user.id).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
-    # ▲▲▲ 変更ここまで ▲▲▲
     user_motorcycles_for_maintenance = [m for m in user_motorcycles_all if not m.is_racer]
 
     if not user_motorcycles_all:
@@ -236,9 +227,12 @@ def maintenance_log():
 
     user_motorcycle_ids_for_maintenance = [m.id for m in user_motorcycles_for_maintenance]
 
-    query = db.session.query(MaintenanceEntry).join(Motorcycle).filter(
+    # ▼▼▼【パフォーマンス改善】joinedloadを追加してN+1問題を解消 ▼▼▼
+    query = db.session.query(MaintenanceEntry).options(joinedload(MaintenanceEntry.motorcycle)).join(Motorcycle).filter(
         MaintenanceEntry.motorcycle_id.in_(user_motorcycle_ids_for_maintenance)
     )
+    # ▲▲▲ 改善ここまで ▲▲▲
+
     active_filters = {k: v for k, v in request.args.items() if k not in ['page', 'sort_by', 'order']}
 
     try:
@@ -288,9 +282,7 @@ def maintenance_log():
     
     is_filter_active = bool(active_filters)
     
-    # ▼▼▼ upload_form を追加 ▼▼▼
     upload_form = MaintenanceCsvUploadForm()
-    # ▲▲▲ 変更ここまで ▲▲▲
 
     return render_template('maintenance_log.html',
                            entries=entries, pagination=pagination,
@@ -298,17 +290,15 @@ def maintenance_log():
                            request_args=active_filters,
                            current_sort_by=current_sort_by, current_order=current_order,
                            is_filter_active=is_filter_active,
-                           upload_form=upload_form) # ◀◀◀ upload_form を渡す
+                           upload_form=upload_form)
 
 @maintenance_bp.route('/add', methods=['GET', 'POST'])
 @limiter.limit("60 per hour")
-@login_required # ▼▼▼ デコレータを修正 ▼▼▼
+@login_required
 def add_maintenance():
-    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
     user_motorcycles_for_maintenance = Motorcycle.query.filter_by(user_id=current_user.id, is_racer=False).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
     if not user_motorcycles_for_maintenance:
         all_motorcycles_count = Motorcycle.query.filter_by(user_id=current_user.id).count()
-    # ▲▲▲ 変更ここまで ▲▲▲
         if all_motorcycles_count > 0:
             flash('登録されている車両はすべてレーサー仕様のため、整備記録を追加できません。公道走行可能な車両を登録してください。', 'warning')
             return redirect(url_for('vehicle.vehicle_list'))
@@ -330,9 +320,7 @@ def add_maintenance():
         form.maintenance_date.data = date.today()
 
     if form.validate_on_submit():
-        # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
         motorcycle = Motorcycle.query.filter_by(id=form.motorcycle_id.data, user_id=current_user.id, is_racer=False).first()
-        # ▲▲▲ 変更ここまで ▲▲▲
         if not motorcycle:
             flash('選択された車両が見つからないか、整備記録の対象外です。再度お試しください。', 'danger')
             return render_template('maintenance_form.html', form_action='add', form=form, category_options=MAINTENANCE_CATEGORIES)
@@ -376,9 +364,7 @@ def add_maintenance():
             flash('整備記録を追加しました。', 'success')
 
             event_data_for_ach = {'new_maintenance_log_id': new_entry.id, 'motorcycle_id': motorcycle.id, 'category': new_entry.category}
-            # ▼▼▼ g.user を current_user に変更 ▼▼▼
             check_achievements_for_event(current_user, EVENT_ADD_MAINTENANCE_LOG, event_data=event_data_for_ach)
-            # ▲▲▲ 変更ここまで ▲▲▲
 
             return redirect(url_for('maintenance.maintenance_log'))
         except Exception as e:
@@ -393,9 +379,8 @@ def add_maintenance():
 
 @maintenance_bp.route('/<int:entry_id>/edit', methods=['GET', 'POST'])
 @limiter.limit("60 per hour")
-@login_required # ▼▼▼ デコレータを修正 ▼▼▼
+@login_required
 def edit_maintenance(entry_id):
-    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
     entry = MaintenanceEntry.query.join(Motorcycle).filter(
         MaintenanceEntry.id == entry_id,
         Motorcycle.user_id == current_user.id,
@@ -403,7 +388,6 @@ def edit_maintenance(entry_id):
     ).first_or_404()
     
     user_motorcycles_for_maintenance = Motorcycle.query.filter_by(user_id=current_user.id, is_racer=False).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
-    # ▲▲▲ 変更ここまで ▲▲▲
     
     form = MaintenanceForm(obj=entry)
     form.motorcycle_id.choices = [(m.id, f"{m.name} ({m.maker or 'メーカー不明'})") for m in user_motorcycles_for_maintenance]
@@ -413,9 +397,7 @@ def edit_maintenance(entry_id):
         form.input_mode.data = False
 
     if form.validate_on_submit():
-        # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
         motorcycle = Motorcycle.query.filter_by(id=form.motorcycle_id.data, user_id=current_user.id, is_racer=False).first()
-        # ▲▲▲ 変更ここまで ▲▲▲
         if not motorcycle:
             flash('選択された車両が見つからないか、整備記録の対象外です。再度お試しください。', 'danger')
             return render_template('maintenance_form.html', form_action='edit', form=form, entry_id=entry.id, category_options=MAINTENANCE_CATEGORIES)
@@ -469,15 +451,13 @@ def edit_maintenance(entry_id):
 
 @maintenance_bp.route('/<int:entry_id>/delete', methods=['POST'])
 @limiter.limit("60 per hour")
-@login_required # ▼▼▼ デコレータを修正 ▼▼▼
+@login_required
 def delete_maintenance(entry_id):
-    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
     entry = MaintenanceEntry.query.join(Motorcycle).filter(
         MaintenanceEntry.id == entry_id,
         Motorcycle.user_id == current_user.id,
         Motorcycle.is_racer == False
     ).first_or_404()
-    # ▲▲▲ 変更ここまで ▲▲▲
     try:
         db.session.delete(entry)
         db.session.commit()
@@ -488,7 +468,6 @@ def delete_maintenance(entry_id):
         current_app.logger.error(f"Error deleting maintenance entry ID {entry_id}: {e}", exc_info=True)
     return redirect(url_for('maintenance.maintenance_log'))
 
-# ▼▼▼ ここからCSVインポート用のルートを2つ追記 ▼▼▼
 @maintenance_bp.route('/template/maintenance_import_template.csv')
 @login_required
 def download_maintenance_import_template():
@@ -575,14 +554,11 @@ def import_maintenance_logs_csv(vehicle_id):
                 flash(f'{getattr(form, field).label.text}: {error}', 'danger')
 
     return redirect(url_for('maintenance.maintenance_log', vehicle_id=vehicle_id))
-# ▲▲▲ 追記ここまで ▲▲▲
 
 @maintenance_bp.route('/motorcycle/<int:motorcycle_id>/export_csv')
-@login_required # ▼▼▼ デコレータを修正 ▼▼▼
+@login_required
 def export_maintenance_logs_csv(motorcycle_id):
-    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
     motorcycle = Motorcycle.query.filter_by(id=motorcycle_id, user_id=current_user.id, is_racer=False).first_or_404()
-    # ▲▲▲ 変更ここまで ▲▲▲
     maintenance_logs = MaintenanceEntry.query.filter_by(motorcycle_id=motorcycle.id).order_by(MaintenanceEntry.maintenance_date.asc(), MaintenanceEntry.total_distance_at_maintenance.asc()).all()
     if not maintenance_logs:
         flash(f'{motorcycle.name}にはエクスポート対象の整備記録がありません。', 'info')
@@ -603,11 +579,9 @@ def export_maintenance_logs_csv(motorcycle_id):
     return Response(output.getvalue(), mimetype="text/csv", headers={"Content-Disposition": f"attachment;filename=\"{filename}\"", "Content-Type": "text/csv; charset=utf-8-sig"})
 
 @maintenance_bp.route('/export_all_csv')
-@login_required # ▼▼▼ デコレータを修正 ▼▼▼
+@login_required
 def export_all_maintenance_logs_csv():
-    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
     user_motorcycles_for_maintenance = Motorcycle.query.filter_by(user_id=current_user.id, is_racer=False).all()
-    # ▲▲▲ 変更ここまで ▲▲▲
     if not user_motorcycles_for_maintenance:
         flash('エクスポート対象の車両（公道車）が登録されていません。', 'info')
         return redirect(url_for('maintenance.maintenance_log'))
@@ -651,7 +625,7 @@ def export_all_maintenance_logs_csv():
 
 @maintenance_bp.route('/get-previous-entry', methods=['GET'])
 @limiter.limit("120 per minute")
-@login_required # ▼▼▼ デコレータを修正 ▼▼▼
+@login_required
 def get_previous_maintenance_api():
     motorcycle_id = request.args.get('motorcycle_id', type=int)
     maintenance_date_str = request.args.get('maintenance_date')
