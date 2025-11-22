@@ -20,34 +20,31 @@
         padding: 0.75rem 1rem;
         width: 100%;
     }
-    /* 吹き出しのしっぽ（外枠部分） */
     .nyanpuppu-bubble::before {
         content: '';
         position: absolute;
         top: 50%;
-        left: -11px; /* 枠線の太さ分だけ左に配置 */
+        left: -11px;
         transform: translateY(-50%);
         width: 0;
         height: 0;
         border-style: solid;
-        border-width: 11px 11px 11px 0; /* 右向きの三角形を作成 */
-        border-color: transparent #ced4da transparent transparent; /* 三角形の右辺だけに色を付ける */
+        border-width: 11px 11px 11px 0;
+        border-color: transparent #ced4da transparent transparent;
     }
-    /* 吹き出しのしっぽ（内側の塗りつぶし部分） */
     .nyanpuppu-bubble::after {
         content: '';
         position: absolute;
         top: 50%;
-        left: -10px; /* 外枠より1px内側に配置 */
+        left: -10px;
         transform: translateY(-50%);
         width: 0;
         height: 0;
         border-style: solid;
-        border-width: 10px 10px 10px 0; /* 外枠より一回り小さい三角形 */
-        border-color: transparent #ffffff transparent transparent; /* 背景色で塗りつぶす */
+        border-width: 10px 10px 10px 0;
+        border-color: transparent #ffffff transparent transparent;
     }
 
-    /* Bootstrapによって消されるアコーディオンの上線を復活させる */
     #dashboard-widgets-container > .accordion-item + .accordion-item {
         border-top: 1px solid rgba(0, 0, 0, 0.125);
     }
@@ -179,20 +176,64 @@
         margin-top: 0.1em;
         cursor: default;
     }
+    
     /* 並び替えモード用のスタイル */
     .widget-grab-handle {
         cursor: grab;
+        display: none; /* 通常時は非表示 */
+    }
+    .widget-action-btn {
         display: none; /* 通常時は非表示 */
     }
     .sortable-ghost {
         opacity: 0.4;
         background: #c8ebfb;
     }
-    #dashboard-widgets-container.is-sorting .widget-grab-handle {
+    
+    /* 編集モード時の表示 */
+    .is-sorting .widget-grab-handle {
         display: inline-block;
     }
-    #dashboard-widgets-container.is-sorting .card-header {
-        background-color: #f0f8ff; /* 並び替え中はヘッダー色を少し変える */
+    .is-sorting .widget-action-btn {
+        display: inline-block;
+    }
+    .is-sorting .card-header {
+        background-color: #f0f8ff !important;
+        border-bottom: 1px solid #dae0e5;
+    }
+    
+    /* 非表示ウィジェットエリアのスタイル */
+    #inactive-widgets-area {
+        display: none;
+        border: 2px dashed #ced4da;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        background-color: #f8f9fa;
+        margin-bottom: 1.5rem;
+    }
+    #inactive-widgets-area h5 {
+        font-size: 1rem;
+        color: #6c757d;
+        margin-bottom: 1rem;
+    }
+    .is-sorting #inactive-widgets-area {
+        display: block;
+    }
+    /* 非表示ウィジェットは中身を表示せず、ヘッダーのみにする */
+    #inactive-widgets-container .accordion-collapse {
+        display: none !important;
+    }
+    #inactive-widgets-container .accordion-button::after {
+        display: none !important;
+    }
+    #inactive-widgets-container .accordion-button {
+        background-color: #e9ecef;
+        color: #6c757d;
+        pointer-events: none; /* 中身の開閉無効 */
+    }
+    #inactive-widgets-container .widget-grab-handle, 
+    #inactive-widgets-container .widget-action-btn {
+        pointer-events: auto; /* ハンドルとボタンは有効 */
     }
 </style>
 {% endblock %}
@@ -248,19 +289,31 @@
 </div>
 {% endif %}
 
-<div id="dashboard-widgets-container" class="accordion dashboard-widgets">
-    {% for widget_name in dashboard_layout %}
+{# ▼▼▼ マクロ定義: ウィジェットラッパー（削除/追加ボタンを含む） ▼▼▼ #}
+{% macro widget_wrapper(widget_name, is_active) %}
+    {# アクティブ/非アクティブでボタンを切り替え #}
+    {# ▼▼▼ 修正: data-widget-name 属性を追加してJSが正しくIDを取得できるようにする ▼▼▼ #}
+    <div class="position-relative widget-wrapper-inner" data-widget-name="{{ widget_name }}">
+        {# 削除ボタン (Active時のみ) #}
+        {# ▼▼▼ 修正: me-5 クラスを追加して、アコーディオンの矢印と重ならないように位置調整 ▼▼▼ #}
+        <button type="button" class="btn btn-sm btn-danger rounded-circle position-absolute top-0 end-0 mt-2 me-5 widget-action-btn remove-widget-btn" 
+                style="z-index: 100; {% if not is_active %}display: none !important;{% endif %}" title="非表示にする">
+            <i class="fas fa-times"></i>
+        </button>
+        
+        {# 追加ボタン (Inactive時のみ) #}
+        <button type="button" class="btn btn-sm btn-success rounded-circle position-absolute top-0 end-0 mt-2 me-2 widget-action-btn add-widget-btn" 
+                style="z-index: 100; {% if is_active %}display: none !important;{% endif %}" title="表示する">
+            <i class="fas fa-plus"></i>
+        </button>
+
+        {# ウィジェット本体のインクルード #}
         {% if widget_name == 'nyanpuppu' %}
             {% include 'dashboard/_nyanpuppu_widget.html' %}
-        
         {% elif widget_name == 'reminders' %}
             {% include 'dashboard/_reminders_widget.html' %}
-        
-        {# ▼▼▼ 新規追加: イベントウィジェット読み込み ▼▼▼ #}
         {% elif widget_name == 'events' %}
             {% include 'dashboard/_events_widget.html' %}
-        {# ▲▲▲ 追加ここまで ▲▲▲ #}
-        
         {% elif widget_name == 'stats' %}
             <div class="accordion-item card mb-4" 
                  data-widget-name="stats" 
@@ -277,7 +330,6 @@
                     <p class="text-muted small mt-2">統計を計算中...</p>
                 </div>
             </div>
-        
         {% elif widget_name == 'vehicles' %}
             <div class="accordion-item card mb-4" 
                  data-widget-name="vehicles" 
@@ -294,7 +346,6 @@
                     <p class="text-muted small mt-2">車両情報を取得中...</p>
                 </div>
             </div>
-        
         {% elif widget_name == 'timeline' %}
             <div class="accordion-item card my-4" 
                  data-widget-name="timeline"
@@ -311,12 +362,28 @@
                     <p class="text-muted small mt-2">タイムラインを取得中...</p>
                 </div>
             </div>
-
         {% elif widget_name == 'circuit' %}
             {% include 'dashboard/_circuit_widget.html' %}
         {% elif widget_name == 'calendar' %}
             {% include 'dashboard/_calendar_widget.html' %}
         {% endif %}
+    </div>
+{% endmacro %}
+
+{# ▼▼▼ 非表示ウィジェットエリア (編集時のみ表示) ▼▼▼ #}
+<div id="inactive-widgets-area">
+    <h5><i class="fas fa-archive me-2"></i>非表示のウィジェット (ドラッグまたは＋ボタンで追加)</h5>
+    <div id="inactive-widgets-container" class="dashboard-widgets">
+        {% for widget_name in inactive_widgets %}
+            {{ widget_wrapper(widget_name, False) }}
+        {% endfor %}
+    </div>
+</div>
+
+{# ▼▼▼ メインウィジェットエリア (表示中) ▼▼▼ #}
+<div id="dashboard-widgets-container" class="accordion dashboard-widgets">
+    {% for widget_name in dashboard_layout %}
+        {{ widget_wrapper(widget_name, True) }}
     {% endfor %}
 </div>
 
@@ -360,7 +427,10 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // --- レイアウト並び替え機能 ---
-    const widgetsContainer = document.getElementById('dashboard-widgets-container');
+    const activeContainer = document.getElementById('dashboard-widgets-container');
+    const inactiveContainer = document.getElementById('inactive-widgets-container');
+    const dashboardWrapper = document.querySelector('.col-lg-9') || document.body; // 並び替えクラス付与用
+
     const editBtn = document.getElementById('edit-layout-btn');
     const saveBtn = document.getElementById('save-layout-btn');
     const cancelBtn = document.getElementById('cancel-layout-btn');
@@ -368,52 +438,109 @@ document.addEventListener('DOMContentLoaded', function() {
     const defaultButtons = document.getElementById('layout-buttons-default');
     const editingButtons = document.getElementById('layout-buttons-editing');
     
-    let sortable = null;
-    let originalOrder = [];
-    // ▼▼▼ 変更: デフォルトの並び順に 'events' を追加 ▼▼▼
+    let activeSortable = null;
+    let inactiveSortable = null;
+    let originalHTMLActive = '';
+    let originalHTMLInactive = '';
+    
     const defaultOrder = ['nyanpuppu', 'reminders', 'events', 'stats', 'vehicles', 'timeline', 'circuit', 'calendar'];
-    // ▲▲▲ 変更ここまで ▲▲▲
 
-    const reorderWidgets = (order) => {
-        const fragment = document.createDocumentFragment();
-        order.forEach(widgetName => {
-            const widgetEl = widgetsContainer.querySelector(`[data-widget-name="${widgetName}"]`);
-            if (widgetEl) {
-                fragment.appendChild(widgetEl);
-            }
-        });
-        widgetsContainer.innerHTML = '';
-        widgetsContainer.appendChild(fragment);
+    // ヘルパー: ウィジェットの移動 (ボタン操作用)
+    const moveWidget = (widgetElement, toContainer) => {
+        toContainer.appendChild(widgetElement);
+        // ボタンの表示切り替え
+        const removeBtn = widgetElement.querySelector('.remove-widget-btn');
+        const addBtn = widgetElement.querySelector('.add-widget-btn');
+        
+        if (toContainer.id === 'dashboard-widgets-container') {
+            // Activeへ移動
+            removeBtn.style.setProperty('display', 'block', 'important');
+            addBtn.style.setProperty('display', 'none', 'important');
+        } else {
+            // Inactiveへ移動
+            removeBtn.style.setProperty('display', 'none', 'important');
+            addBtn.style.setProperty('display', 'block', 'important');
+        }
     };
+
+    // イベント委譲: 追加/削除ボタン
+    document.addEventListener('click', function(e) {
+        const removeBtn = e.target.closest('.remove-widget-btn');
+        const addBtn = e.target.closest('.add-widget-btn');
+        
+        if (removeBtn) {
+            // .accordion-item ではなく .widget-wrapper-inner (の親?)
+            // マクロ構造: <div class="widget-wrapper-inner" ...> <button> <div class="accordion-item">
+            // ボタンは wrapper-inner の直下。
+            const widgetWrapper = removeBtn.closest('.widget-wrapper-inner'); 
+            if(widgetWrapper) moveWidget(widgetWrapper, inactiveContainer);
+        } else if (addBtn) {
+            const widgetWrapper = addBtn.closest('.widget-wrapper-inner');
+            if(widgetWrapper) moveWidget(widgetWrapper, activeContainer);
+        }
+    });
 
     // 並び替えモードを開始
     editBtn.addEventListener('click', function() {
-        originalOrder = Array.from(widgetsContainer.children).map(el => el.dataset.widgetName);
+        // 現在の状態を保存（キャンセル用）
+        originalHTMLActive = activeContainer.innerHTML;
+        originalHTMLInactive = inactiveContainer.innerHTML;
 
-        widgetsContainer.classList.add('is-sorting');
+        document.body.classList.add('is-sorting'); // bodyにクラスを付与して全体スタイル制御
         defaultButtons.style.display = 'none';
         editingButtons.style.display = 'inline-flex';
 
-        sortable = new Sortable(widgetsContainer, {
+        // Activeリストの設定
+        activeSortable = new Sortable(activeContainer, {
+            group: 'widgets', // 両方のリストで共有
             animation: 150,
             handle: '.widget-grab-handle',
             ghostClass: 'sortable-ghost',
+            onAdd: function (evt) {
+                // Inactive -> Active にドロップされた時
+                const item = evt.item;
+                item.querySelector('.remove-widget-btn').style.setProperty('display', 'block', 'important');
+                item.querySelector('.add-widget-btn').style.setProperty('display', 'none', 'important');
+            }
+        });
+
+        // Inactiveリストの設定
+        inactiveSortable = new Sortable(inactiveContainer, {
+            group: 'widgets',
+            animation: 150,
+            handle: '.widget-grab-handle',
+            ghostClass: 'sortable-ghost',
+            sort: false, // 非表示エリア内での並び替えは不要（追加順でOK）
+            onAdd: function (evt) {
+                // Active -> Inactive にドロップされた時
+                const item = evt.item;
+                item.querySelector('.remove-widget-btn').style.setProperty('display', 'none', 'important');
+                item.querySelector('.add-widget-btn').style.setProperty('display', 'block', 'important');
+            }
         });
     });
 
     const endEditingMode = () => {
-        if (sortable) {
-            sortable.destroy();
-            sortable = null;
+        if (activeSortable) {
+            activeSortable.destroy();
+            activeSortable = null;
         }
-        widgetsContainer.classList.remove('is-sorting');
+        if (inactiveSortable) {
+            inactiveSortable.destroy();
+            inactiveSortable = null;
+        }
+        document.body.classList.remove('is-sorting');
         defaultButtons.style.display = 'block';
         editingButtons.style.display = 'none';
     };
 
     // 変更を保存
     saveBtn.addEventListener('click', function() {
-        const newOrder = Array.from(widgetsContainer.children).map(el => el.dataset.widgetName);
+        // Activeコンテナ内のウィジェットのみを収集
+        const newOrder = Array.from(activeContainer.children)
+            .filter(el => el.dataset.widgetName) // 念のためチェック
+            .map(el => el.dataset.widgetName);
+            
         const csrfTokenEl = document.querySelector('meta[name="csrf-token"]');
         if (!csrfTokenEl) {
             alert('エラー: CSRFトークンが見つかりません。base.htmlを確認してください。');
@@ -431,7 +558,9 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .then(response => response.json())
         .then(data => {
-            if (data.status !== 'success') {
+            if (data.status === 'success') {
+                window.location.reload(); // リロードして状態を完全に反映（特にスタイルのリセットなど）
+            } else {
                 console.error('Failed to save layout:', data.message);
                 alert('レイアウトの保存に失敗しました。');
             }
@@ -439,34 +568,40 @@ document.addEventListener('DOMContentLoaded', function() {
         .catch(error => {
             console.error('Error:', error);
             alert('通信エラーが発生しました。');
-        })
-        .finally(() => {
-            endEditingMode();
         });
     });
     
-    // デフォルトに戻す
+    // デフォルトに戻す（リロードで対応）
     resetBtn.addEventListener('click', function() {
-        reorderWidgets(defaultOrder);
+        if(confirm('レイアウトを初期状態に戻しますか？')) {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+            // デフォルトリストを保存してリロード
+            fetch("{{ url_for('main.save_dashboard_layout') }}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({ layout: defaultOrder })
+            }).then(() => window.location.reload());
+        }
     });
 
     // 変更をキャンセル
     cancelBtn.addEventListener('click', function() {
-        reorderWidgets(originalOrder);
+        activeContainer.innerHTML = originalHTMLActive;
+        inactiveContainer.innerHTML = originalHTMLInactive;
         endEditingMode();
     });
 
-    // --- タイムライン機能 ---
-    // HTMXで読み込まれた要素にも反応するように、document全体でデリゲート
+    // --- タイムライン機能 (既存コード維持) ---
     document.addEventListener('click', function(e) {
         const filterBtn = e.target.closest('#timeline-filter-buttons button');
         if (filterBtn) {
             const filter = filterBtn.dataset.filter;
             const buttonsContainer = filterBtn.closest('#timeline-filter-buttons');
-            
             buttonsContainer.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
             filterBtn.classList.add('active');
-
             document.querySelectorAll('.timeline-item').forEach(item => {
                 if (filter === 'all' || item.dataset.eventType === filter) {
                     item.style.display = 'block';
@@ -482,7 +617,6 @@ document.addEventListener('DOMContentLoaded', function() {
         timelineDetailModal.addEventListener('show.bs.modal', function (event) {
             const item = event.relatedTarget;
             if (!item) return;
-
             const eventType = item.dataset.eventType;
             const details = JSON.parse(item.dataset.eventDetails);
             const editUrl = item.dataset.eventEditUrl;
@@ -511,7 +645,6 @@ document.addEventListener('DOMContentLoaded', function() {
                    const selectedVehicle = document.querySelector('select[name="timeline_vehicle_id"]');
                    if (selectedVehicle && selectedVehicle.value !== 'all') continue;
                 }
-
                 const dt = document.createElement('dt');
                 dt.className = 'col-sm-4';
                 dt.textContent = key;
@@ -521,24 +654,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 modalDetailsContainer.appendChild(dt);
                 modalDetailsContainer.appendChild(dd);
             }
-            
             modalEditButton.href = editUrl;
         });
     }
     
-    // --- カレンダー機能 ---
+    // --- カレンダー機能 (既存コード維持) ---
     var calendarEl = document.getElementById('calendar');
     let holidaysMap = {};
     try {
         const holidaysData = JSON.parse('{{ holidays_json | safe }}');
         if (typeof holidaysData === 'object' && holidaysData !== null) {
             holidaysMap = holidaysData;
-        } else {
-            console.error("Invalid holidays data format:", holidaysData);
         }
-    } catch (e) {
-        console.error("Error parsing holidays JSON:", e);
-    }
+    } catch (e) {}
 
     function escapeHtml(unsafe) {
         if (typeof unsafe !== 'string') return unsafe;
@@ -549,21 +677,10 @@ document.addEventListener('DOMContentLoaded', function() {
         var calendar = new FullCalendar.Calendar(calendarEl, {
             initialView: 'dayGridMonth',
             locale: 'ja',
-            headerToolbar: {
-                left: 'prev,next today',
-                center: 'title',
-                right: 'dayGridMonth,dayGridWeek,listMonth'
-            },
-            buttonText: {
-                today: '今日',
-                month: '月',
-                week: '週',
-                list: 'リスト(月)'
-            },
+            headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,dayGridWeek,listMonth' },
+            buttonText: { today: '今日', month: '月', week: '週', list: 'リスト(月)' },
             contentHeight: 'auto',
-            dayCellContent: function(arg) {
-                return { html: `<span class="fc-daygrid-day-number">${arg.date.getDate()}</span>` };
-            },
+            dayCellContent: function(arg) { return { html: `<span class="fc-daygrid-day-number">${arg.date.getDate()}</span>` }; },
             dayCellDidMount: function(arg) {
                 const year = arg.date.getFullYear();
                 const month = (arg.date.getMonth() + 1).toString().padStart(2, '0');
@@ -572,16 +689,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 const dayNumberEl = arg.el.querySelector('.fc-daygrid-day-number');
                 const dayTopEl = arg.el.querySelector('.fc-daygrid-day-top');
                 const dayOfWeek = arg.date.getDay();
-
                 if (!dayNumberEl || !dayTopEl) return;
-                
                 arg.el.classList.remove('fc-day-holiday', 'fc-day-sun', 'fc-day-sat');
                 dayNumberEl.classList.remove('is-holiday', 'is-sun', 'is-sat');
-                
                 const existingHolidayName = dayTopEl.querySelector('.fc-holiday-name');
-                if (existingHolidayName) {
-                    dayTopEl.removeChild(existingHolidayName);
-                }
+                if (existingHolidayName) { dayTopEl.removeChild(existingHolidayName); }
                 
                 if (holidaysMap.hasOwnProperty(dateStr)) {
                     const holidayName = holidaysMap[dateStr];
@@ -591,10 +703,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     dayTopEl.appendChild(holidayNameEl);
                     arg.el.classList.add('fc-day-holiday');
                     dayNumberEl.classList.add('is-holiday');
-                } else if (dayOfWeek === 0) { // Sunday
+                } else if (dayOfWeek === 0) {
                     arg.el.classList.add('fc-day-sun');
                     dayNumberEl.classList.add('is-sun');
-                } else if (dayOfWeek === 6) { // Saturday
+                } else if (dayOfWeek === 6) {
                     arg.el.classList.add('fc-day-sat');
                     dayNumberEl.classList.add('is-sat');
                 }
@@ -603,9 +715,7 @@ document.addEventListener('DOMContentLoaded', function() {
             eventClick: function(info) {
                 info.jsEvent.preventDefault();
                 const editUrl = info.event.extendedProps?.editUrl || info.event.url;
-                if (editUrl) {
-                    window.location.href = editUrl;
-                }
+                if (editUrl) window.location.href = editUrl;
             },
             eventDidMount: function(info) {
                 if (info.event.extendedProps) {
@@ -614,11 +724,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     var popoverContent = '';
                     var eventDateStr = '日付不明';
                     if (info.event.start) {
-                        try {
-                            eventDateStr = info.event.start.toLocaleDateString('ja-JP', { year: 'numeric', month: 'short', day: 'numeric' });
-                        } catch (e) {
-                            eventDateStr = info.event.start.toISOString().split('T')[0];
-                        }
+                        try { eventDateStr = info.event.start.toLocaleDateString('ja-JP', { year: 'numeric', month: 'short', day: 'numeric' }); } 
+                        catch (e) { eventDateStr = info.event.start.toISOString().split('T')[0]; }
                     }
                     var editUrl = props.editUrl;
                     if (props.type === 'fuel') {
@@ -650,9 +757,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 popoverContent += `<li class="d-flex align-items-center"><input type="checkbox" id="${checkboxId}" disabled ${isChecked ? 'checked' : ''} class="form-check-input me-1"><label for="${checkboxId}" class="${isChecked ? 'text-decoration-line-through text-muted' : ''}">${text}</label></li>`;
                             });
                             popoverContent += '</ul>';
-                        } else {
-                            popoverContent += '<span class="text-muted">TODOはありません</span>';
-                        }
+                        } else { popoverContent += '<span class="text-muted">TODOはありません</span>'; }
                         popoverContent += '</dd>';
                         popoverContent += (props.createdAt ? `<dt>作成:</dt><dd>${escapeHtml(props.createdAt)}</dd>` : '') + (props.updatedAt ? `<dt>更新:</dt><dd>${escapeHtml(props.updatedAt)}</dd>` : '');
                         popoverContent += `</dl>`;
@@ -676,13 +781,15 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!savedStatesJSON) { return; }
         try {
             const savedStates = JSON.parse(savedStatesJSON);
-            const widgets = widgetsContainer.querySelectorAll('.accordion-item');
+            const widgets = activeContainer.querySelectorAll('.accordion-item');
             widgets.forEach(widget => {
                 const widgetName = widget.dataset.widgetName;
                 if (widgetName in savedStates) {
                     const shouldBeOpen = savedStates[widgetName];
                     const collapseElement = widget.querySelector('.accordion-collapse');
                     const button = widget.querySelector('.accordion-button');
+                    if (widget.closest('#inactive-widgets-container')) return;
+
                     if (shouldBeOpen) {
                         collapseElement.classList.add('show');
                         button.classList.remove('collapsed');
@@ -700,17 +807,19 @@ document.addEventListener('DOMContentLoaded', function() {
     };
     const saveWidgetStates = () => {
         const states = {};
-        const widgets = widgetsContainer.querySelectorAll('.accordion-item');
+        const widgets = activeContainer.querySelectorAll('.accordion-item');
         widgets.forEach(widget => {
             const widgetName = widget.dataset.widgetName;
             const collapseElement = widget.querySelector('.accordion-collapse');
-            states[widgetName] = collapseElement.classList.contains('show');
+            if(collapseElement) {
+                states[widgetName] = collapseElement.classList.contains('show');
+            }
         });
         localStorage.setItem(WIDGET_STATE_KEY, JSON.stringify(states));
     };
     applyWidgetStates();
-    widgetsContainer.addEventListener('shown.bs.collapse', saveWidgetStates);
-    widgetsContainer.addEventListener('hidden.bs.collapse', saveWidgetStates);
+    activeContainer.addEventListener('shown.bs.collapse', saveWidgetStates);
+    activeContainer.addEventListener('hidden.bs.collapse', saveWidgetStates);
 
     const costToggle = document.getElementById('cost-display-toggle');
     if (costToggle) {

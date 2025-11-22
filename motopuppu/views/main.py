@@ -20,6 +20,19 @@ from ..utils.lap_time_utils import format_seconds_to_time
 
 main_bp = Blueprint('main', __name__)
 
+# --- 定数定義 ---
+# 利用可能な全ウィジェットのIDリスト
+ALL_AVAILABLE_WIDGETS = [
+    'nyanpuppu',
+    'reminders',
+    'events',
+    'stats',
+    'vehicles',
+    'timeline',
+    'circuit',
+    'calendar'
+]
+
 # --- ヘルパー関数 ---
 
 def parse_period_from_request(req):
@@ -119,8 +132,7 @@ def dashboard():
     nyanpuppu_advice = services.get_nyanpuppu_advice(current_user, user_motorcycles_all)
     holidays_json = services.get_holidays_json()
 
-    # ▼▼▼ 追加: イベント情報の取得 ▼▼▼
-    # 条件: (自分が主催) OR (自分が参加 または 保留) かつ (現在時刻以降の開始)
+    # イベント情報の取得
     now_utc = datetime.now(timezone.utc)
     dashboard_events = Event.query.outerjoin(EventParticipant).filter(
         or_(
@@ -132,36 +144,20 @@ def dashboard():
         ),
         Event.start_datetime >= now_utc
     ).order_by(Event.start_datetime.asc()).distinct().all()
-    # ▲▲▲ 追加ここまで ▲▲▲
 
-    # --- 削除された重い処理 ---
-    # dashboard_stats (統計) -> dashboard_stats_widgetへ移動
-    # timeline_events (タイムライン) -> dashboard_timeline_widgetへ移動
-    # latest_log_info (車両詳細ログ) -> dashboard_vehicles_widgetへ移動
-
-    # レイアウト設定
+    # --- レイアウト設定 ---
     dashboard_layout = current_user.dashboard_layout
-    # ▼▼▼ 変更: 'events' を 'reminders' の後ろに追加 ▼▼▼
-    default_layout = ['nyanpuppu', 'reminders', 'events', 'stats', 'vehicles', 'timeline', 'circuit', 'calendar']
-    # ▲▲▲ 変更ここまで ▲▲▲
-
-    if not dashboard_layout:
-        dashboard_layout = default_layout
-    elif 'nyanpuppu' not in dashboard_layout:
-        dashboard_layout.insert(0, 'nyanpuppu')
     
-    # ▼▼▼ 追加: 既存ユーザーでレイアウト保存済みの場合、'events' が含まれていない可能性があるので補完する ▼▼▼
-    if 'events' not in dashboard_layout:
-        # remindersの後ろ、なければnyanpuppuの後ろ、それもなければ先頭に追加
-        if 'reminders' in dashboard_layout:
-            idx = dashboard_layout.index('reminders') + 1
-            dashboard_layout.insert(idx, 'events')
-        elif 'nyanpuppu' in dashboard_layout:
-            idx = dashboard_layout.index('nyanpuppu') + 1
-            dashboard_layout.insert(idx, 'events')
-        else:
-            dashboard_layout.insert(0, 'events')
-    # ▲▲▲ 追加ここまで ▲▲▲
+    # 初回ユーザーまたはレイアウト未設定の場合のデフォルト
+    # ▼▼▼ 修正: Noneの場合のみデフォルト適用（空リスト[]はユーザーの意図として尊重） ▼▼▼
+    if dashboard_layout is None:
+        dashboard_layout = ALL_AVAILABLE_WIDGETS.copy()
+    # ▼▼▼ 修正: 強制的にウィジェットを追加するロジックを削除 ▼▼▼
+    
+    # 非表示(Inactive)ウィジェットの計算
+    # DBにない未知のIDが含まれていた場合のエラー防止のため、ALL_AVAILABLE_WIDGETSに含まれるものだけを扱う
+    active_widgets = [w for w in dashboard_layout if w in ALL_AVAILABLE_WIDGETS]
+    inactive_widgets = [w for w in ALL_AVAILABLE_WIDGETS if w not in active_widgets]
 
     # パラメータの維持
     period = request.args.get('period', 'all')
@@ -174,8 +170,8 @@ def dashboard():
         'dashboard.html',
         motorcycles=user_motorcycles_all,
         motorcycles_public=motorcycles_public,
-        upcoming_reminders=upcoming_reminders, # 同期読み込みのまま
-        dashboard_events=dashboard_events, # 追加
+        upcoming_reminders=upcoming_reminders,
+        dashboard_events=dashboard_events,
         selected_timeline_vehicle_id=request.args.get('timeline_vehicle_id', 'all'),
         selected_stats_vehicle_id=request.args.get('stats_vehicle_id', type=int),
         holidays_json=holidays_json,
@@ -183,7 +179,8 @@ def dashboard():
         start_date_str=start_date_str,
         end_date_str=end_date_str,
         current_date_str=datetime.now(ZoneInfo("Asia/Tokyo")).date().isoformat(),
-        dashboard_layout=dashboard_layout,
+        dashboard_layout=active_widgets, # フィルタ済みのリストを渡す
+        inactive_widgets=inactive_widgets,
         circuit_stats=circuit_stats,
         format_seconds_to_time=format_seconds_to_time,
         start_initial_tutorial=start_initial_tutorial,
@@ -192,13 +189,13 @@ def dashboard():
     )
 
 
-# ▼▼▼ 新規追加: 統計ウィジェット専用ルート (HTMX用) ▼▼▼
+# ▼▼▼ 統計ウィジェット専用ルート (HTMX用) ▼▼▼
 @main_bp.route('/dashboard/widgets/stats')
 @login_required
 def dashboard_stats_widget():
     period, start_date, end_date = parse_period_from_request(request)
     selected_stats_vehicle_id = request.args.get('stats_vehicle_id', type=int)
-    selected_timeline_vehicle_id = request.args.get('timeline_vehicle_id', 'all') # リンク維持のため
+    selected_timeline_vehicle_id = request.args.get('timeline_vehicle_id', 'all')
 
     # 必要なデータを再取得
     user_motorcycles_all = Motorcycle.query.filter_by(user_id=current_user.id).order_by(
@@ -231,13 +228,13 @@ def dashboard_stats_widget():
     )
 
 
-# ▼▼▼ 新規追加: タイムラインウィジェット専用ルート (HTMX用) ▼▼▼
+# ▼▼▼ タイムラインウィジェット専用ルート (HTMX用) ▼▼▼
 @main_bp.route('/dashboard/widgets/timeline')
 @login_required
 def dashboard_timeline_widget():
     period, start_date, end_date = parse_period_from_request(request)
     selected_timeline_vehicle_id = request.args.get('timeline_vehicle_id', 'all')
-    selected_stats_vehicle_id = request.args.get('stats_vehicle_id', '') # リンク維持のため
+    selected_stats_vehicle_id = request.args.get('stats_vehicle_id', '')
 
     user_motorcycles_all = Motorcycle.query.filter_by(user_id=current_user.id).order_by(
         Motorcycle.is_default.desc(), Motorcycle.name).all()
@@ -278,7 +275,7 @@ def dashboard_timeline_widget():
     )
 
 
-# ▼▼▼ 新規追加: 車両リストウィジェット専用ルート (HTMX用) ▼▼▼
+# ▼▼▼ 車両リストウィジェット専用ルート (HTMX用) ▼▼▼
 @main_bp.route('/dashboard/widgets/vehicles')
 @login_required
 def dashboard_vehicles_widget():
