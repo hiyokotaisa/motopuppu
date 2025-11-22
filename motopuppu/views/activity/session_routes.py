@@ -1,6 +1,7 @@
 # motopuppu/views/activity/session_routes.py
 import json
 import io
+import math  # 追加: 数学計算用
 from collections import defaultdict
 from decimal import Decimal
 import uuid
@@ -25,6 +26,54 @@ from ...models import db, ActivityLog, SessionLog
 from ...forms import SessionLogForm, LapTimeImportForm
 from ...parsers import get_parser, PARSERS
 from ... import limiter
+
+# --- 追加: RDPアルゴリズム (Douglas-Peucker) のヘルパー関数 ---
+def _calculate_perpendicular_distance(point, start, end):
+    """点と直線の距離を計算する (平面近似)"""
+    if start == end:
+        return math.sqrt((point['lat'] - start['lat'])**2 + (point['lng'] - start['lng'])**2)
+    
+    # 直線 ax + by + c = 0 と点 (x0, y0) の距離
+    x0, y0 = point['lng'], point['lat']
+    x1, y1 = start['lng'], start['lat']
+    x2, y2 = end['lng'], end['lat']
+    
+    nom = abs((y2 - y1) * x0 - (x2 - x1) * y0 + x2 * y1 - y2 * x1)
+    denom = math.sqrt((y2 - y1)**2 + (x2 - x1)**2)
+    
+    if denom == 0:
+        return 0
+    return nom / denom
+
+def _ramer_douglas_peucker(points, epsilon):
+    """
+    RDPアルゴリズムによる点群の間引き
+    :param points: [{'lat': float, 'lng': float, ...}, ...]
+    :param epsilon: 間引きの閾値 (度単位。例: 0.00002)
+    :return: 間引き後のリスト
+    """
+    if len(points) < 3:
+        return points
+
+    dmax = 0
+    index = 0
+    end = len(points) - 1
+
+    for i in range(1, end):
+        d = _calculate_perpendicular_distance(points[i], points[0], points[end])
+        if d > dmax:
+            index = i
+            dmax = d
+
+    if dmax > epsilon:
+        # 再帰的に分割
+        rec_results1 = _ramer_douglas_peucker(points[:index+1], epsilon)
+        rec_results2 = _ramer_douglas_peucker(points[index:], epsilon)
+        # 重複する境界点を除去して結合
+        return rec_results1[:-1] + rec_results2
+    else:
+        return [points[0], points[end]]
+# -----------------------------------------------------------
 
 
 def _prepare_comparison_data(sessions):
@@ -276,10 +325,30 @@ def get_gps_data(session_id):
             vehicle_specs['rear_tyre_size'] = rear_tyre_size
 
     response_data = {
-        'laps': session.gps_tracks.get('laps', []),
+        'laps': [], # ここを加工します
         'lap_times': session.lap_times or [],
         'vehicle_specs': vehicle_specs
     }
+    
+    # 修正: 地図表示用にRDP法で間引きしたトラックデータを生成して追加
+    raw_laps = session.gps_tracks.get('laps', [])
+    
+    for lap in raw_laps:
+        raw_track = lap.get('track', [])
+        
+        # epsilon=0.00002 は約2m程度の誤差を許容
+        # データ点数が少ない(500以下)場合は間引きしない
+        if len(raw_track) > 500:
+            simplified_track = _ramer_douglas_peucker(raw_track, 0.00002)
+        else:
+            simplified_track = raw_track
+            
+        # レスポンスに含める
+        response_data['laps'].append({
+            'lap_number': lap.get('lap_number'),
+            'track': raw_track,          # チャート・分析用（高精度・全データ）
+            'map_track': simplified_track # 地図表示用（軽量・間引き済み）
+        })
     
     return jsonify(response_data)
 

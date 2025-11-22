@@ -20,9 +20,7 @@ window.motopuppuMapViewer = {
         let bounds;
         let charts = { speed: null, rpm: null, throttle: null, gear: null };
         let currentLapData = null;
-        // ▼▼▼【ここから追記】平滑化後のギアデータを保持する変数を追加 ▼▼▼
         let smoothedGears = [];
-        // ▲▲▲【追記はここまで】▲▲▲
         let animationFrameId = null;
         let isPlaying = false;
         let playbackStartTime = 0; 
@@ -100,6 +98,9 @@ window.motopuppuMapViewer = {
             if (speed > maxSpeed) speed = maxSpeed;
             const range = maxSpeed - minSpeed;
             if (range === 0) return '#00FF00';
+            
+            // 色の変化を少し滑らかにするためにステップ化しても良いが、
+            // 今回はバッチ処理のために「色コード文字列」を返す
             const ratio = (speed - minSpeed) / range;
             let r, g, b;
             if (ratio < 0.5) {
@@ -113,25 +114,70 @@ window.motopuppuMapViewer = {
             }
             return `rgb(${r},${g},${b})`;
         }
+
+        // 修正: 速度バケットを使ってPolylineを統合し、描画オブジェクト数を削減する
         function drawLapPolyline(track, minSpeed, maxSpeed, mapInstance) {
             const lapPolylines = [];
-            for (let i = 0; i < track.length - 1; i++) {
-                const startPoint = track[i];
-                const endPoint = track[i + 1];
-                const avgSpeed = ((startPoint.speed || 0) + (endPoint.speed || 0)) / 2;
-                const color = getColorForSpeed(avgSpeed, minSpeed, maxSpeed);
+            if (!track || track.length < 2) return lapPolylines;
+
+            let currentPath = [track[0]];
+            
+            // 速度の「バケツ（階級）」を作る関数
+            // 速度範囲を20分割して、色が頻繁に切り替わるのを防ぎ、結合効率を高める
+            const getSpeedBucketColor = (speed) => {
+                const range = maxSpeed - minSpeed || 1;
+                const step = range / 20; // 20段階
+                const bucketSpeed = Math.floor((speed - minSpeed) / step) * step + minSpeed;
+                return getColorForSpeed(bucketSpeed, minSpeed, maxSpeed);
+            };
+            
+            let currentColor = getSpeedBucketColor(track[0].speed || 0);
+
+            for (let i = 1; i < track.length; i++) {
+                const point = track[i];
+                const nextColor = getSpeedBucketColor(point.speed || 0);
+
+                // 色が変わったら、ここまでのパスでPolylineを作成してリセット
+                if (nextColor !== currentColor) {
+                    // 線の途切れを防ぐため、現在のポイントも含めて前のセグメントを閉じる
+                    currentPath.push(point);
+
+                    const segment = new google.maps.Polyline({
+                        path: currentPath,
+                        geodesic: true,
+                        strokeColor: currentColor,
+                        strokeOpacity: 1.0,
+                        strokeWeight: 4,
+                        zIndex: 1 // マーカーより下
+                    });
+                    if (mapInstance) segment.setMap(mapInstance);
+                    lapPolylines.push(segment);
+
+                    // 次のセグメントの開始点（重複させる）
+                    currentPath = [point];
+                    currentColor = nextColor;
+                } else {
+                    currentPath.push(point);
+                }
+            }
+
+            // 最後のセグメントを描画
+            if (currentPath.length > 1) {
                 const segment = new google.maps.Polyline({
-                    path: [startPoint, endPoint],
+                    path: currentPath,
                     geodesic: true,
-                    strokeColor: color,
+                    strokeColor: currentColor,
                     strokeOpacity: 1.0,
                     strokeWeight: 4,
+                    zIndex: 1
                 });
                 if (mapInstance) segment.setMap(mapInstance);
                 lapPolylines.push(segment);
             }
+
             return lapPolylines;
         }
+
         function findSignificantPoints(track, options = {}) {
             const { lookahead = 25, speedChangeThreshold = 4.0, cooldown = 30 } = options;
             const brakingPoints = [];
@@ -361,6 +407,10 @@ window.motopuppuMapViewer = {
                 currentLapData = data.laps[lapIndex];
                 if (!currentLapData || !currentLapData.track || currentLapData.track.length < 2) return;
                 
+                // 修正: API側で生成した軽量な「地図用トラックデータ(map_track)」があれば優先して使用
+                // 無ければ従来どおり詳細データ(track)を使用（互換性維持）
+                const mapTrackData = currentLapData.map_track || currentLapData.track;
+                
                 lapStartTime = currentLapData.track[0]?.runtime || 0;
                 polylines.flat().forEach(p => p.setMap(null));
                 brakingMarkers.flat().forEach(m => m.setMap(null));
@@ -368,18 +418,26 @@ window.motopuppuMapViewer = {
                 if (bikeMarker) bikeMarker.setMap(null);
                 polylines = []; brakingMarkers = []; accelMarkers = [];
 
-                const speeds = currentLapData.track.map(p => p.speed).filter(s => s > 0);
+                // マップのフィットや描画には「軽量データ」を使用する
+                const speeds = mapTrackData.map(p => p.speed).filter(s => s > 0);
                 const minSpeed = speeds.length > 0 ? Math.min(...speeds) : 0;
-                const maxSpeed = currentLapData.track.map(p => p.speed).reduce((max, s) => Math.max(max, s || 0), 0);
+                const maxSpeed = mapTrackData.map(p => p.speed).reduce((max, s) => Math.max(max, s || 0), 0);
+                
                 bounds = new google.maps.LatLngBounds();
-                currentLapData.track.forEach(p => bounds.extend(p));
+                mapTrackData.forEach(p => bounds.extend(p));
                 if (map && !bounds.isEmpty()) { map.fitBounds(bounds); }
-                polylines = drawLapPolyline(currentLapData.track, minSpeed, maxSpeed, map);
+                
+                // 改良されたdrawLapPolylineを使用（バッチ処理・量子化）
+                polylines = drawLapPolyline(mapTrackData, minSpeed, maxSpeed, map);
+                
+                // 分析マーカーやチャートは、引き続き「詳細データ(currentLapData.track)」を使用する
                 const { brakingPoints, accelPoints } = findSignificantPoints(currentLapData.track);
                 const brakingIcon = { path: 'M0,-5 L5,5 L-5,5 Z', fillColor: 'red', fillOpacity: 1.0, strokeWeight: 0, rotation: 180, scale: 0.8, anchor: new google.maps.Point(0, 0) };
                 const accelIcon = { path: 'M0,-5 L5,5 L-5,5 Z', fillColor: 'limegreen', fillOpacity: 1.0, strokeWeight: 0, scale: 0.8, anchor: new google.maps.Point(0, 0) };
                 brakingMarkers = brakingPoints.map(p => createMarker(p, brakingIcon, map));
                 accelMarkers = accelPoints.map(p => createMarker(p, accelIcon, map));
+                
+                // バイクアイコンも詳細データの位置に
                 const bikeIcon = { path: google.maps.SymbolPath.CIRCLE, scale: 5, fillColor: 'yellow', strokeColor: 'black', strokeWeight: 1 };
                 bikeMarker = new google.maps.Marker({ position: currentLapData.track[0], icon: bikeIcon, map: map, zIndex: 100 });
                 
@@ -389,18 +447,16 @@ window.motopuppuMapViewer = {
                 const gearChartCanvas = document.getElementById('gearChart');
 
                 if (canEstimateGear) {
-                    // ▼▼▼【ここから変更】ギア数を動的に取得してY軸の最大値を設定 ▼▼▼
                     const gearKeys = Object.keys(vehicleSpecs.gear_ratios);
                     const maxGear = gearKeys.length > 0
                         ? Math.max(...gearKeys.map(Number))
-                        : 6; // データがない場合のフォールバック値
+                        : 6; 
                     
                     charts.gear = setupChart('gearChart', '使用ギア', 'rgba(255, 159, 64, 1)', 'step', {
                          ticks: { stepSize: 1, callback: function(value) { if (Number.isInteger(value)) { return value; } } },
                          suggestedMin: 1,
                          suggestedMax: maxGear
                     });
-                    // ▲▲▲【変更はここまで】▲▲▲
                     
                     const estimatedGears = currentLapData.track.map(p => estimateGear(p, vehicleSpecs));
                     smoothedGears = applySmoothingFilter(estimatedGears, 5);
