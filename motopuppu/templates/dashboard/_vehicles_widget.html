@@ -14,7 +14,13 @@
                     <li class="list-group-item d-flex justify-content-between align-items-center">
                         <span class="d-flex align-items-center">
                             {% if motorcycle_item.image_url %}
-                                <img src="{{ motorcycle_item.image_url }}" alt="{{ motorcycle_item.name }}" class="vehicle-icon-image me-3">
+                                {# ▼▼▼【ここから変更】loading="lazy" と decoding="async" を追加 ▼▼▼ #}
+                                <img src="{{ motorcycle_item.image_url }}" 
+                                     alt="{{ motorcycle_item.name }}" 
+                                     class="vehicle-icon-image me-3"
+                                     loading="lazy"
+                                     decoding="async">
+                                {# ▲▲▲【変更はここまで】▲▲▲ #}
                             {% endif %}
                             <div>
                                 {% if motorcycle_item.is_default %}<i class="fas fa-star text-warning me-1" title="デフォルト車両"></i>{% endif %}
@@ -26,7 +32,7 @@
                                 {% if motorcycle_item.is_racer %}
                                     <small class="text-info"><i class="fas fa-stopwatch me-1"></i> 総稼働: <strong>{{ "%.2f"|format(motorcycle_item.total_operating_hours if motorcycle_item.total_operating_hours is not none else 0) }}</strong> 時間</small>
                                 {% else %}
-                                    {# ここで辞書から高速にデータを取得 #}
+                                    {# 最新ログ情報の高速表示 #}
                                     {% set log_info = latest_log_info.get(motorcycle_item.id) %}
                                     {% if log_info %}
                                         <small class="text-muted"><i class="fas fa-road me-1"></i> 最新ODO: <strong>{{ log_info.odo | int }}</strong> km ({{ log_info.date.strftime('%Y-%m-%d') }})</small>
