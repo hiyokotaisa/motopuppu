@@ -49,20 +49,81 @@
                 <h2 class="h5 mb-0"><i class="fas fa-edit me-2"></i>出欠を登録・更新する</h2>
             </div>
             <div class="card-body">
-                <p class="small text-muted">初めて登録する方は、お名前と好きなパスコードを入力してください。既に参加登録済みの方は、同じお名前と登録したパスコードを入力することで出欠ステータスを更新したり、参加登録を取り消すことができます。</p>
                 <form method="POST" action="{{ url_for('event.public_event_view', public_id=event.public_id) }}" novalidate>
                     {{ form.hidden_tag() }}
-                    <div class="mb-3">
-                        {{ form.name.label(class="form-label") }}
-                        {{ form.name(class="form-control" + (" is-invalid" if form.name.errors else ""), placeholder="ハンドルネーム等") }}
-                        {% if form.name.errors %}
-                        <div class="invalid-feedback">
-                            {% for error in form.name.errors %}{{ error }}{% endfor %}
-                        </div>
-                        {% endif %}
-                    </div>
                     
-                    {# ▼▼▼【ここから追記】車種入力欄 ▼▼▼ #}
+                    {% if current_user.is_authenticated %}
+                        {# ▼▼▼ ログイン時の表示 ▼▼▼ #}
+                        <div class="alert alert-info d-flex align-items-center">
+                            <div class="me-3">
+                                {% if current_user.avatar_url %}
+                                <img src="{{ current_user.avatar_url }}" class="rounded-circle" width="48" height="48" alt="Avatar">
+                                {% else %}
+                                <i class="fas fa-user-circle fa-3x text-secondary"></i>
+                                {% endif %}
+                            </div>
+                            <div>
+                                <h5 class="alert-heading mb-0 h6">ログイン中: <strong>{{ current_user.display_name or current_user.misskey_username }}</strong></h5>
+                                <small>このアカウントとして参加登録します。名前とパスコードの入力は不要です。</small>
+                            </div>
+                        </div>
+
+                        {# 隠しフィールドとしての名前・パスコード（通常は空で送信される） #}
+                        <div class="d-none">
+                            {{ form.name(value=current_user.display_name or current_user.misskey_username) }}
+                            {{ form.passcode() }}
+                        </div>
+
+                        {# ゲスト統合機能のトグル #}
+                        <div class="mb-3">
+                            <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="collapse" data-bs-target="#guestClaimCollapse" aria-expanded="false" aria-controls="guestClaimCollapse">
+                                <i class="fas fa-link me-1"></i>過去にゲストとして登録したデータをこのアカウントに紐付ける
+                            </button>
+                            <div class="collapse mt-2" id="guestClaimCollapse">
+                                <div class="card card-body bg-light">
+                                    <small class="text-muted mb-2 d-block">以前、ログインせずに登録した「名前」と「パスコード」を入力して更新すると、過去のデータを削除し、あなたのアカウントとして統合します。</small>
+                                    <div class="row g-2">
+                                        <div class="col-md-6">
+                                            {# ▼▼▼【変更】name属性を claim_name に変更 ▼▼▼ #}
+                                            <input type="text" name="claim_name" class="form-control form-control-sm" placeholder="ゲスト登録時の名前">
+                                            {# ▲▲▲【変更】ここまで ▲▲▲ #}
+                                        </div>
+                                        <div class="col-md-6">
+                                            {# ▼▼▼【変更】name属性を claim_passcode に変更 ▼▼▼ #}
+                                            <input type="password" name="claim_passcode" class="form-control form-control-sm" placeholder="ゲスト登録時のパスコード">
+                                            {# ▲▲▲【変更】ここまで ▲▲▲ #}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    {% else %}
+                        {# ▼▼▼ ゲスト時の表示 (既存のフォーム要素を表示) ▼▼▼ #}
+                        <p class="small text-muted">初めて登録する方は、お名前と好きなパスコードを入力してください。<a href="{{ url_for('auth.login', next=request.url) }}">ログイン</a>すると、入力の手間が省けます。</p>
+                        
+                        <div class="mb-3">
+                            {{ form.name.label(class="form-label") }} <span class="badge bg-danger ms-1">必須</span>
+                            {{ form.name(class="form-control" + (" is-invalid" if form.name.errors else ""), placeholder="ハンドルネーム等") }}
+                            {% if form.name.errors %}
+                            <div class="invalid-feedback">
+                                {% for error in form.name.errors %}{{ error }}{% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            {{ form.passcode.label(class="form-label") }} <span class="badge bg-danger ms-1">必須</span>
+                            {{ form.passcode(class="form-control" + (" is-invalid" if form.passcode.errors else ""), placeholder="4文字以上で設定") }}
+                            <div class="form-text">出欠ステータスを変更する際に必要になります。</div>
+                            {% if form.passcode.errors %}
+                            <div class="invalid-feedback">
+                                {% for error in form.passcode.errors %}{{ error }}{% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                    
                     <div class="mb-3">
                         {{ form.vehicle_name.label(class="form-label") }}
                         {{ form.vehicle_name(class="form-control" + (" is-invalid" if form.vehicle_name.errors else "")) }}
@@ -72,7 +133,6 @@
                         </div>
                         {% endif %}
                     </div>
-                    {# ▲▲▲【追記ここまで】▲▲▲ #}
 
                     <div class="mb-3">
                         {{ form.comment.label(class="form-label") }}
@@ -83,20 +143,9 @@
                         </div>
                         {% endif %}
                     </div>
-                    
-                    <div class="mb-3">
-                        {{ form.passcode.label(class="form-label") }}
-                        {{ form.passcode(class="form-control" + (" is-invalid" if form.passcode.errors else ""), placeholder="4文字以上で設定") }}
-                        <div class="form-text">出欠ステータスを変更、または参加を取り消す際に必要になります。忘れないようにしてください。</div>
-                        {% if form.passcode.errors %}
-                        <div class="invalid-feedback">
-                            {% for error in form.passcode.errors %}{{ error }}{% endfor %}
-                        </div>
-                        {% endif %}
-                    </div>
 
                     <div class="mb-3">
-                        {{ form.status.label(class="form-label") }}
+                        {{ form.status.label(class="form-label") }} <span class="badge bg-danger ms-1">必須</span>
                         <div class="btn-group w-100" role="group" aria-label="Participation status">
                            {% for subfield in form.status %}
                             <input type="radio" class="btn-check" name="{{ subfield.name }}" id="{{ subfield.id }}" value="{{ subfield.data }}" {% if subfield.checked %}checked{% endif %}>
@@ -121,7 +170,57 @@
             </div>
         </div>
 
-        {# --- 参加状況リスト --- #}
+        {# --- 参加状況リスト (マクロ) --- #}
+        {% macro render_participant_list(participants, badge_class, badge_text, border_class) %}
+        {% if participants %}
+        <div class="list-group list-group-flush mb-3">
+            {% for p in participants %}
+            <div class="list-group-item px-0 py-2">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center">
+                        {# ▼▼▼ アイコン表示 ▼▼▼ #}
+                        <div class="me-3">
+                            {% if p.user and p.user.avatar_url %}
+                            <img src="{{ p.user.avatar_url }}" class="rounded-circle" width="40" height="40" alt="Avatar">
+                            {% else %}
+                            <div class="bg-light rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                <i class="fas fa-user text-secondary"></i>
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <div>
+                            <span class="fw-bold">
+                                {{ p.name }}
+                                {# ▼▼▼ 認証バッジ ▼▼▼ #}
+                                {% if p.user_id %}
+                                <i class="fas fa-check-circle text-primary ms-1" title="認証済みユーザー"></i>
+                                {% endif %}
+                            </span>
+                            
+                            {% if p.vehicle_name %}
+                            <div class="small text-muted">
+                                <i class="fas fa-motorcycle me-1"></i>{{ p.vehicle_name }}
+                            </div>
+                            {% endif %}
+                            
+                            {% if p.comment %}
+                            <div class="small text-muted mt-1 ms-2 border-start border-3 {{ border_class }} ps-2">
+                                {{ p.comment }}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <span class="badge {{ badge_class }} rounded-pill">{{ badge_text }}</span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-muted">まだいません</p>
+        {% endif %}
+        {% endmacro %}
+
         <div class="card">
             <div class="card-header">
                 <h2 class="h5 mb-0"><i class="fas fa-users me-2"></i>現在の参加状況</h2>
@@ -130,93 +229,21 @@
                 <h6 class="card-subtitle mb-2 text-success">
                     <i class="fas fa-check-circle me-1"></i> 参加 ({{ participants_attending|length }}名)
                 </h6>
-                {% if participants_attending %}
-                <div class="list-group list-group-flush mb-3">
-                    {% for p in participants_attending %}
-                    <div class="list-group-item px-0 py-2">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <span class="fw-bold">{{ p.name }}</span>
-                                {# ▼▼▼【ここから追記】車種表示 ▼▼▼ #}
-                                {% if p.vehicle_name %}
-                                <div class="small text-muted">
-                                    <i class="fas fa-motorcycle me-1"></i>{{ p.vehicle_name }}
-                                </div>
-                                {% endif %}
-                                {# ▲▲▲【追記ここまで】▲▲▲ #}
-                                {% if p.comment %}
-                                <div class="small text-muted mt-1 ms-2 border-start border-3 border-success ps-2">
-                                    {{ p.comment }}
-                                </div>
-                                {% endif %}
-                            </div>
-                            <span class="badge bg-success rounded-pill">参加</span>
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
-                {% else %}
-                <p class="text-muted">まだいません</p>
-                {% endif %}
+                {{ render_participant_list(participants_attending, 'bg-success', '参加', 'border-success') }}
 
                 <hr>
 
                 <h6 class="card-subtitle mb-2 text-warning">
                     <i class="fas fa-question-circle me-1"></i> 保留 ({{ participants_tentative|length }}名)
                 </h6>
-                {% if participants_tentative %}
-                <div class="list-group list-group-flush mb-3">
-                    {% for p in participants_tentative %}
-                    <div class="list-group-item px-0 py-2">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <span class="fw-bold">{{ p.name }}</span>
-                                {% if p.vehicle_name %}
-                                <div class="small text-muted">
-                                    <i class="fas fa-motorcycle me-1"></i>{{ p.vehicle_name }}
-                                </div>
-                                {% endif %}
-                                {% if p.comment %}
-                                <div class="small text-muted mt-1 ms-2 border-start border-3 border-warning ps-2">
-                                    {{ p.comment }}
-                                </div>
-                                {% endif %}
-                            </div>
-                            <span class="badge bg-warning text-dark rounded-pill">保留</span>
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
-                {% else %}
-                <p class="text-muted">まだいません</p>
-                {% endif %}
+                {{ render_participant_list(participants_tentative, 'bg-warning text-dark', '保留', 'border-warning') }}
 
                 <hr>
 
                 <h6 class="card-subtitle mb-2 text-secondary">
                     <i class="fas fa-times-circle me-1"></i> 不参加 ({{ participants_not_attending|length }}名)
                 </h6>
-                 {% if participants_not_attending %}
-                 <div class="list-group list-group-flush mb-3">
-                    {% for p in participants_not_attending %}
-                    <div class="list-group-item px-0 py-2">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <span class="fw-bold">{{ p.name }}</span>
-                                {% if p.comment %}
-                                <div class="small text-muted mt-1 ms-2 border-start border-3 border-secondary ps-2">
-                                    {{ p.comment }}
-                                </div>
-                                {% endif %}
-                            </div>
-                            <span class="badge bg-secondary rounded-pill">不参加</span>
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
-                {% else %}
-                <p class="text-muted">まだいません</p>
-                {% endif %}
+                {{ render_participant_list(participants_not_attending, 'bg-secondary', '不参加', 'border-secondary') }}
             </div>
         </div>
 

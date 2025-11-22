@@ -1,22 +1,22 @@
 こんにちは、Gemini。Flask Webアプリケーション「もとぷっぷー」の開発支援をお願いします。
 
-### **1.  プロジェクト概要**
+### **1.  プロジェクト概要**
 
 * **名称**: もとぷっぷー
 * **目的**: オートバイ所有者向けの車両情報、燃費、整備記録、リマインダー、メモ管理、実績、**そして活動・セッティング記録**Webアプリ。公道走行車両に加え、レーサーやモトクロッサーといった競技用車両の管理にも対応。
 * **認証**: Misskey MiAuth
 
-### **2.  主要技術スタック**
+### **2.  主要技術スタック**
 
 * **バックエンド**: Python, Flask, SQLAlchemy, PostgreSQL (本番: Render)
-* **フロントエンド**: Jinja2, Bootstrap 5, JavaScript
+* **フロントエンド**: Jinja2, Bootstrap 5, JavaScript, **HTMX**
 * **フォーム処理**: Flask-WTF (バリデーション、CSRF対策)
 * **DBマイグレーション**: Flask-Migrate (Alembic)
 * **デプロイ**: Render (Gunicorn)
 * **開発環境**: Podman (Mac/Fedora), Python venv
-* **その他**: python-dotenv, requests, python-dateutil, zoneinfo (Python 3.9+)
+* **その他**: python-dotenv, requests, python-dateutil, zoneinfo (Python 3.9+), **Cloudflare (CDN)**
 
-### **3.  アーキテクチャ・構成**
+### **3.  アーキテクチャ・構成**
 
 * 標準的なFlask構成（アプリケーションファクトリ使用）。
 * 機能ごとにBlueprintを使用 (auth, main, vehicle, fuel, maintenance, notes, achievements, **activity** など)。
@@ -26,54 +26,54 @@
 * `templates/`, `static/` ディレクトリ。
 * **グローバルな車両リストの読み込み**: `@before_request` ハンドラで、ログインユーザーの車両リストを `g.user_motorcycles` に格納し、ナビゲーションバーのドロップダウンメニューで使用。
 
-### **4.  主要な実装済み機能**
+### **4.  主要な実装済み機能**
 
 * ユーザー認証 (Misskey MiAuth, ローカル開発用ログイン)
 * 車両管理 (CRUD, 複数対応、デフォルト設定)
-    * **レーサー車両と公道車両の区別** (総稼働時間またはODOメーターでの管理)
+    * **レーサー車両と公道車両の区別** (総稼働時間またはODOメーターでの管理)
 * ODOメーターリセット機能 (公道車両向けCRUD)
 * 給油記録 (公道車両向けCRUD, ログ表示, フィルター/ソート, CSVエクスポート)
 * 整備記録 (公道車両向けCRUD, ログ表示, フィルター/ソート, CSVエクスポート)
 * ノート (CRUD、カテゴリ別[ノート/タスクリスト], ログ表示, フィルター)
 * メンテナンスリマインダー (CRUD)
 * ダッシュボード (統計概要, FullCalendar表示, フィルター機能)
+    * **パフォーマンス最適化済み**: N+1問題の解消、Gunicornスレッド化、HTMXによる遅延読み込み、Cloudflare導入。
 * 実績機能 (イベントドリブンな解除、遡及処理用CLIコマンド)
 * Misskey共有機能
 * **活動ログ & セッティングシート機能 (ベータ版):**
-    * **目的:** サーキット走行やツーリングなど、特定の活動における車両セッティングとパフォーマンスを記録・管理。
-    * **対象:** **公道・レーサーを問わず全車両で利用可能。**
-    * **`SettingSheet` (セッティングシート):**
-        * サスペンション、タイヤ等のセットアップ情報を「テンプレート」として名前を付けて保存 (CRUD)。
-        * アーカイブ（論理削除）機能。
-        * JavaScriptによる動的フォームで、記録したいカテゴリ（サス、タイヤ等）を自由に追加・削除可能。データはJSONBで柔軟に保存。
-    * **`ActivityLog` (活動ログ):**
-        * 「7/5の走行会」のように、日付や場所、天候といった1日の活動をまとめるコンテナとして記録 (CRUD)。
-    * **`SessionLog` (セッションログ):**
-        * 活動ログの中で、「1本目」「2本目」のような個別の走行セッションを記録 (CRUD)。
-        * セッションごとに、作成済みの`SettingSheet`を選択して紐付け。
-        * ライダーの所感や、車両タイプに応じた走行前後のODO/稼働時間を記録。
-    * **UI/UX:**
-        * ナビゲーションバーの「活動ログ」から、ドロップダウンメニューで直接各車両の活動ログ一覧へアクセス可能。
+    * **目的:** サーキット走行やツーリングなど、特定の活動における車両セッティングとパフォーマンスを記録・管理。
+    * **対象:** **公道・レーサーを問わず全車両で利用可能。**
+    * **`SettingSheet` (セッティングシート):**
+        * サスペンション、タイヤ等のセットアップ情報を「テンプレート」として名前を付けて保存 (CRUD)。
+        * アーカイブ（論理削除）機能。
+        * JavaScriptによる動的フォームで、記録したいカテゴリ（サス、タイヤ等）を自由に追加・削除可能。データはJSONBで柔軟に保存。
+    * **`ActivityLog` (活動ログ):**
+        * 「7/5の走行会」のように、日付や場所、天候といった1日の活動をまとめるコンテナとして記録 (CRUD)。
+    * **`SessionLog` (セッションログ):**
+        * 活動ログの中で、「1本目」「2本目」のような個別の走行セッションを記録 (CRUD)。
+        * セッションごとに、作成済みの`SettingSheet`を選択して紐付け。
+        * ライダーの所感や、車両タイプに応じた走行前後のODO/稼働時間を記録。
+    * **UI/UX:**
+        * ナビゲーションバーの「活動ログ」から、ドロップダウンメニューで直接各車両の活動ログ一覧へアクセス可能。
 
-### **5.  現在の状況・課題 [毎回更新]**
+### **5.  現在の状況・課題 [毎回更新]**
 
 * **マイグレーション:**
-    * **直近の作業で、多数存在したマイグレーションファイルを単一のファイルに統合済み。**
-    * 開発環境・本番環境ともに、`flask db stamp head` コマンド等を用いて最新のスキーマ状態に更新済み。
-    * **最新リビジョン: `e391d758c56d` (Initial consolidated migration from existing models)**
+    * **直近の作業で、多数存在したマイグレーションファイルを単一のファイルに統合済み。**
+    * 開発環境・本番環境ともに、`flask db stamp head` コマンド等を用いて最新のスキーマ状態に更新済み。
+    * **最新リビジョン: `e391d758c56d` (Initial consolidated migration from existing models)**
 
 * **直近の作業 (完了済み):**
-    * **DBマイグレーション履歴の統合:** 開発・本番環境のDBを維持したまま、Alembicのバージョン情報のみを最新化。
-    * **`VehicleForm`の修正:** `models.py`の`Motorcycle`モデルとの不整合を解消し、車両登録・編集機能のエラーを修正。
+    * **パフォーマンス改善:** ダッシュボードおよび給油・整備記録一覧におけるN+1問題の解消。HTMXを用いたダッシュボードウィジェット（統計、タイムライン、車両リスト）の遅延読み込み実装。Cloudflareの導入。
 
 * **現在の課題・改善点:**
-    * a. **テストコードの拡充:** 活動ログ機能群に対する単体テスト・結合テストの作成が急務。
-    * b. **活動ログ機能のUI/UX改善:** ラップタイムの入力・表示UI、セッティングシートの複製機能など、より使いやすくするための改善。
-    * c. **レーサー車両向け機能の拡充:** 稼働時間ベースの**整備記録**機能。
-    * d. **重要コンポーネントのライフサイクル管理:** セッションログのデータを活用した、より精度の高い部品寿命の追跡機能。
-    * e. **その他既存の課題:** CSRF対策の精査、DB制約の見直し、リファクタリングなど。
+    * a. **テストコードの拡充:** 活動ログ機能群に対する単体テスト・結合テストの作成が急務。
+    * b. **活動ログ機能のUI/UX改善:** ラップタイムの入力・表示UI、セッティングシートの複製機能など、より使いやすくするための改善。
+    * c. **レーサー車両向け機能の拡充:** 稼働時間ベースの**整備記録**機能。
+    * d. **重要コンポーネントのライフサイクル管理:** セッションログのデータを活用した、より精度の高い部品寿命の追跡機能。
+    * e. **その他既存の課題:** CSRF対策の精査、DB制約の見直し、リファクタリングなど。
 
-### **6.  現在のプロジェクトディレクトリ:**
+### **6.  現在のプロジェクトディレクトリ:**
 
 kyagisaw@kyagisaw-mac motopuppu % tree
 .
@@ -82,499 +82,499 @@ kyagisaw@kyagisaw-mac motopuppu % tree
 ├── Dockerfile
 ├── download_emojis.py
 ├── drafts
-│   ├── gemini_prompt.txt
-│   └── racer_draft.md
+│   ├── gemini_prompt.txt
+│   └── racer_draft.md
 ├── fonts
-│   └── ipaexg.ttf
+│   └── ipaexg.ttf
 ├── instance
 ├── LICENSE
 ├── migrations
-│   ├── alembic.ini
-│   ├── env.py
-│   ├── README
-│   ├── script.py.mako
-│   └── versions
-│       ├── 008bd7bcf7a1_add_garage_display_settings_to_user_.py
-│       ├── 2b2e0801467f_add_has_completed_tutorial_to_user_model.py
-│       ├── 309af67c371a_add_primary_and_gear_ratios_to_.py
-│       ├── 572a08fb9691_add_comment_column_to_event_participant.py
-│       ├── 65cb43e34218_add_team_models_for_team_functionality.py
-│       ├── 856cf992fcd9_add_vehicle_name_to_event_participant.py
-│       ├── 8ffa50023b83_add_gps_tracks_to_sessionlog.py
-│       ├── bf41f9654c05_add_usercircuittarget_model_for_target_.py
-│       ├── c24550546f19_add_nyanpuppu_simple_mode_to_user_model.py
-│       ├── cd3f0707d765_add_snooze_and_dismiss_fields_to_.py
-│       ├── cd8c6f685e48_add_share_with_teams_to_activitylog.py
-│       ├── e391d758c56d_initial_consolidated_migration_from_.py
-│       ├── e41c7c921b61_add_public_share_fields_to_sessionlog.py
-│       └── eb1d1f1f5d2a_add_is_archived_to_motorcycle.py
+│   ├── alembic.ini
+│   ├── env.py
+│   ├── README
+│   ├── script.py.mako
+│   └── versions
+│       ├── 008bd7bcf7a1_add_garage_display_settings_to_user_.py
+│       ├── 2b2e0801467f_add_has_completed_tutorial_to_user_model.py
+│       ├── 309af67c371a_add_primary_and_gear_ratios_to_.py
+│       ├── 572a08fb9691_add_comment_column_to_event_participant.py
+│       ├── 65cb43e34218_add_team_models_for_team_functionality.py
+│       ├── 856cf992fcd9_add_vehicle_name_to_event_participant.py
+│       ├── 8ffa50023b83_add_gps_tracks_to_sessionlog.py
+│       ├── bf41f9654c05_add_usercircuittarget_model_for_target_.py
+│       ├── c24550546f19_add_nyanpuppu_simple_mode_to_user_model.py
+│       ├── cd3f0707d765_add_snooze_and_dismiss_fields_to_.py
+│       ├── cd8c6f685e48_add_share_with_teams_to_activitylog.py
+│       ├── e391d758c56d_initial_consolidated_migration_from_.py
+│       ├── e41c7c921b61_add_public_share_fields_to_sessionlog.py
+│       └── eb1d1f1f5d2a_add_is_archived_to_motorcycle.py
 ├── motopuppu
-│   ├── __init__.py
-│   ├── achievement_evaluator.py
-│   ├── achievements_utils.py
-│   ├── constants.py
-│   ├── forms.py
-│   ├── manage_commands.py
-│   ├── models.py
-│   ├── nyanpuppu.py
-│   ├── parsers
-│   │   ├── __init__.py
-│   │   ├── base_parser.py
-│   │   ├── drogger_parser.py
-│   │   ├── mylaps_parser.py
-│   │   ├── simple_csv_parser.py
-│   │   └── ziix_parser.py
-│   ├── services.py
-│   ├── static
-│   │   ├── css
-│   │   │   ├── garage_themes
-│   │   │   │   ├── theme_adventure.css
-│   │   │   │   ├── theme_classic.css
-│   │   │   │   ├── theme_cyber.css
-│   │   │   │   ├── theme_dark.css
-│   │   │   │   ├── theme_default.css
-│   │   │   │   ├── theme_minimal.css
-│   │   │   │   ├── theme_racing.css
-│   │   │   │   └── theme_retro.css
-│   │   │   └── style.css
-│   │   ├── favicons
-│   │   │   ├── apple-touch-icon.png
-│   │   │   ├── favicon-96x96.png
-│   │   │   ├── favicon.ico
-│   │   │   ├── favicon.svg
-│   │   │   ├── web-app-manifest-192x192.png
-│   │   │   └── web-app-manifest-512x512.png
-│   │   ├── images
-│   │   │   ├── blobcat_8bit.webp
-│   │   │   └── nyanpuppu
-│   │   │       ├── ablobcat_cheer.gif
-│   │   │       ├── ablobcat_eieiou.gif
-│   │   │       ├── ablobcat_friedrice_superpro.gif
-│   │   │       ├── ablobcat_fumi.gif
-│   │   │       ├── ablobcat_kaiten.gif
-│   │   │       ├── ablobcat_negi.gif
-│   │   │       ├── ablobcat_nyanpuppu_to_be_continued.gif
-│   │   │       ├── ablobcat_snowshoveling.apng
-│   │   │       ├── ablobcat_stack.webp
-│   │   │       ├── ablobcat_wave.gif
-│   │   │       ├── ablobcat_wavingtowel.apng
-│   │   │       ├── ablobcatangel.png
-│   │   │       ├── ablobcatblink.gif
-│   │   │       ├── ablobcatblinkhyper.gif
-│   │   │       ├── ablobcatcoffee.apng
-│   │   │       ├── ablobcatcomfy_raincoat.apng
-│   │   │       ├── ablobcatcryingcute.apng
-│   │   │       ├── ablobcatfloofpat.gif
-│   │   │       ├── ablobcatheadbangfastultra.gif
-│   │   │       ├── ablobcatlowpoly_spin.webp
-│   │   │       ├── ablobcatnodmeltcry.webp
-│   │   │       ├── ablobcatphotobomb.gif
-│   │   │       ├── ablobcatreachflip.apng
-│   │   │       ├── ablobcatsnowjoy.gif
-│   │   │       ├── ablobcatsweatsip.apng
-│   │   │       ├── ablobcatwave.apng
-│   │   │       ├── ablobcatwhackyfast.gif
-│   │   │       ├── ai_blobcat.png
-│   │   │       ├── blobcat_8bit_sleep.gif
-│   │   │       ├── blobcat_8bit_spin.gif
-│   │   │       ├── blobcat_8bit.gif
-│   │   │       ├── blobcat_abdominal.png
-│   │   │       ├── blobcat_achitoke.png
-│   │   │       ├── blobcat_ago.png
-│   │   │       ├── blobcat_airi.png
-│   │   │       ├── blobcat_alien.png
-│   │   │       ├── blobcat_aluminium_foil.png
-│   │   │       ├── blobcat_aomuke.webp
-│   │   │       ├── blobcat_aris.png
-│   │   │       ├── blobcat_arrive.webp
-│   │   │       ├── blobcat_aseri.png
-│   │   │       ├── blobcat_aseri2.png
-│   │   │       ├── blobcat_asterisk.png
-│   │   │       ├── blobcat_back_lat_spread.png
-│   │   │       ├── blobcat_back.png
-│   │   │       ├── blobcat_beer_drinking.gif
-│   │   │       ├── blobcat_beer_vendor.webp
-│   │   │       ├── blobcat_beer.gif
-│   │   │       ├── blobcat_binoculars.webp
-│   │   │       ├── blobcat_bubbly.png
-│   │   │       ├── blobcat_cactus.png
-│   │   │       ├── blobcat_cactusback.apng
-│   │   │       ├── blobcat_cactusrun.apng
-│   │   │       ├── blobcat_camera_35mm_film.webp
-│   │   │       ├── blobcat_camera_compact_digital_old.webp
-│   │   │       ├── blobcat_camera_compact_digital.webp
-│   │   │       ├── blobcat_camera_dslr_af_lens.webp
-│   │   │       ├── blobcat_camera_dslr_mf_lens.webp
-│   │   │       ├── blobcat_camera_dual_lens_reflex_80mm.webp
-│   │   │       ├── blobcat_camera_large_aperture_lens_50mm.webp
-│   │   │       ├── blobcat_camera_large_format.webp
-│   │   │       ├── blobcat_camera_monopod_fluid_head.webp
-│   │   │       ├── blobcat_camera_small_aperture_lens_28mm.webp
-│   │   │       ├── blobcat_camera_standard_lens_50mm_square_body.webp
-│   │   │       ├── blobcat_camera_standard_zoom_lens.webp
-│   │   │       ├── blobcat_camera_super_telephoto_lens.webp
-│   │   │       ├── blobcat_camera_super_telephoto_zoom_lens.webp
-│   │   │       ├── blobcat_camera_telephoto_zoom_lens.webp
-│   │   │       ├── blobcat_camera_tripod_3way_head.webp
-│   │   │       ├── blobcat_camera_tripod_ball_head.webp
-│   │   │       ├── blobcat_camera_tripod_fluid_head.webp
-│   │   │       ├── blobcat_camera_tripod_travel_ball_head.webp
-│   │   │       ├── blobcat_catched.webp
-│   │   │       ├── blobcat_caudex_jumbo.webp
-│   │   │       ├── blobcat_caudex.webp
-│   │   │       ├── blobcat_cheering.gif
-│   │   │       ├── blobcat_chiikineko.png
-│   │   │       ├── blobcat_constellation.png
-│   │   │       ├── blobcat_courier.png
-│   │   │       ├── blobcat_daisuki.webp
-│   │   │       ├── blobcat_dotadota_run.webp
-│   │   │       ├── blobcat_double_biceps.png
-│   │   │       ├── blobcat_doya.png
-│   │   │       ├── blobcat_drawing.apng
-│   │   │       ├── blobcat_drink_water.png
-│   │   │       ├── blobcat_eating.png
-│   │   │       ├── blobcat_eri.png
-│   │   │       ├── blobcat_finger_beam.gif
-│   │   │       ├── blobcat_firework.webp
-│   │   │       ├── blobcat_fishing.png
-│   │   │       ├── blobcat_frustration.png
-│   │   │       ├── blobcat_fun.apng
-│   │   │       ├── blobcat_fury.png
-│   │   │       ├── blobcat_fuuka.png
-│   │   │       ├── blobcat_giko.png
-│   │   │       ├── blobcat_goz.webp
-│   │   │       ├── blobcat_gu1.webp
-│   │   │       ├── blobcat_guitar.png
-│   │   │       ├── blobcat_guruguru.png
-│   │   │       ├── blobcat_hamigaki.png
-│   │   │       ├── blobcat_hina.png
-│   │   │       ├── blobcat_hip.png
-│   │   │       ├── blobcat_hipjumping.gif
-│   │   │       ├── blobcat_hopping.webp
-│   │   │       ├── blobcat_i_love_yokohama.webp
-│   │   │       ├── blobcat_icebar.png
-│   │   │       ├── blobcat_igyo.png
-│   │   │       ├── blobcat_ikaku.webp
-│   │   │       ├── blobcat_in_cardboard.webp
-│   │   │       ├── blobcat_izumi.png
-│   │   │       ├── blobcat_ja_teru2bouzu.png
-│   │   │       ├── blobcat_japanesecake.png
-│   │   │       ├── blobcat_jason.png
-│   │   │       ├── blobcat_jelly.png
-│   │   │       ├── blobcat_jeweled.png
-│   │   │       ├── blobcat_junnko.webp
-│   │   │       ├── blobcat_kasiwamoti.png
-│   │   │       ├── blobcat_katahaba.png
-│   │   │       ├── blobcat_kazusa.png
-│   │   │       ├── blobcat_kokuriko.png
-│   │   │       ├── blobcat_kowaii.png
-│   │   │       ├── blobcat_kuroutoshu.apng
-│   │   │       ├── blobcat_leave.gif
-│   │   │       ├── blobcat_lemon_kaketeagemasyoune.webp
-│   │   │       ├── blobcat_magic.png
-│   │   │       ├── blobcat_makeup.gif
-│   │   │       ├── blobcat_manmaru.png
-│   │   │       ├── blobcat_mary.png
-│   │   │       ├── blobcat_melting.webp
-│   │   │       ├── blobcat_meow_headache.png
-│   │   │       ├── blobcat_meow_ponponpain.png
-│   │   │       ├── blobcat_meow_sitasimaiwasure.png
-│   │   │       ├── blobcat_midori.png
-│   │   │       ├── blobcat_mike.png
-│   │   │       ├── blobcat_mikensiwa.png
-│   │   │       ├── blobcat_missile_lancher.png
-│   │   │       ├── blobcat_modoki.webp
-│   │   │       ├── blobcat_mogumogu_popcorn.gif
-│   │   │       ├── blobcat_mogumogu.gif
-│   │   │       ├── blobcat_momoi.png
-│   │   │       ├── blobcat_monaa.png
-│   │   │       ├── blobcat_moraler.png
-│   │   │       ├── blobcat_most_muscular.png
-│   │   │       ├── blobcat_mudamudamuda.apng
-│   │   │       ├── blobcat_mukimuki.png
-│   │   │       ├── blobcat_murakamisan_blush.png
-│   │   │       ├── blobcat_murakamisan_coffee.png
-│   │   │       ├── blobcat_murakamisan_letterpack.png
-│   │   │       ├── blobcat_murakamisan_no.png
-│   │   │       ├── blobcat_murakamisan_yes.png
-│   │   │       ├── blobcat_nemunemu.png
-│   │   │       ├── blobcat_new_beginning.webp
-│   │   │       ├── blobcat_niko_hohoemi.png
-│   │   │       ├── blobcat_ninja.webp
-│   │   │       ├── blobcat_niya.png
-│   │   │       ├── blobcat_nomming.gif
-│   │   │       ├── blobcat_normal.png
-│   │   │       ├── blobcat_nyanpu_tyan.gif
-│   │   │       ├── blobcat_ohayo.png
-│   │   │       ├── blobcat_ohuton_haide_agemasyou_ne.webp
-│   │   │       ├── blobcat_ohuton_kakete_agemasyoune.webp
-│   │   │       ├── blobcat_ok_sign.png
-│   │   │       ├── blobcat_omelette.png
-│   │   │       ├── blobcat_omusubi.png
-│   │   │       ├── blobcat_oniku.gif
-│   │   │       ├── blobcat_orangemushroom.webp
-│   │   │       ├── blobcat_ota.png
-│   │   │       ├── blobcat_outen.webp
-│   │   │       ├── blobcat_oyasumi.png
-│   │   │       ├── blobcat_pacifier.gif
-│   │   │       ├── blobcat_peace_sign.PNG
-│   │   │       ├── blobcat_pity.webp
-│   │   │       ├── blobcat_pointing_at_the_viewer.png
-│   │   │       ├── blobcat_push_button.webp
-│   │   │       ├── blobcat_rainbowspew.png
-│   │   │       ├── blobcat_rakugaki_face.webp
-│   │   │       ├── blobcat_rakugaki.webp
-│   │   │       ├── blobcat_redcomet.webp
-│   │   │       ├── blobcat_reindeer.png
-│   │   │       ├── blobcat_rider.gif
-│   │   │       ├── blobcat_rin_sweat.webp
-│   │   │       ├── blobcat_rin_tekateka.webp
-│   │   │       ├── blobcat_running.gif
-│   │   │       ├── blobcat_selfie.png
-│   │   │       ├── blobcat_sentou_with_murakamisan_tutinoko.png
-│   │   │       ├── blobcat_shixi.png
-│   │   │       ├── blobcat_shocking.png
-│   │   │       ├── blobcat_shopping_paperbag.png
-│   │   │       ├── blobcat_shopping_plasticbag.png
-│   │   │       ├── blobcat_shower.png
-│   │   │       ├── blobcat_siamese.png
-│   │   │       ├── blobcat_sign.png
-│   │   │       ├── blobcat_sing.png
-│   │   │       ├── blobcat_sing2.png
-│   │   │       ├── blobcat_sleep_with_blahaj.png
-│   │   │       ├── blobcat_smile_face.webp
-│   │   │       ├── blobcat_stand.gif
-│   │   │       ├── blobcat_step.gif
-│   │   │       ├── blobcat_strawhat.png
-│   │   │       ├── blobcat_swim.png
-│   │   │       ├── blobcat_syuro.png
-│   │   │       ├── blobcat_taremimi_anger.png
-│   │   │       ├── blobcat_taremimi_sad.png
-│   │   │       ├── blobcat_taremimi_smile.png
-│   │   │       ├── blobcat_taremimi.png
-│   │   │       ├── blobcat_tereru.png
-│   │   │       ├── blobcat_thumbsup.png
-│   │   │       ├── blobcat_transparent.webp
-│   │   │       ├── blobcat_transport_delivery.webp
-│   │   │       ├── blobcat_transport_gift.png
-│   │   │       ├── blobcat_transport_murakamisan_tutinoko.png
-│   │   │       ├── blobcat_transport.png
-│   │   │       ├── blobcat_unyanpuppu.png
-│   │   │       ├── blobcat_usachan_pouch.webp
-│   │   │       ├── blobcat_uwu.png
-│   │   │       ├── blobcat_wind_chime.gif
-│   │   │       ├── blobcat_woozy.png
-│   │   │       ├── blobcat_yankee.gif
-│   │   │       ├── blobcat_yay.apng
-│   │   │       ├── blobcat_yaysuperfast.apng
-│   │   │       ├── blobcat_yoyuunoemi.webp
-│   │   │       ├── blobcat_yuzu.png
-│   │   │       ├── blobcat_zehhutyou.webp
-│   │   │       ├── blobcat_zekkoutyou.webp
-│   │   │       ├── blobcat_ziainokaitou.png
-│   │   │       ├── blobcat.png
-│   │   │       ├── blobcataco.png
-│   │   │       ├── blobcatartist.png
-│   │   │       ├── blobcataww.png
-│   │   │       ├── blobcatawwpat.gif
-│   │   │       ├── blobcatbigsob.png
-│   │   │       ├── blobcatblack_delicious.png
-│   │   │       ├── blobcatblack_devil.png
-│   │   │       ├── blobcatblack_harapeko.png
-│   │   │       ├── blobcatblack_love.png
-│   │   │       ├── blobcatblack_nemu.png
-│   │   │       ├── blobcatblack.png
-│   │   │       ├── blobcatboopblush.png
-│   │   │       ├── blobcatchocolatemint.png
-│   │   │       ├── blobcatcofesip.png
-│   │   │       ├── blobcatcomfy_bodywash.webp
-│   │   │       ├── blobcatcomfy.png
-│   │   │       ├── blobcatconfounded.png
-│   │   │       ├── blobcatcozynyap.png
-│   │   │       ├── blobcatdroolreach.png
-│   │   │       ├── blobcatevil.png
-│   │   │       ├── blobcatflip.png
-│   │   │       ├── blobcatfluffpout.png
-│   │   │       ├── blobcatgabigabi.webp
-│   │   │       ├── blobcatgooglytrash.png
-│   │   │       ├── blobcatheartbongo.gif
-│   │   │       ├── blobcatkiss.png
-│   │   │       ├── blobcatmeataww.png
-│   │   │       ├── blobcatmeltlove.png
-│   │   │       ├── blobcatmeltnomblobcatmelt.png
-│   │   │       ├── blobcatmeow_teary_eyed.png
-│   │   │       ├── blobcatmeow_tigersfan.webp
-│   │   │       ├── blobcatmlem.png
-│   │   │       ├── blobcatnomblobdoggo.png
-│   │   │       ├── blobcatnomwatermelon.png
-│   │   │       ├── blobcatnoplease.png
-│   │   │       ├── blobcatnotamused.png
-│   │   │       ├── blobcatoh.png
-│   │   │       ├── blobcatpensive.png
-│   │   │       ├── blobcatphoto_frustration.png
-│   │   │       ├── blobcatphoto.png
-│   │   │       ├── blobcatphotobomb.png
-│   │   │       ├── blobcatpolicepeek.png
-│   │   │       ├── blobcatrainbow.gif
-│   │   │       ├── blobcatreachmelt.png
-│   │   │       ├── blobcatshrug.png
-│   │   │       ├── blobcatsign_334.png
-│   │   │       ├── blobcatsign.png
-│   │   │       ├── blobcatstop.png
-│   │   │       ├── blobcatstretchbottom.gif
-│   │   │       ├── blobcatstretchmiddle.gif
-│   │   │       ├── blobcatstretchtop.gif
-│   │   │       ├── blobcatsweatflips.apng
-│   │   │       ├── blobcattea.png
-│   │   │       ├── blobcatthinking.png
-│   │   │       ├── blobcatuwu.png
-│   │   │       ├── blobcatverified.png
-│   │   │       ├── blobcatvoxel.webp
-│   │   │       ├── buttered_blobcat.gif
-│   │   │       ├── moyashiashi_blobcat_dance.gif
-│   │   │       ├── msgk_blobcatstretch.png
-│   │   │       ├── petthex_blobcat_frustration.gif
-│   │   │       ├── petthex_blobcat_stuffed.gif
-│   │   │       ├── petthex_blobcat_transport.gif
-│   │   │       ├── petthex_blobcatmeltcry.gif
-│   │   │       ├── rv_blobcat_businessperson_who_has_coffee_cup.webp
-│   │   │       ├── rv_blobcat_camera.webp
-│   │   │       ├── rv_blobcat_camera2.webp
-│   │   │       ├── rv_blobcat_knight.png
-│   │   │       ├── rv_blobcat_who_has_camera_with_long_lens.webp
-│   │   │       ├── rv_blobcat_wine.webp
-│   │   │       ├── space_blobcat.png
-│   │   │       ├── yunochan_run_with_blobcat.webp
-│   │   │       ├── zzz_blobcat_alexandrina.png
-│   │   │       ├── zzz_blobcat_corin.png
-│   │   │       └── zzz_blobcat_ellen.png
-│   │   ├── js
-│   │   │   ├── filter_persistence.js
-│   │   │   ├── gas_station_search.js
-│   │   │   ├── global_search.js
-│   │   │   ├── lap_time_manager.js
-│   │   │   ├── map_viewer.js
-│   │   │   ├── misskey_share.js
-│   │   │   ├── odo_toggle.js
-│   │   │   └── tutorial.js
-│   │   └── manifest.json
-│   ├── templates
-│   │   ├── _breadcrumbs.html
-│   │   ├── achievements
-│   │   │   └── unlocked_list.html
-│   │   ├── activity
-│   │   │   ├── activity_form.html
-│   │   │   ├── best_settings.html
-│   │   │   ├── compare_sessions.html
-│   │   │   ├── detail_activity.html
-│   │   │   ├── list_activities.html
-│   │   │   ├── list_settings.html
-│   │   │   ├── public_session.html
-│   │   │   ├── session_form.html
-│   │   │   └── setting_form.html
-│   │   ├── auth
-│   │   │   └── delete_account_complete.html
-│   │   ├── base.html
-│   │   ├── circuit_dashboard
-│   │   │   └── index.html
-│   │   ├── dashboard
-│   │   │   ├── _calendar_widget.html
-│   │   │   ├── _circuit_widget.html
-│   │   │   ├── _nyanpuppu_widget.html
-│   │   │   ├── _reminders_widget.html
-│   │   │   ├── _stats_widget.html
-│   │   │   ├── _timeline_widget.html
-│   │   │   └── _vehicles_widget.html
-│   │   ├── dashboard.html
-│   │   ├── event
-│   │   │   ├── event_detail.html
-│   │   │   ├── event_form.html
-│   │   │   ├── list_events.html
-│   │   │   ├── public_event_view.html
-│   │   │   └── public_list_events.html
-│   │   ├── fuel_form.html
-│   │   ├── fuel_log.html
-│   │   ├── garage
-│   │   │   ├── public_garage.html
-│   │   │   └── settings.html
-│   │   ├── help
-│   │   │   ├── _sidebar.html
-│   │   │   ├── faq.html
-│   │   │   ├── features
-│   │   │   │   ├── activity_log.html
-│   │   │   │   ├── dashboard.html
-│   │   │   │   ├── fuel.html
-│   │   │   │   ├── maintenance.html
-│   │   │   │   ├── notes.html
-│   │   │   │   ├── reminders.html
-│   │   │   │   └── vehicles.html
-│   │   │   ├── getting_started.html
-│   │   │   ├── index.html
-│   │   │   └── layout.html
-│   │   ├── index.html
-│   │   ├── leaderboard
-│   │   │   ├── index.html
-│   │   │   └── ranking.html
-│   │   ├── legal
-│   │   │   ├── privacy_policy.html
-│   │   │   └── terms_of_service.html
-│   │   ├── maintenance_form.html
-│   │   ├── maintenance_log.html
-│   │   ├── navigation.html
-│   │   ├── note_form.html
-│   │   ├── notes_log.html
-│   │   ├── odo_reset_log_form.html
-│   │   ├── profile
-│   │   │   └── settings.html
-│   │   ├── reminder
-│   │   │   ├── list_reminders.html
-│   │   │   └── reminder_form.html
-│   │   ├── spec_sheet
-│   │   │   ├── list_sheets.html
-│   │   │   ├── sheet_form.html
-│   │   │   └── view_sheet.html
-│   │   ├── team
-│   │   │   ├── join_team.html
-│   │   │   ├── list_teams.html
-│   │   │   ├── manage_team.html
-│   │   │   ├── team_dashboard.html
-│   │   │   └── team_form.html
-│   │   ├── touring
-│   │   │   ├── _misskey_note_card.html
-│   │   │   ├── detail_log.html
-│   │   │   ├── list_logs.html
-│   │   │   └── touring_log_form.html
-│   │   ├── vehicle_form.html
-│   │   └── vehicles.html
-│   ├── utils
-│   │   ├── datetime_helpers.py
-│   │   └── lap_time_utils.py
-│   └── views
-│       ├── achievements.py
-│       ├── activity
-│       │   ├── __init__.py
-│       │   ├── activity_routes.py
-│       │   ├── session_routes.py
-│       │   └── setting_routes.py
-│       ├── auth.py
-│       ├── circuit_dashboard.py
-│       ├── dev_auth.py
-│       ├── event.py
-│       ├── fuel.py
-│       ├── garage_settings.py
-│       ├── garage.py
-│       ├── help.py
-│       ├── leaderboard.py
-│       ├── main.py
-│       ├── maintenance.py
-│       ├── notes.py
-│       ├── profile.py
-│       ├── reminder.py
-│       ├── search.py
-│       ├── spec_sheet.py
-│       ├── team.py
-│       ├── touring.py
-│       └── vehicle.py
+│   ├── __init__.py
+│   ├── achievement_evaluator.py
+│   ├── achievements_utils.py
+│   ├── constants.py
+│   ├── forms.py
+│   ├── manage_commands.py
+│   ├── models.py
+│   ├── nyanpuppu.py
+│   ├── parsers
+│   │   ├── __init__.py
+│   │   ├── base_parser.py
+│   │   ├── drogger_parser.py
+│   │   ├── mylaps_parser.py
+│   │   ├── simple_csv_parser.py
+│   │   └── ziix_parser.py
+│   ├── services.py
+│   ├── static
+│   │   ├── css
+│   │   │   ├── garage_themes
+│   │   │   │   ├── theme_adventure.css
+│   │   │   │   ├── theme_classic.css
+│   │   │   │   ├── theme_cyber.css
+│   │   │   │   ├── theme_dark.css
+│   │   │   │   ├── theme_default.css
+│   │   │   │   ├── theme_minimal.css
+│   │   │   │   ├── theme_racing.css
+│   │   │   │   └── theme_retro.css
+│   │   │   └── style.css
+│   │   ├── favicons
+│   │   │   ├── apple-touch-icon.png
+│   │   │   ├── favicon-96x96.png
+│   │   │   ├── favicon.ico
+│   │   │   ├── favicon.svg
+│   │   │   ├── web-app-manifest-192x192.png
+│   │   │   └── web-app-manifest-512x512.png
+│   │   ├── images
+│   │   │   ├── blobcat_8bit.webp
+│   │   │   └── nyanpuppu
+│   │   │       ├── ablobcat_cheer.gif
+│   │   │       ├── ablobcat_eieiou.gif
+│   │   │       ├── ablobcat_friedrice_superpro.gif
+│   │   │       ├── ablobcat_fumi.gif
+│   │   │       ├── ablobcat_kaiten.gif
+│   │   │       ├── ablobcat_negi.gif
+│   │   │       ├── ablobcat_nyanpuppu_to_be_continued.gif
+│   │   │       ├── ablobcat_snowshoveling.apng
+│   │   │       ├── ablobcat_stack.webp
+│   │   │       ├── ablobcat_wave.gif
+│   │   │       ├── ablobcat_wavingtowel.apng
+│   │   │       ├── ablobcatangel.png
+│   │   │       ├── ablobcatblink.gif
+│   │   │       ├── ablobcatblinkhyper.gif
+│   │   │       ├── ablobcatcoffee.apng
+│   │   │       ├── ablobcatcomfy_raincoat.apng
+│   │   │       ├── ablobcatcryingcute.apng
+│   │   │       ├── ablobcatfloofpat.gif
+│   │   │       ├── ablobcatheadbangfastultra.gif
+│   │   │       ├── ablobcatlowpoly_spin.webp
+│   │   │       ├── ablobcatnodmeltcry.webp
+│   │   │       ├── ablobcatphotobomb.gif
+│   │   │       ├── ablobcatreachflip.apng
+│   │   │       ├── ablobcatsnowjoy.gif
+│   │   │       ├── ablobcatsweatsip.apng
+│   │   │       ├── ablobcatwave.apng
+│   │   │       ├── ablobcatwhackyfast.gif
+│   │   │       ├── ai_blobcat.png
+│   │   │       ├── blobcat_8bit_sleep.gif
+│   │   │       ├── blobcat_8bit_spin.gif
+│   │   │       ├── blobcat_8bit.gif
+│   │   │       ├── blobcat_abdominal.png
+│   │   │       ├── blobcat_achitoke.png
+│   │   │       ├── blobcat_ago.png
+│   │   │       ├── blobcat_airi.png
+│   │   │       ├── blobcat_alien.png
+│   │   │       ├── blobcat_aluminium_foil.png
+│   │   │       ├── blobcat_aomuke.webp
+│   │   │       ├── blobcat_aris.png
+│   │   │       ├── blobcat_arrive.webp
+│   │   │       ├── blobcat_aseri.png
+│   │   │       ├── blobcat_aseri2.png
+│   │   │       ├── blobcat_asterisk.png
+│   │   │       ├── blobcat_back_lat_spread.png
+│   │   │       ├── blobcat_back.png
+│   │   │       ├── blobcat_beer_drinking.gif
+│   │   │       ├── blobcat_beer_vendor.webp
+│   │   │       ├── blobcat_beer.gif
+│   │   │       ├── blobcat_binoculars.webp
+│   │   │       ├── blobcat_bubbly.png
+│   │   │       ├── blobcat_cactus.png
+│   │   │       ├── blobcat_cactusback.apng
+│   │   │       ├── blobcat_cactusrun.apng
+│   │   │       ├── blobcat_camera_35mm_film.webp
+│   │   │       ├── blobcat_camera_compact_digital_old.webp
+│   │   │       ├── blobcat_camera_compact_digital.webp
+│   │   │       ├── blobcat_camera_dslr_af_lens.webp
+│   │   │       ├── blobcat_camera_dslr_mf_lens.webp
+│   │   │       ├── blobcat_camera_dual_lens_reflex_80mm.webp
+│   │   │       ├── blobcat_camera_large_aperture_lens_50mm.webp
+│   │   │       ├── blobcat_camera_large_format.webp
+│   │   │       ├── blobcat_camera_monopod_fluid_head.webp
+│   │   │       ├── blobcat_camera_small_aperture_lens_28mm.webp
+│   │   │       ├── blobcat_camera_standard_lens_50mm_square_body.webp
+│   │   │       ├── blobcat_camera_standard_zoom_lens.webp
+│   │   │       ├── blobcat_camera_super_telephoto_lens.webp
+│   │   │       ├── blobcat_camera_super_telephoto_zoom_lens.webp
+│   │   │       ├── blobcat_camera_telephoto_zoom_lens.webp
+│   │   │       ├── blobcat_camera_tripod_3way_head.webp
+│   │   │       ├── blobcat_camera_tripod_ball_head.webp
+│   │   │       ├── blobcat_camera_tripod_fluid_head.webp
+│   │   │       ├── blobcat_camera_tripod_travel_ball_head.webp
+│   │   │       ├── blobcat_catched.webp
+│   │   │       ├── blobcat_caudex_jumbo.webp
+│   │   │       ├── blobcat_caudex.webp
+│   │   │       ├── blobcat_cheering.gif
+│   │   │       ├── blobcat_chiikineko.png
+│   │   │       ├── blobcat_constellation.png
+│   │   │       ├── blobcat_courier.png
+│   │   │       ├── blobcat_daisuki.webp
+│   │   │       ├── blobcat_dotadota_run.webp
+│   │   │       ├── blobcat_double_biceps.png
+│   │   │       ├── blobcat_doya.png
+│   │   │       ├── blobcat_drawing.apng
+│   │   │       ├── blobcat_drink_water.png
+│   │   │       ├── blobcat_eating.png
+│   │   │       ├── blobcat_eri.png
+│   │   │       ├── blobcat_finger_beam.gif
+│   │   │       ├── blobcat_firework.webp
+│   │   │       ├── blobcat_fishing.png
+│   │   │       ├── blobcat_frustration.png
+│   │   │       ├── blobcat_fun.apng
+│   │   │       ├── blobcat_fury.png
+│   │   │       ├── blobcat_fuuka.png
+│   │   │       ├── blobcat_giko.png
+│   │   │       ├── blobcat_goz.webp
+│   │   │       ├── blobcat_gu1.webp
+│   │   │       ├── blobcat_guitar.png
+│   │   │       ├── blobcat_guruguru.png
+│   │   │       ├── blobcat_hamigaki.png
+│   │   │       ├── blobcat_hina.png
+│   │   │       ├── blobcat_hip.png
+│   │   │       ├── blobcat_hipjumping.gif
+│   │   │       ├── blobcat_hopping.webp
+│   │   │       ├── blobcat_i_love_yokohama.webp
+│   │   │       ├── blobcat_icebar.png
+│   │   │       ├── blobcat_igyo.png
+│   │   │       ├── blobcat_ikaku.webp
+│   │   │       ├── blobcat_in_cardboard.webp
+│   │   │       ├── blobcat_izumi.png
+│   │   │       ├── blobcat_ja_teru2bouzu.png
+│   │   │       ├── blobcat_japanesecake.png
+│   │   │       ├── blobcat_jason.png
+│   │   │       ├── blobcat_jelly.png
+│   │   │       ├── blobcat_jeweled.png
+│   │   │       ├── blobcat_junnko.webp
+│   │   │       ├── blobcat_kasiwamoti.png
+│   │   │       ├── blobcat_katahaba.png
+│   │   │       ├── blobcat_kazusa.png
+│   │   │       ├── blobcat_kokuriko.png
+│   │   │       ├── blobcat_kowaii.png
+│   │   │       ├── blobcat_kuroutoshu.apng
+│   │   │       ├── blobcat_leave.gif
+│   │   │       ├── blobcat_lemon_kaketeagemasyoune.webp
+│   │   │       ├── blobcat_magic.png
+│   │   │       ├── blobcat_makeup.gif
+│   │   │       ├── blobcat_manmaru.png
+│   │   │       ├── blobcat_mary.png
+│   │   │       ├── blobcat_melting.webp
+│   │   │       ├── blobcat_meow_headache.png
+│   │   │       ├── blobcat_meow_ponponpain.png
+│   │   │       ├── blobcat_meow_sitasimaiwasure.png
+│   │   │       ├── blobcat_midori.png
+│   │   │       ├── blobcat_mike.png
+│   │   │       ├── blobcat_mikensiwa.png
+│   │   │       ├── blobcat_missile_lancher.png
+│   │   │       ├── blobcat_modoki.webp
+│   │   │       ├── blobcat_mogumogu_popcorn.gif
+│   │   │       ├── blobcat_mogumogu.gif
+│   │   │       ├── blobcat_momoi.png
+│   │   │       ├── blobcat_monaa.png
+│   │   │       ├── blobcat_moraler.png
+│   │   │       ├── blobcat_most_muscular.png
+│   │   │       ├── blobcat_mudamudamuda.apng
+│   │   │       ├── blobcat_mukimuki.png
+│   │   │       ├── blobcat_murakamisan_blush.png
+│   │   │       ├── blobcat_murakamisan_coffee.png
+│   │   │       ├── blobcat_murakamisan_letterpack.png
+│   │   │       ├── blobcat_murakamisan_no.png
+│   │   │       ├── blobcat_murakamisan_yes.png
+│   │   │       ├── blobcat_nemunemu.png
+│   │   │       ├── blobcat_new_beginning.webp
+│   │   │       ├── blobcat_niko_hohoemi.png
+│   │   │       ├── blobcat_ninja.webp
+│   │   │       ├── blobcat_niya.png
+│   │   │       ├── blobcat_nomming.gif
+│   │   │       ├── blobcat_normal.png
+│   │   │       ├── blobcat_nyanpu_tyan.gif
+│   │   │       ├── blobcat_ohayo.png
+│   │   │       ├── blobcat_ohuton_haide_agemasyou_ne.webp
+│   │   │       ├── blobcat_ohuton_kakete_agemasyoune.webp
+│   │   │       ├── blobcat_ok_sign.png
+│   │   │       ├── blobcat_omelette.png
+│   │   │       ├── blobcat_omusubi.png
+│   │   │       ├── blobcat_oniku.gif
+│   │   │       ├── blobcat_orangemushroom.webp
+│   │   │       ├── blobcat_ota.png
+│   │   │       ├── blobcat_outen.webp
+│   │   │       ├── blobcat_oyasumi.png
+│   │   │       ├── blobcat_pacifier.gif
+│   │   │       ├── blobcat_peace_sign.PNG
+│   │   │       ├── blobcat_pity.webp
+│   │   │       ├── blobcat_pointing_at_the_viewer.png
+│   │   │       ├── blobcat_push_button.webp
+│   │   │       ├── blobcat_rainbowspew.png
+│   │   │       ├── blobcat_rakugaki_face.webp
+│   │   │       ├── blobcat_rakugaki.webp
+│   │   │       ├── blobcat_redcomet.webp
+│   │   │       ├── blobcat_reindeer.png
+│   │   │       ├── blobcat_rider.gif
+│   │   │       ├── blobcat_rin_sweat.webp
+│   │   │       ├── blobcat_rin_tekateka.webp
+│   │   │       ├── blobcat_running.gif
+│   │   │       ├── blobcat_selfie.png
+│   │   │       ├── blobcat_sentou_with_murakamisan_tutinoko.png
+│   │   │       ├── blobcat_shixi.png
+│   │   │       ├── blobcat_shocking.png
+│   │   │       ├── blobcat_shopping_paperbag.png
+│   │   │       ├── blobcat_shopping_plasticbag.png
+│   │   │       ├── blobcat_shower.png
+│   │   │       ├── blobcat_siamese.png
+│   │   │       ├── blobcat_sign.png
+│   │   │       ├── blobcat_sing.png
+│   │   │       ├── blobcat_sing2.png
+│   │   │       ├── blobcat_sleep_with_blahaj.png
+│   │   │       ├── blobcat_smile_face.webp
+│   │   │       ├── blobcat_stand.gif
+│   │   │       ├── blobcat_step.gif
+│   │   │       ├── blobcat_strawhat.png
+│   │   │       ├── blobcat_swim.png
+│   │   │       ├── blobcat_syuro.png
+│   │   │       ├── blobcat_taremimi_anger.png
+│   │   │       ├── blobcat_taremimi_sad.png
+│   │   │       ├── blobcat_taremimi_smile.png
+│   │   │       ├── blobcat_taremimi.png
+│   │   │       ├── blobcat_tereru.png
+│   │   │       ├── blobcat_thumbsup.png
+│   │   │       ├── blobcat_transparent.webp
+│   │   │       ├── blobcat_transport_delivery.webp
+│   │   │       ├── blobcat_transport_gift.png
+│   │   │       ├── blobcat_transport_murakamisan_tutinoko.png
+│   │   │       ├── blobcat_transport.png
+│   │   │       ├── blobcat_unyanpuppu.png
+│   │   │       ├── blobcat_usachan_pouch.webp
+│   │   │       ├── blobcat_uwu.png
+│   │   │       ├── blobcat_wind_chime.gif
+│   │   │       ├── blobcat_woozy.png
+│   │   │       ├── blobcat_yankee.gif
+│   │   │       ├── blobcat_yay.apng
+│   │   │       ├── blobcat_yaysuperfast.apng
+│   │   │       ├── blobcat_yoyuunoemi.webp
+│   │   │       ├── blobcat_yuzu.png
+│   │   │       ├── blobcat_zehhutyou.webp
+│   │   │       ├── blobcat_zekkoutyou.webp
+│   │   │       ├── blobcat_ziainokaitou.png
+│   │   │       ├── blobcat.png
+│   │   │       ├── blobcataco.png
+│   │   │       ├── blobcatartist.png
+│   │   │       ├── blobcataww.png
+│   │   │       ├── blobcatawwpat.gif
+│   │   │       ├── blobcatbigsob.png
+│   │   │       ├── blobcatblack_delicious.png
+│   │   │       ├── blobcatblack_devil.png
+│   │   │       ├── blobcatblack_harapeko.png
+│   │   │       ├── blobcatblack_love.png
+│   │   │       ├── blobcatblack_nemu.png
+│   │   │       ├── blobcatblack.png
+│   │   │       ├── blobcatboopblush.png
+│   │   │       ├── blobcatchocolatemint.png
+│   │   │       ├── blobcatcofesip.png
+│   │   │       ├── blobcatcomfy_bodywash.webp
+│   │   │       ├── blobcatcomfy.png
+│   │   │       ├── blobcatconfounded.png
+│   │   │       ├── blobcatcozynyap.png
+│   │   │       ├── blobcatdroolreach.png
+│   │   │       ├── blobcatevil.png
+│   │   │       ├── blobcatflip.png
+│   │   │       ├── blobcatfluffpout.png
+│   │   │       ├── blobcatgabigabi.webp
+│   │   │       ├── blobcatgooglytrash.png
+│   │   │       ├── blobcatheartbongo.gif
+│   │   │       ├── blobcatkiss.png
+│   │   │       ├── blobcatmeataww.png
+│   │   │       ├── blobcatmeltlove.png
+│   │   │       ├── blobcatmeltnomblobcatmelt.png
+│   │   │       ├── blobcatmeow_teary_eyed.png
+│   │   │       ├── blobcatmeow_tigersfan.webp
+│   │   │       ├── blobcatmlem.png
+│   │   │       ├── blobcatnomblobdoggo.png
+│   │   │       ├── blobcatnomwatermelon.png
+│   │   │       ├── blobcatnoplease.png
+│   │   │       ├── blobcatnotamused.png
+│   │   │       ├── blobcatoh.png
+│   │   │       ├── blobcatpensive.png
+│   │   │       ├── blobcatphoto_frustration.png
+│   │   │       ├── blobcatphoto.png
+│   │   │       ├── blobcatphotobomb.png
+│   │   │       ├── blobcatpolicepeek.png
+│   │   │       ├── blobcatrainbow.gif
+│   │   │       ├── blobcatreachmelt.png
+│   │   │       ├── blobcatshrug.png
+│   │   │       ├── blobcatsign_334.png
+│   │   │       ├── blobcatsign.png
+│   │   │       ├── blobcatstop.png
+│   │   │       ├── blobcatstretchbottom.gif
+│   │   │       ├── blobcatstretchmiddle.gif
+│   │   │       ├── blobcatstretchtop.gif
+│   │   │       ├── blobcatsweatflips.apng
+│   │   │       ├── blobcattea.png
+│   │   │       ├── blobcatthinking.png
+│   │   │       ├── blobcatuwu.png
+│   │   │       ├── blobcatverified.png
+│   │   │       ├── blobcatvoxel.webp
+│   │   │       ├── buttered_blobcat.gif
+│   │   │       ├── moyashiashi_blobcat_dance.gif
+│   │   │       ├── msgk_blobcatstretch.png
+│   │   │       ├── petthex_blobcat_frustration.gif
+│   │   │       ├── petthex_blobcat_stuffed.gif
+│   │   │       ├── petthex_blobcat_transport.gif
+│   │   │       ├── petthex_blobcatmeltcry.gif
+│   │   │       ├── rv_blobcat_businessperson_who_has_coffee_cup.webp
+│   │   │       ├── rv_blobcat_camera.webp
+│   │   │       ├── rv_blobcat_camera2.webp
+│   │   │       ├── rv_blobcat_knight.png
+│   │   │       ├── rv_blobcat_who_has_camera_with_long_lens.webp
+│   │   │       ├── rv_blobcat_wine.webp
+│   │   │       ├── space_blobcat.png
+│   │   │       ├── yunochan_run_with_blobcat.webp
+│   │   │       ├── zzz_blobcat_alexandrina.png
+│   │   │       ├── zzz_blobcat_corin.png
+│   │   │       └── zzz_blobcat_ellen.png
+│   │   ├── js
+│   │   │   ├── filter_persistence.js
+│   │   │   ├── gas_station_search.js
+│   │   │   ├── global_search.js
+│   │   │   ├── lap_time_manager.js
+│   │   │   ├── map_viewer.js
+│   │   │   ├── misskey_share.js
+│   │   │   ├── odo_toggle.js
+│   │   │   └── tutorial.js
+│   │   └── manifest.json
+│   ├── templates
+│   │   ├── _breadcrumbs.html
+│   │   ├── achievements
+│   │   │   └── unlocked_list.html
+│   │   ├── activity
+│   │   │   ├── activity_form.html
+│   │   │   ├── best_settings.html
+│   │   │   ├── compare_sessions.html
+│   │   │   ├── detail_activity.html
+│   │   │   ├── list_activities.html
+│   │   │   ├── list_settings.html
+│   │   │   ├── public_session.html
+│   │   │   ├── session_form.html
+│   │   │   └── setting_form.html
+│   │   ├── auth
+│   │   │   └── delete_account_complete.html
+│   │   ├── base.html
+│   │   ├── circuit_dashboard
+│   │   │   └── index.html
+│   │   ├── dashboard
+│   │   │   ├── _calendar_widget.html
+│   │   │   ├── _circuit_widget.html
+│   │   │   ├── _nyanpuppu_widget.html
+│   │   │   ├── _reminders_widget.html
+│   │   │   ├── _stats_widget.html
+│   │   │   ├── _timeline_widget.html
+│   │   │   └── _vehicles_widget.html
+│   │   ├── dashboard.html
+│   │   ├── event
+│   │   │   ├── event_detail.html
+│   │   │   ├── event_form.html
+│   │   │   ├── list_events.html
+│   │   │   ├── public_event_view.html
+│   │   │   └── public_list_events.html
+│   │   ├── fuel_form.html
+│   │   ├── fuel_log.html
+│   │   ├── garage
+│   │   │   ├── public_garage.html
+│   │   │   └── settings.html
+│   │   ├── help
+│   │   │   ├── _sidebar.html
+│   │   │   ├── faq.html
+│   │   │   ├── features
+│   │   │   │   ├── activity_log.html
+│   │   │   │   ├── dashboard.html
+│   │   │   │   ├── fuel.html
+│   │   │   │   ├── maintenance.html
+│   │   │   │   ├── notes.html
+│   │   │   │   ├── reminders.html
+│   │   │   │   └── vehicles.html
+│   │   │   ├── getting_started.html
+│   │   │   ├── index.html
+│   │   │   └── layout.html
+│   │   ├── index.html
+│   │   ├── leaderboard
+│   │   │   ├── index.html
+│   │   │   └── ranking.html
+│   │   ├── legal
+│   │   │   ├── privacy_policy.html
+│   │   │   └── terms_of_service.html
+│   │   ├── maintenance_form.html
+│   │   ├── maintenance_log.html
+│   │   ├── navigation.html
+│   │   ├── note_form.html
+│   │   ├── notes_log.html
+│   │   ├── odo_reset_log_form.html
+│   │   ├── profile
+│   │   │   └── settings.html
+│   │   ├── reminder
+│   │   │   ├── list_reminders.html
+│   │   │   └── reminder_form.html
+│   │   ├── spec_sheet
+│   │   │   ├── list_sheets.html
+│   │   │   ├── sheet_form.html
+│   │   │   └── view_sheet.html
+│   │   ├── team
+│   │   │   ├── join_team.html
+│   │   │   ├── list_teams.html
+│   │   │   ├── manage_team.html
+│   │   │   ├── team_dashboard.html
+│   │   │   └── team_form.html
+│   │   ├── touring
+│   │   │   ├── _misskey_note_card.html
+│   │   │   ├── detail_log.html
+│   │   │   ├── list_logs.html
+│   │   │   └── touring_log_form.html
+│   │   ├── vehicle_form.html
+│   │   └── vehicles.html
+│   ├── utils
+│   │   ├── datetime_helpers.py
+│   │   └── lap_time_utils.py
+│   └── views
+│       ├── achievements.py
+│       ├── activity
+│       │   ├── __init__.py
+│       │   ├── activity_routes.py
+│       │   ├── session_routes.py
+│       │   └── setting_routes.py
+│       ├── auth.py
+│       ├── circuit_dashboard.py
+│       ├── dev_auth.py
+│       ├── event.py
+│       ├── fuel.py
+│       ├── garage_settings.py
+│       ├── garage.py
+│       ├── help.py
+│       ├── leaderboard.py
+│       ├── main.py
+│       ├── maintenance.py
+│       ├── notes.py
+│       ├── profile.py
+│       ├── reminder.py
+│       ├── search.py
+│       ├── spec_sheet.py
+│       ├── team.py
+│       ├── touring.py
+│       └── vehicle.py
 ├── README.md
 ├── requirements.txt
 └── tests
@@ -582,19 +582,19 @@ kyagisaw@kyagisaw-mac motopuppu % tree
 36 directories, 466 files
 
 
-### **7.  今回のセッションでの目標 [毎回更新]**
+### **7.  今回のセッションでの目標 [毎回更新]**
 
 * （ここに次の開発目標を記載してください）
 * 現在の実装について確認が必要なファイルを指定してください。それらのファイルを送付するので、すべて確認してから実装案を作成してください
 
-### **8.  Geminiに期待する役割**
+### **8.  Geminiに期待する役割**
 
 * コードの提案、修正案の提示 (ファイル全体の表示希望)
 * 実装に関する質問への回答
 * コードレビュー
 * エラー分析と解決策の提案
 
-### **9.  その他 [必要に応じて]**
+### **9.  その他 [必要に応じて]**
 
 * DBスキーマの変更については、過去に問題が発生した経験があるため、特に慎重に進めたい。
 * 修正は既存のUIや他の機能への影響を最小限に抑えたい。

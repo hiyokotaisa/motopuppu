@@ -6,6 +6,7 @@ from sqlalchemy.exc import IntegrityError
 from datetime import datetime, timezone, date
 from sqlalchemy import func
 from flask_login import login_required, current_user
+from wtforms.validators import Optional
 from ..models import db, Event, EventParticipant, Motorcycle, ParticipationStatus, User
 from ..forms import EventForm, ParticipantForm
 from ..utils.datetime_helpers import JST
@@ -188,68 +189,172 @@ def event_detail(event_id):
 @event_bp.route('/public/<public_id>', methods=['GET', 'POST'])
 @limiter.limit("15 per minute", methods=["POST"])
 def public_event_view(public_id):
-    """公開イベントページ（ログイン不要）"""
+    """公開イベントページ（ログイン不要・ログイン時はユーザー連携）"""
     event = Event.query.filter_by(public_id=public_id).first_or_404()
     form = ParticipantForm()
 
+    # ログインユーザーの場合の初期値設定とバリデーション調整
+    if current_user.is_authenticated:
+        # ログインユーザーとしての参加記録を探す
+        current_participant = event.participants.filter_by(user_id=current_user.id).first()
+        
+        # フォームの必須バリデーションを無効化 (ユーザー情報は自動設定するため)
+        form.name.validators = [Optional()]
+        form.passcode.validators = [Optional()]
+
+        # GETリクエストかつ、まだフォーム送信されていない場合、初期値をセット
+        if request.method == 'GET' and not form.vehicle_name.data:
+            if current_participant:
+                # 既に参加済みならその情報をセット
+                form.status.data = current_participant.status.value
+                form.vehicle_name.data = current_participant.vehicle_name
+                form.comment.data = current_participant.comment
+            else:
+                # 未参加ならデフォルト情報をセット
+                form.status.data = 'attending'
+                # デフォルト車両があればセット (ガレージのヒーロー車両など)
+                if current_user.garage_hero_vehicle_id:
+                     hero_bike = Motorcycle.query.get(current_user.garage_hero_vehicle_id)
+                     if hero_bike:
+                         form.vehicle_name.data = hero_bike.name
+
     if form.validate_on_submit():
-        participant_name = form.name.data
-        passcode = form.passcode.data
         status = form.status.data
         comment = form.comment.data
-        # ▼▼▼【ここから追記】▼▼▼
         vehicle_name = form.vehicle_name.data
-        # ▲▲▲【追記ここまで】▲▲▲
         
-        existing_participant = event.participants.filter_by(name=participant_name).first()
-
-        try:
-            if existing_participant:
-                if not existing_participant.check_passcode(passcode):
-                    flash('パスコードが正しくありません。', 'danger')
-                    return redirect(url_for('event.public_event_view', public_id=public_id))
-
-                if status == 'delete':
-                    db.session.delete(existing_participant)
-                    flash(f'「{participant_name}」さんの参加登録を取り消しました。', 'info')
-                else:
-                    existing_participant.status = ParticipationStatus(status)
-                    existing_participant.comment = comment
-                    # ▼▼▼【ここから追記】▼▼▼
-                    existing_participant.vehicle_name = vehicle_name
-                    # ▲▲▲【追記ここまで】▲▲▲
-                    flash(f'「{participant_name}」さんの出欠情報を更新しました。', 'success')
-            else:
-                if status == 'delete':
-                    flash('まだ参加登録されていません。', 'warning')
-                    return redirect(url_for('event.public_event_view', public_id=public_id))
-
-                new_participant = EventParticipant(
-                    event_id=event.id,
-                    name=participant_name,
-                    status=ParticipationStatus(status),
-                    comment=comment,
-                    # ▼▼▼【ここから追記】▼▼▼
-                    vehicle_name=vehicle_name
-                    # ▲▲▲【追記ここまで】▲▲▲
-                )
-                new_participant.set_passcode(passcode)
-                db.session.add(new_participant)
-                flash(f'「{participant_name}」さんの出欠を登録しました。ありがとうございます！', 'success')
+        # --- A. ログインユーザーの処理 ---
+        if current_user.is_authenticated:
+            # ▼▼▼【変更】名前属性を変更して受け取る ▼▼▼
+            claim_name = request.form.get('claim_name')
+            claim_passcode = request.form.get('claim_passcode')
             
-            db.session.commit()
-        except IntegrityError:
-            db.session.rollback()
-            # ▼▼▼【ここから修正】エラーメッセージを具体化 ▼▼▼
-            flash('その名前は既に使用されています。別のニックネーム（例: Taro_H）を使用してください。', 'danger')
-            # ▲▲▲【修正ここまで】▲▲▲
-        except Exception as e:
-            db.session.rollback()
-            current_app.logger.error(f"Error registering participant for event public_id {public_id}: {e}", exc_info=True)
-            flash('出欠の登録中にエラーが発生しました。', 'danger')
+            if claim_name and claim_passcode:
+                # ゲスト統合モード
+                target_participant = event.participants.filter_by(name=claim_name).first()
+                if target_participant:
+                    if target_participant.user_id is not None and target_participant.user_id != current_user.id:
+                        flash('その参加者は既に別のユーザーアカウントに紐づけられています。', 'danger')
+                    elif target_participant.check_passcode(claim_passcode):
+                        # ▼▼▼【変更】認証成功：過去のデータを削除して、新規登録フローへ流す ▼▼▼
+                        db.session.delete(target_participant)
+                        db.session.commit()
+                        flash(f'過去のゲスト参加データ（{claim_name}）を削除し、このアカウントで紐付け登録しました。', 'success')
+                        # ここでreturnせず、下の「通常のログイン参加処理」へ進むことで、
+                        # フォームに入力された最新の状態（status/comment/vehicle）で新規作成（または更新）される
+                    else:
+                        flash('パスコードが正しくありません。', 'danger')
+                        return redirect(url_for('event.public_event_view', public_id=public_id))
+                else:
+                    flash('指定された名前の参加者が見つかりません。', 'warning')
+                    return redirect(url_for('event.public_event_view', public_id=public_id))
+            # ▲▲▲【変更】ここまで ▲▲▲
+
+            # 通常のログイン参加/更新処理 (名前・パスコード入力なし)
+            participant = event.participants.filter_by(user_id=current_user.id).first()
+            
+            if status == 'delete':
+                if participant:
+                    db.session.delete(participant)
+                    db.session.commit()
+                    flash('参加登録を取り消しました。', 'info')
+                else:
+                    flash('まだ参加登録されていません。', 'warning')
+            else:
+                # 表示名の決定 (Display Name > Misskey Username)
+                user_name = current_user.display_name or current_user.misskey_username
+
+                if participant:
+                    # 更新
+                    participant.status = ParticipationStatus(status)
+                    participant.comment = comment
+                    participant.vehicle_name = vehicle_name
+                    participant.name = user_name # 名前も最新のユーザー名に同期
+                    flash('出欠情報を更新しました。', 'success')
+                else:
+                    # 新規作成
+                    # 名前重複チェック (自分以外に同名のゲストがいる場合)
+                    conflict_participant = event.participants.filter_by(name=user_name).first()
+                    if conflict_participant:
+                        # 同名のゲストがいる場合、それは「かつての自分」か「他人」か判断できないため、警告を出す
+                        flash(f'名前「{user_name}」は既にゲスト参加者として登録されています。もしこれが過去のあなたなら、下の「過去のゲスト登録を紐付ける」からパスコードを入力して統合してください。別人であれば、プロフィール設定から表示名を変更してください。', 'warning')
+                        return redirect(url_for('event.public_event_view', public_id=public_id))
+
+                    new_participant = EventParticipant(
+                        event_id=event.id,
+                        user_id=current_user.id,
+                        name=user_name,
+                        status=ParticipationStatus(status),
+                        comment=comment,
+                        vehicle_name=vehicle_name,
+                        passcode_hash=None # ログインユーザーはパスコード不要
+                    )
+                    db.session.add(new_participant)
+                    # メッセージ重複回避のため、統合処理直後でない場合のみ表示
+                    if not (claim_name and claim_passcode):
+                         flash('イベントに参加登録しました。', 'success')
+                
+                db.session.commit()
+
+        # --- B. 未ログイン(ゲスト)の処理 ---
+        else:
+            participant_name = form.name.data
+            passcode = form.passcode.data
+            
+            # ゲストは名前とパスコード必須 (フォームクラスのデフォルトバリデータが効いているが念のため)
+            if not participant_name or not passcode:
+                flash('名前とパスコードを入力してください。', 'danger')
+                return redirect(url_for('event.public_event_view', public_id=public_id))
+
+            existing_participant = event.participants.filter_by(name=participant_name).first()
+
+            try:
+                if existing_participant:
+                    # 既存データがユーザー紐付け済みの場合、ゲストとしての変更は許可しない（ログインを促す）
+                    if existing_participant.user_id is not None:
+                        flash(f'「{participant_name}」さんは登録ユーザーです。変更するにはログインしてください。', 'warning')
+                        return redirect(url_for('auth.login', next=request.url))
+
+                    if not existing_participant.check_passcode(passcode):
+                        flash('パスコードが正しくありません。', 'danger')
+                        return redirect(url_for('event.public_event_view', public_id=public_id))
+
+                    if status == 'delete':
+                        db.session.delete(existing_participant)
+                        flash(f'「{participant_name}」さんの参加登録を取り消しました。', 'info')
+                    else:
+                        existing_participant.status = ParticipationStatus(status)
+                        existing_participant.comment = comment
+                        existing_participant.vehicle_name = vehicle_name
+                        flash(f'「{participant_name}」さんの出欠情報を更新しました。', 'success')
+                else:
+                    if status == 'delete':
+                        flash('まだ参加登録されていません。', 'warning')
+                        return redirect(url_for('event.public_event_view', public_id=public_id))
+
+                    new_participant = EventParticipant(
+                        event_id=event.id,
+                        name=participant_name,
+                        status=ParticipationStatus(status),
+                        comment=comment,
+                        vehicle_name=vehicle_name
+                    )
+                    new_participant.set_passcode(passcode)
+                    db.session.add(new_participant)
+                    flash(f'「{participant_name}」さんの出欠を登録しました。', 'success')
+                
+                db.session.commit()
+            except IntegrityError:
+                db.session.rollback()
+                flash('その名前は既に使用されています。別の名前を使用してください。', 'danger')
+            except Exception as e:
+                db.session.rollback()
+                current_app.logger.error(f"Error registering participant: {e}", exc_info=True)
+                flash('エラーが発生しました。', 'danger')
 
         return redirect(url_for('event.public_event_view', public_id=public_id))
 
+    # 表示用データの取得
     participants_attending = event.participants.filter_by(status=ParticipationStatus.ATTENDING).order_by(EventParticipant.created_at).all()
     participants_tentative = event.participants.filter_by(status=ParticipationStatus.TENTATIVE).order_by(EventParticipant.created_at).all()
     participants_not_attending = event.participants.filter_by(status=ParticipationStatus.NOT_ATTENDING).order_by(EventParticipant.created_at).all()
@@ -322,8 +427,9 @@ def export_ics(event_id):
 
     cal.add_component(ical_event)
 
+    filename = f"event_{event.id}.ics"
     return Response(
         cal.to_ical(),
         mimetype='text/calendar',
-        headers={'Content-Disposition': f'attachment; filename="event_{event.id}.ics"'}
+        headers={'Content-Disposition': f'attachment; filename="{filename}"'}
     )

@@ -375,14 +375,20 @@ class EventParticipant(db.Model):
     __tablename__ = 'event_participants'
     id = db.Column(db.Integer, primary_key=True)
     event_id = db.Column(db.Integer, db.ForeignKey('events.id', ondelete='CASCADE'), nullable=False, index=True)
+    
+    # ユーザーとの紐付け用カラムを追加
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, index=True, comment="紐づくユーザーID")
+    
     name = db.Column(db.String(100), nullable=False, comment="参加者名")
     status = db.Column(db.Enum(ParticipationStatus, values_callable=lambda x: [e.value for e in x]), nullable=False, comment="出欠ステータス")
     comment = db.Column(db.String(100), nullable=True, comment="参加者の一言コメント")
-    # ▼▼▼【ここから追記】▼▼▼
     vehicle_name = db.Column(db.String(50), nullable=True, comment="参加車両名")
-    # ▲▲▲【追記ここまで】▲▲▲
     passcode_hash = db.Column(db.String(255), nullable=True, comment="出欠変更用のパスコードのハッシュ")
     created_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
+    
+    # ユーザーとのリレーションを追加
+    user = db.relationship('User', backref=db.backref('event_participations', lazy='dynamic'))
+    
     __table_args__ = (db.UniqueConstraint('event_id', 'name', name='uq_event_participant_name'),)
     def set_passcode(self, passcode):
         if passcode:
