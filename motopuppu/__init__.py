@@ -40,12 +40,13 @@ def create_app(config_name=None):
     """Flaskアプリケーションインスタンスを作成するファクトリ関数"""
     app = Flask(__name__, instance_relative_config=True)
 
+    # ▼▼▼ 修正: MAX_CONTENT_LENGTHのデフォルト値を 16 から 64 に変更 ▼▼▼
     app.config.from_mapping(
         SECRET_KEY=os.environ.get('SECRET_KEY', 'dev-secret-key-replace-me'),
         SECRET_CRYPTO_KEY=os.environ.get('SECRET_CRYPTO_KEY'),
         SQLALCHEMY_DATABASE_URI=os.environ.get('DATABASE_URI', f"sqlite:///{os.path.join(app.instance_path, 'app.db')}"),
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
-        MAX_CONTENT_LENGTH = int(os.environ.get('MAX_CONTENT_LENGTH', 16)) * 1024 * 1024,
+        MAX_CONTENT_LENGTH = int(os.environ.get('MAX_CONTENT_LENGTH', 64)) * 1024 * 1024,
         MISSKEY_INSTANCE_URL=os.environ.get('MISSKEY_INSTANCE_URL', 'https://misskey.io'),
         LOCAL_ADMIN_USERNAME=os.environ.get('LOCAL_ADMIN_USERNAME'),
         LOCAL_ADMIN_PASSWORD=os.environ.get('LOCAL_ADMIN_PASSWORD'),
@@ -60,6 +61,8 @@ def create_app(config_name=None):
         REMEMBER_COOKIE_SECURE=True if os.environ.get('FLASK_ENV') == 'production' else False,
         GOOGLE_MAPS_API_KEY=os.environ.get('GOOGLE_PLACES_API_KEY')
     )
+    # ▲▲▲ 修正ここまで ▲▲▲
+
     if app.config['SECRET_KEY'] == 'dev-secret-key-replace-me' and app.config['ENV'] != 'development':
         app.logger.warning("CRITICAL: SECRET_KEY is set to the default development value in a non-development environment. This is a security risk!")
     elif app.config['SECRET_KEY'] == 'dev-secret-key-replace-me':
