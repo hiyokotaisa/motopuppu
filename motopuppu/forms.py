@@ -514,6 +514,10 @@ class LapTimeImportForm(FlaskForm):
         default=2.0,
         render_kw={"step": "0.1", "placeholder": "例: 2.0"}
     )
+    append_mode = BooleanField(
+        '既存の記録に追記する（Drogger等の分割ログ用）',
+        default=False
+    )
     submit_import = SubmitField('インポート実行')
 
 

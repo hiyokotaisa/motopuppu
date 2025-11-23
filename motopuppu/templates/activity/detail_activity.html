@@ -48,7 +48,7 @@
     min-height: 0;
  }
  
- /* ▼▼▼【ここから追記】ギア数値表示用のスタイル ▼▼▼ */
+ /* ギア数値表示用のスタイル */
  #currentGearDisplay {
     font-size: 4rem;
     font-weight: bold;
@@ -56,7 +56,6 @@
     color: #fd7e14;
     text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
  }
- /* ▲▲▲【追記はここまで】▲▲▲ */
 
  /* PC (medium) サイズ以上の場合のレイアウト */
  @media (min-width: 768px) {
@@ -124,7 +123,7 @@
 </style>
 
 <div class="d-flex align-items-center mb-3">
-    {# ▼▼▼【ここから修正】チームダッシュボードからの遷移を考慮した戻るボタン ▼▼▼ #}
+    {# チームダッシュボードからの遷移を考慮した戻るボタン #}
     {% set referer = request.referrer %}
     {% if referer and 'teams' in referer %}
         <a href="{{ referer }}" class="btn btn-sm btn-outline-secondary me-3" title="チームダッシュボードへ戻る">
@@ -135,7 +134,6 @@
             <i class="fas fa-arrow-left"></i>
         </a>
     {% endif %}
-    {# ▲▲▲【修正はここまで】▲▲▲ #}
     <div>
         <h2 class="mb-0">走行ログ詳細</h2>
         <span class="text-muted">{{ motorcycle.name }}</span>
@@ -534,12 +532,10 @@
             <div id="telemetry-controls">
                 <h6 id="telemetrySessionName"></h6>
                 
-                {# ▼▼▼【ここからが今回の修正箇所です】▼▼▼ #}
                 <div id="gear-display-container" class="text-center my-3 p-2 rounded bg-light d-none">
                     <h3 id="currentGearDisplay" class="mb-0">-</h3>
                     <small class="text-muted">GEAR</small>
                 </div>
-                {# ▲▲▲【修正はここまで】▲▲▲ #}
 
                 <hr>
                 <h6>表示ラップ選択</h6>
@@ -597,8 +593,9 @@
     <div class="modal fade" id="importCsvModal-{{ session.id }}" tabindex="-1" aria-labelledby="importCsvModalLabel-{{ session.id }}" aria-hidden="true">
       <div class="modal-dialog">
         <div class="modal-content">
+          {# ▼▼▼【修正】formタグからonsubmitを削除し、classを追加 ▼▼▼ #}
           <form method="POST" action="{{ url_for('activity.import_laps', session_id=session.id) }}" enctype="multipart/form-data" 
-                onsubmit="return confirm('既存のラップタイムは上書きされます。よろしいですか？');">
+                class="import-form">
             <div class="modal-header">
               <h5 class="modal-title" id="importCsvModalLabel-{{ session.id }}">{{ session.session_name }} - CSVインポート</h5>
               <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -614,7 +611,15 @@
                     {{ import_form.csv_file(class="form-control") }}
                 </div>
                 
-                {# ▼▼▼【ここから変更】▼▼▼ #}
+                {# 追記モードオプション #}
+                <div class="form-check mb-3">
+                    {{ import_form.append_mode(class="form-check-input") }}
+                    {{ import_form.append_mode.label(class="form-check-label") }}
+                    <div class="form-text small text-primary">
+                        ※ チェックすると、現在の記録を消去せずに後ろに追加します。Droggerの分割ログなどで使用してください。
+                    </div>
+                </div>
+                
                 <div class="form-check">
                     {{ import_form.remove_outliers(class="form-check-input", **{'data-bs-toggle': 'collapse', 'data-bs-target': '#outlier-options-' + session.id|string, 'aria-expanded': 'true' }) }}
                     {{ import_form.remove_outliers.label(class="form-check-label") }}
@@ -633,7 +638,6 @@
                         </div>
                     </div>
                 </div>
-                {# ▲▲▲【変更ここまで】▲▲▲ #}
 
             </div>
             <div class="modal-footer">
@@ -677,7 +681,34 @@ function initMap() {}
 
 document.addEventListener('DOMContentLoaded', () => {
 
-    // ▼▼▼【ここから変更】▼▼▼
+    // ▼▼▼【追加】インポートフォームの送信制御（確認ダイアログ＆ローディング表示） ▼▼▼
+    document.querySelectorAll('.import-form').forEach(form => {
+        form.addEventListener('submit', function(event) {
+            const appendModeCheckbox = this.querySelector('input[name="append_mode"]');
+            const isAppend = appendModeCheckbox ? appendModeCheckbox.checked : false;
+            
+            let message = '既存のラップタイムは上書きされます。よろしいですか？';
+            if (isAppend) {
+                message = '既存の記録の後ろに追記します。よろしいですか？\n(この操作は取り消せません)';
+            }
+            
+            if (!confirm(message)) {
+                event.preventDefault();
+                return;
+            }
+            
+            // ローディング表示に切り替え
+            const submitBtn = this.querySelector('input[type="submit"]');
+            if (submitBtn) {
+                submitBtn.disabled = true; // 二重送信防止
+                submitBtn.value = 'インポート中...';
+                submitBtn.style.cursor = 'wait';
+                this.style.cursor = 'wait';
+            }
+        });
+    });
+    // ▲▲▲【追加ここまで】▲▲▲
+
     // チェックボックスの状態に応じて閾値フィールドの表示を切り替える
     document.querySelectorAll('input[name="remove_outliers"]').forEach(checkbox => {
         // 対応するオプションのコンテナを取得
@@ -703,7 +734,6 @@ document.addEventListener('DOMContentLoaded', () => {
         // ページ読み込み時にも状態を確認
         toggleOptions();
     });
-    // ▲▲▲【変更ここまで】▲▲▲
 
     function formatChartTime(totalSeconds) {
         if (totalSeconds === null || typeof totalSeconds === 'undefined' || isNaN(totalSeconds)) {

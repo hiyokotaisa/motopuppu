@@ -1,7 +1,7 @@
 # motopuppu/views/activity/session_routes.py
 import json
 import io
-import math  # 追加: 数学計算用
+import math
 from collections import defaultdict
 from decimal import Decimal
 import uuid
@@ -27,7 +27,7 @@ from ...forms import SessionLogForm, LapTimeImportForm
 from ...parsers import get_parser, PARSERS
 from ... import limiter
 
-# --- 追加: RDPアルゴリズム (Douglas-Peucker) のヘルパー関数 ---
+# --- RDPアルゴリズム (Douglas-Peucker) のヘルパー関数 ---
 def _calculate_perpendicular_distance(point, start, end):
     """点と直線の距離を計算する (平面近似)"""
     if start == end:
@@ -49,7 +49,7 @@ def _ramer_douglas_peucker(points, epsilon):
     """
     RDPアルゴリズムによる点群の間引き
     :param points: [{'lat': float, 'lng': float, ...}, ...]
-    :param epsilon: 間引きの閾値 (度単位。例: 0.00002)
+    :param epsilon: 間引きの閾値 (度単位)
     :return: 間引き後のリスト
     """
     if len(points) < 3:
@@ -73,6 +73,30 @@ def _ramer_douglas_peucker(points, epsilon):
         return rec_results1[:-1] + rec_results2
     else:
         return [points[0], points[end]]
+
+# --- データ軽量化のための最適化関数 ---
+def _optimize_track_points(points):
+    """
+    GPSデータの数値を丸めてサイズを削減する
+    緯度経度: 小数点6桁(約11cm精度)
+    速度/時間: 小数点2桁
+    RPM: 整数化
+    """
+    optimized = []
+    for p in points:
+        new_p = {}
+        # 必須フィールド (存在しない場合はスキップまたはエラーだが、Parserで保証済み)
+        if 'lat' in p: new_p['lat'] = round(float(p['lat']), 6)
+        if 'lng' in p: new_p['lng'] = round(float(p['lng']), 6)
+        
+        # オプションフィールド (存在する場合のみ丸めて追加)
+        if 'speed' in p: new_p['speed'] = round(float(p['speed']), 2)
+        if 'runtime' in p: new_p['runtime'] = round(float(p['runtime']), 3)
+        if 'rpm' in p: new_p['rpm'] = int(float(p['rpm']))
+        if 'throttle' in p: new_p['throttle'] = round(float(p['throttle']), 1)
+        
+        optimized.append(new_p)
+    return optimized
 # -----------------------------------------------------------
 
 
@@ -325,31 +349,28 @@ def get_gps_data(session_id):
             vehicle_specs['rear_tyre_size'] = rear_tyre_size
 
     response_data = {
-        'laps': [], # ここを加工します
+        'laps': [],
         'lap_times': session.lap_times or [],
         'vehicle_specs': vehicle_specs
     }
     
-    # 修正: 地図表示用にRDP法で間引きしたトラックデータを生成して追加
+    # マップ表示用に、すでに保存されているデータをさらに軽量化して返す
     raw_laps = session.gps_tracks.get('laps', [])
     
     for lap in raw_laps:
         raw_track = lap.get('track', [])
         
-        # epsilon=0.000003 は約30cm程度の誤差を許容 (精度向上)
-        # データ点数が少ない(500以下)場合は間引きしない
+        # マップ表示用はさらに強く間引く (閾値 0.000003 ≒ 33cm)
+        # 保存時に既に0.000002で間引かれているが、マップ用はもっと荒くてもよい
         if len(raw_track) > 500:
-            # ▼▼▼ 修正: 閾値を 0.000003 に変更 ▼▼▼
             simplified_track = _ramer_douglas_peucker(raw_track, 0.000003)
-            # ▲▲▲ 修正ここまで ▲▲▲
         else:
             simplified_track = raw_track
             
-        # レスポンスに含める
         response_data['laps'].append({
             'lap_number': lap.get('lap_number'),
-            'track': raw_track,          # チャート・分析用（高精度・全データ）
-            'map_track': simplified_track # 地図表示用（軽量・間引き済み）
+            'track': raw_track,          # チャート用（保存された精度）
+            'map_track': simplified_track # 地図表示用（軽量）
         })
     
     return jsonify(response_data)
@@ -475,6 +496,7 @@ def import_laps(session_id):
         device_type = form.device_type.data
         remove_outliers = form.remove_outliers.data
         threshold = form.outlier_threshold.data
+        is_append_mode = form.append_mode.data  # 追記モードフラグ
         
         parsed_successfully = False
         lap_times_list = []
@@ -522,21 +544,67 @@ def import_laps(session_id):
                 laps_removed_count = original_lap_count - len(filtered_laps)
                 lap_times_list = filtered_laps
             
-            session.lap_times = lap_times_list
-            _calculate_and_set_best_lap(session, lap_times_list)
+            # ▼▼▼【修正】Python側リスト結合 + RDPアルゴリズム + ラウンディング適用 ▼▼▼
+            if is_append_mode:
+                # === 追記モード ===
+                current_gps_data = session.gps_tracks or {}
+                if not isinstance(current_gps_data, dict):
+                    current_gps_data = {}
+                current_laps_list = current_gps_data.get('laps', [])
+                
+                offset = len(current_laps_list)
+                new_laps_list = []
+                
+                if gps_tracks_dict:
+                    for lap_num in sorted(gps_tracks_dict.keys()):
+                        new_lap_num = offset + lap_num
+                        raw_track_points = gps_tracks_dict[lap_num]
+                        
+                        # 1. RDPで間引き (閾値 0.000002 ≒ 22cm)
+                        simplified_points = _ramer_douglas_peucker(raw_track_points, 0.000002)
+                        
+                        # 2. ラウンディング（桁数丸め）
+                        optimized_points = _optimize_track_points(simplified_points)
+                        
+                        new_laps_list.append({"lap_number": new_lap_num, "track": optimized_points})
 
-            if gps_tracks_dict:
-                laps_data_for_db = []
-                for lap_num in sorted(gps_tracks_dict.keys()):
-                    track_points = gps_tracks_dict[lap_num]
-                    laps_data_for_db.append({"lap_number": lap_num, "track": track_points})
-                session.gps_tracks = {"laps": laps_data_for_db} if laps_data_for_db else None
+                # リスト結合して保存
+                final_laps_list = current_laps_list + new_laps_list
+                session.gps_tracks = {"laps": final_laps_list}
+                
+                current_times = session.lap_times or []
+                combined_lap_times = current_times + lap_times_list
+                session.lap_times = combined_lap_times
+                
+                _calculate_and_set_best_lap(session, combined_lap_times)
+                
+                db.session.commit()
+                success_action = "追記"
+
             else:
-                session.gps_tracks = None
+                # === 上書きモード ===
+                session.lap_times = lap_times_list
+                _calculate_and_set_best_lap(session, lap_times_list)
 
-            db.session.commit()
-            
-            success_message = f'{len(lap_times_list)}件のラップタイムを正常にインポートしました。'
+                if gps_tracks_dict:
+                    laps_data_for_db = []
+                    for lap_num in sorted(gps_tracks_dict.keys()):
+                        raw_track_points = gps_tracks_dict[lap_num]
+                        
+                        # 間引き + 丸め
+                        simplified_points = _ramer_douglas_peucker(raw_track_points, 0.000002)
+                        optimized_points = _optimize_track_points(simplified_points)
+                        
+                        laps_data_for_db.append({"lap_number": lap_num, "track": optimized_points})
+                    session.gps_tracks = {"laps": laps_data_for_db} if laps_data_for_db else None
+                else:
+                    session.gps_tracks = None
+                
+                db.session.commit()
+                success_action = "インポート"
+            # ▲▲▲【修正ここまで】▲▲▲
+
+            success_message = f'{len(lap_times_list)}件のラップタイムを正常に{success_action}しました。'
             if laps_removed_count > 0:
                 success_message += f' ({laps_removed_count}件の異常なラップを除外しました)'
             flash(success_message, 'success')
@@ -544,7 +612,7 @@ def import_laps(session_id):
         except Exception as e:
             db.session.rollback()
             current_app.logger.error(f"Error processing lap data for session {session_id}: {e}", exc_info=True)
-            flash('ラップデータの処理中にエラーが発生しました。', 'danger')
+            flash('ラップデータの処理中にエラーが発生しました。データサイズが大きすぎる可能性があります。', 'danger')
 
     else:
         for field, errors in form.errors.items():
