@@ -5,17 +5,15 @@ from flask_login import login_required, current_user
 from sqlalchemy import func, case
 from sqlalchemy.orm import aliased, joinedload
 
-# ▼▼▼【ここから変更】▼▼▼
 from ..models import db, ActivityLog, SessionLog, User, Motorcycle, UserCircuitTarget
 from ..utils.lap_time_utils import format_seconds_to_time, parse_time_to_seconds
 from ..forms import TargetLapTimeForm
-# ▲▲▲【変更ここまで】▲▲▲
 
 # 新しいBlueprintを定義
 circuit_dashboard_bp = Blueprint(
     'circuit_dashboard',
     __name__,
-    template_folder='../../templates', # ルートのtemplatesディレクトリを指す
+    template_folder='../../templates',
     url_prefix='/circuit-dashboard'
 )
 
@@ -93,7 +91,7 @@ def index():
         ).label('rn')
     ).subquery()
 
-    # ▼▼▼【ここから変更】目標タイムを取得するために LEFT JOIN を行う ▼▼▼
+    # 目標タイムを取得するために LEFT JOIN を行う
     best_sessions_with_targets_query = db.session.query(
         subq.c.session_id,
         subq.c.circuit_name,
@@ -109,7 +107,6 @@ def index():
     targets_map = {
         cname: target for sid, cname, target in best_sessions_with_targets_query
     }
-    # ▲▲▲【変更ここまで】▲▲▲
     
     best_sessions = db.session.query(SessionLog).options(
         joinedload(SessionLog.activity).joinedload(ActivityLog.motorcycle),
@@ -121,8 +118,9 @@ def index():
     # 2. ダッシュボードに表示するデータを整形
     circuit_data = []
     
+    # グラフ用データ取得のために全データを取得（N+1回避のためeager load）
     all_sessions_for_graph = base_query.options(
-        db.joinedload(SessionLog.activity)
+        joinedload(SessionLog.activity)
     ).order_by(ActivityLog.activity_date.asc()).all()
 
     for best_session in best_sessions:
@@ -180,7 +178,7 @@ def index():
                 'best_session_id': row.best_session_id
             })
         
-        # 2b. ラップタイム推移グラフのデータを作成
+        # 2b. ラップタイム推移グラフ（スパークライン）のデータを作成
         chart_data = {
             'labels': [], # 日付
             'data': []   # ベストラップ
@@ -193,35 +191,38 @@ def index():
         # 2c. リーダーボード情報を取得
         leaderboard_info = get_leaderboard_rankings(circuit_name, current_user.id)
         
-        # 2d. 最新セッションを取得
-        latest_session = base_query.filter(
+        # 2d. 最新セッションを取得 (直近の調子判定用)
+        # 日付が新しい順、同じ日付ならIDが大きい順
+        latest_session_row = base_query.filter(
             ActivityLog.circuit_name == circuit_name
         ).order_by(ActivityLog.activity_date.desc(), SessionLog.id.desc()).first()
+        
+        # SessionLogオブジェクトを取り出す
+        latest_session_obj = latest_session_row.SessionLog if latest_session_row else None
 
-        # ▼▼▼【ここから変更】目標タイムとフォームをデータに追加 ▼▼▼
+        # 目標タイムとフォームをデータに追加
         target_lap_seconds = targets_map.get(circuit_name)
         form = TargetLapTimeForm()
         if target_lap_seconds:
             form.target_time.data = format_seconds_to_time(target_lap_seconds)
-        # ▲▲▲【変更ここまで】▲▲▲
 
         circuit_data.append({
             'name': circuit_name,
             'best_session': best_session,
-            'latest_session_id': latest_session.SessionLog.id if latest_session else None,
+            'latest_session': latest_session_obj,
             'chart_data': chart_data,
             'leaderboard': leaderboard_info,
             'vehicle_breakdown': vehicle_data,
-            # ▼▼▼【ここから変更】目標タイムとフォームをデータに追加 ▼▼▼
-            'target_lap_seconds': target_lap_seconds,
+            # ▼▼▼【修正】float()キャストを削除し、Decimal型のまま渡す ▼▼▼
+            'target_lap_seconds': target_lap_seconds if target_lap_seconds else None,
+            # ▲▲▲【修正ここまで】▲▲▲
             'form': form,
-            # ▲▲▲【変更ここまで】▲▲▲
         })
         
     # 3. 総合サマリー情報を計算
-    all_sessions = base_query.all()
-    total_sessions = len(all_sessions)
-    total_laps = sum(len(s.lap_times) for a, s in all_sessions if s.lap_times)
+    all_sessions_list = base_query.all()
+    total_sessions = len(all_sessions_list)
+    total_laps = sum(len(s.lap_times) for a, s in all_sessions_list if s.lap_times)
     
     summary_stats = {
         'total_circuits': len(circuit_data),
@@ -239,7 +240,6 @@ def index():
         format_seconds_to_time=format_seconds_to_time
     )
 
-# ▼▼▼【ここから追記】目標タイムを設定するための新しいルート ▼▼▼
 @circuit_dashboard_bp.route('/set-target/<path:circuit_name>', methods=['POST'])
 @login_required
 def set_target_lap_time(circuit_name):
@@ -283,4 +283,3 @@ def set_target_lap_time(circuit_name):
                 flash(f'{form[field].label.text}: {error}', 'danger')
 
     return redirect(url_for('.index'))
-# ▲▲▲【追記ここまで】▲▲▲

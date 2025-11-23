@@ -1,296 +1,410 @@
 {# motopuppu/templates/circuit_dashboard/index.html #}
 {% extends "base.html" %}
 
-{% block title %}サーキットダッシュボード - もとぷっぷー{% endblock %}
+{% block title %}Circuit Dashboard - もとぷっぷー{% endblock %}
 
 {% block content %}
 {% include '_breadcrumbs.html' %}
 
-{# ▼▼▼ Flashメッセージの表示エリアを追加 ▼▼▼ #}
+<style>
+    /* --- ダッシュボード専用スタイル --- */
+    
+    /* カードのホバーエフェクト */
+    .hover-lift {
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .hover-lift:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important;
+    }
+
+    /* ヒーローカード（上部の統計エリア） */
+    .hero-stat-card {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border: none;
+        border-radius: 1rem;
+    }
+    .hero-stat-icon {
+        width: 48px;
+        height: 48px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 12px;
+        font-size: 1.5rem;
+    }
+
+    /* サーキットカード */
+    .circuit-card {
+        border: none;
+        border-radius: 1rem;
+        overflow: hidden;
+        background-color: #fff;
+        position: relative;
+    }
+    
+    /* カード上部のアクセントカラーバー */
+    .circuit-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 4px;
+        background: linear-gradient(90deg, #0d6efd, #0dcaf0);
+    }
+
+    /* タイム表示フォント */
+    .best-time-display {
+        font-family: 'Monaco', 'Consolas', monospace;
+        font-weight: 700;
+        letter-spacing: -1px;
+        color: #212529;
+    }
+    .latest-time-display {
+        font-family: 'Monaco', 'Consolas', monospace;
+        font-size: 0.9rem;
+        color: #6c757d;
+    }
+
+    /* スパークライン（ミニグラフ）のコンテナ */
+    .sparkline-container {
+        height: 80px;
+        width: 100%;
+        margin-top: 1rem;
+        margin-bottom: 0.5rem;
+    }
+
+    /* 順位バッジ */
+    .rank-badge {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        font-size: 0.8rem;
+        padding: 0.4em 0.8em;
+        border-radius: 2rem;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+</style>
+
+{# Flashメッセージ #}
 {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
         {% for category, message in messages %}
-            <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show" role="alert">
+            <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show shadow-sm" role="alert">
                 {{ message }}
                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             </div>
         {% endfor %}
     {% endif %}
 {% endwith %}
-{# ▲▲▲ 追加ここまで ▲▲▲ #}
 
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2 class="mb-0"><i class="fas fa-flag-checkered me-2"></i>サーキットダッシュボード</h2>
-</div>
-
-{# --- 1. 総合サマリー --- #}
-<div class="row mb-4">
-    <div class="col-md-4">
-        <div class="card text-center h-100">
-            <div class="card-body">
-                <h5 class="card-title">走行サーキット数</h5>
-                <p class="card-text display-4">{{ summary_stats.total_circuits }}</p>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card text-center h-100">
-            <div class="card-body">
-                <h5 class="card-title">総セッション数</h5>
-                <p class="card-text display-4">{{ summary_stats.total_sessions }}</p>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card text-center h-100">
-            <div class="card-body">
-                <h5 class="card-title">総ラップ数</h5>
-                <p class="card-text display-4">{{ "{:,}".format(summary_stats.total_laps) }}</p>
-            </div>
-        </div>
+    <div>
+        <h2 class="fw-bold mb-0 text-dark"><i class="fas fa-chart-pie me-2 text-primary"></i>Circuit Career</h2>
+        <p class="text-muted mb-0">あなたのサーキット走行実績と成長記録</p>
     </div>
 </div>
 
-{# --- 2. サーキット別カード --- #}
+{# --- 1. ヒーロー統計エリア --- #}
+<div class="row g-3 mb-5">
+    <div class="col-md-4">
+        <div class="card hero-stat-card shadow-sm h-100">
+            <div class="card-body d-flex align-items-center p-4">
+                <div class="hero-stat-icon bg-white text-primary shadow-sm me-3">
+                    <i class="fas fa-map-marked-alt"></i>
+                </div>
+                <div>
+                    <h6 class="text-uppercase text-muted fw-bold mb-1" style="font-size: 0.75rem;">Conquered</h6>
+                    <h2 class="mb-0 fw-bold">{{ summary_stats.total_circuits }}<span class="fs-6 text-muted ms-1">Circuits</span></h2>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card hero-stat-card shadow-sm h-100">
+            <div class="card-body d-flex align-items-center p-4">
+                <div class="hero-stat-icon bg-white text-success shadow-sm me-3">
+                    <i class="fas fa-flag-checkered"></i>
+                </div>
+                <div>
+                    <h6 class="text-uppercase text-muted fw-bold mb-1" style="font-size: 0.75rem;">Sessions</h6>
+                    <h2 class="mb-0 fw-bold">{{ summary_stats.total_sessions }}<span class="fs-6 text-muted ms-1">枠</span></h2>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card hero-stat-card shadow-sm h-100">
+            <div class="card-body d-flex align-items-center p-4">
+                <div class="hero-stat-icon bg-white text-warning shadow-sm me-3">
+                    <i class="fas fa-road"></i>
+                </div>
+                <div>
+                    <h6 class="text-uppercase text-muted fw-bold mb-1" style="font-size: 0.75rem;">Distance</h6>
+                    <h2 class="mb-0 fw-bold">{{ "{:,}".format(summary_stats.total_laps) }}<span class="fs-6 text-muted ms-1">Laps</span></h2>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# --- 2. サーキットカードグリッド --- #}
 {% if circuit_data %}
+    <div class="row g-4">
     {% for circuit in circuit_data %}
-    <div class="card mb-4">
-        <div class="card-header">
-            <h4 class="mb-0">{{ circuit.name }}</h4>
-        </div>
-        <div class="card-body">
-            <div class="row">
-                {# 左カラム: ベストラップとリーダーボード情報 #}
-                <div class="col-lg-4 border-end">
-                    <h5><i class="fas fa-trophy text-warning me-2"></i>Personal Best</h5>
-                    <div class="text-center">
-                        <h1 class="display-5 text-danger">{{ format_seconds_to_time(circuit.best_session.best_lap_seconds) }}</h1>
-                        <p class="text-muted">
-                            {{ circuit.best_session.activity.activity_date.strftime('%Y-%m-%d') }} on {{ circuit.best_session.activity.motorcycle.name }}
-                            <br>
-                            <a href="{{ url_for('activity.detail_activity', activity_id=circuit.best_session.activity_log_id) }}">
-                                View Session: {{ circuit.best_session.session_name }}
-                            </a>
-                        </p>
-                    </div>
-
-                    {# ▼▼▼【ここから追記】目標タイム表示エリア ▼▼▼ #}
-                    <hr>
-                    <div class="d-flex justify-content-between align-items-center">
-                        <h5><i class="fas fa-bullseye me-2"></i>目標タイム</h5>
-                        <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#targetTimeModal-{{ loop.index }}">
-                            <i class="fas fa-edit me-1"></i> 設定
-                        </button>
-                    </div>
-                    {% if circuit.target_lap_seconds %}
-                        {% set gap = circuit.best_session.best_lap_seconds - circuit.target_lap_seconds %}
-                        <div class="text-center mt-2">
-                            <h3 class="display-6">{{ format_seconds_to_time(circuit.target_lap_seconds) }}</h3>
-                            <p class="mb-0">
-                                自己ベストとの差:
-                                {% if gap > 0 %}
-                                    <span class="badge bg-danger fs-6">+{{ "%.3f"|format(gap) }}秒</span>
-                                {% else %}
-                                    <span class="badge bg-success fs-6">{{ "%.3f"|format(gap) }}秒</span>
-                                {% endif %}
-                            </p>
-                        </div>
-                    {% else %}
-                        <p class="text-muted mt-2">目標タイムはまだ設定されていません。</p>
-                    {% endif %}
-                    {# ▲▲▲【追記ここまで】▲▲▲ #}
-
-                    <hr>
-                    <h5><i class="fas fa-medal me-2"></i>Leaderboard</h5>
-                    {% if circuit.leaderboard.rank %}
-                        <p>現在の順位: <strong>{{ circuit.leaderboard.rank }}位</strong></p>
-                        {% if circuit.leaderboard.gap_to_next %}
-                            <p class="mb-0">次の順位まであと <strong class="text-info">{{ "%.3f"|format(circuit.leaderboard.gap_to_next) }}秒</strong></p>
-                        {% else %}
-                            <p class="text-success mb-0"><i class="fas fa-crown"></i> サーキットトップです！</p>
-                        {% endif %}
-                    {% else %}
-                        <p class="text-muted">リーダーボードにランクインしていません。</p>
-                    {% endif %}
-                     <a href="{{ url_for('leaderboard.ranking', circuit_name=circuit.name) }}" class="btn btn-sm btn-outline-secondary mt-2 w-100">リーダーボード全体を見る</a>
-                </div>
-
-                {# 右カラム: グラフと車両別内訳 #}
-                <div class="col-lg-8">
-                    <div class="row">
-                        {# 上段: グラフとベストセッティング #}
-                        <div class="col-md-8">
-                            <h5><i class="fas fa-chart-line me-2"></i>Lap Time Progression</h5>
-                             <div style="height: 250px;">
-                                <canvas id="lapChart-{{ circuit.name|replace(' ', '-')|replace('.', '-')|replace('/', '-') }}"></canvas>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <h5><i class="fas fa-cogs me-2"></i>Best Setting</h5>
-                            {# ▼▼▼【ここから修正】より安全なチェックに全体を書き換える ▼▼▼ #}
-                            {% if circuit.best_session.setting_sheet %}
-                                <p>
-                                    <a href="{{ url_for('activity.edit_setting', setting_id=circuit.best_session.setting_sheet.id) }}">
-                                        {{ circuit.best_session.setting_sheet.sheet_name }}
-                                    </a>
-                                </p>
-                                <details class="small bg-light p-2 rounded">
-                                    <summary style="cursor: pointer;">詳細を表示</summary>
-                                    <ul class="list-unstyled mt-2 mb-0">
-                                        {% if circuit.best_session.setting_sheet.details is mapping %}
-                                            {# |slice(3) フィルターを削除 #}
-                                            {% for category, cat_items in circuit.best_session.setting_sheet.details.items() %}
-                                                {% if cat_items is mapping %}
-                                                    {% for key, value in cat_items.items() %}
-                                                        <li><strong>{{ key }}:</strong> {{ value }}</li>
-                                                    {% endfor %}
-                                                {% endif %}
-                                            {% endfor %}
-                                        {% else %}
-                                            <li class="text-muted">（詳細なセッティング項目はありません）</li>
-                                        {% endif %}
-                                    </ul>
-                                </details>
+        <div class="col-xl-4 col-md-6">
+            <div class="card circuit-card shadow-sm hover-lift h-100">
+                <div class="card-body p-4 d-flex flex-column">
+                    
+                    {# ヘッダー: サーキット名とランク #}
+                    <div class="d-flex justify-content-between align-items-start mb-2 position-relative">
+                        <h5 class="card-title fw-bold mb-0 text-truncate" style="max-width: 70%;" title="{{ circuit.name }}">
+                            {{ circuit.name }}
+                        </h5>
+                        
+                        {% if circuit.leaderboard.rank %}
+                            {% if circuit.leaderboard.rank == 1 %}
+                                <span class="badge bg-warning text-dark rank-badge"><i class="fas fa-crown me-1"></i>1st</span>
+                            {% elif circuit.leaderboard.rank <= 3 %}
+                                <span class="badge bg-secondary rank-badge">{{ circuit.leaderboard.rank }}rd</span>
                             {% else %}
-                                <p class="text-muted">セッティングシートがありません。</p>
+                                <span class="badge bg-light text-dark border rank-badge">{{ circuit.leaderboard.rank }}th</span>
                             {% endif %}
-                            {# ▲▲▲【修正はここまで】▲▲▲ #}
-                            <hr>
-                            <h5><i class="fas fa-bolt me-2"></i>Actions</h5>
-                            <div class="d-grid gap-2">
-                                {% if circuit.latest_session_id and circuit.latest_session_id != circuit.best_session.id %}
-                                <a href="{{ url_for('activity.compare_sessions', vehicle_id=circuit.best_session.activity.motorcycle.id, session_ids=[circuit.best_session.id, circuit.latest_session_id]) }}" class="btn btn-info btn-sm">
-                                    <i class="fas fa-balance-scale-right me-1"></i> Best vs Latest
-                                </a>
+                        {% else %}
+                            <span class="badge bg-light text-muted border rank-badge">NR</span>
+                        {% endif %}
+                    </div>
+                    
+                    {# メイン情報: ベストタイム #}
+                    <div class="mt-2 mb-3">
+                        <small class="text-muted d-block mb-1">Personal Best</small>
+                        <div class="d-flex align-items-baseline">
+                            <h1 class="best-time-display display-5 mb-0 me-3">
+                                {{ format_seconds_to_time(circuit.best_session.best_lap_seconds) }}
+                            </h1>
+                            
+                            {# 車両アイコン #}
+                            {% if circuit.best_session.activity.motorcycle.image_url %}
+                                <img src="{{ circuit.best_session.activity.motorcycle.image_url }}" class="rounded-circle border" style="width: 24px; height: 24px; object-fit: cover;" title="{{ circuit.best_session.activity.motorcycle.name }}">
+                            {% else %}
+                                <i class="fas fa-motorcycle text-secondary" title="{{ circuit.best_session.activity.motorcycle.name }}"></i>
+                            {% endif %}
+                        </div>
+                        
+                        {# 目標タイムとの比較 #}
+                        {% if circuit.target_lap_seconds %}
+                            {# ▼▼▼【修正】Decimal同士の引き算なので安全 ▼▼▼ #}
+                            {% set gap = circuit.best_session.best_lap_seconds - circuit.target_lap_seconds %}
+                            <div class="mt-1 small">
+                                Target: <span class="fw-bold">{{ format_seconds_to_time(circuit.target_lap_seconds) }}</span>
+                                {% if gap > 0 %}
+                                    <span class="text-danger ms-2"><i class="fas fa-caret-up"></i> {{ "%.3f"|format(gap) }}</span>
+                                {% else %}
+                                    <span class="text-success ms-2"><i class="fas fa-check-circle"></i> Cleared!</span>
                                 {% endif %}
                             </div>
-                        </div>
+                        {% else %}
+                            <div class="mt-1 small text-muted fst-italic">
+                                No target set
+                            </div>
+                        {% endif %}
                     </div>
 
-                    <hr class="my-4">
-
-                    {# 下段: 車両別ブレークダウン #}
-                    <h5><i class="fas fa-motorcycle me-2"></i>Vehicle Breakdown</h5>
-                    {% if circuit.vehicle_breakdown %}
-                    <div class="table-responsive">
-                        <table class="table table-sm table-hover small">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Vehicle</th>
-                                    <th class="text-end">Best Lap (Vehicle)</th>
-                                    <th class="text-end">Gap to PB</th>
-                                    <th class="text-center">Sessions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for vehicle in circuit.vehicle_breakdown %}
-                                <tr>
-                                    <td>
-                                        {% if vehicle.is_pb_holder %}
-                                            <i class="fas fa-crown text-warning" title="Personal Best Holder"></i>
-                                        {% endif %}
-                                        <a href="{{ url_for('activity.list_activities', vehicle_id=vehicle.id) }}">{{ vehicle.name }}</a>
-                                    </td>
-                                    <td class="text-end fw-bold">{{ format_seconds_to_time(vehicle.best_lap) }}</td>
-                                    <td class="text-end {% if vehicle.gap_to_pb > 0 %}text-danger{% endif %}">
-                                        {% if vehicle.gap_to_pb > 0 %}+{{ "%.3f"|format(vehicle.gap_to_pb) }}{% endif %}
-                                    </td>
-                                    <td class="text-center">{{ vehicle.session_count }}</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                    {% else %}
-                    <p class="text-muted">車両別の走行データがありません。</p>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-    </div>
-
-    {# ▼▼▼【ここから追記】目標タイム設定用モーダル ▼▼▼ #}
-    <div class="modal fade" id="targetTimeModal-{{ loop.index }}" tabindex="-1" aria-labelledby="targetTimeModalLabel-{{ loop.index }}" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <form method="POST" action="{{ url_for('circuit_dashboard.set_target_lap_time', circuit_name=circuit.name) }}">
-                    {{ circuit.form.hidden_tag() }}
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="targetTimeModalLabel-{{ loop.index }}">{{ circuit.name }} - 目標タイム設定</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="mb-3">
-                            {{ circuit.form.target_time.label(class="form-label") }}
-                            {{ circuit.form.target_time(class="form-control" + (" is-invalid" if circuit.form.target_time.errors else "")) }}
-                            {% if circuit.form.target_time.errors %}
-                                <div class="invalid-feedback">
-                                    {% for error in circuit.form.target_time.errors %}{{ error }}{% endfor %}
+                    {# 【追加】Latest情報とトレンド #}
+                    {% if circuit.latest_session and circuit.latest_session.id != circuit.best_session.id %}
+                        <div class="bg-light rounded p-2 mb-2 d-flex justify-content-between align-items-center">
+                            <div>
+                                <small class="text-muted d-block" style="font-size: 0.7rem;">Latest ({{ circuit.latest_session.activity.activity_date.strftime('%m/%d') }})</small>
+                                <span class="latest-time-display fw-bold">{{ format_seconds_to_time(circuit.latest_session.best_lap_seconds) }}</span>
+                            </div>
+                            
+                            {# トレンド判定: ベスト+2%以内なら好調とみなす #}
+                            {% set diff_from_best = circuit.latest_session.best_lap_seconds - circuit.best_session.best_lap_seconds %}
+                            
+                            {# ▼▼▼【修正】Decimal * float はエラーになるため、floatにキャストしてから計算 ▼▼▼ #}
+                            {% set threshold = circuit.best_session.best_lap_seconds|float * 0.02 %}
+                            
+                            {% if diff_from_best <= threshold %}
+                                <div class="text-center text-success">
+                                    <i class="fas fa-fire-alt"></i>
+                                    <div style="font-size: 0.6rem; line-height: 1;">Good!</div>
+                                </div>
+                            {% else %}
+                                <div class="text-center text-muted opacity-50">
+                                    <i class="fas fa-minus"></i>
                                 </div>
                             {% endif %}
                         </div>
+                    {% endif %}
+
+                    {# スパークライン (ミニグラフ) #}
+                    <div class="sparkline-container mt-auto">
+                        <canvas id="sparkline-{{ loop.index }}"></canvas>
                     </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
-                        {{ circuit.form.submit(class="btn btn-primary") }}
+
+                    {# アクションボタン群 #}
+                    <div class="d-flex gap-2 mt-3 pt-3 border-top">
+                        <button type="button" class="btn btn-sm btn-light flex-grow-1 text-muted" data-bs-toggle="modal" data-bs-target="#targetTimeModal-{{ loop.index }}">
+                            <i class="fas fa-bullseye"></i> 目標
+                        </button>
+                        {# 詳細へのリンク: ベストセッションのアクティビティ詳細へ飛ぶのが自然 #}
+                        <a href="{{ url_for('activity.detail_activity', activity_id=circuit.best_session.activity_log_id) }}" class="btn btn-sm btn-outline-primary flex-grow-1">
+                            <i class="fas fa-list"></i> 詳細
+                        </a>
                     </div>
-                </form>
+                </div>
             </div>
         </div>
-    </div>
-    {# ▲▲▲【追記ここまで】▲▲▲ #}
+
+        {# 目標設定モーダル #}
+        <div class="modal fade" id="targetTimeModal-{{ loop.index }}" tabindex="-1" aria-labelledby="targetTimeModalLabel-{{ loop.index }}" aria-hidden="true">
+            <div class="modal-dialog modal-sm modal-dialog-centered">
+                <div class="modal-content">
+                    <form method="POST" action="{{ url_for('circuit_dashboard.set_target_lap_time', circuit_name=circuit.name) }}">
+                        {{ circuit.form.hidden_tag() }}
+                        <div class="modal-header border-0 pb-0">
+                            <h6 class="modal-title fw-bold" id="targetTimeModalLabel-{{ loop.index }}">目標タイム設定</h6>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p class="small text-muted mb-2">{{ circuit.name }}</p>
+                            <div class="mb-3">
+                                {{ circuit.form.target_time(class="form-control form-control-lg text-center fw-bold", placeholder="1:23.456") }}
+                                {% if circuit.form.target_time.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in circuit.form.target_time.errors %}{{ error }}{% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="modal-footer border-0 pt-0">
+                            <button type="button" class="btn btn-sm btn-light" data-bs-dismiss="modal">キャンセル</button>
+                            {{ circuit.form.submit(class="btn btn-sm btn-primary px-4") }}
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
 
     {% endfor %}
+    </div>
 {% else %}
-<div class="alert alert-info">
-    <h4 class="alert-heading">走行データがありません</h4>
-    <p>サーキットでの走行ログを記録すると、ここに分析データが表示されます。</p>
-    <hr>
-    <p class="mb-0">まずは<a href="{{ url_for('vehicle.vehicle_list') }}" class="alert-link">車両を選んで</a>走行ログを追加してみましょう。</p>
-</div>
+    {# データがない場合のEmpty State #}
+    <div class="text-center py-5 my-5 bg-white rounded-3 shadow-sm">
+        <div class="mb-4">
+            <span class="fa-stack fa-3x text-light">
+                <i class="fas fa-circle fa-stack-2x"></i>
+                <i class="fas fa-flag-checkered fa-stack-1x fa-inverse text-secondary"></i>
+            </span>
+        </div>
+        <h4 class="fw-bold text-dark">No Data Yet</h4>
+        <p class="text-muted mb-4">サーキット走行ログを記録すると、ここにあなたのキャリアが表示されます。</p>
+        <a href="{{ url_for('vehicle.vehicle_list') }}" class="btn btn-primary px-4 rounded-pill">
+            <i class="fas fa-plus me-1"></i> 最初のログを記録する
+        </a>
+    </div>
 {% endif %}
 
 {% endblock %}
-
 
 {% block scripts %}
 {{ super() }}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+{# Annotation Pluginを追加 #}
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+
 <script>
 document.addEventListener('DOMContentLoaded', () => {
+    // Chart.js のデフォルト設定をスパークライン向けに調整
+    Chart.defaults.scale.grid.display = false;
+    Chart.defaults.scale.ticks.display = false;
+    
     {% for circuit in circuit_data %}
-        const ctx_{{ loop.index }} = document.getElementById('lapChart-{{ circuit.name|replace(' ', '-')|replace('.', '-')|replace('/', '-') }}');
+        const ctx_{{ loop.index }} = document.getElementById('sparkline-{{ loop.index }}');
         if (ctx_{{ loop.index }}) {
             const chartData = {{ circuit.chart_data|tojson }};
+            const targetTime = {{ circuit.target_lap_seconds if circuit.target_lap_seconds else 'null' }};
+            
+            // トレンド色判定 (最初と最後を比較)
+            let trendColor = 'rgba(13, 110, 253, 0.5)'; // デフォルト: 青
+            if (chartData.data.length >= 2) {
+                const first = chartData.data[0];
+                const last = chartData.data[chartData.data.length - 1];
+                if (last < first) {
+                    trendColor = 'rgba(25, 135, 84, 0.6)'; // 改善: 緑
+                } else if (last > first) {
+                    trendColor = 'rgba(220, 53, 69, 0.5)'; // 悪化: 赤
+                }
+            }
+
+            // 目標ライン用のアノテーション設定
+            const annotations = {};
+            if (targetTime) {
+                annotations.targetLine = {
+                    type: 'line',
+                    yMin: targetTime,
+                    yMax: targetTime,
+                    borderColor: 'rgba(255, 99, 132, 0.8)',
+                    borderWidth: 2,
+                    borderDash: [5, 5],
+                    label: { display: false }
+                };
+            }
+
             new Chart(ctx_{{ loop.index }}, {
                 type: 'line',
                 data: {
                     labels: chartData.labels,
                     datasets: [{
-                        label: 'Best Lap',
                         data: chartData.data,
-                        borderColor: 'rgb(220, 53, 69)',
-                        tension: 0.1
+                        borderColor: trendColor,
+                        borderWidth: 2,
+                        backgroundColor: (context) => {
+                            const ctx = context.chart.ctx;
+                            const gradient = ctx.createLinearGradient(0, 0, 0, 80);
+                            // グラデーション色もトレンドに合わせて変更
+                            gradient.addColorStop(0, trendColor.replace('0.5', '0.2').replace('0.6', '0.2'));
+                            gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                            return gradient;
+                        },
+                        fill: true,
+                        pointRadius: 0, // 通常時は点を消す
+                        pointHoverRadius: 4, // ホバー時のみ点を表示
+                        tension: 0.4 // 曲線を滑らかに
                     }]
                 },
                 options: {
+                    responsive: true,
                     maintainAspectRatio: false,
-                    scales: {
-                        x: {
-                            type: 'time',
-                            time: {
-                                unit: 'day',
-                                tooltipFormat: 'yyyy-MM-dd'
-                            },
-                            title: { display: true, text: 'Date' }
-                        },
-                        y: {
-                            title: { display: true, text: 'Lap Time (s)' }
+                    plugins: {
+                        legend: { display: false },
+                        annotation: { annotations: annotations }, // アノテーション有効化
+                        tooltip: {
+                            enabled: true,
+                            mode: 'index',
+                            intersect: false,
+                            displayColors: false,
+                            callbacks: {
+                                title: function(context) {
+                                    // 日付のみ表示
+                                    return context[0].label.split('T')[0]; 
+                                },
+                                label: function(context) {
+                                    return context.parsed.y.toFixed(3) + ' s';
+                                }
+                            }
                         }
                     },
-                    plugins: {
-                        legend: { display: false }
+                    scales: {
+                        x: { display: false }, // X軸を非表示
+                        y: { display: false }  // Y軸を非表示
+                    },
+                    interaction: {
+                        mode: 'nearest',
+                        axis: 'x',
+                        intersect: false
                     }
                 }
             });
