@@ -17,78 +17,120 @@
                     </a>
                 </li>
 
-                <li class="nav-item dropdown">
+                {# ▼▼▼ メガメニュー化されたマイガレージ ▼▼▼ #}
+                <li class="nav-item dropdown position-static">
                     <a class="nav-link dropdown-toggle {% if request.endpoint.startswith(('vehicle.', 'activity.', 'touring.', 'reminder.', 'maintenance.', 'fuel.', 'notes.')) and ('list' in request.endpoint or 'log' in request.endpoint) %}active{% endif %}" href="#" id="garageDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="fas fa-warehouse me-1"></i> マイガレージ
                     </a>
-                    <ul class="dropdown-menu" aria-labelledby="garageDropdown">
-                        {% if g.user_motorcycles %}
-                            {% for motorcycle in g.user_motorcycles %}
-                            <li class="dropend">
-                                <a class="dropdown-item dropdown-toggle d-flex align-items-center" href="#" id="vehicleDropdown{{ motorcycle.id }}" role="button" aria-expanded="false">
-                                    {% if motorcycle.image_url %}
-                                        <img src="{{ motorcycle.image_url }}" alt="{{ motorcycle.name }}" class="vehicle-icon-image me-2">
-                                    {% endif %}
-                                    <span>{{ motorcycle.name }}</span>
-                                </a>
-                                <ul class="dropdown-menu" aria-labelledby="vehicleDropdown{{ motorcycle.id }}">
-                                    <li><h6 class="dropdown-header"><i class="fas fa-tools fa-fw me-2"></i>日常の記録</h6></li>
-                                    <li><a class="dropdown-item" href="{{ url_for('fuel.fuel_log', motorcycle_id=motorcycle.id) }}"><i class="fas fa-gas-pump fa-fw me-2"></i>給油記録</a></li>
-                                    <li><a class="dropdown-item" href="{{ url_for('maintenance.maintenance_log', motorcycle_id=motorcycle.id) }}"><i class="fas fa-tools fa-fw me-2"></i>整備記録</a></li>
-                                    <li><a class="dropdown-item" href="{{ url_for('notes.notes_log', motorcycle_id=motorcycle.id) }}"><i class="fas fa-sticky-note fa-fw me-2"></i>ノート</a></li>
-                                    <li><hr class="dropdown-divider"></li>
-                                    <li><h6 class="dropdown-header"><i class="fas fa-route fa-fw me-2"></i>活動の記録</h6></li>
-                                    <li><a class="dropdown-item" href="{{ url_for('activity.list_activities', vehicle_id=motorcycle.id) }}"><i class="fas fa-flag-checkered fa-fw me-2"></i>走行ログ</a></li>
-                                    <li><a class="dropdown-item" href="{{ url_for('touring.list_logs', vehicle_id=motorcycle.id) }}"><i class="fas fa-map-signs fa-fw me-2"></i>ツーリングログ</a></li>
-                                    <li><hr class="dropdown-divider"></li>
-                                    <li><a class="dropdown-item" href="{{ url_for('reminder.list_reminders', vehicle_id=motorcycle.id) }}"><i class="fas fa-bell fa-fw me-2"></i>リマインダー</a></li>
-                                </ul>
-                            </li>
-                            {% endfor %}
-                            <li><hr class="dropdown-divider"></li>
-                        {% endif %}
-                        <li>
-                            <a class="dropdown-item {% if request.endpoint == 'vehicle.vehicle_list' %}active{% endif %}" href="{{ url_for('vehicle.vehicle_list') }}">
-                                <i class="fas fa-motorcycle fa-fw me-2"></i>車両を管理
-                            </a>
-                        </li>
-                    </ul>
+                    <div class="dropdown-menu w-100 mt-0 py-3 shadow-sm border-0 mega-menu-content" aria-labelledby="garageDropdown">
+                        <div class="container">
+                            <div class="row g-3">
+                                {% if g.user_motorcycles %}
+                                    {% for motorcycle in g.user_motorcycles %}
+                                    <div class="col-lg-4 col-md-6">
+                                        <div class="vehicle-menu-card p-2 border rounded h-100">
+                                            {# 車両ヘッダー #}
+                                            <div class="d-flex align-items-center mb-2 border-bottom pb-2">
+                                                {% if motorcycle.image_url %}
+                                                    <img src="{{ motorcycle.image_url }}" alt="{{ motorcycle.name }}" class="vehicle-icon-image me-2" style="width:32px; height:32px;">
+                                                {% else %}
+                                                    <div class="bg-light rounded-circle d-flex align-items-center justify-content-center me-2" style="width:32px; height:32px;">
+                                                        <i class="fas fa-motorcycle text-secondary"></i>
+                                                    </div>
+                                                {% endif %}
+                                                <span class="fw-bold text-dark text-truncate">{{ motorcycle.name }}</span>
+                                            </div>
+                                            
+                                            {# 機能リンク (左右分割) #}
+                                            <div class="row g-0">
+                                                <div class="col-6 border-end pe-2">
+                                                    <div class="text-uppercase text-muted fw-bold mb-1" style="font-size: 0.65rem;">日常管理</div>
+                                                    <ul class="list-unstyled mb-0 small">
+                                                        <li><a href="{{ url_for('fuel.fuel_log', motorcycle_id=motorcycle.id) }}" class="d-block py-1 text-decoration-none text-dark hover-primary"><i class="fas fa-gas-pump fa-fw text-muted me-1"></i>給油</a></li>
+                                                        <li><a href="{{ url_for('maintenance.maintenance_log', motorcycle_id=motorcycle.id) }}" class="d-block py-1 text-decoration-none text-dark hover-primary"><i class="fas fa-tools fa-fw text-muted me-1"></i>整備</a></li>
+                                                        <li><a href="{{ url_for('notes.notes_log', motorcycle_id=motorcycle.id) }}" class="d-block py-1 text-decoration-none text-dark hover-primary"><i class="fas fa-sticky-note fa-fw text-muted me-1"></i>ノート</a></li>
+                                                    </ul>
+                                                </div>
+                                                <div class="col-6 ps-2">
+                                                    <div class="text-uppercase text-muted fw-bold mb-1" style="font-size: 0.65rem;">活動記録</div>
+                                                    <ul class="list-unstyled mb-0 small">
+                                                        <li><a href="{{ url_for('activity.list_activities', vehicle_id=motorcycle.id) }}" class="d-block py-1 text-decoration-none text-dark hover-primary"><i class="fas fa-flag-checkered fa-fw text-muted me-1"></i>走行ログ</a></li>
+                                                        <li><a href="{{ url_for('touring.list_logs', vehicle_id=motorcycle.id) }}" class="d-block py-1 text-decoration-none text-dark hover-primary"><i class="fas fa-map-signs fa-fw text-muted me-1"></i>ツーリング</a></li>
+                                                        <li><a href="{{ url_for('reminder.list_reminders', vehicle_id=motorcycle.id) }}" class="d-block py-1 text-decoration-none text-dark hover-primary"><i class="fas fa-bell fa-fw text-muted me-1"></i>通知</a></li>
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                {% else %}
+                                    <div class="col-12 text-center py-4">
+                                        <p class="text-muted">車両が登録されていません</p>
+                                    </div>
+                                {% endif %}
+                                
+                                {# フッター: 車両管理設定へ #}
+                                <div class="col-12 mt-3 pt-2 border-top">
+                                    <a href="{{ url_for('vehicle.vehicle_list') }}" class="btn btn-sm btn-outline-primary w-100 w-lg-auto">
+                                        <i class="fas fa-cog me-1"></i>車両の追加・編集・並び替え
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </li>
+                {# ▲▲▲ メガメニュー化完了 ▲▲▲ #}
                 
+                {# ▼▼▼ カテゴリ分けされたコミュニティメニュー ▼▼▼ #}
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle {% if request.endpoint.startswith(('team.', 'circuit_dashboard.', 'leaderboard.', 'event.', 'garage_settings.')) %}active{% endif %}" href="#" id="activityLogDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="fas fa-users me-1"></i> コミュニティ
                     </a>
                     <ul class="dropdown-menu" aria-labelledby="activityLogDropdown">
-                        {# ▼▼▼ 変更・追加: イベント広場へのリンク ▼▼▼ #}
+                        
+                        {# カテゴリ1: イベント #}
+                        <li><h6 class="dropdown-header"><i class="fas fa-calendar-day fa-fw me-2"></i>イベント</h6></li>
                         <li>
                             <a class="dropdown-item {% if request.endpoint == 'event.public_events_list' %}active{% endif %}" href="{{ url_for('event.public_events_list') }}">
-                                <i class="fas fa-calendar-alt fa-fw me-2"></i>イベント広場 (開催予定)
+                                <i class="fas fa-search-location fa-fw me-2"></i>イベント広場 (開催予定)
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item {% if request.endpoint == 'event.list_events' %}active{% endif %}" href="{{ url_for('event.list_events') }}">
+                                <i class="fas fa-edit fa-fw me-2"></i>自分のイベント管理
                             </a>
                         </li>
                         <li><hr class="dropdown-divider"></li>
-                        {# ▲▲▲ 追加ここまで ▲▲▲ #}
-                        
+
+                        {# カテゴリ2: 競技・データ #}
+                        <li><h6 class="dropdown-header"><i class="fas fa-chart-line fa-fw me-2"></i>競技・データ</h6></li>
                         <li>
                             <a class="dropdown-item {% if request.endpoint.startswith('circuit_dashboard.') %}active{% endif %}" href="{{ url_for('circuit_dashboard.index') }}">
                                 <i class="fas fa-columns fa-fw me-2"></i>サーキットダッシュボード
                             </a>
                         </li>
                         <li>
-                            <a class="dropdown-item {% if request.endpoint.startswith('leaderboard.') %}active{% endif %}" href="{{ url_for('leaderboard.index') }}"><i class="fas fa-trophy fa-fw me-2"></i>リーダーボード</a>
+                            <a class="dropdown-item {% if request.endpoint.startswith('leaderboard.') %}active{% endif %}" href="{{ url_for('leaderboard.index') }}">
+                                <i class="fas fa-trophy fa-fw me-2"></i>リーダーボード
+                            </a>
                         </li>
+                        <li><hr class="dropdown-divider"></li>
+
+                        {# カテゴリ3: 交流・共有 #}
+                        <li><h6 class="dropdown-header"><i class="fas fa-handshake fa-fw me-2"></i>交流・共有</h6></li>
                         <li>
                             <a class="dropdown-item {% if request.endpoint.startswith('team.') %}active{% endif %}" href="{{ url_for('team.list_teams') }}">
                                 <i class="fas fa-users-cog fa-fw me-2"></i>チーム
                             </a>
                         </li>
-                        
-                        {# ▼▼▼ 変更: リンク名を「自分のイベント管理」に変更 ▼▼▼ #}
-                        <li><a class="dropdown-item {% if request.endpoint == 'event.list_events' %}active{% endif %}" href="{{ url_for('event.list_events') }}"><i class="fas fa-edit fa-fw me-2"></i>自分のイベント管理</a></li>
-                        
-                        <li><a class="dropdown-item {% if request.endpoint.startswith('garage_settings.') %}active{% endif %}" href="{{ url_for('garage_settings.settings') }}"><i class="fas fa-id-card fa-fw me-2"></i>ガレージカード</a></li>
+                        <li>
+                            <a class="dropdown-item {% if request.endpoint.startswith('garage_settings.') %}active{% endif %}" href="{{ url_for('garage_settings.settings') }}">
+                                <i class="fas fa-id-card fa-fw me-2"></i>ガレージカード
+                            </a>
+                        </li>
                     </ul>
                 </li>
+                {# ▲▲▲ カテゴリ分け完了 ▲▲▲ #}
             </ul>
 
             <form class="d-flex mx-lg-auto" role="search" id="global-search-form" style="min-width: 300px;">
@@ -139,70 +181,31 @@
     </div>
 </nav>
 <style>
-/* ネストされたドロップダウンメニューのためのCSS (デスクトップでのホバー表示) */
-.dropdown-menu .dropend .dropdown-toggle::after {
-    display: inline-block;
-    width: 0;
-    height: 0;
-    margin-left: .255em;
-    vertical-align: .255em;
-    content: "";
-    border-top: .3em solid transparent;
-    border-right: 0;
-    border-bottom: .3em solid transparent;
-    border-left: .3em solid;
+/* メガメニュー用のスタイル */
+.vehicle-menu-card {
+    transition: background-color 0.2s;
+    background-color: #f8f9fa; /* 薄いグレー */
+}
+.vehicle-menu-card:hover {
+    background-color: #fff;
+    border-color: #0d6efd !important; /* ホバー時に枠線を青く */
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+}
+.hover-primary:hover {
+    color: #0d6efd !important;
+    background-color: rgba(13, 110, 253, 0.05);
+    border-radius: 4px;
+    padding-left: 4px; /* ホバー時に少し右へ動くアニメーションっぽく */
+    transition: all 0.2s;
 }
 
-/* --- デスクトップ表示 (992px以上) --- */
-@media (min-width: 992px) {
-    .dropdown-menu .dropend:hover > .dropdown-menu {
-        display: block;
-        top: 0;
-        margin-top: 0;
-        left: 100%;
-        margin-left: .125rem;
-    }
-}
-
-/* --- スマートフォン・タブレット表示 (991.98px以下) --- */
+/* スマホなどNavbarが折りたたまれている時の挙動調整 */
 @media (max-width: 991.98px) {
-    .dropdown-menu .dropend .dropdown-menu {
-        margin-left: 0.75rem;
-    }
-    .dropdown-menu .dropend:hover > .dropdown-menu {
-        display: none;
-    }
-    .dropdown-menu .dropend > .dropdown-menu.show {
-        display: block;
+    .dropdown-menu.mega-menu-content {
+        max-height: 60vh;
+        overflow-y: auto;
     }
 }
 </style>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const submenuToggles = document.querySelectorAll('.navbar .dropdown-menu .dropend > .dropdown-toggle');
-
-    submenuToggles.forEach(toggle => {
-        toggle.addEventListener('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-
-            const parentLi = this.parentElement;
-            const submenu = this.nextElementSibling;
-            
-            if (!submenu) return;
-
-            const isAlreadyOpen = submenu.classList.contains('show');
-            
-            parentLi.parentElement.querySelectorAll('.dropend .dropdown-menu').forEach(menu => {
-                menu.classList.remove('show');
-            });
-
-            if (!isAlreadyOpen) {
-                submenu.classList.add('show');
-            }
-        });
-    });
-});
-</script>
+{# 以前のJavaScriptは不要になったため削除済み #}
 {% endif %}
