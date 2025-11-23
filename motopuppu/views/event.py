@@ -7,7 +7,7 @@ from datetime import datetime, timezone, date
 from sqlalchemy import func
 from flask_login import login_required, current_user
 from wtforms.validators import Optional
-from ..models import db, Event, EventParticipant, Motorcycle, ParticipationStatus, User
+from ..models import db, Event, EventParticipant, Motorcycle, ParticipationStatus, User, Team
 from ..forms import EventForm, ParticipantForm
 from ..utils.datetime_helpers import JST
 from .. import limiter
@@ -74,9 +74,24 @@ def list_events():
 @login_required
 def add_event():
     """新しいイベントを作成する"""
+    # ▼▼▼【追加】チームIDの取得と検証 ▼▼▼
+    team_id = request.args.get('team_id', type=int)
+    target_team = None
+    if team_id:
+        target_team = Team.query.get_or_404(team_id)
+        # 自分がメンバーでないチームのイベントは作れない
+        if current_user not in target_team.members:
+            abort(403)
+    # ▲▲▲【追加】▲▲▲
+
     form = EventForm()
     form.motorcycle_id.choices = [(m.id, m.name) for m in Motorcycle.query.filter_by(user_id=current_user.id).order_by('name')]
     form.motorcycle_id.choices.insert(0, (0, '--- 車両を関連付けない ---'))
+
+    # ▼▼▼【追加】チームイベント作成時は「公開設定」を強制的にOFFの扱いにするための初期値設定
+    if request.method == 'GET' and target_team:
+        form.is_public.data = False
+    # ▲▲▲【追加】▲▲▲
 
     if form.validate_on_submit():
         start_dt_utc = form.start_datetime.data.replace(tzinfo=JST).astimezone(timezone.utc)
@@ -84,25 +99,34 @@ def add_event():
 
         new_event = Event(
             user_id=current_user.id,
+            team_id=team_id, # ▼▼▼【追加】チームIDを保存
             motorcycle_id=form.motorcycle_id.data if form.motorcycle_id.data != 0 else None,
             title=form.title.data,
             description=form.description.data,
             location=form.location.data,
             start_datetime=start_dt_utc,
             end_datetime=end_dt_utc,
-            is_public=form.is_public.data
+            # チームイベントなら強制的に非公開(False)、そうでなければフォームの値
+            is_public=False if target_team else form.is_public.data
         )
         try:
             db.session.add(new_event)
             db.session.commit()
-            flash('新しいイベントを作成しました。', 'success')
+            
+            # ▼▼▼【追加】リダイレクト先の調整
+            if target_team:
+                flash(f'チーム「{target_team.name}」のイベントを作成しました。', 'success')
+            else:
+                flash('新しいイベントを作成しました。', 'success')
+            # ▲▲▲
+
             return redirect(url_for('event.event_detail', event_id=new_event.id))
         except Exception as e:
             db.session.rollback()
             current_app.logger.error(f"Error adding new event: {e}", exc_info=True)
             flash('イベントの保存中にエラーが発生しました。', 'danger')
 
-    return render_template('event/event_form.html', form=form, mode='add')
+    return render_template('event/event_form.html', form=form, mode='add', target_team=target_team)
 
 
 @event_bp.route('/<int:event_id>/edit', methods=['GET', 'POST'])
@@ -126,7 +150,11 @@ def edit_event(event_id):
         event.location = form.location.data
         event.start_datetime = start_dt_utc
         event.end_datetime = end_dt_utc
-        event.is_public = form.is_public.data
+        
+        # チームイベントの場合は公開設定を変更させない（元のまま or False固定）
+        if not event.team_id:
+            event.is_public = form.is_public.data
+
         try:
             db.session.commit()
             flash('イベント情報を更新しました。', 'success')
@@ -169,8 +197,25 @@ def delete_event(event_id):
 @event_bp.route('/<int:event_id>')
 @login_required
 def event_detail(event_id):
-    """イベントの詳細ページ（作成者向け）"""
-    event = Event.query.filter_by(id=event_id, user_id=current_user.id).first_or_404()
+    """イベントの詳細ページ"""
+    # ▼▼▼【変更】filter_by(user_id=...) を削除し、get_or_404のみにする
+    # 作成者以外も（チームメンバーなら）見られるようにするため
+    event = Event.query.get_or_404(event_id)
+    
+    # ▼▼▼【追加】アクセス権限チェック
+    # 1. 作成者本人はOK
+    # 2. チームイベントの場合、そのチームのメンバーならOK
+    is_authorized = False
+    if event.user_id == current_user.id:
+        is_authorized = True
+    elif event.team_id:
+        # イベントが属するチームに、現在のユーザーが含まれているか確認
+        if event.team.members.filter(User.id == current_user.id).count() > 0:
+            is_authorized = True
+    
+    if not is_authorized:
+        abort(403) # 権限なし
+    # ▲▲▲【追加】▲▲▲
     
     participants_attending = event.participants.filter_by(status=ParticipationStatus.ATTENDING).order_by(EventParticipant.created_at).all()
     participants_tentative = event.participants.filter_by(status=ParticipationStatus.TENTATIVE).order_by(EventParticipant.created_at).all()

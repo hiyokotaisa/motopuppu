@@ -15,7 +15,11 @@
 
         <h1 class="h2 mb-4">
             {% if mode == 'add' %}
-            <i class="fas fa-calendar-plus me-2"></i>新しいイベントの作成
+                {% if target_team %}
+                <i class="fas fa-users me-2"></i>チームイベントの作成: {{ target_team.name }}
+                {% else %}
+                <i class="fas fa-calendar-plus me-2"></i>新しいイベントの作成
+                {% endif %}
             {% else %}
             <i class="fas fa-edit me-2"></i>イベントの編集
             {% endif %}
@@ -23,7 +27,7 @@
 
         <div class="card">
             <div class="card-body">
-                <form method="POST" action="{% if mode == 'add' %}{{ url_for('event.add_event') }}{% else %}{{ url_for('event.edit_event', event_id=event.id) }}{% endif %}" novalidate>
+                <form method="POST" action="{% if mode == 'add' %}{{ url_for('event.add_event', team_id=target_team.id if target_team else None) }}{% else %}{{ url_for('event.edit_event', event_id=event.id) }}{% endif %}" novalidate>
                     {{ form.hidden_tag() }}
 
                     <div class="mb-3">
@@ -88,18 +92,29 @@
                         {% endif %}
                     </div>
 
-                    <div class="mb-3 form-check">
-                        {{ form.is_public(class="form-check-input" + (" is-invalid" if form.is_public.errors else "")) }}
-                        {{ form.is_public.label(class="form-check-label") }}
-                        <div class="form-text mt-1">
-                            チェックを入れると、公開イベント一覧にこのイベントが表示されます。
+                    {% if target_team or (event and event.team_id) %}
+                        {# チームイベントの場合、強制的に非公開となるため表示しない（またはdisabledで表示） #}
+                        <div class="alert alert-info py-2">
+                            <i class="fas fa-info-circle me-1"></i> このイベントはチーム「{{ target_team.name if target_team else event.team.name }}」内限定で公開されます。
                         </div>
-                        {% if form.is_public.errors %}
-                        <div class="invalid-feedback">
-                            {% for error in form.is_public.errors %}{{ error }}{% endfor %}
+                        <div class="d-none">
+                            {{ form.is_public(checked=False) }}
                         </div>
-                        {% endif %}
-                    </div>
+                    {% else %}
+                        <div class="mb-3 form-check">
+                            {{ form.is_public(class="form-check-input" + (" is-invalid" if form.is_public.errors else "")) }}
+                            {{ form.is_public.label(class="form-check-label") }}
+                            <div class="form-text mt-1">
+                                チェックを入れると、公開イベント一覧にこのイベントが表示されます。
+                            </div>
+                            {% if form.is_public.errors %}
+                            <div class="invalid-feedback">
+                                {% for error in form.is_public.errors %}{{ error }}{% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+
                     <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
                         <a href="{{ url_for('event.list_events') }}" class="btn btn-secondary">キャンセル</a>
                         {{ form.submit(class="btn btn-primary") }}

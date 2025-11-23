@@ -6,9 +6,10 @@ from flask_login import login_required, current_user
 from sqlalchemy.orm import joinedload
 from sqlalchemy import func
 import uuid
+from datetime import datetime, timezone
 
 from .. import db, limiter
-from ..models import Team, User, ActivityLog, SessionLog, Motorcycle
+from ..models import Team, User, ActivityLog, SessionLog, Motorcycle, Event
 from ..forms import TeamForm
 from ..utils.lap_time_utils import format_seconds_to_time
 
@@ -178,13 +179,22 @@ def dashboard(team_id):
     ).limit(15).all()
     # ▲▲▲【修正はここまで】▲▲▲
 
+    # ▼▼▼【追加】チームの予定イベントを取得 ▼▼▼
+    now_utc = datetime.now(timezone.utc)
+    upcoming_events = Event.query.filter(
+        Event.team_id == team.id,
+        Event.start_datetime >= now_utc
+    ).order_by(Event.start_datetime.asc()).all()
+    # ▲▲▲【追加】▲▲▲
+
     return render_template(
         'team/team_dashboard.html',
         team=team,
         members=members,
         circuit_data=circuit_data,
         format_seconds_to_time=format_seconds_to_time,
-        recent_activities=recent_activities
+        recent_activities=recent_activities,
+        upcoming_events=upcoming_events
     )
 
 

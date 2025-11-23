@@ -25,8 +25,13 @@
     {# --- 左側カラム: イベント詳細と参加者リスト --- #}
     <div class="col-lg-8">
         <div class="card mb-4">
-            <div class="card-header">
+            <div class="card-header d-flex justify-content-between align-items-center">
                 <h1 class="h3 mb-0">{{ event.title }}</h1>
+                {% if event.team %}
+                <span class="badge bg-primary">
+                    <i class="fas fa-users me-1"></i> Team: {{ event.team.name }}
+                </span>
+                {% endif %}
             </div>
             <div class="card-body">
                 <p><strong><i class="fas fa-clock fa-fw me-2 text-secondary"></i>日時:</strong>
@@ -182,6 +187,19 @@
 
     {# --- 右側カラム: アクションパネル --- #}
     <div class="col-lg-4">
+        
+        {# ▼▼▼【追加】出欠登録へのショートカット ▼▼▼ #}
+        <div class="card mb-4 border-success">
+            <div class="card-body text-center">
+                <h5 class="card-title text-success"><i class="fas fa-check-circle me-2"></i>出欠確認</h5>
+                <p class="card-text small text-muted">参加・不参加の登録や、コメントの修正はこちらから行えます。</p>
+                <a href="{{ url_for('event.public_event_view', public_id=event.public_id) }}" class="btn btn-success w-100">
+                    <i class="fas fa-edit me-1"></i> 出欠を登録・変更する
+                </a>
+            </div>
+        </div>
+        {# ▲▲▲【追加】ここまで ▲▲▲ #}
+
         <div class="card mb-4">
             <div class="card-header">
                 <i class="fas fa-share-alt me-1"></i> 共有と連携

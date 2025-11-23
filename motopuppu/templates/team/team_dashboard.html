@@ -35,6 +35,60 @@
     {% endif %}
 {% endwith %}
 
+{# ▼▼▼【変更】チームイベントセクション（ボタン追加に伴い構造変更） ▼▼▼ #}
+<div class="card mb-4 border-primary">
+    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="fas fa-calendar-alt me-2"></i>チームイベント予定</h5>
+        <a href="{{ url_for('event.add_event', team_id=team.id) }}" class="btn btn-sm btn-light text-primary">
+            <i class="fas fa-plus me-1"></i> イベント作成
+        </a>
+    </div>
+    {% if upcoming_events %}
+    <div class="list-group list-group-flush">
+        {% for event in upcoming_events %}
+        {# <a>タグの中に<button>は置けないため、外側を<div>に変更 #}
+        <div class="list-group-item">
+            <div class="d-flex w-100 justify-content-between align-items-start">
+                {# 左側: イベント情報 #}
+                <div class="flex-grow-1">
+                    <a href="{{ url_for('event.event_detail', event_id=event.id) }}" class="text-decoration-none text-dark">
+                        <h5 class="mb-1 text-primary">{{ event.title }}</h5>
+                    </a>
+                    <p class="mb-1 small">
+                        <strong>{{ event.start_datetime | to_jst }}</strong><br>
+                        {% if event.location %}
+                        <i class="fas fa-map-marker-alt me-1 text-secondary"></i> {{ event.location }}<br>
+                        {% endif %}
+                        <span class="text-muted">主催: {{ event.owner.display_name or event.owner.misskey_username }}</span>
+                    </p>
+                    <div class="d-flex align-items-center mt-1">
+                        <span class="badge bg-success me-2">参加 {{ event.participants.filter_by(status='attending').count() }}</span>
+                        <span class="badge bg-warning text-dark">保留 {{ event.participants.filter_by(status='tentative').count() }}</span>
+                    </div>
+                </div>
+                
+                {# 右側: アクションボタン #}
+                <div class="ms-3 d-flex flex-column gap-2">
+                    <a href="{{ url_for('event.public_event_view', public_id=event.public_id) }}" class="btn btn-sm btn-outline-success text-nowrap">
+                        <i class="fas fa-edit me-1"></i> 出欠入力
+                    </a>
+                    <a href="{{ url_for('event.event_detail', event_id=event.id) }}" class="btn btn-sm btn-outline-secondary text-nowrap">
+                        <i class="fas fa-info-circle me-1"></i> 詳細
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="card-body">
+        <p class="card-text text-muted mb-0">現在予定されているチームイベントはありません。</p>
+    </div>
+    {% endif %}
+</div>
+{# ▲▲▲【変更】ここまで ▲▲▲ #}
+
+
 {# --- Main content --- #}
 {% if circuit_data %}
     <p class="text-muted">チームメンバーが走行したサーキットごとのベストタイムランキングです。</p>

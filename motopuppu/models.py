@@ -355,6 +355,11 @@ class Event(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     public_id = db.Column(db.String(36), unique=True, nullable=False, default=lambda: str(uuid.uuid4()), index=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False, comment="イベント作成者のID")
+    
+    # ▼▼▼【追加】チームIDカラム ▼▼▼
+    team_id = db.Column(db.Integer, db.ForeignKey('teams.id', ondelete='CASCADE'), nullable=True, index=True, comment="チームイベントの場合のチームID")
+    # ▲▲▲【追加】▲▲▲
+
     motorcycle_id = db.Column(db.Integer, db.ForeignKey('motorcycles.id', ondelete='SET NULL'), nullable=True, comment="関連する車両のID")
     title = db.Column(db.String(200), nullable=False, comment="イベント名")
     description = db.Column(db.Text, nullable=True, comment="イベントの詳細説明")
@@ -364,8 +369,14 @@ class Event(db.Model):
     is_public = db.Column(db.Boolean, nullable=False, default=True, server_default='true', index=True, comment="イベント一覧に公開するか")
     created_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
     updated_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now(), onupdate=db.func.now())
+    
     owner = db.relationship('User', backref=db.backref('events', lazy='dynamic'))
     motorcycle = db.relationship('Motorcycle', backref=db.backref('events', lazy='dynamic'))
+    
+    # ▼▼▼【追加】チームリレーション ▼▼▼
+    team = db.relationship('Team', backref=db.backref('events', lazy='dynamic', cascade="all, delete-orphan"))
+    # ▲▲▲【追加】▲▲▲
+    
     participants = db.relationship('EventParticipant', backref='event', lazy='dynamic', cascade="all, delete-orphan")
     activity_logs = db.relationship('ActivityLog', backref='origin_event', lazy='dynamic', order_by="desc(ActivityLog.activity_date)")
     def __repr__(self):
