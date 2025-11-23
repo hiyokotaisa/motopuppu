@@ -31,7 +31,11 @@ window.motopuppuMapViewer = {
         function initializeMap(containerId) {
             const mapContainer = document.getElementById(containerId);
             if (!mapContainer || typeof google === 'undefined') return null;
-            mapContainer.innerHTML = '';
+            
+            // ▼▼▼ 修正: HTML側に構造を作ったのでinnerHTMLクリアはしない ▼▼▼
+            // mapContainer.innerHTML = '';
+            // ▲▲▲ 修正ここまで ▲▲▲
+            
             return new google.maps.Map(mapContainer, {
                 mapTypeId: 'satellite', streetViewControl: false, mapTypeControl: false, fullscreenControl: false,
             });
@@ -42,7 +46,7 @@ window.motopuppuMapViewer = {
             }
             const canvasEl = document.getElementById(canvasId);
             if (!canvasEl) {
-                console.error(`Chart canvas element with ID "${canvasId}" not found.`);
+                // console.error(`Chart canvas element with ID "${canvasId}" not found.`); // エラー抑制
                 return null;
             }
             const ctx = canvasEl.getContext('2d');
@@ -99,8 +103,6 @@ window.motopuppuMapViewer = {
             const range = maxSpeed - minSpeed;
             if (range === 0) return '#00FF00';
             
-            // 色の変化を少し滑らかにするためにステップ化しても良いが、
-            // 今回はバッチ処理のために「色コード文字列」を返す
             const ratio = (speed - minSpeed) / range;
             let r, g, b;
             if (ratio < 0.5) {
@@ -115,7 +117,7 @@ window.motopuppuMapViewer = {
             return `rgb(${r},${g},${b})`;
         }
 
-        // 修正: 速度バケットを使ってPolylineを統合し、描画オブジェクト数を削減する
+        // ▼▼▼ 修正: 速度バケットを使ってPolylineを統合し、描画オブジェクト数を削減する ▼▼▼
         function drawLapPolyline(track, minSpeed, maxSpeed, mapInstance) {
             const lapPolylines = [];
             if (!track || track.length < 2) return lapPolylines;
@@ -123,7 +125,6 @@ window.motopuppuMapViewer = {
             let currentPath = [track[0]];
             
             // 速度の「バケツ（階級）」を作る関数
-            // 速度範囲を20分割して、色が頻繁に切り替わるのを防ぎ、結合効率を高める
             const getSpeedBucketColor = (speed) => {
                 const range = maxSpeed - minSpeed || 1;
                 const step = range / 20; // 20段階
@@ -139,8 +140,7 @@ window.motopuppuMapViewer = {
 
                 // 色が変わったら、ここまでのパスでPolylineを作成してリセット
                 if (nextColor !== currentColor) {
-                    // 線の途切れを防ぐため、現在のポイントも含めて前のセグメントを閉じる
-                    currentPath.push(point);
+                    currentPath.push(point); // つなぎ目を滑らかにするため点を含める
 
                     const segment = new google.maps.Polyline({
                         path: currentPath,
@@ -153,7 +153,6 @@ window.motopuppuMapViewer = {
                     if (mapInstance) segment.setMap(mapInstance);
                     lapPolylines.push(segment);
 
-                    // 次のセグメントの開始点（重複させる）
                     currentPath = [point];
                     currentColor = nextColor;
                 } else {
@@ -161,7 +160,6 @@ window.motopuppuMapViewer = {
                 }
             }
 
-            // 最後のセグメントを描画
             if (currentPath.length > 1) {
                 const segment = new google.maps.Polyline({
                     path: currentPath,
@@ -177,6 +175,7 @@ window.motopuppuMapViewer = {
 
             return lapPolylines;
         }
+        // ▲▲▲ 修正ここまで ▲▲▲
 
         function findSignificantPoints(track, options = {}) {
             const { lookahead = 25, speedChangeThreshold = 4.0, cooldown = 30 } = options;
@@ -298,6 +297,42 @@ window.motopuppuMapViewer = {
                 gearDisplay.textContent = currentGear !== null ? currentGear : 'N';
             }
 
+            // ▼▼▼ 追加: HUDオーバーレイの更新処理 ▼▼▼
+            const hudOverlay = container.querySelector('#hud-overlay');
+            if (hudOverlay) {
+                hudOverlay.classList.remove('d-none');
+                
+                // ギア
+                const currentGear = smoothedGears[index];
+                const hudGearEl = container.querySelector('#hud-gear');
+                if (hudGearEl) hudGearEl.textContent = currentGear !== null ? currentGear : '-';
+                
+                // 速度 (小数点以下四捨五入)
+                const hudSpeedEl = container.querySelector('#hud-speed');
+                if (hudSpeedEl) hudSpeedEl.textContent = Math.round(point.speed || 0);
+                
+                // RPMバー
+                const hudRpmEl = container.querySelector('#hud-rpm-val');
+                const hudRpmBar = container.querySelector('#hud-rpm-bar');
+                if (hudRpmEl && hudRpmBar) {
+                    const rpm = Math.round(point.rpm || 0);
+                    hudRpmEl.textContent = rpm;
+                    
+                    // 最大回転数を仮定して割合を計算 (例: 14000rpm)
+                    const maxRpm = 14000; 
+                    const percentage = Math.min((rpm / maxRpm) * 100, 100);
+                    hudRpmBar.style.width = `${percentage}%`;
+                    
+                    // 高回転域で色を変える演出
+                    if (percentage > 85) {
+                        hudRpmBar.className = 'progress-bar bg-danger';
+                    } else {
+                        hudRpmBar.className = 'progress-bar bg-warning';
+                    }
+                }
+            }
+            // ▲▲▲ 追加ここまで ▲▲▲
+
             Object.values(charts).forEach(chart => {
                 if (chart) {
                     chart.options.plugins.annotation.annotations.line1.value = index;
@@ -353,11 +388,21 @@ window.motopuppuMapViewer = {
         // --- メイン処理 ---
         const telemetrySessionName = container.querySelector('#telemetrySessionName');
         if (telemetrySessionName) telemetrySessionName.textContent = sessionName;
-        const mapContainerEl = container.querySelector('#mapContainer');
+        
+        // ▼▼▼ 修正: mapContainerではなく、内側の 'map' ID を取得してスピナー操作 ▼▼▼
+        const mapContainerEl = container.querySelector('#map');
+        // ▲▲▲ 修正ここまで ▲▲▲
+        
         const lapSelectorContainer = container.querySelector('#lapSelectorContainer');
-        mapContainerEl.innerHTML = `<div class="d-flex justify-content-center align-items-center h-100"><div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div></div>`;
+        // ▼▼▼ 修正: HTML側でスピナーを配置したのでinnerHTMLクリアは削除 ▼▼▼
+        // mapContainerEl.innerHTML = ...; 
+        // ▲▲▲ 修正ここまで ▲▲▲
+        
         if (lapSelectorContainer) lapSelectorContainer.innerHTML = `<p class="text-muted">走行データを読み込んでいます...</p>`;
-        if (!map) { map = initializeMap('mapContainer'); }
+        
+        // ▼▼▼ 修正: initializeMapには、地図用のdivのID 'map' を渡す ▼▼▼
+        if (!map) { map = initializeMap('map'); }
+        // ▲▲▲ 修正ここまで ▲▲▲
         
         try {
             const response = await fetch(dataUrl);
@@ -365,7 +410,9 @@ window.motopuppuMapViewer = {
             const data = await response.json();
             
             if (!data.laps || data.laps.length === 0 || !data.lap_times || data.lap_times.length === 0) {
-                mapContainerEl.innerHTML = '';
+                // ▼▼▼ 修正: mapContainerElのスピナーを消去 ▼▼▼
+                if(mapContainerEl) mapContainerEl.innerHTML = '';
+                // ▲▲▲ 修正ここまで ▲▲▲
                 if(lapSelectorContainer) lapSelectorContainer.innerHTML = `<div class="alert alert-warning">データがありません。</div>`;
                 return;
             }
@@ -407,10 +454,10 @@ window.motopuppuMapViewer = {
                 currentLapData = data.laps[lapIndex];
                 if (!currentLapData || !currentLapData.track || currentLapData.track.length < 2) return;
                 
-                // 修正: API側で生成した軽量な「地図用トラックデータ(map_track)」があれば優先して使用
-                // 無ければ従来どおり詳細データ(track)を使用（互換性維持）
+                // ▼▼▼ 修正: 地図用には軽量化データ(map_track)を優先使用 ▼▼▼
                 const mapTrackData = currentLapData.map_track || currentLapData.track;
-                
+                // ▲▲▲ 修正ここまで ▲▲▲
+
                 lapStartTime = currentLapData.track[0]?.runtime || 0;
                 polylines.flat().forEach(p => p.setMap(null));
                 brakingMarkers.flat().forEach(m => m.setMap(null));
@@ -418,7 +465,6 @@ window.motopuppuMapViewer = {
                 if (bikeMarker) bikeMarker.setMap(null);
                 polylines = []; brakingMarkers = []; accelMarkers = [];
 
-                // マップのフィットや描画には「軽量データ」を使用する
                 const speeds = mapTrackData.map(p => p.speed).filter(s => s > 0);
                 const minSpeed = speeds.length > 0 ? Math.min(...speeds) : 0;
                 const maxSpeed = mapTrackData.map(p => p.speed).reduce((max, s) => Math.max(max, s || 0), 0);
@@ -427,17 +473,15 @@ window.motopuppuMapViewer = {
                 mapTrackData.forEach(p => bounds.extend(p));
                 if (map && !bounds.isEmpty()) { map.fitBounds(bounds); }
                 
-                // 改良されたdrawLapPolylineを使用（バッチ処理・量子化）
+                // 軽量データで描画
                 polylines = drawLapPolyline(mapTrackData, minSpeed, maxSpeed, map);
                 
-                // 分析マーカーやチャートは、引き続き「詳細データ(currentLapData.track)」を使用する
                 const { brakingPoints, accelPoints } = findSignificantPoints(currentLapData.track);
                 const brakingIcon = { path: 'M0,-5 L5,5 L-5,5 Z', fillColor: 'red', fillOpacity: 1.0, strokeWeight: 0, rotation: 180, scale: 0.8, anchor: new google.maps.Point(0, 0) };
                 const accelIcon = { path: 'M0,-5 L5,5 L-5,5 Z', fillColor: 'limegreen', fillOpacity: 1.0, strokeWeight: 0, scale: 0.8, anchor: new google.maps.Point(0, 0) };
                 brakingMarkers = brakingPoints.map(p => createMarker(p, brakingIcon, map));
                 accelMarkers = accelPoints.map(p => createMarker(p, accelIcon, map));
                 
-                // バイクアイコンも詳細データの位置に
                 const bikeIcon = { path: google.maps.SymbolPath.CIRCLE, scale: 5, fillColor: 'yellow', strokeColor: 'black', strokeWeight: 1 };
                 bikeMarker = new google.maps.Marker({ position: currentLapData.track[0], icon: bikeIcon, map: map, zIndex: 100 });
                 
@@ -562,7 +606,9 @@ window.motopuppuMapViewer = {
 
         } catch (error) {
             console.error('Error:', error);
-            mapContainerEl.innerHTML = '';
+            // ▼▼▼ 修正: mapContainerElのスピナーを消去 ▼▼▼
+            if(mapContainerEl) mapContainerEl.innerHTML = '';
+            // ▲▲▲ 修正ここまで ▲▲▲
             if(lapSelectorContainer) lapSelectorContainer.innerHTML = `<div class="alert alert-danger">データの読み込みに失敗しました。</div>`;
         }
     }
