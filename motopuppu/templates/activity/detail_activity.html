@@ -372,19 +372,49 @@
     
     <div class="accordion" id="sessionsListAccordion">
         {% for session in sessions %}
+        
+        {# --- 【新機能】Gap to Best の計算 --- #}
+        {% set gap = none %}
+        {% if ns.best_sec and session.best_lap_seconds %}
+            {% set gap = session.best_lap_seconds|float - ns.best_sec|float %}
+        {% endif %}
+
         {# ループの最後(最新)のみ開く #}
         <div class="accordion-item">
             <h2 class="accordion-header" id="headingSession{{ session.id }}">
-                <button class="accordion-button {% if not loop.last %}collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSession{{ session.id }}" aria-expanded="{{ 'true' if loop.last else 'false' }}" aria-controls="collapseSession{{ session.id }}">
+                {# ▼▼▼【修正】buttonタグをdivタグに変更し、role="button"を付与 (ボタンの入れ子回避) ▼▼▼ #}
+                <div class="accordion-button {% if not loop.last %}collapsed{% endif %}" 
+                     role="button" 
+                     data-bs-toggle="collapse" 
+                     data-bs-target="#collapseSession{{ session.id }}" 
+                     aria-expanded="{{ 'true' if loop.last else 'false' }}" 
+                     aria-controls="collapseSession{{ session.id }}"
+                     style="cursor: pointer;">
+                     
                     <div class="d-flex align-items-center w-100 me-2">
                         <div class="form-check me-3" onclick="event.stopPropagation()">
                             <input class="form-check-input session-checkbox" type="checkbox" name="session_ids" value="{{ session.id }}" id="sessionCheck{{ session.id }}" {% if not is_owner %}disabled{% endif %}>
                         </div>
-                        <div class="flex-grow-1">
-                            <h5 class="mb-0">{{ session.session_name }}</h5>
+                        <div class="flex-grow-1 d-flex align-items-center flex-wrap gap-2">
+                            <h5 class="mb-0 me-2">{{ session.session_name }}</h5>
+                            
+                            {# --- 【新機能】Gap to Best バッジ --- #}
+                            {% if gap is not none %}
+                                {% if gap == 0 %}
+                                    <span class="badge bg-success rounded-pill" title="This Session is Best!"><i class="fas fa-crown"></i> Best</span>
+                                {% else %}
+                                    <span class="badge bg-light text-dark border rounded-pill" title="Gap to Best">+{{ "%.3f"|format(gap) }}s</span>
+                                {% endif %}
+                            {% endif %}
+
+                            {# ベストラップ表示（Gapが表示されるので補足情報として） #}
+                            {% if session.best_lap %}
+                                <span class="badge bg-light text-muted border fw-normal small">{{ session.best_lap }}</span>
+                            {% endif %}
                         </div>
-                        {# ヘッダー内アクションボタン #}
-                        <div class="d-flex align-items-center" onclick="event.stopPropagation()">
+
+                        {# ヘッダー内アクションボタン (divタグ内なので正常に動作します) #}
+                        <div class="d-flex align-items-center ms-auto ps-2" onclick="event.stopPropagation()">
                             {% if session.gps_tracks and session.gps_tracks.laps %}
                             <button type="button" class="btn btn-sm btn-outline-info py-0 px-1 me-1 view-track-btn" 
                                     data-bs-toggle="modal" 
@@ -412,7 +442,7 @@
                             {% endif %}
                         </div>
                     </div>
-                </button>
+                </div>
             </h2>
             <div id="collapseSession{{ session.id }}" class="accordion-collapse collapse {% if loop.last %}show{% endif %}" aria-labelledby="headingSession{{ session.id }}" data-bs-parent="#sessionsListAccordion">
                 <div class="accordion-body">
