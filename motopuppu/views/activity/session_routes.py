@@ -336,10 +336,12 @@ def get_gps_data(session_id):
     for lap in raw_laps:
         raw_track = lap.get('track', [])
         
-        # epsilon=0.00002 は約2m程度の誤差を許容
+        # epsilon=0.000003 は約30cm程度の誤差を許容 (精度向上)
         # データ点数が少ない(500以下)場合は間引きしない
         if len(raw_track) > 500:
-            simplified_track = _ramer_douglas_peucker(raw_track, 0.00002)
+            # ▼▼▼ 修正: 閾値を 0.000003 に変更 ▼▼▼
+            simplified_track = _ramer_douglas_peucker(raw_track, 0.000003)
+            # ▲▲▲ 修正ここまで ▲▲▲
         else:
             simplified_track = raw_track
             

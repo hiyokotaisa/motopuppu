@@ -366,7 +366,7 @@ def toggle_team_share(activity_id):
 @activity_bp.route('/share/session/<uuid:token>')
 def public_session_view(token):
     """【公開】トークンを使って共有セッションページを表示する"""
-    # ▼▼▼ 修正: HTML表示に不要な重いカラムをdeferで除外 ▼▼▼
+    # HTML表示に不要な重いカラムをdeferで除外
     session = db.session.query(SessionLog).filter_by(
         public_share_token=str(token), 
         is_public=True
@@ -376,7 +376,6 @@ def public_session_view(token):
         joinedload(SessionLog.activity).joinedload(ActivityLog.motorcycle),
         joinedload(SessionLog.activity).joinedload(ActivityLog.user)
     ).first()
-    # ▲▲▲ 修正ここまで ▲▲▲
 
     if not session:
         abort(404)
@@ -387,7 +386,6 @@ def public_session_view(token):
 @activity_bp.route('/share/session/<uuid:token>/gps_data')
 def public_gps_data(token):
     """【公開】共有セッションのGPSデータをJSONで返す"""
-    # ▼▼▼ 修正: JoinedLoadで関連データを一括取得 & RDPデータ生成 ▼▼▼
     session = SessionLog.query.options(
         joinedload(SessionLog.activity).joinedload(ActivityLog.motorcycle),
         joinedload(SessionLog.setting_sheet)
@@ -437,7 +435,9 @@ def public_gps_data(token):
     for lap in raw_laps:
         raw_track = lap.get('track', [])
         if len(raw_track) > 500:
-            simplified_track = _ramer_douglas_peucker(raw_track, 0.00002)
+            # ▼▼▼ 修正: 閾値を 0.000003 に変更 ▼▼▼
+            simplified_track = _ramer_douglas_peucker(raw_track, 0.000003)
+            # ▲▲▲ 修正ここまで ▲▲▲
         else:
             simplified_track = raw_track
             
@@ -454,4 +454,3 @@ def public_gps_data(token):
     response.add_etag()
     
     return response
-    # ▲▲▲ 修正ここまで ▲▲▲
