@@ -1,5 +1,6 @@
 # motopuppu/views/activity/activity_routes.py
 import json
+import math # 追加: RDPアルゴリズム用
 from datetime import date
 from decimal import Decimal
 import uuid
@@ -7,7 +8,7 @@ import uuid
 from flask import (
     flash, redirect, render_template, request, url_for, abort, current_app, jsonify
 )
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, defer # 追加: deferをインポート
 from sqlalchemy import func
 
 # 分割したBlueprintとユーティリティをインポート
@@ -15,23 +16,59 @@ from . import activity_bp
 from ...utils.lap_time_utils import calculate_lap_stats, parse_time_to_seconds, _calculate_and_set_best_lap, format_seconds_to_time
 from ...constants import SETTING_KEY_MAP
 
-# ▼▼▼ インポート文を修正 ▼▼▼
 from flask_login import login_required, current_user
-# ▲▲▲ 変更ここまで ▲▲▲
-from ...models import db, Motorcycle, ActivityLog, SessionLog, SettingSheet, User # Userを追加
+from ...models import db, Motorcycle, ActivityLog, SessionLog, SettingSheet, User 
 from ...forms import ActivityLogForm, SessionLogForm, LapTimeImportForm
 from ... import limiter
+
+# --- 追加: RDPアルゴリズム (session_routes.pyと循環参照を防ぐためここにも定義) ---
+def _calculate_perpendicular_distance(point, start, end):
+    """点と直線の距離を計算する (平面近似)"""
+    if start == end:
+        return math.sqrt((point['lat'] - start['lat'])**2 + (point['lng'] - start['lng'])**2)
+    
+    x0, y0 = point['lng'], point['lat']
+    x1, y1 = start['lng'], start['lat']
+    x2, y2 = end['lng'], end['lat']
+    
+    nom = abs((y2 - y1) * x0 - (x2 - x1) * y0 + x2 * y1 - y2 * x1)
+    denom = math.sqrt((y2 - y1)**2 + (x2 - x1)**2)
+    
+    if denom == 0:
+        return 0
+    return nom / denom
+
+def _ramer_douglas_peucker(points, epsilon):
+    """RDPアルゴリズムによる点群の間引き"""
+    if len(points) < 3:
+        return points
+
+    dmax = 0
+    index = 0
+    end = len(points) - 1
+
+    for i in range(1, end):
+        d = _calculate_perpendicular_distance(points[i], points[0], points[end])
+        if d > dmax:
+            index = i
+            dmax = d
+
+    if dmax > epsilon:
+        rec_results1 = _ramer_douglas_peucker(points[:index+1], epsilon)
+        rec_results2 = _ramer_douglas_peucker(points[index:], epsilon)
+        return rec_results1[:-1] + rec_results2
+    else:
+        return [points[0], points[end]]
+# -----------------------------------------------------------
 
 
 def get_motorcycle_or_404(vehicle_id):
     """指定されたIDの車両を取得し、所有者でなければ404を返す"""
-    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
     return Motorcycle.query.filter_by(id=vehicle_id, user_id=current_user.id).first_or_404()
-    # ▲▲▲ 変更ここまで ▲▲▲
 
 
 @activity_bp.route('/<int:vehicle_id>')
-@login_required # ▼▼▼ デコレータを修正 ▼▼▼
+@login_required
 def list_activities(vehicle_id):
     """指定された車両の活動ログ一覧を表示する"""
     motorcycle = get_motorcycle_or_404(vehicle_id)
@@ -71,7 +108,7 @@ def list_activities(vehicle_id):
 
 @activity_bp.route('/<int:vehicle_id>/add', methods=['GET', 'POST'])
 @limiter.limit("30 per hour")
-@login_required # ▼▼▼ デコレータを修正 ▼▼▼
+@login_required
 def add_activity(vehicle_id):
     """新しい活動ログを作成する"""
     motorcycle = get_motorcycle_or_404(vehicle_id)
@@ -79,18 +116,14 @@ def add_activity(vehicle_id):
 
     form = ActivityLogForm(request.form)
     
-    # ▼▼▼【ここから追記】車両選択肢をフォームに設定（バリデーション通過のため）▼▼▼
     user_motorcycles = Motorcycle.query.filter_by(user_id=current_user.id).order_by(Motorcycle.name).all()
     form.motorcycle_id.choices = [(m.id, m.name) for m in user_motorcycles]
-    # ▲▲▲【追記はここまで】▲▲▲
 
     if request.method == 'POST':
-        # ▼▼▼【ここから追記】hiddenではないので、ここで値を設定してバリデーションを通す▼▼▼
         form.motorcycle_id.data = vehicle_id
-        # ▲▲▲【追記はここまで】▲▲▲
         if form.validate_on_submit():
             new_activity = ActivityLog(
-                motorcycle_id=vehicle_id, # URLから取得したIDを正とする
+                motorcycle_id=vehicle_id, 
                 user_id=current_user.id,
                 event_id=event_id,
                 activity_date=form.activity_date.data,
@@ -113,9 +146,7 @@ def add_activity(vehicle_id):
                 flash('活動記録の保存中にエラーが発生しました。', 'danger')
 
     if request.method == 'GET':
-        # ▼▼▼【ここから追記】▼▼▼
         form.motorcycle_id.data = vehicle_id
-        # ▲▲▲【追記はここまで】▲▲▲
         form.activity_title.data = request.args.get('activity_title', '')
         activity_date_str = request.args.get('activity_date')
         if activity_date_str:
@@ -137,26 +168,21 @@ def add_activity(vehicle_id):
 
 @activity_bp.route('/<int:activity_id>/edit', methods=['GET', 'POST'])
 @limiter.limit("30 per hour")
-@login_required # ▼▼▼ デコレータを修正 ▼▼▼
+@login_required
 def edit_activity(activity_id):
     """活動ログを編集する"""
     activity = ActivityLog.query.filter_by(id=activity_id, user_id=current_user.id).first_or_404()
     motorcycle = activity.motorcycle
     form = ActivityLogForm(obj=activity)
 
-    # ▼▼▼【ここから追記】▼▼▼
-    # ユーザーの所有車両リストを取得してフォームの選択肢に設定
     user_motorcycles = Motorcycle.query.filter_by(user_id=current_user.id).order_by(Motorcycle.name).all()
     form.motorcycle_id.choices = [(m.id, m.name) for m in user_motorcycles]
-    # ▲▲▲【追記はここまで】▲▲▲
 
     if form.validate_on_submit():
-        # ▼▼▼【ここから変更・追記】車両変更処理▼▼▼
         original_motorcycle_id = activity.motorcycle_id
         new_motorcycle_id = form.motorcycle_id.data
 
         if original_motorcycle_id != new_motorcycle_id:
-            # 車両が変更された場合、紐づく全セッションのセッティングシートをリセット
             sessions_to_reset = SessionLog.query.filter_by(activity_log_id=activity.id).all()
             if sessions_to_reset:
                 for session in sessions_to_reset:
@@ -164,7 +190,6 @@ def edit_activity(activity_id):
                 flash('車両を変更したため、関連する全セッションのセッティングシート紐付けが解除されました。', 'info')
             
             activity.motorcycle_id = new_motorcycle_id
-        # ▲▲▲【変更・追記はここまで】▲▲▲
 
         activity.activity_date = form.activity_date.data
         activity.activity_title = form.activity_title.data
@@ -184,9 +209,7 @@ def edit_activity(activity_id):
             flash('活動ログの更新中にエラーが発生しました。', 'danger')
     
     if request.method == 'GET':
-        # ▼▼▼【ここから追記】GETリクエスト時にも現在の車両をフォームに設定▼▼▼
         form.motorcycle_id.data = activity.motorcycle_id
-        # ▲▲▲【追記はここまで】▲▲▲
         form.location_type.data = activity.location_type or 'circuit'
         form.circuit_name.data = activity.circuit_name
         form.custom_location.data = activity.custom_location
@@ -199,12 +222,10 @@ def edit_activity(activity_id):
 
 @activity_bp.route('/<int:activity_id>/delete', methods=['POST'])
 @limiter.limit("30 per hour")
-@login_required # ▼▼▼ デコレータを修正 ▼▼▼
+@login_required
 def delete_activity(activity_id):
     """活動ログを削除する"""
-    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
     activity = ActivityLog.query.filter_by(id=activity_id, user_id=current_user.id).first_or_404()
-    # ▲▲▲ 変更ここまで ▲▲▲
     vehicle_id = activity.motorcycle_id
     try:
         db.session.delete(activity)
@@ -224,20 +245,18 @@ def detail_activity(activity_id):
     """活動ログの詳細とセッションの追加/一覧表示"""
     activity = ActivityLog.query.options(
         joinedload(ActivityLog.motorcycle),
-        joinedload(ActivityLog.user) # ログ所有者の情報も読み込む
+        joinedload(ActivityLog.user) 
     ).filter_by(id=activity_id).first_or_404()
 
     is_owner = (activity.user_id == current_user.id)
     is_team_member = False
     
     if not is_owner:
-        # ログ所有者とカレントユーザーが共通のチームに所属しているかチェック
         owner_teams = set(team.id for team in activity.user.teams)
         current_user_teams = set(team.id for team in current_user.teams)
         if owner_teams.intersection(current_user_teams):
             is_team_member = True
 
-    # 所有者でもなく、チームメンバーでもない場合はアクセスを拒否
     if not is_owner and not is_team_member:
         abort(403)
         
@@ -320,7 +339,6 @@ def detail_activity(activity_id):
                            is_owner=is_owner
                            )
 
-# ▼▼▼【ここから追記】チーム共有設定を切り替えるAPIルート ▼▼▼
 @activity_bp.route('/<int:activity_id>/toggle_team_share', methods=['POST'])
 @login_required
 def toggle_team_share(activity_id):
@@ -341,7 +359,6 @@ def toggle_team_share(activity_id):
         db.session.rollback()
         current_app.logger.error(f"Error toggling team share for activity {activity_id}: {e}", exc_info=True)
         return jsonify({'success': False, 'message': 'サーバーエラーが発生しました。'}), 500
-# ▲▲▲【追記はここまで】▲▲▲
 
 
 # --- Public Routes (No Login Required) ---
@@ -349,24 +366,32 @@ def toggle_team_share(activity_id):
 @activity_bp.route('/share/session/<uuid:token>')
 def public_session_view(token):
     """【公開】トークンを使って共有セッションページを表示する"""
+    # ▼▼▼ 修正: HTML表示に不要な重いカラムをdeferで除外 ▼▼▼
     session = db.session.query(SessionLog).filter_by(
         public_share_token=str(token), 
         is_public=True
     ).options(
-        joinedload(SessionLog.activity) # activity情報も一緒に読み込む
+        defer(SessionLog.gps_tracks), # 巨大なJSONは読み込まない
+        defer(SessionLog.lap_times),  # HTMLでは使わない
+        joinedload(SessionLog.activity).joinedload(ActivityLog.motorcycle),
+        joinedload(SessionLog.activity).joinedload(ActivityLog.user)
     ).first()
+    # ▲▲▲ 修正ここまで ▲▲▲
 
     if not session:
         abort(404)
 
-    # public_session.html は activity ディレクトリ内に配置
     return render_template('activity/public_session.html', session=session)
 
 
 @activity_bp.route('/share/session/<uuid:token>/gps_data')
 def public_gps_data(token):
     """【公開】共有セッションのGPSデータをJSONで返す"""
-    session = SessionLog.query.filter_by(
+    # ▼▼▼ 修正: JoinedLoadで関連データを一括取得 & RDPデータ生成 ▼▼▼
+    session = SessionLog.query.options(
+        joinedload(SessionLog.activity).joinedload(ActivityLog.motorcycle),
+        joinedload(SessionLog.setting_sheet)
+    ).filter_by(
         public_share_token=str(token), 
         is_public=True
     ).first()
@@ -374,9 +399,59 @@ def public_gps_data(token):
     if not session or not session.gps_tracks or not session.gps_tracks.get('laps'):
         return jsonify({'error': 'No GPS data available'}), 404
 
+    # 車両スペック情報の取得 (ギア計算用)
+    motorcycle = session.activity.motorcycle
+    setting_sheet = session.setting_sheet
+    vehicle_specs = {
+        'primary_ratio': float(motorcycle.primary_ratio) if motorcycle.primary_ratio else None,
+        'gear_ratios': {k: float(v) for k, v in motorcycle.gear_ratios.items()} if motorcycle.gear_ratios else None,
+        'front_sprocket': None,
+        'rear_sprocket': None,
+        'rear_tyre_size': None,
+    }
+
+    # セッティングシートからスプロケット設定などを上書き
+    if setting_sheet and setting_sheet.details:
+        sprocket_settings = setting_sheet.details.get('sprocket', {})
+        tyre_settings = setting_sheet.details.get('tire_rear', {}) 
+        try:
+            front = sprocket_settings.get('front_teeth')
+            if front: vehicle_specs['front_sprocket'] = int(front)
+        except (ValueError, TypeError): pass
+        try:
+            rear = sprocket_settings.get('rear_teeth')
+            if rear: vehicle_specs['rear_sprocket'] = int(rear)
+        except (ValueError, TypeError): pass
+        
+        rear_size = tyre_settings.get('tire_size')
+        if rear_size: vehicle_specs['rear_tyre_size'] = rear_size
+
     response_data = {
-        'laps': session.gps_tracks.get('laps', []),
+        'laps': [],
         'lap_times': session.lap_times or [],
+        'vehicle_specs': vehicle_specs
     }
     
-    return jsonify(response_data)
+    # RDPアルゴリズムによる地図用データの生成
+    raw_laps = session.gps_tracks.get('laps', [])
+    for lap in raw_laps:
+        raw_track = lap.get('track', [])
+        if len(raw_track) > 500:
+            simplified_track = _ramer_douglas_peucker(raw_track, 0.00002)
+        else:
+            simplified_track = raw_track
+            
+        response_data['laps'].append({
+            'lap_number': lap.get('lap_number'),
+            'track': raw_track,
+            'map_track': simplified_track
+        })
+    
+    response = jsonify(response_data)
+    
+    # 強力なブラウザキャッシュ設定 (1年間)
+    response.headers['Cache-Control'] = 'public, max-age=31536000'
+    response.add_etag()
+    
+    return response
+    # ▲▲▲ 修正ここまで ▲▲▲
