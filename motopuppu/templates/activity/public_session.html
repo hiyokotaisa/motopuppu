@@ -47,14 +47,18 @@
             transform: translateX(-50%);
             width: 90%;
             max-width: 400px;
-            background: rgba(0, 0, 0, 0.7);
+            
+            /* ▼▼▼ 修正: 透明度を 0.7 -> 0.3 に変更して背景を見やすく ▼▼▼ */
+            background: rgba(0, 0, 0, 0.3);
+            /* ▲▲▲ 修正ここまで ▲▲▲ */
+            
             border-radius: 15px;
             padding: 15px;
             color: #fff;
             z-index: 1000;
-            backdrop-filter: blur(5px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            backdrop-filter: blur(3px); /* ブラーも少し弱めて視認性アップ */
+            border: 1px solid rgba(255, 255, 255, 0.1); /* 枠線も少し薄く */
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
             pointer-events: none; /* 地図操作を邪魔しないように */
         }
 
