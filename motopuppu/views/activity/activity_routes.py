@@ -1,6 +1,7 @@
 # motopuppu/views/activity/activity_routes.py
 import json
 import math # 追加: RDPアルゴリズム用
+import statistics # 追加: 統計計算用
 from datetime import date
 from decimal import Decimal
 import uuid
@@ -266,6 +267,7 @@ def detail_activity(activity_id):
     sort_order = request.args.get('sort', 'record_asc')
 
     for session in sessions:
+        # 1. 既存のラップ統計計算
         session.best_lap, session.average_lap, session.lap_details = calculate_lap_stats(session.lap_times, sort_by=sort_order)
         
         lap_seconds_for_chart = []
@@ -275,7 +277,36 @@ def detail_activity(activity_id):
                 if sec is not None and sec > 0:
                     lap_seconds_for_chart.append(float(sec))
         
+        # 2. ▼▼▼ 修正: 統計情報計算とヒートマップ用クラスの付与 ▼▼▼
         if lap_seconds_for_chart:
+            # 中央値とワースト（最大値）を計算
+            median_sec = statistics.median(lap_seconds_for_chart)
+            worst_sec = max(lap_seconds_for_chart)
+            
+            # テンプレートや他で使うためにセッションオブジェクトにも保持
+            session.median_lap_seconds = median_sec
+            session.worst_lap_seconds = worst_sec
+            
+            # lap_details に表示用クラス (row_class) を付与
+            if session.lap_details:
+                for detail in session.lap_details:
+                    sec = parse_time_to_seconds(detail['time_str'])
+                    if sec:
+                        sec = float(sec)
+                        detail['seconds'] = sec
+                        
+                        if detail.get('is_best'):
+                            detail['row_class'] = 'table-success fw-bold' # ベスト: 緑
+                        elif sec == worst_sec:
+                            detail['row_class'] = 'table-danger'          # ワースト: 赤
+                        elif sec < median_sec:
+                            detail['row_class'] = 'table-info'            # 中央値より速い: 青
+                        else:
+                            detail['row_class'] = 'table-warning'         # 中央値より遅い: 黄
+                    else:
+                        detail['row_class'] = ''
+
+            # チャート用データ作成
             best_lap_seconds = min(lap_seconds_for_chart)
             lap_percentages = [(best_lap_seconds / sec) * 100 for sec in lap_seconds_for_chart]
             session.lap_chart_dict = {
@@ -285,6 +316,9 @@ def detail_activity(activity_id):
             }
         else:
             session.lap_chart_dict = None
+            session.median_lap_seconds = None
+            session.worst_lap_seconds = None
+        # ▲▲▲ 修正ここまで ▲▲▲
     
     session_form = SessionLogForm()
     import_form = LapTimeImportForm()

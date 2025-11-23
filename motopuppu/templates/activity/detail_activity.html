@@ -6,10 +6,38 @@
 
 {% block content %}
 {% include '_breadcrumbs.html' %}
+
+{# ▼▼▼【追加】統計情報の計算ロジック ▼▼▼ #}
+{% set ns = namespace(total_laps=0, best_sec=None) %}
+{% for s in sessions %}
+    {# ラップ数を加算 #}
+    {% if s.lap_times %}
+        {% set ns.total_laps = ns.total_laps + s.lap_times|length %}
+    {% endif %}
+    {# ベストラップ（秒）の最小値を更新 #}
+    {% if s.best_lap_seconds %}
+        {% if ns.best_sec is none or s.best_lap_seconds < ns.best_sec %}
+            {% set ns.best_sec = s.best_lap_seconds %}
+        {% endif %}
+    {% endif %}
+{% endfor %}
+
+{# 秒数を分:秒.ミリ秒に整形するマクロ #}
+{% macro format_sec(sec) %}
+    {% if sec %}
+        {% set m = (sec // 60) | int %}
+        {% set s = sec % 60 %}
+        {{ "%d:%06.3f" | format(m, s) }}
+    {% else %}
+        --:--.---
+    {% endif %}
+{% endmacro %}
+{# ▲▲▲【追加ここまで】▲▲▲ #}
+
 <style>
  /* !important を追加して、他のスタイルに上書きされないように指定を強化 */
  .best-lap-time {
-  color: #dc3545 !important; /* Bootstrap's danger color */
+  color: #198754 !important; /* Bootstrap's success color (Green) */
   font-weight: bold;
  }
  .lap-time-table {
@@ -199,6 +227,37 @@
     </div>
 </div>
 
+{# ▼▼▼【追加】サマリー統計カード ▼▼▼ #}
+{% if sessions %}
+<div class="row mb-4 g-3">
+    <div class="col-md-4">
+        <div class="card text-center h-100 border-success">
+            <div class="card-body py-2">
+                <h6 class="card-subtitle mb-1 text-muted small"><i class="fas fa-stopwatch me-1"></i>Overall Best</h6>
+                <h2 class="card-title text-success fw-bold mb-0">{{ format_sec(ns.best_sec) }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center h-100">
+            <div class="card-body py-2">
+                <h6 class="card-subtitle mb-1 text-muted small"><i class="fas fa-list-ol me-1"></i>Sessions</h6>
+                <h2 class="card-title mb-0">{{ sessions|length }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center h-100">
+            <div class="card-body py-2">
+                <h6 class="card-subtitle mb-1 text-muted small"><i class="fas fa-road me-1"></i>Total Laps</h6>
+                <h2 class="card-title mb-0">{{ ns.total_laps }}</h2>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{# ▲▲▲【追加ここまで】▲▲▲ #}
+
 {# --- セッション記録 --- #}
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h3 class="mb-0">セッション記録</h3>
@@ -299,7 +358,7 @@
 {% endif %}
 
 
-{# --- 既存セッションの一覧 --- #}
+{# --- 既存セッションの一覧（アコーディオン形式） --- #}
 {% if sessions %}
 {% if is_owner %}
 <form id="compare-form" method="GET" action="{{ url_for('activity.compare_sessions') }}">
@@ -311,46 +370,53 @@
     </div>
 {% endif %}
     
-    <div class="row">
+    <div class="accordion" id="sessionsListAccordion">
         {% for session in sessions %}
-        <div class="col-lg-6 mb-4">
-            <div class="card h-100">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <div class="form-check">
-                        <input class="form-check-input session-checkbox" type="checkbox" name="session_ids" value="{{ session.id }}" id="sessionCheck{{ session.id }}" {% if not is_owner %}disabled{% endif %}>
-                        <label class="form-check-label" for="sessionCheck{{ session.id }}">
-                            <h5 class="mb-0 d-inline">{{ session.session_name }}</h5>
-                        </label>
+        {# ループの最後(最新)のみ開く #}
+        <div class="accordion-item">
+            <h2 class="accordion-header" id="headingSession{{ session.id }}">
+                <button class="accordion-button {% if not loop.last %}collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSession{{ session.id }}" aria-expanded="{{ 'true' if loop.last else 'false' }}" aria-controls="collapseSession{{ session.id }}">
+                    <div class="d-flex align-items-center w-100 me-2">
+                        <div class="form-check me-3" onclick="event.stopPropagation()">
+                            <input class="form-check-input session-checkbox" type="checkbox" name="session_ids" value="{{ session.id }}" id="sessionCheck{{ session.id }}" {% if not is_owner %}disabled{% endif %}>
+                        </div>
+                        <div class="flex-grow-1">
+                            <h5 class="mb-0">{{ session.session_name }}</h5>
+                        </div>
+                        {# ヘッダー内アクションボタン #}
+                        <div class="d-flex align-items-center" onclick="event.stopPropagation()">
+                            {% if session.gps_tracks and session.gps_tracks.laps %}
+                            <button type="button" class="btn btn-sm btn-outline-info py-0 px-1 me-1 view-track-btn" 
+                                    data-bs-toggle="modal" 
+                                    data-bs-target="#mapModal"
+                                    data-session-id="{{ session.id }}"
+                                    data-session-name="{{ session.session_name }}"
+                                    title="走行ラインを表示">
+                                <i class="fas fa-route fa-fw"></i>
+                            </button>
+                            {% endif %}
+                            {% if is_owner %}
+                            <button type="button" class="btn btn-sm btn-outline-success py-0 px-1 me-1" 
+                                    data-bs-toggle="modal" data-bs-target="#importCsvModal-{{ session.id }}" title="CSVからインポート">
+                                <i class="fas fa-file-csv fa-fw"></i>
+                            </button>
+                            <a href="{{ url_for('activity.edit_session', session_id=session.id) }}" class="btn btn-sm btn-outline-primary py-0 px-1 me-1" title="編集">
+                                <i class="fas fa-edit fa-fw"></i>
+                            </a>
+                            <button type="button" class="btn btn-sm btn-outline-danger py-0 px-1 delete-session-btn"
+                                    data-delete-url="{{ url_for('activity.delete_session', session_id=session.id) }}"
+                                    data-csrf-token="{{ csrf_token() }}"
+                                    title="削除">
+                                <i class="fas fa-trash fa-fw"></i>
+                            </button>
+                            {% endif %}
+                        </div>
                     </div>
-                    <div>
-                        {% if session.gps_tracks and session.gps_tracks.laps %}
-                        <button type="button" class="btn btn-sm btn-outline-info py-0 px-1 me-1 view-track-btn" 
-                                data-bs-toggle="modal" 
-                                data-bs-target="#mapModal"
-                                data-session-id="{{ session.id }}"
-                                data-session-name="{{ session.session_name }}"
-                                title="走行ラインを表示">
-                            <i class="fas fa-route fa-fw"></i>
-                        </button>
-                        {% endif %}
-                        {% if is_owner %}
-                        <button type="button" class="btn btn-sm btn-outline-success py-0 px-1 me-1" 
-                                data-bs-toggle="modal" data-bs-target="#importCsvModal-{{ session.id }}" title="CSVからインポート">
-                            <i class="fas fa-file-csv fa-fw"></i>
-                        </button>
-                        <a href="{{ url_for('activity.edit_session', session_id=session.id) }}" class="btn btn-sm btn-outline-primary py-0 px-1 me-1" title="編集">
-                            <i class="fas fa-edit fa-fw"></i>
-                        </a>
-                        <button type="button" class="btn btn-sm btn-outline-danger py-0 px-1 delete-session-btn"
-                                data-delete-url="{{ url_for('activity.delete_session', session_id=session.id) }}"
-                                data-csrf-token="{{ csrf_token() }}"
-                                title="削除">
-                            <i class="fas fa-trash fa-fw"></i>
-                        </button>
-                        {% endif %}
-                    </div>
-                </div>
-                <div class="card-body">
+                </button>
+            </h2>
+            <div id="collapseSession{{ session.id }}" class="accordion-collapse collapse {% if loop.last %}show{% endif %}" aria-labelledby="headingSession{{ session.id }}" data-bs-parent="#sessionsListAccordion">
+                <div class="accordion-body">
+                    
                     {% if is_owner and session.gps_tracks and session.gps_tracks.laps %}
                     <div class="border-bottom pb-3 mb-3">
                         <div class="form-check form-switch mb-2">
@@ -373,30 +439,33 @@
                         </div>
                     </div>
                     {% endif %}
-                    <div class="mb-3">
-                        <strong><i class="fas fa-cog fa-fw me-1"></i>使用セッティング:</strong>
-                        {% if session.setting_sheet %}
-                            <a href="{{ url_for('activity.edit_setting', setting_id=session.setting_sheet.id) }}">{{ session.setting_sheet.sheet_name }}</a>
-                            <details class="mt-2 small bg-light p-2 rounded">
-                                <summary style="cursor: pointer;">詳細を展開</summary>
-                                <div class="mt-2">
-                                {% for category_key, items in session.setting_sheet.details.items() %}
-                                    {% set category_info = setting_key_map.get(category_key, {}) %}
-                                    <strong>{{ category_info.get('title', category_key) }}</strong>
-                                    <ul class="list-unstyled ps-3">
-                                    {% for item_key, item_value in items.items() %}
-                                        {% set item_label = category_info.get('keys', {}).get(item_key, item_key) %}
-                                        <li>{{ item_label }}: {{ item_value }}</li>
+                    
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <strong><i class="fas fa-cog fa-fw me-1"></i>使用セッティング:</strong>
+                            {% if session.setting_sheet %}
+                                <a href="{{ url_for('activity.edit_setting', setting_id=session.setting_sheet.id) }}">{{ session.setting_sheet.sheet_name }}</a>
+                                <details class="mt-2 small bg-light p-2 rounded">
+                                    <summary style="cursor: pointer;">詳細を展開</summary>
+                                    <div class="mt-2">
+                                    {% for category_key, items in session.setting_sheet.details.items() %}
+                                        {% set category_info = setting_key_map.get(category_key, {}) %}
+                                        <strong>{{ category_info.get('title', category_key) }}</strong>
+                                        <ul class="list-unstyled ps-3">
+                                        {% for item_key, item_value in items.items() %}
+                                            {% set item_label = category_info.get('keys', {}).get(item_key, item_key) %}
+                                            <li>{{ item_label }}: {{ item_value }}</li>
+                                        {% endfor %}
+                                        </ul>
+                                    {% else %}
+                                        <p class="mb-0">詳細なセッティング項目はありません。</p>
                                     {% endfor %}
-                                    </ul>
-                                {% else %}
-                                    <p class="mb-0">詳細なセッティング項目はありません。</p>
-                                {% endfor %}
-                                </div>
-                            </details>
-                        {% else %}
-                            <span class="text-muted">セッティング未指定</span>
-                        {% endif %}
+                                    </div>
+                                </details>
+                            {% else %}
+                                <span class="text-muted">セッティング未指定</span>
+                            {% endif %}
+                        </div>
                     </div>
 
                     {% if session.rider_feel %}
@@ -436,7 +505,8 @@
                                 </thead>
                                 <tbody>
                                     {% for lap in session.lap_details %}
-                                    <tr>
+                                    {# ▼▼▼【修正】バックエンドで計算された row_class をそのまま適用 ▼▼▼ #}
+                                    <tr class="{{ lap.row_class }}">
                                         <td class="text-center">{{ lap.lap_num }}</td>
                                         <td class="text-center {% if lap.is_best %}best-lap-time{% endif %}">{{ lap.time_str }}</td>
                                         <td class="text-center text-muted">{{ lap.diff_str }}</td>
@@ -483,34 +553,35 @@
                           <div class="alert alert-warning small p-2">ラップタイムはありますが、表示データを作成できませんでした。</div>
                      </div>
                     {% endif %}
-                </div>
-                <div class="card-footer text-muted small d-flex justify-content-between">
-                    <span>
-                    {% if motorcycle.is_racer %}
-                        {% if session.session_duration_hours is not none %}
-                            <strong>稼働時間:</strong> {{ session.session_duration_hours }} 時間
-                        {% elif session.operating_hours_end is not none and session.operating_hours_start is not none %}
-                            <strong>稼働時間:</strong> {{ (session.operating_hours_end - session.operating_hours_start)|round(2) }} 時間 <span class="badge bg-secondary">旧</span>
+                    
+                    <div class="text-muted small d-flex justify-content-between border-top pt-2 mt-2">
+                        <span>
+                        {% if motorcycle.is_racer %}
+                            {% if session.session_duration_hours is not none %}
+                                <strong>稼働時間:</strong> {{ session.session_duration_hours }} 時間
+                            {% elif session.operating_hours_end is not none and session.operating_hours_start is not none %}
+                                <strong>稼働時間:</strong> {{ (session.operating_hours_end - session.operating_hours_start)|round(2) }} 時間 <span class="badge bg-secondary">旧</span>
+                            {% else %}
+                                <strong>稼働時間:</strong> N/A
+                            {% endif %}
                         {% else %}
-                            <strong>稼働時間:</strong> N/A
+                            {% if session.session_distance is not none %}
+                                <strong>走行距離:</strong> {{ "{:,}".format(session.session_distance) }} km
+                            {% elif session.odo_end is not none and session.odo_start is not none %}
+                                <strong>走行距離:</strong> {{ "{:,}".format(session.odo_end - session.odo_start) }} km <span class="badge bg-secondary">旧</span>
+                            {% else %}
+                                <strong>走行距離:</strong> N/A
+                            {% endif %}
                         {% endif %}
-                    {% else %}
-                        {% if session.session_distance is not none %}
-                            <strong>走行距離:</strong> {{ "{:,}".format(session.session_distance) }} km
-                        {% elif session.odo_end is not none and session.odo_start is not none %}
-                            <strong>走行距離:</strong> {{ "{:,}".format(session.odo_end - session.odo_start) }} km <span class="badge bg-secondary">旧</span>
-                        {% else %}
-                            <strong>走行距離:</strong> N/A
-                        {% endif %}
-                    {% endif %}
-                    </span>
-                    <span>
-                        {% if session.include_in_leaderboard %}
-                            <i class="fas fa-trophy text-warning" title="リーダーボード対象"></i>
-                        {% else %}
-                            <i class="fas fa-trophy text-muted" title="リーダーボード対象外"></i>
-                        {% endif %}
-                    </span>
+                        </span>
+                        <span>
+                            {% if session.include_in_leaderboard %}
+                                <i class="fas fa-trophy text-warning" title="リーダーボード対象"></i>
+                            {% else %}
+                                <i class="fas fa-trophy text-muted" title="リーダーボード対象外"></i>
+                            {% endif %}
+                        </span>
+                    </div>
                 </div>
             </div>
         </div>
