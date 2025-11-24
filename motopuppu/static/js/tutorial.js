@@ -1,276 +1,364 @@
 // motopuppu/static/js/tutorial.js
 
 /**
- * チュートリアル完了ステータスをサーバーに送信する
- * @param {string} csrfToken - CSRFトークン
- * @param {string} tutorialKey - 完了したチュートリアルのキー (例: 'initial_setup')
+ * motopuppu/static/js/tutorial.js
+ * にゃんぷっぷーによる対話型チュートリアル (V3: シンプルカード版 - 指定画像Ver)
+ */
+
+// キャラクター画像の定義（指定された安心・安全な画像のみ使用）
+const NYAN_IMAGES = {
+    // 基本: 真顔でじっと見つめる（説明用）
+    'normal': '/static/images/nyanpuppu/blobcat.png',
+    
+    // 挨拶/可愛い: UwU顔（ウェルカム、完了時など）
+    'cute': '/static/images/nyanpuppu/blobcat_uwu.png',
+    
+    // 応援/喜び: ペンライトを振る（開始、成功、ポジティブな機能紹介）
+    'cheer': '/static/images/nyanpuppu/ablobcat_cheer.gif',
+    
+    // 快適/安心: 布団に入っている（リマインダー、補足説明など）
+    'comfy': '/static/images/nyanpuppu/blobcatcomfy.png',
+    
+    // タコ/入力: タコblobcat（入力フォーム、作業中、アクセント）
+    'taco': '/static/images/nyanpuppu/blobcataco.png'
+};
+
+/**
+ * 感情キーと画像の内部マッピング
+ * ロジック側で使いやすいキー(emotion)を、実際の画像キーに振り分けます
+ */
+function getBlobcatImage(emotion) {
+    switch (emotion) {
+        case 'wave':    // 手を振る -> UwUで可愛く
+        case 'sad':     // 悲しい -> UwUでしんみりと
+            return NYAN_IMAGES['cute'];
+            
+        case 'happy':   // 喜び -> 応援
+        case 'excited': // 興奮 -> 応援
+        case 'drive':   // 運転 -> 応援（動きがあるため）
+            return NYAN_IMAGES['cheer'];
+            
+        case 'write':   // 書く -> タコ（作業感）
+            return NYAN_IMAGES['taco'];
+            
+        case 'relax':   // リラックス -> 布団
+            return NYAN_IMAGES['comfy'];
+            
+        case 'shock':   // 警告 -> 真顔（真剣さを出すためあえてnormal）
+        case 'serious': // 真剣 -> 真顔
+        case 'explain': // 説明 -> 真顔
+        case 'normal':  // 通常 -> 真顔
+        default:
+            return NYAN_IMAGES['normal'];
+    }
+}
+
+/**
+ * チュートリアル用のHTMLコンテンツを生成するヘルパー
+ * CSS側で .tutorial-card を制御するため、ここでは構造のみ定義
+ * @param {string} title - タイトル
+ * @param {string} text - 本文（HTML可）
+ * @param {string} emotion - 感情キー ('normal', 'happy', 'shock' etc.)
+ * @returns {string} HTML文字列
+ */
+function makeContent(title, text, emotion = 'normal') {
+    const imgSrc = getBlobcatImage(emotion);
+    
+    // アイコンの決定 (警告や重要事項には注意アイコン、それ以外は肉球)
+    const icon = (emotion === 'shock' || emotion === 'serious')
+        ? '<i class="fas fa-exclamation-triangle text-warning"></i>' 
+        : '<i class="fas fa-paw"></i>';
+
+    // HTML構造: カードの中に画像を絶対配置で置くスタイル
+    return `
+        <div class="tutorial-card">
+            <img src="${imgSrc}" class="tutorial-character-img" alt="Nyanpuppu">
+            <div class="tutorial-content">
+                <div class="tutorial-title">${icon} ${title}</div>
+                <div class="tutorial-text">${text}</div>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * 共通オプション設定
+ */
+function getIntroOptions() {
+    return {
+        nextLabel: '次へ',
+        prevLabel: '戻る',
+        doneLabel: '完了',
+        skipLabel: '×', // スキップは×ボタンにする
+        showProgress: false, // プログレスバーは非表示（シンプル化）
+        exitOnOverlayClick: false,
+        showStepNumbers: false,
+        scrollToElement: true,
+        scrollPadding: 80, // キャラクターが被らないよう少し余白を多めに
+        positionPrecedence: ['bottom', 'top', 'right', 'left'],
+        disableInteraction: true, // チュートリアル中は対象要素をクリック不可にする（誤操作防止）
+    };
+}
+
+/**
+ * サーバーへ完了ステータスを送信
  */
 function markTutorialAsComplete(csrfToken, tutorialKey) {
     fetch('/api/tutorial/complete', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': csrfToken
-        },
-        body: JSON.stringify({ key: tutorialKey }) // 完了したキーを送信
-    }).then(response => {
-        if (!response.ok) {
-            console.error(`Failed to mark tutorial '${tutorialKey}' as complete.`);
-        }
-    }).catch(error => {
-        console.error('Error communicating with server:', error);
-    });
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+        body: JSON.stringify({ key: tutorialKey })
+    }).catch(console.error);
 }
 
-/**
- * 新規ユーザー向けの初回チュートリアル（車両登録への誘導）を開始する
- * @param {string} csrfToken - CSRFトークン
- */
+/* ==========================================================================
+   各チュートリアル定義
+   ========================================================================== */
+
+/** 1. 新規ユーザー向けの初回チュートリアル */
 function startInitialSetupTutorial(csrfToken) {
     const intro = introJs();
-
     intro.setOptions({
-        steps: [{
-            title: '🏍️ もとぷっぷーへようこそ！',
-            intro: 'これからあなたのバイクライフの記録をサポートします。<br><br>まずは、あなたの愛車を登録することから始めましょう！'
-        }, {
-            element: document.querySelector('#tutorial-start-add-vehicle'),
-            title: '最初のステップ',
-            intro: 'ここからあなたの最初のバイクを登録します。クリックして次に進みましょう。'
-        }],
-        nextLabel: '次へ →',
-        prevLabel: '← 前へ',
-        doneLabel: 'OK',
-        skipLabel: 'スキップ',
-        showProgress: true,
-        exitOnOverlayClick: false,
+        ...getIntroOptions(),
+        steps: [
+            {
+                title: 'Welcome',
+                intro: makeContent(
+                    'ようこそ！',
+                    'はじめましてだにゃ！<br>バイクライフの記録を全力でサポートするよ。<br>まずは<b>愛車の登録</b>から始めよう！',
+                    'wave' // -> cute (uwu)
+                )
+            },
+            {
+                element: document.querySelector('#tutorial-start-add-vehicle'),
+                title: 'Start',
+                intro: makeContent(
+                    '登録ボタン',
+                    'このボタンを押して、最初のバイクを登録しに行くにゃ！',
+                    'excited' // -> cheer
+                )
+            }
+        ]
     });
-
-    intro.onexit(function() {
-        markTutorialAsComplete(csrfToken, 'initial_setup');
-    });
-
-    intro.onbeforechange(function(targetElement) {
-        if (this._currentStep === 1) {
-            intro.exit(); 
-            targetElement.click();
-        }
-    });
-
+    intro.onexit(() => markTutorialAsComplete(csrfToken, 'initial_setup'));
     intro.start();
 }
 
-
-/**
- * 車両登録ページのチュートリアルを開始する
- * @param {string} csrfToken - CSRFトークン
- */
+/** 2. 車両登録ページ */
 function startVehicleFormTutorial(csrfToken) {
     const intro = introJs();
-
     intro.setOptions({
+        ...getIntroOptions(),
         steps: [
             {
-                title: '車両情報の入力',
-                intro: 'あなたの愛車を登録しましょう！<br><strong>「車両名」</strong>だけが必須項目です。他の項目は後からでも編集できます。'
+                title: '車両登録',
+                intro: makeContent(
+                    '愛車の登録',
+                    '新しい相棒を登録するんだね！<br><b>「車両名」</b>さえ入力すれば、他は後回しでもOKだよ。',
+                    'write' // -> taco
+                )
             },
             {
                 element: document.querySelector('#tutorial-vehicle-name'),
-                title: '車両名 (必須)',
-                intro: 'あなたのバイクの管理しやすい名前や型式などを入力してください。<br>例: CBR250RR, 通勤用カブ'
+                title: '車両名',
+                intro: makeContent(
+                    '名前を入力',
+                    '呼びやすい名前や車種名を入力してね。',
+                    'explain' // -> normal
+                )
             },
             {
                 element: document.querySelector('#is_racer_checkbox'),
-                title: '重要な選択',
-                intro: 'このバイクは公道走行しますか？<br><strong>レーサー車両</strong>に設定すると、走行距離(km)ではなく<strong>総稼働時間(h)</strong>で管理します。<br><strong class="text-danger">この設定は登録後に変更できません。</strong>',
-                position: 'right'
-            },
-            {
-                element: document.querySelector('#tutorial-initial-odometer'),
-                title: '現在の走行距離',
-                intro: 'もし現在のメーターの走行距離が分かれば入力してください。これが今後の燃費や整備記録の基準点になります。'
-            },
-            {
-                element: document.querySelector('#tutorial-drivetrain-data'),
-                title: '駆動系データ (任意)',
-                intro: 'ここは、走行ログ機能の<strong>ギアレシオチャート</strong>で使用する専門的な情報を入力する項目です。<br><br>初めて使う場合や情報が不明な場合は、<strong>すべて空欄のままで問題ありません。</strong>'
-            },
-            {
-                element: document.querySelector('#tutorial-vehicle-submit'),
-                title: '登録の完了',
-                intro: '入力が終わったら、このボタンで登録します。これで車両登録は完了です！',
-                position: 'top'
-            }
-        ],
-        nextLabel: '次へ →',
-        prevLabel: '← 前へ',
-        doneLabel: 'わかった！',
-        skipLabel: 'スキップ',
-        showProgress: true,
-        exitOnOverlayClick: false,
-    });
-
-    intro.onexit(function() {
-        markTutorialAsComplete(csrfToken, 'vehicle_form');
-    });
-
-    intro.start();
-}
-
-
-/**
- * ダッシュボード全体のツアーを開始する
- * @param {string} csrfToken - CSRFトークン
- */
-function startDashboardTour(csrfToken) {
-    const intro = introJs();
-
-    intro.setOptions({
-        steps: [
-            {
-                title: '🎉 車両登録が完了しました！',
-                intro: `
-                    <p>これであなたのガレージに最初の1台が追加されました。</p>
-                    <p>もとぷっぷーには、バイクライフを記録するための様々な機能があります。さっそく使ってみましょう！</p>
-                    <hr>
-                    <div style="max-height: 200px; overflow-y: auto; text-align: left; padding-right: 15px;">
-                        <ul class="list-unstyled small">
-                            <li><strong><i class="fas fa-gas-pump fa-fw me-2"></i>給油記録:</strong> 燃費を自動で計算・グラフ化します。</li>
-                            <li class="mt-2"><strong><i class="fas fa-tools fa-fw me-2"></i>整備記録:</strong> いつどんなメンテナンスをしたか記録できます。</li>
-                            <li class="mt-2"><strong><i class="fas fa-sticky-note fa-fw me-2"></i>ノート:</strong> ツーリングの計画やカスタムメモなど、自由に記録できます。</li>
-                            <li class="mt-2"><strong><i class="fas fa-flag-checkered fa-fw me-2"></i>走行ログ:</strong> サーキット走行のセッティングやタイムを記録・比較できます。</li>
-                            <li class="mt-2"><strong><i class="fas fa-map-signs fa-fw me-2"></i>ツーリングログ:</strong> 旅の思い出を写真やメモと共に記録します。</li>
-                            <li class="mt-2"><strong><i class="fas fa-id-card fa-fw me-2"></i>ガレージカード:</strong> あなたの愛車をカード形式で公開できます。</li>
-                             <li class="mt-2"><strong><i class="fas fa-motorcycle fa-fw me-2"></i>車両管理:</strong> 登録した車両情報の編集や、リマインダー設定ができます。</li>
-                        </ul>
-                    </div>
-                `
-            },
-            {
-                element: document.querySelector('[data-widget-name="reminders"]'),
-                title: 'メンテナンスリマインダー',
-                intro: '交換時期が近づいている消耗品や、定期メンテナンスの予定がここに表示されます。'
-            },
-            {
-                element: document.querySelector('[data-widget-name="stats"]'),
-                title: '統計情報',
-                intro: '期間内の総走行距離や消費した燃料、かかった費用などのサマリーを確認できます。'
-            },
-            {
-                element: document.querySelector('[data-widget-name="vehicles"]'),
-                title: '車両一覧',
-                intro: 'あなたが登録した車両の一覧です。ここから各車両の詳細な記録ページへ移動できます。'
-            },
-            {
-                element: document.querySelector('[data-widget-name="timeline"]'),
-                title: '給油・整備タイムライン',
-                intro: '給油や整備の記録が時系列で表示されます。最近の活動を振り返るのに便利です。'
-            },
-            {
-                element: document.querySelector('[data-widget-name="calendar"]'),
-                title: '記録カレンダー',
-                intro: 'すべての記録がカレンダー形式で表示されます。いつ何をしたか一目でわかります。'
-            },
-            {
-                element: document.querySelector('#main-navbar'),
-                title: 'ナビゲーションバー',
-                intro: '主な機能へは、画面上部のこのバーからいつでもアクセスできます。「マイガレージ」からは車両ごとの記録ページへ、「コミュニティ」からはチームやリーダーボードなどの機能へ移動できます。',
+                title: 'レーサー設定',
+                intro: makeContent(
+                    '【重要】レーサー？',
+                    '公道を走らない<b>競技車両</b>の場合だけチェックしてね。<br>管理が「距離」じゃなくて<b>「時間」</b>になるよ！<br><span class="text-danger">※後から変更できないから注意！</span>',
+                    'serious' // -> normal (真剣)
+                ),
                 position: 'bottom'
             },
             {
-                title: 'チュートリアル完了！',
-                intro: 'これで基本的な説明は終わりです。さっそく、あなたのバイクライフを記録してみましょう！'
+                element: document.querySelector('#tutorial-initial-odometer'),
+                title: '現在の距離',
+                intro: makeContent(
+                    'メーター読み',
+                    '今の走行距離を入れておくと、そこから燃費計算をスタートできるにゃ。',
+                    'normal' // -> normal
+                )
+            },
+            {
+                element: document.querySelector('#tutorial-drivetrain-data'),
+                title: '詳細設定',
+                intro: makeContent(
+                    'マニアック設定',
+                    'ギア比などの詳しい設定もできるけど、<b>今は空っぽで大丈夫</b>だにゃ！',
+                    'relax' // -> comfy
+                )
+            },
+            {
+                element: document.querySelector('#tutorial-vehicle-submit'),
+                title: '完了',
+                intro: makeContent(
+                    '登録する！',
+                    '入力おつかれさま！<br>ボタンを押して登録完了だにゃ！',
+                    'happy' // -> cheer
+                ),
+                position: 'top'
             }
-        ],
-        nextLabel: '次へ →',
-        prevLabel: '← 前へ',
-        doneLabel: 'ツアーを終了',
-        skipLabel: 'スキップ',
-        showProgress: true
+        ]
     });
-
-    intro.onexit(function() {
-        markTutorialAsComplete(csrfToken, 'dashboard_tour');
-    });
-
+    intro.onexit(() => markTutorialAsComplete(csrfToken, 'vehicle_form'));
     intro.start();
 }
 
-
-/**
- * 給油記録ページのチュートリアルを開始する
- * @param {string} csrfToken - CSRFトークン
- */
-function startFuelFormTutorial(csrfToken) {
+/** 3. ダッシュボードツアー */
+function startDashboardTour(csrfToken) {
     const intro = introJs();
-
     intro.setOptions({
+        ...getIntroOptions(),
         steps: [
             {
-                title: '給油記録の追加',
-                intro: 'ここでは給油した際の情報を記録します。満タン法での燃費は自動で計算されます。'
+                title: '登録完了',
+                intro: makeContent(
+                    'やったにゃ！',
+                    'ガレージにバイクが追加されたよ！<br>画面の見方を簡単に教えるね。',
+                    'happy' // -> cheer
+                )
+            },
+            {
+                element: document.querySelector('#quickActionBtn'),
+                title: '記録メニュー',
+                intro: makeContent(
+                    '記録をつける',
+                    '給油や整備をしたら、右下の<b>＋ボタン</b>を押してね。<br>ここからすぐに記録できるよ！',
+                    'explain' // -> normal
+                ),
+                position: 'left'
+            },
+            {
+                element: document.querySelector('[data-widget-name="reminders"]'),
+                title: 'リマインダー',
+                intro: makeContent(
+                    'お知らせ',
+                    'オイル交換などの時期が近づくと、僕がここでお知らせするにゃ！<br>安心して任せてね。',
+                    'relax' // -> comfy
+                )
+            },
+            {
+                element: document.querySelector('[data-widget-name="timeline"]'),
+                title: 'タイムライン',
+                intro: makeContent(
+                    '思い出',
+                    '君とバイクの記録はここに時系列で並ぶよ。<br>たくさん走って記録を埋めてね！',
+                    'wave' // -> cute
+                )
+            },
+            {
+                element: document.querySelector('#main-navbar'),
+                title: 'メニュー',
+                intro: makeContent(
+                    'その他の機能',
+                    '<b>「活動ログ」</b>でサーキット走行の管理や、ツーリングの記録もできるから試してみてね！',
+                    'drive' // -> cheer
+                ),
+                position: 'bottom'
+            },
+            {
+                element: document.querySelector('#edit-layout-btn'),
+                title: 'レイアウト',
+                intro: makeContent(
+                    'カスタマイズ',
+                    'このボタンで画面の並び順を自由に変えられるにゃ。<br>使いやすいようにアレンジしてね！',
+                    'write' // -> taco
+                )
+            },
+            {
+                title: '完了',
+                intro: makeContent(
+                    '準備OK！',
+                    '説明は以上だにゃ！<br>さあ、安全運転で楽しんでいこう〜！',
+                    'happy' // -> cheer
+                )
+            }
+        ]
+    });
+    intro.onexit(() => markTutorialAsComplete(csrfToken, 'dashboard_tour'));
+    intro.start();
+}
+
+/** 4. 給油記録ページ */
+function startFuelFormTutorial(csrfToken) {
+    const intro = introJs();
+    intro.setOptions({
+        ...getIntroOptions(),
+        steps: [
+            {
+                title: '給油',
+                intro: makeContent(
+                    '給油記録',
+                    'ガス欠？それともツーリング？<br>給油の記録をつけて燃費を計算しよう！',
+                    'drive' // -> cheer
+                )
             },
             {
                 element: document.querySelector('#tutorial-entry-date'),
-                title: '給油日',
-                intro: '給油した日付を選択します。初期値は今日の日付になっています。'
-            },
-            {
-                element: document.querySelector('#tutorial-input-mode'),
-                title: '走行距離の入力方法',
-                intro: '走行距離は、バイクの総走行距離（ODO）を直接入力する方法と、前回給油時からの距離（TRIP）で入力する方法をここで切り替えられます。'
+                title: '日付',
+                intro: makeContent(
+                    'いつ入れた？',
+                    '給油した日付を選んでね。<br>デフォルトは今日になってるにゃ。',
+                    'normal' // -> normal
+                )
             },
             {
                 element: document.querySelector('#tutorial-odo-input'),
-                title: 'ODOメーター値',
-                intro: '給油した時点での、バイクのODOメーターに表示されている総走行距離を入力してください。'
+                title: '距離',
+                intro: makeContent(
+                    '走行距離',
+                    '給油した時点の<b>総走行距離(ODO)</b>を入力してね。',
+                    'explain' // -> normal
+                )
             },
             {
                 element: document.querySelector('#tutorial-volume-input'),
                 title: '給油量',
-                intro: '給油した燃料の量をリットル単位で入力します。'
+                intro: makeContent(
+                    '何リットル？',
+                    'レシートを見て、入れたガソリンの量を入力してね。',
+                    'write' // -> taco
+                )
             },
-            // ▼▼▼【ここから追記】▼▼▼
             {
                 element: document.querySelector('#search-gas-station-btn'),
-                title: '給油スタンド検索',
-                intro: 'スタンド名がうろ覚えでも、ここから検索できます。キーワード（例：「エネオス 浦和」）を入力して検索ボタンを押してください。',
+                title: '検索',
+                intro: makeContent(
+                    'スタンド検索',
+                    '「ここどこだっけ？」って時はここ！<br>Googleマップから場所を検索して自動入力できるよ。',
+                    'excited' // -> cheer
+                ),
                 position: 'bottom'
             },
-            // ▲▲▲【追記はここまで】▲▲▲
             {
                 element: document.querySelector('#tutorial-full-tank-check'),
-                title: '満タン給油 (重要)',
-                intro: '正確な燃費を計算するために、<strong>満タン給油</strong>をした場合は必ずこのボックスにチェックを入れてください。',
+                title: '満タン',
+                intro: makeContent(
+                    '満タン？',
+                    'もし<b>満タン</b>入れたなら、必ずチェックしてね！<br>これがないと燃費が計算できないんだ。',
+                    'serious' // -> normal
+                ),
                 position: 'right'
             },
-            // ▼▼▼【ここから追記】▼▼▼
-            {
-                element: document.querySelector('#tutorial-exclude-check'),
-                title: '平均燃費から除外',
-                intro: '記録忘れなどで走行距離が不明な給油記録など、異常な燃費が計算されてしまう場合にこのチェックを入れると、全体の平均燃費からこの記録を除外できます。',
-                position: 'right'
-            },
-            // ▲▲▲【追記はここまで】▲▲▲
             {
                 element: document.querySelector('#tutorial-fuel-submit'),
-                title: '記録の追加',
-                intro: 'すべての入力が終わったら、このボタンで記録を保存します。',
+                title: '保存',
+                intro: makeContent(
+                    '保存する',
+                    '入力OK？<br>ボタンを押して記録完了だにゃ！',
+                    'happy' // -> cheer
+                ),
                 position: 'top'
             }
-        ],
-        nextLabel: '次へ →',
-        prevLabel: '← 前へ',
-        doneLabel: 'わかった！',
-        skipLabel: 'スキップ',
-        showProgress: true,
-        exitOnOverlayClick: false,
+        ]
     });
-
-    // チュートリアルが完了またはスキップされたら、'fuel_form'を完了としてマークする
-    intro.onexit(function() {
-        markTutorialAsComplete(csrfToken, 'fuel_form');
-    });
-
+    intro.onexit(() => markTutorialAsComplete(csrfToken, 'fuel_form'));
     intro.start();
 }

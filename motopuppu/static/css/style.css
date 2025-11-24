@@ -670,131 +670,159 @@
 /* ▲▲▲ 追記ここまで ▲▲▲ */
 
 
-/* --- (再修正) Intro.js チュートリアル表示スタイル --- */
-/* 以前の introjs 関連のスタイルはすべて削除し、以下に置き換える */
+/* --- Intro.js Custom Theme for Motopuppu (V3: シンプルカードスタイル) --- */
 
-/* ツールチップ全体のスタイル */
+/* 1. ツールチップ本体の透明化とリセット */
+/* Intro.jsが生成する外箱の装飾を消し、中身の .tutorial-card でデザインを制御します */
 .introjs-tooltip {
-    position: relative; /* スキップボタンを絶対配置するための基準点 */
-    font-family: var(--bs-font-sans-serif);
-    background-color: var(--bs-body-bg);
-    border-radius: var(--bs-border-radius);
-    box-shadow: var(--bs-box-shadow-lg);
-    padding: 1rem;
-    max-width: 380px; /* 横幅を少し広げて窮屈さを解消 */
-    min-width: 300px; /* 最小幅も確保 */
+    background-color: transparent !important;
+    box-shadow: none !important;
+    border: none !important;
+    padding: 0 !important;
+    max-width: 400px !important;
+    min-width: 320px !important;
+    overflow: visible !important; /* キャラクターを枠外にはみ出させるため必須 */
 }
 
-/* ツールチップのタイトル */
-.introjs-tooltip-title {
-    font-size: 1.15rem;
-    font-weight: 600;
-    color: var(--bs-heading-color);
-    border-bottom: 1px solid var(--bs-border-color);
-    padding-bottom: 0.75rem;
-    margin-bottom: 1rem;
-    /* 右側にスキップボタンを配置するスペースを確保 */
-    padding-right: 4rem; 
+/* デフォルトの矢印（三角）はデザインの邪魔になるので非表示 */
+.introjs-arrow {
+    display: none !important;
 }
 
-/* ツールチップのテキスト */
-.introjs-tooltiptext {
+/* 2. カードデザイン（実質的な表示エリア） */
+.tutorial-card {
+    background-color: #ffffff;
+    border-radius: 16px;
+    padding: 24px 24px 16px 24px; /* 上左右は広め、下はボタンエリア用に調整 */
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25); /* 影を強めにして浮遊感を出す */
+    position: relative;
+    border: 1px solid rgba(0,0,0,0.05);
+    margin-top: 30px; /* キャラクターが上に乗るスペースを確保 */
+}
+
+/* 3. キャラクター（ステッカー風配置） */
+.tutorial-character-img {
+    position: absolute;
+    top: -55px; /* カードの上に飛び出させる */
+    left: 20px; /* 左寄せ */
+    width: 90px;
+    height: auto;
+    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.2));
+    z-index: 100; /* テキストより手前に */
+    transform-origin: bottom center;
+    transition: transform 0.2s ease;
+}
+.tutorial-character-img:hover {
+    transform: scale(1.1) rotate(-5deg);
+}
+
+/* 4. タイトルとテキスト */
+.tutorial-content {
+    margin-top: 10px; /* キャラクターと被らないように少し下げる */
+}
+
+.tutorial-title {
+    font-family: 'Poppins', sans-serif;
+    font-weight: 700;
+    font-size: 1.2rem;
+    color: #2c3e50;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    padding-left: 5px; /* 左端を少し空ける */
+}
+
+/* アイコンの色調整 */
+.tutorial-title i { margin-right: 8px; }
+.tutorial-title .fa-paw { color: #198754; }
+.tutorial-title .fa-exclamation-triangle { color: #dc3545; }
+
+.tutorial-text {
     font-size: 0.95rem;
     line-height: 1.6;
-    color: var(--bs-body-color);
+    color: #495057;
+    padding-left: 5px;
 }
 
-/* スキップボタン (右上配置) */
-.introjs-skipbutton {
-    /* 既存のボタンスタイルを完全にリセット */
-    all: unset;
-    
-    /* 右上隅に絶対配置 */
-    position: absolute;
-    top: 0.85rem;
-    right: 1.25rem;
-    
-    /* テキストリンクとしてのスタイル */
-    cursor: pointer;
-    font-size: 0.9rem;
-    font-weight: 400;
-    color: var(--bs-secondary);
-    text-decoration: none;
-    transition: color 0.15s ease-in-out;
-}
-
-.introjs-skipbutton:hover {
-    color: var(--bs-dark);
-    text-decoration: underline;
-}
-
-
-/* 下部のボタン全体を囲むコンテナ */
+/* 5. ボタンエリアの整理 */
 .introjs-tooltipbuttons {
-    border-top: 1px solid var(--bs-border-color);
-    margin-top: 1rem;
-    padding-top: 0.75rem;
-    text-align: right; /* ボタンを右揃えに */
+    background-color: transparent !important; /* 背景色を完全に消す */
+    border-top: 1px solid #f0f0f0; /* 薄い区切り線 */
+    margin-top: 16px;
+    padding-top: 12px;
+    text-align: right;
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px; /* ボタン間の隙間 */
 }
 
-/* 「次へ」「前へ」「完了」ボタン共通のスタイル */
+/* ボタン共通スタイル (Bootstrapライクに) */
 .introjs-button {
-    display: inline-block;
-    font-weight: 400;
-    line-height: 1.5;
-    text-align: center;
-    vertical-align: middle;
+    font-family: var(--bs-font-sans-serif);
+    font-weight: 600;
+    font-size: 0.85rem;
+    padding: 0.5rem 1rem;
+    border-radius: 8px; /* 丸み */
+    border: none;
+    text-shadow: none;
+    box-shadow: none;
+    outline: none;
+    transition: all 0.2s ease;
     cursor: pointer;
-    user-select: none;
-    background-color: transparent;
-    border: 1px solid transparent;
-    padding: 0.375rem 0.75rem;
-    font-size: 1rem;
-    border-radius: var(--bs-border-radius);
-    transition: color .15s ease-in-out,background-color .15s ease-in-out,border-color .15s ease-in-out,box-shadow .15s ease-in-out;
-    text-decoration: none;
-    color: var(--bs-gray-700);
-    background-color: var(--bs-gray-200);
-    border-color: var(--bs-gray-300);
+    /* デフォルト（戻る・スキップ用）はグレー */
+    background-color: #f1f3f5;
+    color: #6c757d;
 }
 
 .introjs-button:hover {
-    background-color: var(--bs-gray-300);
+    background-color: #e9ecef;
+    transform: translateY(-1px);
+    color: #495057;
+    text-decoration: none;
 }
 
-/* 「次へ」ボタン */
-.introjs-nextbutton {
-    background-color: var(--bs-primary);
-    border-color: var(--bs-primary);
-    color: #fff;
-}
-.introjs-nextbutton:hover {
-    background-color: #0b5ed7;
-    border-color: #0a58ca;
-    color: #fff;
-}
-.introjs-disabled.introjs-nextbutton {
-    background-color: var(--bs-primary);
-    border-color: var(--bs-primary);
-    opacity: 0.65;
+/* 「次へ」「完了」ボタン (プライマリーカラー) */
+.introjs-nextbutton, .introjs-donebutton {
+    background-color: #198754 !important;
+    color: #ffffff !important;
 }
 
-/* 「完了」ボタン */
-.introjs-donebutton {
-    background-color: var(--bs-success);
-    border-color: var(--bs-success);
-    color: #fff;
-}
-.introjs-donebutton:hover {
-    background-color: #157347;
-    border-color: #146c43;
-    color: #fff;
+.introjs-nextbutton:hover, .introjs-donebutton:hover {
+    background-color: #146c43 !important;
+    box-shadow: 0 4px 10px rgba(25, 135, 84, 0.3);
 }
 
-/* プログレスバーのスタイル */
+/* 無効ボタン */
+.introjs-disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background-color: #f1f3f5 !important;
+    color: #adb5bd !important;
+}
+
+/* 6. ハイライト枠 (ターゲット強調) */
+.introjs-helperLayer {
+    /* 枠線を太く、目立つオレンジに */
+    border: 4px solid #ffc107 !important; 
+    border-radius: 4px;
+    background-color: rgba(255, 255, 255, 0.1);
+    /* 周囲の暗転を濃くする (50% -> 70%) */
+    box-shadow: rgba(33, 37, 41, 0.7) 0px 0px 0px 5000px !important;
+}
+
+/* ガチャガチャ感を消すため、プログレスバーは非表示にする（ボタンで十分わかるため） */
 .introjs-progress {
-    background-color: var(--bs-gray-200);
+    display: none;
 }
-.introjs-progressbar {
-    background-color: var(--bs-primary);
+
+/* スキップボタン（右上の×） */
+.introjs-skipbutton {
+    color: #adb5bd;
+    font-size: 1.5rem;
+    font-weight: 300;
+    top: 10px;
+    right: 15px;
+}
+.introjs-skipbutton:hover {
+    color: #6c757d;
 }
