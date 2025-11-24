@@ -10,12 +10,6 @@
         </button>
         <div class="collapse navbar-collapse" id="navbarNav">
             <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                
-                <li class="nav-item">
-                    <a id="nav-dashboard" class="nav-link {% if request.endpoint == 'main.dashboard' %}active{% endif %}" aria-current="page" href="{{ url_for('main.dashboard') }}">
-                        <i class="fas fa-tachometer-alt me-1"></i> ダッシュボード
-                    </a>
-                </li>
 
                 {# ▼▼▼ メガメニュー化されたマイガレージ ▼▼▼ #}
                 <li class="nav-item dropdown position-static">
@@ -92,7 +86,7 @@
                         <li><h6 class="dropdown-header"><i class="fas fa-calendar-day fa-fw me-2"></i>イベント</h6></li>
                         <li>
                             <a class="dropdown-item {% if request.endpoint == 'event.public_events_list' %}active{% endif %}" href="{{ url_for('event.public_events_list') }}">
-                                <i class="fas fa-search-location fa-fw me-2"></i>イベント広場 (開催予定)
+                                <i class="fas fa-search-location fa-fw me-2"></i>イベントを探す
                             </a>
                         </li>
                         <li>
@@ -102,8 +96,8 @@
                         </li>
                         <li><hr class="dropdown-divider"></li>
 
-                        {# カテゴリ2: 競技・データ #}
-                        <li><h6 class="dropdown-header"><i class="fas fa-chart-line fa-fw me-2"></i>競技・データ</h6></li>
+                        {# カテゴリ2: サーキット #}
+                        <li><h6 class="dropdown-header"><i class="fas fa-chart-line fa-fw me-2"></i>サーキット</h6></li>
                         <li>
                             <a class="dropdown-item {% if request.endpoint.startswith('circuit_dashboard.') %}active{% endif %}" href="{{ url_for('circuit_dashboard.index') }}">
                                 <i class="fas fa-columns fa-fw me-2"></i>サーキットダッシュボード

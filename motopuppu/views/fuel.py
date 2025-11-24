@@ -7,10 +7,8 @@ import requests
 from flask import (
     Blueprint, flash, redirect, render_template, request, url_for, abort, current_app, Response, jsonify
 )
-from sqlalchemy import or_, asc, desc, func, and_
-# ▼▼▼ joinedload をインポートに追加 ▼▼▼
+from sqlalchemy import or_, asc, desc, func, and_, case
 from sqlalchemy.orm import joinedload
-# ▲▲▲ 追加ここまで ▲▲▲
 
 from flask_login import login_required, current_user
 from ..models import db, Motorcycle, FuelEntry
@@ -231,18 +229,17 @@ def fuel_log():
 
     user_motorcycle_ids_for_fuel = [m.id for m in user_motorcycles_for_fuel]
 
-    # ▼▼▼【パフォーマンス改善】joinedloadを追加してN+1問題を解消 ▼▼▼
-    # .join(Motorcycle) はフィルタリング用、.options(joinedload(...)) はデータ取得用です
-    query = db.session.query(FuelEntry).options(joinedload(FuelEntry.motorcycle)).join(Motorcycle).filter(FuelEntry.motorcycle_id.in_(user_motorcycle_ids_for_fuel))
-    # ▲▲▲ 改善ここまで ▲▲▲
+    # --- 1. ベースクエリの構築 (N+1対策済み) ---
+    base_query = db.session.query(FuelEntry).options(joinedload(FuelEntry.motorcycle)).join(Motorcycle).filter(FuelEntry.motorcycle_id.in_(user_motorcycle_ids_for_fuel))
 
     active_filters = {k: v for k, v in request.args.items() if k not in ['page', 'sort_by', 'order']}
 
+    # --- 2. フィルタリングの適用 ---
     try:
         if start_date_str:
-            query = query.filter(FuelEntry.entry_date >= date.fromisoformat(start_date_str))
+            base_query = base_query.filter(FuelEntry.entry_date >= date.fromisoformat(start_date_str))
         if end_date_str:
-            query = query.filter(FuelEntry.entry_date <= date.fromisoformat(end_date_str))
+            base_query = base_query.filter(FuelEntry.entry_date <= date.fromisoformat(end_date_str))
     except ValueError:
         flash('日付の形式が無効です。YYYY-MM-DD形式で入力してください。', 'warning')
         active_filters.pop('start_date', None)
@@ -252,7 +249,7 @@ def fuel_log():
         try:
             vehicle_id = int(vehicle_id_str)
             if vehicle_id in user_motorcycle_ids_for_fuel:
-                query = query.filter(FuelEntry.motorcycle_id == vehicle_id)
+                base_query = base_query.filter(FuelEntry.motorcycle_id == vehicle_id)
             else:
                 flash('選択された車両は給油記録の対象外か、有効ではありません。', 'warning')
                 active_filters.pop('vehicle_id', None)
@@ -261,7 +258,63 @@ def fuel_log():
 
     if keyword:
         search_term = f'%{keyword}%'
-        query = query.filter(or_(FuelEntry.notes.ilike(search_term), FuelEntry.station_name.ilike(search_term)))
+        base_query = base_query.filter(or_(FuelEntry.notes.ilike(search_term), FuelEntry.station_name.ilike(search_term)))
+
+    # --- 3. 統計情報の集計 (SQLで実行可能な項目のみ) ---
+    # Pythonのpropertyである km_per_liter はSQLクエリに含められないため削除
+    stats_data = base_query.with_entities(
+        func.count(FuelEntry.id).label('count'),
+        func.sum(FuelEntry.total_cost).label('total_cost'),
+        func.sum(FuelEntry.fuel_volume).label('total_volume'),
+        func.min(FuelEntry.total_distance).label('min_dist'),
+        func.max(FuelEntry.total_distance).label('max_dist')
+    ).one()
+
+    # 総走行距離の計算 (最大ODO - 最小ODO)
+    total_distance_interval = 0
+    if stats_data.max_dist is not None and stats_data.min_dist is not None:
+        total_distance_interval = stats_data.max_dist - stats_data.min_dist
+
+    # --- 4. チャート用データ & 平均燃費の作成 (Pythonで処理) ---
+    # すべての対象データを取得し、Python側で燃費プロパティにアクセスしてリスト化
+    all_filtered_entries = base_query.order_by(asc(FuelEntry.entry_date)).all()
+    
+    chart_labels = []
+    chart_values = []
+    valid_efficiency_sum = 0
+    valid_efficiency_count = 0
+
+    for e in all_filtered_entries:
+        # km_per_literはモデル内のPythonプロパティで計算される
+        kpl = e.km_per_liter
+        if kpl is not None:
+            chart_labels.append(e.entry_date.strftime('%Y/%m/%d'))
+            chart_values.append(round(kpl, 2))
+            
+            # 平均計算用に集計
+            if not e.exclude_from_average:
+                valid_efficiency_sum += kpl
+                valid_efficiency_count += 1
+    
+    chart_data = {
+        'labels': chart_labels,
+        'data': chart_values
+    }
+
+    # 平均燃費の計算
+    calculated_efficiency = 0
+    if valid_efficiency_count > 0:
+        calculated_efficiency = valid_efficiency_sum / valid_efficiency_count
+
+    summary_stats = {
+        'total_entries': stats_data.count,
+        'total_cost': stats_data.total_cost or 0,
+        'total_distance': total_distance_interval,
+        'average_efficiency': calculated_efficiency
+    }
+
+    # --- 5. リスト表示用のソートとページネーション ---
+    query = base_query # base_queryをそのまま利用
 
     sort_column_map = {
         'date': FuelEntry.entry_date, 'vehicle': Motorcycle.name,
@@ -272,8 +325,11 @@ def fuel_log():
     current_sort_by = sort_by if sort_by in sort_column_map else 'date'
     sort_column = sort_column_map.get(current_sort_by, FuelEntry.entry_date)
     current_order = 'desc' if order == 'desc' else 'asc'
-    sort_modifier = desc if current_order == 'desc' else 'asc'
+    
+    # 修正: 'asc' 文字列ではなく、SQLAlchemyの関数 asc を使用
+    sort_modifier = desc if current_order == 'desc' else asc
 
+    # 常に日付を第2ソートキーにして並び順を安定させる
     if sort_column == FuelEntry.entry_date:
         query = query.order_by(sort_modifier(FuelEntry.entry_date), desc(FuelEntry.total_distance), FuelEntry.id.desc())
     elif sort_column == FuelEntry.odometer_reading:
@@ -295,7 +351,9 @@ def fuel_log():
                            request_args=active_filters,
                            current_sort_by=current_sort_by, current_order=current_order,
                            is_filter_active=is_filter_active,
-                           upload_form=upload_form)
+                           upload_form=upload_form,
+                           summary_stats=summary_stats,
+                           chart_data=chart_data)
 
 
 @fuel_bp.route('/add', methods=['GET', 'POST'])
