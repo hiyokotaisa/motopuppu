@@ -1,44 +1,84 @@
 {# motopuppu/templates/leaderboard/index.html #}
 {% extends "base.html" %}
 
-{% block title %}リーダーボード - もとぷっぷー{% endblock %}
+{% block title %}Leaderboard - もとぷっぷー{% endblock %}
 
 {% block content %}
 {% include '_breadcrumbs.html' %}
-<div class="d-flex align-items-center mb-4">
-    <i class="fas fa-trophy fa-2x me-3 text-warning"></i>
-    <h2 class="mb-0">リーダーボード</h2>
+
+<style>
+    .hero-stat-card { background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border: none; border-radius: 1rem; }
+    .hero-stat-icon { width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; border-radius: 12px; font-size: 1.5rem; }
+    
+    .circuit-card { transition: transform 0.2s; border: none; border-radius: 1rem; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+    .circuit-card:hover { transform: translateY(-5px); box-shadow: 0 10px 15px rgba(0,0,0,0.1); }
+    
+    .search-box-container { max-width: 600px; margin: 0 auto; }
+    .search-input { border-radius: 2rem; padding: 0.75rem 1.5rem; border: 1px solid #dee2e6; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+    .search-input:focus { box-shadow: 0 4px 10px rgba(13, 110, 253, 0.15); border-color: #86b7fe; }
+</style>
+
+<div class="text-center mb-5">
+    <h1 class="fw-bold mb-2"><i class="fas fa-trophy text-warning me-2"></i>Leaderboard</h1>
+    <p class="text-muted">全国のサーキットのベストラップランキング</p>
 </div>
 
-<div class="alert alert-info">
-    <i class="fas fa-info-circle me-1"></i>
-    ランキングを見たいサーキットを選択してください。<br>
-    ランキングは、ユーザーがリーダーボードへの掲載を許可したセッション記録のうち、各ユーザーのベストラップタイムを元に作成されます。
-</div>
-
-{# ▼▼▼【ここから変更】絞り込み用の検索ボックスを追加 ▼▼▼ #}
-<div class="mb-4">
-    <div class="input-group">
-        <span class="input-group-text" id="circuit-search-addon"><i class="fas fa-search"></i></span>
-        <input type="text" id="circuit-filter" class="form-control" placeholder="サーキット名で絞り込み..." aria-label="サーキット名で絞り込み" aria-describedby="circuit-search-addon">
+{# --- ヒーロー統計エリア --- #}
+<div class="row justify-content-center g-4 mb-5">
+    <div class="col-md-4 col-lg-3">
+        <div class="card hero-stat-card h-100">
+            <div class="card-body d-flex align-items-center justify-content-center p-4">
+                <div class="hero-stat-icon bg-white text-primary shadow-sm me-3">
+                    <i class="fas fa-map-marked-alt"></i>
+                </div>
+                <div class="text-start">
+                    <h6 class="text-uppercase text-muted fw-bold mb-0" style="font-size: 0.7rem;">Active Circuits</h6>
+                    <h2 class="mb-0 fw-bold">{{ stats.active_circuits }}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 col-lg-3">
+        <div class="card hero-stat-card h-100">
+            <div class="card-body d-flex align-items-center justify-content-center p-4">
+                <div class="hero-stat-icon bg-white text-success shadow-sm me-3">
+                    <i class="fas fa-stopwatch"></i>
+                </div>
+                <div class="text-start">
+                    <h6 class="text-uppercase text-muted fw-bold mb-0" style="font-size: 0.7rem;">Total Records</h6>
+                    <h2 class="mb-0 fw-bold">{{ stats.total_records }}</h2>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
-{# ▲▲▲【変更はここまで】▲▲▲ #}
 
+{# --- 検索ボックス --- #}
+<div class="search-box-container mb-5 position-relative">
+    <input type="text" id="circuit-filter" class="form-control search-input" placeholder="サーキット名で検索..." aria-label="サーキット名で検索">
+    <i class="fas fa-search position-absolute text-muted" style="right: 20px; top: 50%; transform: translateY(-50%);"></i>
+</div>
 
-{# ▼▼▼【ここから変更】地方ごとにグループ化して表示 ▼▼▼ #}
+{# --- サーキットリスト --- #}
 <div id="circuit-list">
 {% for region, circuits in circuits_by_region.items() %}
     <div class="region-group mb-5">
-        <h3 class="region-title border-bottom pb-2 mb-3">{{ region }}</h3>
+        <h4 class="region-title border-bottom pb-2 mb-3 text-secondary fw-bold">{{ region }}</h4>
         <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
             {% for circuit in circuits %}
-            <div class="col circuit-card">
-                <div class="card h-100">
-                    <div class="card-body text-center d-flex flex-column justify-content-center">
-                        <h5 class="card-title"><i class="fas fa-flag-checkered me-2"></i>{{ circuit }}</h5>
-                        <p class="card-text text-muted small">このサーキットのランキングを表示します。</p>
-                        <a href="{{ url_for('leaderboard.ranking', circuit_name=circuit) }}" class="btn btn-primary mt-auto stretched-link">ランキングを見る <i class="fas fa-arrow-right ms-1"></i></a>
+            <div class="col circuit-card-wrapper">
+                <div class="card h-100 circuit-card">
+                    <div class="card-body text-center d-flex flex-column justify-content-center py-4">
+                        <div class="mb-3">
+                            <span class="fa-stack fa-2x">
+                                <i class="fas fa-circle fa-stack-2x text-light"></i>
+                                <i class="fas fa-flag-checkered fa-stack-1x text-secondary"></i>
+                            </span>
+                        </div>
+                        <h5 class="card-title fw-bold mb-2">{{ circuit }}</h5>
+                        <a href="{{ url_for('leaderboard.ranking', circuit_name=circuit) }}" class="stretched-link text-decoration-none text-primary small fw-bold">
+                            View Ranking <i class="fas fa-chevron-right ms-1"></i>
+                        </a>
                     </div>
                 </div>
             </div>
@@ -46,14 +86,14 @@
         </div>
     </div>
 {% endfor %}
-    <div id="no-results-message" class="alert alert-warning d-none text-center" role="alert">
+    <div id="no-results-message" class="alert alert-light text-center d-none py-5" role="alert">
+        <i class="far fa-frown fa-2x mb-3 text-muted"></i><br>
         一致するサーキットが見つかりません。
     </div>
 </div>
-{# ▲▲▲【変更はここまで】▲▲▲ #}
+
 {% endblock %}
 
-{# ▼▼▼【ここから変更】絞り込み用のJavaScriptを追加 ▼▼▼ #}
 {% block scripts %}
 {{ super() }}
 <script>
@@ -69,7 +109,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             circuitList.querySelectorAll('.region-group').forEach(regionGroup => {
                 let visibleCardsInRegion = 0;
-                regionGroup.querySelectorAll('.circuit-card').forEach(card => {
+                regionGroup.querySelectorAll('.circuit-card-wrapper').forEach(card => {
                     const circuitName = card.querySelector('.card-title').textContent.toLowerCase();
                     if (circuitName.includes(searchTerm)) {
                         card.style.display = '';
@@ -88,7 +128,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
             
-            // 全てのカードが非表示になったらメッセージを表示
             if (totalVisibleCards === 0 && searchTerm) {
                 noResultsMessage.classList.remove('d-none');
             } else {
@@ -99,4 +138,3 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 {% endblock %}
-{# ▲▲▲【変更はここまで】▲▲▲ #}

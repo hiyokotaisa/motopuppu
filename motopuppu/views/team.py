@@ -128,6 +128,7 @@ def dashboard(team_id):
 
     member_ids = [member.id for member in team.members]
 
+    # 1. サーキット別ランキングデータの取得
     best_lap_subquery = db.session.query(
         ActivityLog.user_id,
         ActivityLog.circuit_name,
@@ -166,7 +167,7 @@ def dashboard(team_id):
 
     members = team.members.order_by(User.display_name.asc()).all()
     
-    # ▼▼▼【ここから修正】チームメンバーの最新活動ログを取得するクエリにフィルタを追加 ▼▼▼
+    # 2. チームメンバーの最新活動ログを取得
     recent_activities = ActivityLog.query.options(
         joinedload(ActivityLog.user),
         joinedload(ActivityLog.motorcycle)
@@ -177,15 +178,26 @@ def dashboard(team_id):
         ActivityLog.activity_date.desc(),
         ActivityLog.created_at.desc()
     ).limit(15).all()
-    # ▲▲▲【修正はここまで】▲▲▲
 
-    # ▼▼▼【追加】チームの予定イベントを取得 ▼▼▼
+    # 3. チームの予定イベントを取得
     now_utc = datetime.now(timezone.utc)
     upcoming_events = Event.query.filter(
         Event.team_id == team.id,
         Event.start_datetime >= now_utc
     ).order_by(Event.start_datetime.asc()).all()
-    # ▲▲▲【追加】▲▲▲
+
+    # ▼▼▼【追加】ヒーローエリア用の統計情報計算 ▼▼▼
+    total_logs_count = ActivityLog.query.filter(
+        ActivityLog.user_id.in_(member_ids),
+        ActivityLog.share_with_teams == True
+    ).count()
+
+    team_stats = {
+        'member_count': len(members),
+        'event_count': len(upcoming_events),
+        'total_logs': total_logs_count
+    }
+    # ▲▲▲【追加ここまで】▲▲▲
 
     return render_template(
         'team/team_dashboard.html',
@@ -194,7 +206,8 @@ def dashboard(team_id):
         circuit_data=circuit_data,
         format_seconds_to_time=format_seconds_to_time,
         recent_activities=recent_activities,
-        upcoming_events=upcoming_events
+        upcoming_events=upcoming_events,
+        team_stats=team_stats # テンプレートに渡す
     )
 
 

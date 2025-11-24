@@ -4,19 +4,20 @@ from flask import Blueprint, render_template, current_app, redirect, url_for
 from sqlalchemy import func
 
 from ..models import db, ActivityLog, SessionLog, User, Motorcycle
-# ▼▼▼【ここから変更】インポートする定数を修正 ▼▼▼
 from ..constants import CIRCUITS_BY_REGION, JAPANESE_CIRCUITS
-# ▲▲▲【変更はここまで】▲▲▲
 
 # リーダーボード機能のBlueprintを作成
 leaderboard_bp = Blueprint('leaderboard', __name__, url_prefix='/leaderboard')
 
 def format_seconds_to_time(total_seconds):
     """ 秒(Decimal)を "M:SS.fff" 形式の文字列に変換するヘルパー関数 """
-    if total_seconds is None or not isinstance(total_seconds, decimal.Decimal):
+    if total_seconds is None:
         return "N/A"
     
-    total_seconds = decimal.Decimal(total_seconds)
+    # float等の場合もDecimalに変換して精度を維持
+    if not isinstance(total_seconds, decimal.Decimal):
+        total_seconds = decimal.Decimal(str(total_seconds))
+    
     minutes = int(total_seconds // 60)
     seconds = total_seconds % 60
     # 秒を小数点以下3桁まで表示し、秒が10未満の場合は0でパディング
@@ -26,21 +27,37 @@ def format_seconds_to_time(total_seconds):
 @leaderboard_bp.route('/')
 def index():
     """リーダーボードのトップページ（サーキット選択画面）"""
-    # 地方別の辞書をテンプレートに渡す
-    return render_template('leaderboard/index.html', circuits_by_region=CIRCUITS_BY_REGION)
+    
+    # ▼▼▼【追加】ヒーローエリア用の統計情報を取得 ▼▼▼
+    # 1. データが存在するサーキット数
+    active_circuits_count = db.session.query(ActivityLog.circuit_name).filter(
+        ActivityLog.circuit_name.isnot(None)
+    ).distinct().count()
+
+    # 2. リーダーボードに登録されている総レコード数（ベストラップ数）
+    total_records_count = SessionLog.query.filter(
+        SessionLog.include_in_leaderboard == True,
+        SessionLog.best_lap_seconds.isnot(None)
+    ).count()
+    
+    stats = {
+        'active_circuits': active_circuits_count,
+        'total_records': total_records_count
+    }
+    # ▲▲▲【追加ここまで】▲▲▲
+
+    return render_template('leaderboard/index.html', 
+                           circuits_by_region=CIRCUITS_BY_REGION,
+                           stats=stats)
 
 
 @leaderboard_bp.route('/<path:circuit_name>')
 def ranking(circuit_name):
     """指定されたサーキットのランキングを表示"""
-    # ▼▼▼【ここから変更】バリデーションを元のリスト名で行う ▼▼▼
-    # URLに含まれるサーキット名が対象外であれば、選択ページにリダイレクト
     if circuit_name not in JAPANESE_CIRCUITS:
         return redirect(url_for('leaderboard.index'))
-    # ▲▲▲【変更はここまで】▲▲▲
 
     # 各ユーザーの各車両ごとのベストラップを特定するためのサブクエリ
-    # ウィンドウ関数を使い、ユーザーと車両の組み合わせごとにベストラップ秒でランク付けする
     subquery = db.session.query(
         SessionLog.id.label('session_id'),
         ActivityLog.user_id,
@@ -72,15 +89,27 @@ def ranking(circuit_name):
      .order_by(subquery.c.best_lap_seconds.asc())\
      .all()
     
-    # テンプレートで使いやすいようにランキングデータを整形
     rankings = []
+    top_time = None
+
     for i, row in enumerate(best_laps):
+        current_time = row.best_lap_seconds
+        
+        # 1位のタイムを保持
+        if i == 0:
+            top_time = current_time
+            gap = None
+        else:
+            # 1位との差を計算
+            gap = current_time - top_time
+
         rankings.append({
             'rank': i + 1,
             'username': row.display_name or row.misskey_username,
             'avatar_url': row.avatar_url,
             'motorcycle_name': row.motorcycle_name,
-            'lap_time': format_seconds_to_time(row.best_lap_seconds),
+            'lap_time': format_seconds_to_time(current_time),
+            'gap': f"+{gap:.3f}" if gap is not None else "-", # Gap文字列を作成
             'date': row.activity_date.strftime('%Y-%m-%d')
         })
 

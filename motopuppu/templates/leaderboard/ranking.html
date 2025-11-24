@@ -1,89 +1,154 @@
 {# motopuppu/templates/leaderboard/ranking.html #}
 {% extends "base.html" %}
 
-{% block title %}{{ circuit_name }} ランキング - もとぷっぷー{% endblock %}
+{% block title %}{{ circuit_name }} Ranking - もとぷっぷー{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap">
-    <div class="d-flex align-items-center mb-2 mb-sm-0">
-        <a href="{{ url_for('leaderboard.index') }}" class="btn btn-sm btn-outline-secondary me-3" title="サーキット選択へ戻る">
-            <i class="fas fa-arrow-left"></i>
+<style>
+    /* --- ランキング専用スタイル --- */
+    .podium-container {
+        display: flex;
+        justify-content: center;
+        align-items: flex-end;
+        margin-bottom: 3rem;
+        padding-top: 2rem;
+    }
+    .podium-place {
+        text-align: center;
+        position: relative;
+        transition: transform 0.2s;
+    }
+    .podium-place:hover { transform: translateY(-5px); }
+    
+    /* 1位 */
+    .podium-first { order: 2; z-index: 3; margin: 0 15px; }
+    .podium-first .avatar-img { width: 96px; height: 96px; border: 4px solid #ffc107; box-shadow: 0 0 15px rgba(255, 193, 7, 0.3); }
+    .podium-first .rank-label { background-color: #ffc107; color: #000; font-size: 1.2rem; padding: 5px 15px; margin-top: -15px; position: relative; display: inline-block; border-radius: 20px; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    
+    /* 2位・3位 */
+    .podium-second { order: 1; z-index: 2; }
+    .podium-third { order: 3; z-index: 1; }
+    .podium-second .avatar-img { width: 80px; height: 80px; border: 4px solid #dee2e6; }
+    .podium-third .avatar-img { width: 80px; height: 80px; border: 4px solid #cd7f32; }
+    .podium-second .rank-label { background-color: #dee2e6; color: #495057; font-weight: bold; padding: 2px 10px; border-radius: 15px; margin-top: -12px; display: inline-block; position: relative; }
+    .podium-third .rank-label { background-color: #cd7f32; color: #fff; font-weight: bold; padding: 2px 10px; border-radius: 15px; margin-top: -12px; display: inline-block; position: relative; }
+
+    .avatar-img { border-radius: 50%; object-fit: cover; background-color: #fff; }
+    .podium-time { font-family: 'Monaco', 'Consolas', monospace; font-weight: bold; font-size: 1.1rem; margin-top: 0.5rem; }
+    .podium-user { font-weight: bold; margin-top: 0.5rem; display: block; text-decoration: none; color: #212529; }
+    .podium-vehicle { font-size: 0.8rem; color: #6c757d; }
+
+    /* テーブルスタイル */
+    .ranking-table-card { border: none; border-radius: 1rem; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+    .table-hover tbody tr:hover { background-color: rgba(13, 110, 253, 0.03); }
+    .gap-time { font-family: 'Monaco', 'Consolas', monospace; font-size: 0.85rem; color: #dc3545; }
+</style>
+
+<div class="container py-3">
+    {# ヘッダー #}
+    <div class="d-flex justify-content-between align-items-center mb-5">
+        <a href="{{ url_for('leaderboard.index') }}" class="btn btn-outline-secondary rounded-pill px-3">
+            <i class="fas fa-arrow-left me-1"></i> Back
         </a>
+        <div class="text-center flex-grow-1">
+            <h2 class="mb-0 fw-bold text-dark">{{ circuit_name }}</h2>
+            <span class="text-muted small">Official Leaderboard</span>
+        </div>
         <div>
-            <h2 class="mb-0"><i class="fas fa-flag-checkered me-2"></i>{{ circuit_name }}</h2>
-            <span class="text-muted">リーダーボード</span>
+            {% if rankings %}
+            <button class="btn btn-info text-white rounded-pill px-3 btn-share-misskey"
+                data-type="leaderboard"
+                data-circuit-name="{{ circuit_name }}"
+                data-rankings='{{ rankings[:5] | tojson | safe }}'
+                title="Misskeyで共有">
+                <i class="fa-solid fa-share-nodes me-1"></i> Share
+            </button>
+            {% else %}
+            <div style="width: 80px;"></div> {# スペース確保用 #}
+            {% endif %}
         </div>
     </div>
-    {# --- Misskey共有ボタン --- #}
+
     {% if rankings %}
-    <div class="ms-auto">
-        <button class="btn btn-info btn-share-misskey"
-            data-type="leaderboard"
-            data-circuit-name="{{ circuit_name }}"
-            data-rankings='{{ rankings[:5] | tojson | safe }}'
-            title="このランキングをMisskeyで共有">
-            <i class="fa-solid fa-share-nodes me-2"></i>共有
-        </button>
-    </div>
-    {% endif %}
-</div>
+        {# --- 1位〜3位の表彰台エリア --- #}
+        <div class="podium-container">
+            {% for item in rankings[:3] %}
+                <div class="podium-place {% if item.rank == 1 %}podium-first{% elif item.rank == 2 %}podium-second{% else %}podium-third{% endif %}">
+                    <img src="{{ item.avatar_url or url_for('static', filename='images/blobcat_8bit.webp') }}" alt="{{ item.username }}" class="avatar-img mb-1">
+                    <div class="text-center">
+                        <div class="rank-label">{{ item.rank }}</div>
+                        <div class="mt-2">
+                            <span class="podium-user text-truncate" style="max-width: 120px;">{{ item.username }}</span>
+                            <div class="podium-time">{{ item.lap_time }}</div>
+                            <div class="podium-vehicle text-truncate" style="max-width: 120px;">{{ item.motorcycle_name }}</div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
 
-
-<div class="card">
-    <div class="card-body">
-        {% if rankings %}
-        <div class="table-responsive">
-            <table class="table table-striped table-hover align-middle">
-                <thead class="table-light">
-                    <tr>
-                        <th scope="col" style="width: 5%;" class="text-center">#</th>
-                        <th scope="col" style="width: 20%;">Time</th>
-                        <th scope="col">User</th>
-                        <th scope="col">Motorcycle</th>
-                        <th scope="col" class="text-end">Date</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for item in rankings %}
-                    <tr>
-                        <th scope="row" class="text-center">
-                            {% if item.rank == 1 %}
-                                <i class="fas fa-trophy fs-5" style="color: #FFD700;" title="1位"></i>
-                            {% elif item.rank == 2 %}
-                                <i class="fas fa-trophy fs-5" style="color: #C0C0C0;" title="2位"></i>
-                            {% elif item.rank == 3 %}
-                                <i class="fas fa-trophy fs-5" style="color: #CD7F32;" title="3位"></i>
-                            {% else %}
-                                {{ item.rank }}
-                            {% endif %}
-                        </th>
-                        <td><strong class="fs-5">{{ item.lap_time }}</strong></td>
-                        {# --- ▼▼▼ ここから変更 ▼▼▼ --- #}
-                        <td>
-                            <div class="d-flex align-items-center">
-                                {% if item.avatar_url %}
-                                    <img src="{{ item.avatar_url }}" alt="{{ item.username }}" class="rounded-circle me-2" style="width: 32px; height: 32px; object-fit: cover;">
+        {# --- 4位以下のリストエリア --- #}
+        <div class="card ranking-table-card">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="bg-light text-muted text-uppercase small">
+                        <tr>
+                            <th scope="col" class="text-center py-3" style="width: 60px;">Rank</th>
+                            <th scope="col" class="py-3" style="width: 25%;">Rider</th>
+                            <th scope="col" class="py-3">Time</th>
+                            <th scope="col" class="py-3 text-end">Gap</th>
+                            <th scope="col" class="py-3 d-none d-md-table-cell">Machine</th>
+                            <th scope="col" class="text-end py-3 d-none d-sm-table-cell" style="width: 120px;">Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in rankings %}
+                        {# 4位以降、またはリストとして全員表示したい場合は調整可能。ここでは全員表示して1-3位は色付け #}
+                        <tr class="{% if item.rank <= 3 %}bg-light{% endif %}">
+                            <th scope="row" class="text-center text-muted">
+                                {% if item.rank == 1 %}
+                                    <i class="fas fa-crown text-warning"></i>
                                 {% else %}
-                                    {# フォールバック用のアイコン（サイズと色を調整） #}
-                                    <i class="fas fa-user-circle fa-2x me-2 text-secondary" style="line-height: 1;"></i>
+                                    {{ item.rank }}
                                 {% endif %}
-                                <span>{{ item.username }}</span>
-                            </div>
-                        </td>
-                        {# --- ▲▲▲ ここまで変更 ▲▲▲ --- #}
-                        <td>{{ item.motorcycle_name }}</td>
-                        <td class="text-end text-muted small">{{ item.date }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+                            </th>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <img src="{{ item.avatar_url or url_for('static', filename='images/blobcat_8bit.webp') }}" alt="{{ item.username }}" class="rounded-circle me-2" style="width: 32px; height: 32px; object-fit: cover;">
+                                    <span class="fw-bold text-dark">{{ item.username }}</span>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="fw-bold font-monospace fs-6">{{ item.lap_time }}</span>
+                            </td>
+                            <td class="text-end">
+                                {% if item.rank == 1 %}
+                                    <span class="badge bg-warning text-dark">TOP</span>
+                                {% else %}
+                                    <span class="gap-time">{{ item.gap }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="d-none d-md-table-cell text-muted small">
+                                <i class="fas fa-motorcycle me-1"></i> {{ item.motorcycle_name }}
+                            </td>
+                            <td class="text-end text-muted small d-none d-sm-table-cell">
+                                {{ item.date }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
-        {% else %}
-        <div class="alert alert-info mb-0">
-            <i class="fas fa-info-circle me-1"></i>
-            このサーキットにはまだ誰もラップタイムを記録していません。
+
+    {% else %}
+        <div class="text-center py-5 my-5 bg-light rounded-3">
+            <div class="mb-3 text-muted opacity-50">
+                <i class="fas fa-road fa-3x"></i>
+            </div>
+            <h4 class="fw-bold text-muted">No Records Yet</h4>
+            <p class="text-muted">このサーキットにはまだタイムが記録されていません。<br>最初のレコードホルダーになりましょう！</p>
         </div>
-        {% endif %}
-    </div>
+    {% endif %}
 </div>
 {% endblock %}
