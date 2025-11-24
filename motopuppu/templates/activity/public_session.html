@@ -6,11 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>共有走行ログ: {{ session.session_name }} - もとぷっぷー</title>
     
-    {# ▼▼▼ 追加: 外部リソースへの事前接続 (Resource Hints) ▼▼▼ #}
     <link rel="preconnect" href="https://maps.googleapis.com">
     <link rel="preconnect" href="https://maps.gstatic.com">
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
-    {# ▲▲▲ 追加ここまで ▲▲▲ #}
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -22,98 +20,143 @@
         #telemetry-controls { flex: 0 0 280px; overflow-y: auto; padding: 1rem; border-right: 1px solid #444; background-color: #212529; }
         #telemetry-main { flex-grow: 1; display: flex; flex-direction: column; min-width: 0; }
         
-        /* ▼▼▼ 修正: 地図コンテナを相対配置に ▼▼▼ */
         #mapContainer { flex-grow: 1; min-height: 200px; position: relative; }
-        /* ▲▲▲ 修正ここまで ▲▲▲ */
 
         #playback-controls { padding: 0.5rem; border-top: 1px solid #444; }
         #telemetry-graphs { flex-shrink: 0; height: 300px; display: flex; flex-direction: column; border-top: 1px solid #444; }
         .chart-container { position: relative; flex-grow: 1; min-height: 0; }
         
-        /* ギア数値表示用のスタイル (サイドバー用) */
+        /* サイドバー用ギア表示 */
         #currentGearDisplay {
-            font-size: 3.5rem; /* 少し小さめに調整 */
+            font-size: 3.5rem;
             font-weight: bold;
             line-height: 1;
             color: #fd7e14;
             text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
         }
 
-        /* ▼▼▼ 追加: レースゲーム風HUDオーバーレイのスタイル ▼▼▼ */
+        /* ▼▼▼ 修正: コンパクトHUD (カプセル型) のスタイル ▼▼▼ */
         #hud-overlay {
             position: absolute;
-            bottom: 20px;
+            bottom: 30px;
             left: 50%;
             transform: translateX(-50%);
-            width: 90%;
-            max-width: 400px;
+            /* 幅を固定せず中身に合わせる */
+            width: auto;
+            min-width: 200px;
             
-            /* ▼▼▼ 修正: 透明度を 0.7 -> 0.3 に変更して背景を見やすく ▼▼▼ */
-            background: rgba(0, 0, 0, 0.3);
-            /* ▲▲▲ 修正ここまで ▲▲▲ */
+            /* 背景と形状 */
+            background: rgba(0, 0, 0, 0.65); /* 視認性確保のため少し濃く */
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 50px; /* カプセル形状 */
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
             
-            border-radius: 15px;
-            padding: 15px;
+            padding: 5px 25px;
             color: #fff;
             z-index: 1000;
-            backdrop-filter: blur(3px); /* ブラーも少し弱めて視認性アップ */
-            border: 1px solid rgba(255, 255, 255, 0.1); /* 枠線も少し薄く */
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-            pointer-events: none; /* 地図操作を邪魔しないように */
-        }
-
-        .hud-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            grid-template-rows: auto auto;
-            gap: 10px;
+            pointer-events: none;
+            
+            /* 内部レイアウト: 横並び */
+            display: flex;
             align-items: center;
+            justify-content: center;
+            gap: 20px;
+            overflow: hidden; /* 下部のRPMバーを切り抜くため */
         }
 
-        .hud-gear-box {
-            grid-column: 1;
-            text-align: center;
-            border-right: 1px solid rgba(255,255,255,0.3);
+        /* ギア表示: 左側 */
+        .hud-gear-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            line-height: 1;
         }
-
-        .hud-speed-box {
-            grid-column: 2;
-            text-align: center;
-        }
-
-        .hud-rpm-box {
-            grid-column: 1 / span 2;
-            margin-top: 5px;
-        }
-
         #hud-gear {
-            display: block;
-            font-size: 3rem;
+            font-size: 2.2rem;
             font-weight: 800;
-            line-height: 1;
-            color: #fd7e14;
-            text-shadow: 0 0 10px rgba(253, 126, 20, 0.5);
+            color: #fd7e14; /* ブランドカラーのオレンジ */
+            text-shadow: 0 0 15px rgba(253, 126, 20, 0.4);
+            margin-bottom: -2px;
         }
-
-        #hud-speed {
-            display: block;
-            font-size: 2.5rem;
-            font-weight: 700;
-            line-height: 1;
-            font-family: 'Courier New', Courier, monospace;
-        }
-
-        .hud-label {
-            font-size: 0.7rem;
+        .hud-label-gear {
+            font-size: 0.6rem;
             color: #aaa;
+            font-weight: 600;
             letter-spacing: 1px;
         }
-        /* ▲▲▲ 追加ここまで ▲▲▲ */
+
+        /* 区切り線 */
+        .hud-divider {
+            width: 1px;
+            height: 30px;
+            background-color: rgba(255,255,255,0.2);
+        }
+
+        /* 速度表示: 中央 */
+        .hud-speed-container {
+            display: flex;
+            align-items: baseline;
+        }
+        #hud-speed {
+            font-size: 2.2rem;
+            font-weight: 700;
+            font-family: 'Courier New', Courier, monospace;
+            line-height: 1;
+            letter-spacing: -1px;
+        }
+        .hud-unit {
+            font-size: 0.9rem;
+            color: #ccc;
+            margin-left: 4px;
+            font-weight: 400;
+        }
+
+        /* RPM表示: 右側 (数値のみ小さく) */
+        .hud-rpm-container {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            min-width: 45px;
+        }
+        #hud-rpm-val {
+            font-size: 0.9rem;
+            font-family: monospace;
+            color: #ddd;
+        }
+        .hud-label-rpm {
+            font-size: 0.6rem;
+            color: #888;
+        }
+
+        /* RPMバー: カプセルの下端に配置 */
+        #hud-rpm-bar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 4px; /* 細いライン */
+            background-color: #ffc107;
+            width: 0%;
+            transition: width 0.1s linear, background-color 0.2s;
+            opacity: 0.8;
+        }
+        /* ▲▲▲ 修正ここまで ▲▲▲ */
 
         @media (max-width: 767.98px) {
             #telemetry-container { flex-direction: column; height: auto; }
             #telemetry-controls { flex-shrink: 0; border-right: 0; border-bottom: 1px solid #444; }
             #telemetry-main { height: calc(100vh - 250px); }
+            
+            /* スマホ時はさらに少し小さく、上に配置（コントロールと被らないように） */
+            #hud-overlay {
+                bottom: 20px;
+                padding: 4px 20px;
+                min-width: 160px;
+                gap: 15px;
+            }
+            #hud-gear, #hud-speed { font-size: 1.8rem; }
+            .hud-unit { font-size: 0.75rem; }
+            #hud-rpm-val { font-size: 0.8rem; }
         }
     </style>
 </head>
@@ -157,35 +200,32 @@
             </div>
             <div id="telemetry-main">
                 <div id="mapContainer">
-                    {# ▼▼▼ 修正: 地図表示用div(id="map")とHUDオーバーレイを配置 ▼▼▼ #}
                     <div id="map" style="width: 100%; height: 100%;">
                         <div class="d-flex justify-content-center align-items-center h-100">
                             <div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div>
                         </div>
                     </div>
 
+                    {# ▼▼▼ 修正: コンパクトでシンプルなHUD構造 (d-noneはJSが表示時に削除します) ▼▼▼ #}
                     <div id="hud-overlay" class="d-none">
-                        <div class="hud-grid">
-                            <div class="hud-gear-box">
-                                <span class="hud-label">GEAR</span>
-                                <span id="hud-gear">-</span>
-                            </div>
-                            
-                            <div class="hud-speed-box">
-                                <span class="hud-label">KM/H</span>
-                                <span id="hud-speed">0</span>
-                            </div>
-
-                            <div class="hud-rpm-box">
-                                <div class="d-flex justify-content-between">
-                                    <span class="hud-label">RPM</span>
-                                    <span id="hud-rpm-val">0</span>
-                                </div>
-                                <div class="progress" style="height: 8px; background-color: #444;">
-                                    <div id="hud-rpm-bar" class="progress-bar bg-warning" role="progressbar" style="width: 0%"></div>
-                                </div>
-                            </div>
+                        <div class="hud-gear-container">
+                            <span id="hud-gear">-</span>
+                            <span class="hud-label-gear">GEAR</span>
                         </div>
+
+                        <div class="hud-divider"></div>
+
+                        <div class="hud-speed-container">
+                            <span id="hud-speed">0</span>
+                            <span class="hud-unit">km/h</span>
+                        </div>
+                        
+                        <div class="hud-rpm-container">
+                             <span id="hud-rpm-val">0</span>
+                             <span class="hud-label-rpm">rpm</span>
+                        </div>
+
+                        <div id="hud-rpm-bar"></div>
                     </div>
                     {# ▲▲▲ 修正ここまで ▲▲▲ #}
                 </div>
