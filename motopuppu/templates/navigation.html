@@ -11,6 +11,88 @@
         <div class="collapse navbar-collapse" id="navbarNav">
             <ul class="navbar-nav me-auto mb-2 mb-lg-0">
 
+                {# ▼▼▼【追加】機能別クイックアクセス ▼▼▼ #}
+                {% if g.user_motorcycles %}
+                    {# --- デフォルト車両の特定ロジック --- #}
+                    {# 1. メインのデフォルト車両 (全機能用) #}
+                    {% set default_moto = g.user_motorcycles | selectattr('is_default') | first %}
+                    {% if not default_moto %}
+                        {% set default_moto = g.user_motorcycles | first %}
+                    {% endif %}
+
+                    {# 2. 給油用のデフォルト車両 (公道車優先) #}
+                    {% set street_motos = g.user_motorcycles | rejectattr('is_racer') | list %}
+                    {% set default_street_moto = street_motos | selectattr('is_default') | first %}
+                    {% if not default_street_moto and street_motos %}
+                        {% set default_street_moto = street_motos | first %}
+                    {% endif %}
+
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="functionMenuDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-th-list me-1"></i> 機能
+                        </a>
+                        <ul class="dropdown-menu" aria-labelledby="functionMenuDropdown">
+                            {# 日常管理セクション #}
+                            <li><h6 class="dropdown-header"><i class="fas fa-clipboard-check fa-fw me-2"></i>日常管理</h6></li>
+                            
+                            {# 給油: 公道車が存在する場合のみリンクを表示 #}
+                            {% if default_street_moto %}
+                            <li>
+                                <a class="dropdown-item {% if request.endpoint and 'fuel' in request.endpoint %}active{% endif %}" href="{{ url_for('fuel.fuel_log', vehicle_id=default_street_moto.id) }}">
+                                    <i class="fas fa-gas-pump fa-fw me-2"></i>給油記録
+                                </a>
+                            </li>
+                            {% else %}
+                            <li>
+                                <span class="dropdown-item disabled" title="公道走行可能な車両がありません">
+                                    <i class="fas fa-gas-pump fa-fw me-2"></i>給油記録
+                                </span>
+                            </li>
+                            {% endif %}
+
+                            <li>
+                                <a class="dropdown-item {% if request.endpoint and 'maintenance' in request.endpoint and 'log' in request.endpoint %}active{% endif %}" href="{{ url_for('maintenance.maintenance_log', motorcycle_id=default_moto.id) }}">
+                                    <i class="fas fa-tools fa-fw me-2"></i>整備記録
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item {% if request.endpoint and 'reminder' in request.endpoint %}active{% endif %}" href="{{ url_for('reminder.list_reminders', vehicle_id=default_moto.id) }}">
+                                    <i class="fas fa-bell fa-fw me-2"></i>リマインダー
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item {% if request.endpoint and 'notes' in request.endpoint %}active{% endif %}" href="{{ url_for('notes.notes_log', motorcycle_id=default_moto.id) }}">
+                                    <i class="fas fa-sticky-note fa-fw me-2"></i>ノート
+                                </a>
+                            </li>
+                            
+                            <li><hr class="dropdown-divider"></li>
+
+                            {# 活動記録セクション #}
+                            <li><h6 class="dropdown-header"><i class="fas fa-flag-checkered fa-fw me-2"></i>活動記録</h6></li>
+                            <li>
+                                <a class="dropdown-item {% if request.endpoint and 'activity' in request.endpoint %}active{% endif %}" href="{{ url_for('activity.list_activities', vehicle_id=default_moto.id) }}">
+                                    <i class="fas fa-tachometer-alt fa-fw me-2"></i>サーキット走行記録
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item {% if request.endpoint and 'touring' in request.endpoint %}active{% endif %}" href="{{ url_for('touring.list_logs', vehicle_id=default_moto.id) }}">
+                                    <i class="fas fa-map-marked-alt fa-fw me-2"></i>ツーリング記録
+                                </a>
+                            </li>
+                            
+                            {# 車両管理セクション #}
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <a class="dropdown-item {% if request.endpoint == 'vehicle.vehicle_list' %}active{% endif %}" href="{{ url_for('vehicle.vehicle_list') }}">
+                                    <i class="fas fa-motorcycle fa-fw me-2"></i>車両管理
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                {% endif %}
+                {# ▲▲▲【追加】ここまで ▲▲▲ #}
+
                 {# ▼▼▼ メガメニュー化されたマイガレージ ▼▼▼ #}
                 <li class="nav-item dropdown position-static">
                     <a class="nav-link dropdown-toggle {% if request.endpoint.startswith(('vehicle.', 'activity.', 'touring.', 'reminder.', 'maintenance.', 'fuel.', 'notes.')) and ('list' in request.endpoint or 'log' in request.endpoint) %}active{% endif %}" href="#" id="garageDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
