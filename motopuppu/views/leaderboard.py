@@ -1,7 +1,7 @@
 # motopuppu/views/leaderboard.py
 import decimal
 from flask import Blueprint, render_template, current_app, redirect, url_for
-from sqlalchemy import func
+from sqlalchemy import func, desc
 
 from ..models import db, ActivityLog, SessionLog, User, Motorcycle
 from ..constants import CIRCUITS_BY_REGION, JAPANESE_CIRCUITS
@@ -28,7 +28,7 @@ def format_seconds_to_time(total_seconds):
 def index():
     """リーダーボードのトップページ（サーキット選択画面）"""
     
-    # ▼▼▼【追加】ヒーローエリア用の統計情報を取得 ▼▼▼
+    # --- 統計情報の取得 ---
     # 1. データが存在するサーキット数
     active_circuits_count = db.session.query(ActivityLog.circuit_name).filter(
         ActivityLog.circuit_name.isnot(None)
@@ -44,11 +44,37 @@ def index():
         'active_circuits': active_circuits_count,
         'total_records': total_records_count
     }
-    # ▲▲▲【追加ここまで】▲▲▲
+
+    # --- 最近更新された（走行があった）サーキットトップ4を取得 ---
+    # ActivityLog.activity_date が新しい順にサーキット名を取得
+    # 条件: サーキット名があり、リーダーボード対象のセッションログが存在すること
+    recent_circuits_data = db.session.query(
+        ActivityLog.circuit_name,
+        func.max(ActivityLog.activity_date).label('last_activity')
+    ).join(SessionLog, SessionLog.activity_log_id == ActivityLog.id)\
+     .filter(
+        ActivityLog.circuit_name.isnot(None),
+        ActivityLog.circuit_name != '',
+        # 有効な定数リストにあるサーキットのみに限定（リンク切れ防止）
+        ActivityLog.circuit_name.in_(JAPANESE_CIRCUITS),
+        SessionLog.include_in_leaderboard == True,
+        SessionLog.best_lap_seconds.isnot(None)
+    ).group_by(ActivityLog.circuit_name)\
+     .order_by(desc('last_activity'))\
+     .limit(4).all()
+
+    # テンプレートに渡しやすい形式に整形 (名前, 日付)
+    recent_circuits = []
+    for row in recent_circuits_data:
+        recent_circuits.append({
+            'name': row.circuit_name,
+            'last_activity': row.last_activity
+        })
 
     return render_template('leaderboard/index.html', 
                            circuits_by_region=CIRCUITS_BY_REGION,
-                           stats=stats)
+                           stats=stats,
+                           recent_circuits=recent_circuits)
 
 
 @leaderboard_bp.route('/<path:circuit_name>')
