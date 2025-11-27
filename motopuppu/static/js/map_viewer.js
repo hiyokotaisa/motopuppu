@@ -204,6 +204,7 @@ window.motopuppuMapViewer = {
 
             const hudOverlay = container.querySelector('#hud-overlay');
             if (hudOverlay) {
+                // HUD自体の表示/非表示はloadLapDataで制御されるが、d-noneが残っていたら外す
                 hudOverlay.classList.remove('d-none');
                 
                 const currentGear = smoothedGears[index];
@@ -317,7 +318,6 @@ window.motopuppuMapViewer = {
             updateDashboard(currentIndex);
         }
 
-        // --- メイン処理 ---
         const telemetrySessionName = container.querySelector('#telemetrySessionName');
         if (telemetrySessionName) telemetrySessionName.textContent = sessionName;
         const mapContainerEl = container.querySelector('#map');
@@ -384,27 +384,28 @@ window.motopuppuMapViewer = {
 
                 const canEstimateGear = hasRpm && vehicleSpecs && vehicleSpecs.primary_ratio && vehicleSpecs.gear_ratios && vehicleSpecs.front_sprocket && vehicleSpecs.rear_sprocket && vehicleSpecs.rear_tyre_size;
 
-                // ▼▼▼ 修正: HUD表示制御 ▼▼▼
                 const hudOverlay = container.querySelector('#hud-overlay');
                 const hudGearContainer = container.querySelector('.hud-gear-container');
                 const hudRpmContainer = container.querySelector('.hud-rpm-container');
                 const hudRpmBar = container.querySelector('#hud-rpm-bar');
                 const hudDivider = container.querySelector('.hud-divider');
 
+                // HUD自体の表示を確実に有効化
+                if(hudOverlay) hudOverlay.classList.remove('d-none');
+
                 if (hasRpm) {
                     if(hudGearContainer) hudGearContainer.classList.remove('d-none');
                     if(hudRpmContainer) hudRpmContainer.classList.remove('d-none');
                     if(hudRpmBar) hudRpmBar.classList.remove('d-none');
                     if(hudDivider) hudDivider.classList.remove('d-none');
-                    if(hudOverlay) hudOverlay.style.minWidth = ""; // デフォルト
+                    if(hudOverlay) hudOverlay.style.minWidth = ""; 
                 } else {
                     if(hudGearContainer) hudGearContainer.classList.add('d-none');
                     if(hudRpmContainer) hudRpmContainer.classList.add('d-none');
                     if(hudRpmBar) hudRpmBar.classList.add('d-none');
                     if(hudDivider) hudDivider.classList.add('d-none');
-                    if(hudOverlay) hudOverlay.style.minWidth = "120px"; // 速度だけなので幅を狭める
+                    if(hudOverlay) hudOverlay.style.minWidth = "120px"; 
                 }
-                // ▲▲▲ 修正ここまで ▲▲▲
 
                 lapStartTime = currentLapData.track[0]?.runtime || 0;
                 polylines.flat().forEach(p => p.setMap(null));

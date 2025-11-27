@@ -18,16 +18,29 @@
         .modal-body { padding: 0; }
         #telemetry-container { display: flex; flex-direction: row; height: calc(100vh - 58px); }
         #telemetry-controls { flex: 0 0 280px; overflow-y: auto; padding: 1rem; border-right: 1px solid #444; background-color: #212529; }
-        #telemetry-main { flex-grow: 1; display: flex; flex-direction: column; min-width: 0; position: relative; }
+        #telemetry-main { flex-grow: 1; display: flex; flex-direction: column; min-width: 0; }
         
-        /* 地図コンテナ */
-        #map { flex-grow: 1; min-height: 200px; position: relative; width: 100%; height: 100%; }
+        /* ▼▼▼ 修正: マップラッパーとマップのスタイル ▼▼▼ */
+        #map-wrapper {
+            position: relative;
+            flex-grow: 1;
+            min-height: 200px;
+            width: 100%;
+            overflow: hidden;
+        }
+        #map {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+        /* ▲▲▲ 修正ここまで ▲▲▲ */
 
         #playback-controls { padding: 0.5rem; border-top: 1px solid #444; }
         #telemetry-graphs { flex-shrink: 0; height: 300px; display: flex; flex-direction: column; border-top: 1px solid #444; }
         .chart-container { position: relative; flex-grow: 1; min-height: 0; }
         
-        /* サイドバー用ギア表示 */
         #currentGearDisplay {
             font-size: 3.5rem;
             font-weight: bold;
@@ -36,7 +49,7 @@
             text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
         }
 
-        /* ▼▼▼ HUDスタイル (詳細ページと共通) ▼▼▼ */
+        /* HUDスタイル */
         #hud-overlay {
             position: absolute;
             bottom: 30px;
@@ -133,7 +146,6 @@
             transition: width 0.1s linear, background-color 0.2s;
             opacity: 0.8;
         }
-        /* ▲▲▲ HUDスタイルここまで ▲▲▲ */
 
         @media (max-width: 767.98px) {
             #telemetry-container { flex-direction: column; height: auto; }
@@ -191,12 +203,15 @@
                 </div>
             </div>
             <div id="telemetry-main">
-                <div id="map">
-                    <div class="d-flex justify-content-center align-items-center h-100">
-                        <div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div>
+                {# ▼▼▼ 修正: ラッパーを追加し、その中に地図とHUDを配置 ▼▼▼ #}
+                <div id="map-wrapper">
+                    <div id="map">
+                        <div class="d-flex justify-content-center align-items-center h-100">
+                            <div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div>
+                        </div>
                     </div>
 
-                    {# ▼▼▼ HUDオーバーレイ ▼▼▼ #}
+                    {# HUD要素 (mapの外、wrapperの中) #}
                     <div id="hud-overlay" class="d-none">
                         <div class="hud-gear-container">
                             <span id="hud-gear">-</span>
@@ -217,8 +232,9 @@
 
                         <div id="hud-rpm-bar"></div>
                     </div>
-                    {# ▲▲▲ HUDオーバーレイ ▲▲▲ #}
                 </div>
+                {# ▲▲▲ 修正ここまで ▲▲▲ #}
+                
                 <div id="playback-controls" class="p-2 border-top">
                     <div class="d-flex align-items-center">
                         <button id="playPauseBtn" class="btn btn-primary me-2"><i class="fas fa-play"></i></button>
