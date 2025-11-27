@@ -25,7 +25,12 @@ window.motopuppuMapViewer = {
         let isPlaying = false;
         let playbackStartTime = 0; 
         let playbackStartOffset = 0;
-        let lapStartTime = 0; 
+        let lapStartTime = 0;
+        
+        // ▼▼▼ 追加: パフォーマンス最適化用変数 ▼▼▼
+        let lastPlaybackIndex = 0;
+        let lastChartUpdateIndex = -1;
+        // ▲▲▲ 追加ここまで ▲▲▲
 
         // --- 関数定義 (内部ヘルパー) ---
         function initializeMap(containerId) {
@@ -333,13 +338,19 @@ window.motopuppuMapViewer = {
             }
             // ▲▲▲ 追加ここまで ▲▲▲
 
-            Object.values(charts).forEach(chart => {
-                if (chart) {
-                    chart.options.plugins.annotation.annotations.line1.value = index;
-                    chart.options.plugins.annotation.annotations.line1.display = true;
-                    chart.update('none');
-                }
-            });
+            // ▼▼▼ 修正: チャート更新の間引き処理 ▼▼▼
+            if (index !== lastChartUpdateIndex) {
+                Object.values(charts).forEach(chart => {
+                    if (chart) {
+                        chart.options.plugins.annotation.annotations.line1.value = index;
+                        chart.options.plugins.annotation.annotations.line1.display = true;
+                        chart.update('none');
+                    }
+                });
+                lastChartUpdateIndex = index;
+            }
+            // ▲▲▲ 修正ここまで ▲▲▲
+
             const scrubber = container.querySelector('#timelineScrubber');
             if (scrubber) { scrubber.value = index; }
             const timeDisplay = container.querySelector('#playbackTime');
@@ -352,15 +363,29 @@ window.motopuppuMapViewer = {
             if (!isPlaying) return;
             const elapsedTime = (Date.now() - playbackStartTime) / 1000 + playbackStartOffset;
             const totalDuration = currentLapData.track[currentLapData.track.length - 1].runtime || 0;
+            
             if (elapsedTime >= totalDuration) {
                 updateDashboard(currentLapData.track.length - 1);
                 stopPlayback();
                 return;
             }
-            let currentIndex = 0;
-            for (let i = 0; i < currentLapData.track.length; i++) {
-                if (currentLapData.track[i].runtime >= elapsedTime) { currentIndex = i; break; }
+
+            // ▼▼▼ 修正: 検索開始位置を最適化 (前回のインデックスから開始) ▼▼▼
+            let currentIndex = lastPlaybackIndex;
+            // 安全のため、配列の範囲内かつ時間が戻っていないかチェック
+            if (currentIndex >= currentLapData.track.length || (currentLapData.track[currentIndex] && currentLapData.track[currentIndex].runtime > elapsedTime)) {
+                currentIndex = 0;
             }
+
+            for (let i = currentIndex; i < currentLapData.track.length; i++) {
+                if (currentLapData.track[i].runtime >= elapsedTime) {
+                    currentIndex = i;
+                    break;
+                }
+            }
+            lastPlaybackIndex = currentIndex; // 次回のために保存
+            // ▲▲▲ 修正ここまで ▲▲▲
+
             updateDashboard(currentIndex);
             animationFrameId = requestAnimationFrame(playLoop);
         }
@@ -369,6 +394,10 @@ window.motopuppuMapViewer = {
             isPlaying = true;
             const scrubber = container.querySelector('#timelineScrubber');
             const currentIndex = parseInt(scrubber.value, 10);
+            
+            // 再生開始時のインデックスを保存
+            lastPlaybackIndex = currentIndex;
+            
             playbackStartOffset = currentLapData.track[currentIndex]?.runtime || 0;
             playbackStartTime = Date.now();
             container.querySelector('#playPauseBtn').innerHTML = '<i class="fas fa-pause"></i>';
@@ -382,6 +411,10 @@ window.motopuppuMapViewer = {
             if(playBtn) playBtn.innerHTML = '<i class="fas fa-play"></i>';
             const scrubber = container.querySelector('#timelineScrubber');
             const currentIndex = parseInt(scrubber.value, 10);
+            
+            // 停止時のインデックスを保存
+            lastPlaybackIndex = currentIndex;
+            
             if (currentLapData) { playbackStartOffset = currentLapData.track[currentIndex]?.runtime || 0; }
         }
 
@@ -451,6 +484,11 @@ window.motopuppuMapViewer = {
 
             const loadLapData = (lapIndex) => {
                 stopPlayback();
+                
+                // 変数リセット
+                lastPlaybackIndex = 0;
+                lastChartUpdateIndex = -1;
+
                 currentLapData = data.laps[lapIndex];
                 if (!currentLapData || !currentLapData.track || currentLapData.track.length < 2) return;
                 
@@ -552,6 +590,10 @@ window.motopuppuMapViewer = {
                 scrubber.addEventListener('input', (e) => {
                     stopPlayback(); 
                     const newIndex = parseInt(e.target.value, 10);
+                    
+                    // 手動スクラブ時はlastIndexも更新
+                    lastPlaybackIndex = newIndex;
+                    
                     updateDashboard(newIndex);
                     playbackStartOffset = currentLapData.track[newIndex]?.runtime || 0;
                 });

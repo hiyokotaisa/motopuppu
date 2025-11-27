@@ -360,6 +360,15 @@ def get_gps_data(session_id):
     for lap in raw_laps:
         raw_track = lap.get('track', [])
         
+        # ▼▼▼ 修正: 再生・チャート用のデータも、点数が多すぎる場合は間引く ▼▼▼
+        # 1ラップあたり2000点を超えるとブラウザ描画が重くなる傾向があるため
+        optimized_track = raw_track
+        if len(raw_track) > 2000:
+             # 0.000001 (約11cm) 程度の閾値で軽く間引く
+             # これにより、直線上の過剰な点は削除されるが、コーナーの形状は保たれる
+             optimized_track = _ramer_douglas_peucker(raw_track, 0.000001)
+        # ▲▲▲ 修正ここまで ▲▲▲
+        
         # マップ表示用はさらに強く間引く (閾値 0.000003 ≒ 33cm)
         # 保存時に既に0.000002で間引かれているが、マップ用はもっと荒くてもよい
         if len(raw_track) > 500:
@@ -369,7 +378,7 @@ def get_gps_data(session_id):
             
         response_data['laps'].append({
             'lap_number': lap.get('lap_number'),
-            'track': raw_track,          # チャート用（保存された精度）
+            'track': optimized_track,    # 修正: raw_track -> optimized_track
             'map_track': simplified_track # 地図表示用（軽量）
         })
     
