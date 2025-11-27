@@ -18,9 +18,10 @@
         .modal-body { padding: 0; }
         #telemetry-container { display: flex; flex-direction: row; height: calc(100vh - 58px); }
         #telemetry-controls { flex: 0 0 280px; overflow-y: auto; padding: 1rem; border-right: 1px solid #444; background-color: #212529; }
-        #telemetry-main { flex-grow: 1; display: flex; flex-direction: column; min-width: 0; }
+        #telemetry-main { flex-grow: 1; display: flex; flex-direction: column; min-width: 0; position: relative; }
         
-        #mapContainer { flex-grow: 1; min-height: 200px; position: relative; }
+        /* 地図コンテナ */
+        #map { flex-grow: 1; min-height: 200px; position: relative; width: 100%; height: 100%; }
 
         #playback-controls { padding: 0.5rem; border-top: 1px solid #444; }
         #telemetry-graphs { flex-shrink: 0; height: 300px; display: flex; flex-direction: column; border-top: 1px solid #444; }
@@ -35,21 +36,19 @@
             text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
         }
 
-        /* ▼▼▼ 修正: コンパクトHUD (カプセル型) のスタイル ▼▼▼ */
+        /* ▼▼▼ HUDスタイル (詳細ページと共通) ▼▼▼ */
         #hud-overlay {
             position: absolute;
             bottom: 30px;
             left: 50%;
             transform: translateX(-50%);
-            /* 幅を固定せず中身に合わせる */
             width: auto;
             min-width: 200px;
             
-            /* 背景と形状 */
-            background: rgba(0, 0, 0, 0.65); /* 視認性確保のため少し濃く */
+            background: rgba(0, 0, 0, 0.65);
             backdrop-filter: blur(5px);
             border: 1px solid rgba(255, 255, 255, 0.15);
-            border-radius: 50px; /* カプセル形状 */
+            border-radius: 50px;
             box-shadow: 0 4px 20px rgba(0,0,0,0.4);
             
             padding: 5px 25px;
@@ -57,15 +56,13 @@
             z-index: 1000;
             pointer-events: none;
             
-            /* 内部レイアウト: 横並び */
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 20px;
-            overflow: hidden; /* 下部のRPMバーを切り抜くため */
+            overflow: hidden;
         }
 
-        /* ギア表示: 左側 */
         .hud-gear-container {
             display: flex;
             flex-direction: column;
@@ -75,7 +72,7 @@
         #hud-gear {
             font-size: 2.2rem;
             font-weight: 800;
-            color: #fd7e14; /* ブランドカラーのオレンジ */
+            color: #fd7e14;
             text-shadow: 0 0 15px rgba(253, 126, 20, 0.4);
             margin-bottom: -2px;
         }
@@ -86,14 +83,12 @@
             letter-spacing: 1px;
         }
 
-        /* 区切り線 */
         .hud-divider {
             width: 1px;
             height: 30px;
             background-color: rgba(255,255,255,0.2);
         }
 
-        /* 速度表示: 中央 */
         .hud-speed-container {
             display: flex;
             align-items: baseline;
@@ -112,7 +107,6 @@
             font-weight: 400;
         }
 
-        /* RPM表示: 右側 (数値のみ小さく) */
         .hud-rpm-container {
             display: flex;
             flex-direction: column;
@@ -129,25 +123,23 @@
             color: #888;
         }
 
-        /* RPMバー: カプセルの下端に配置 */
         #hud-rpm-bar {
             position: absolute;
             bottom: 0;
             left: 0;
-            height: 4px; /* 細いライン */
+            height: 4px;
             background-color: #ffc107;
             width: 0%;
             transition: width 0.1s linear, background-color 0.2s;
             opacity: 0.8;
         }
-        /* ▲▲▲ 修正ここまで ▲▲▲ */
+        /* ▲▲▲ HUDスタイルここまで ▲▲▲ */
 
         @media (max-width: 767.98px) {
             #telemetry-container { flex-direction: column; height: auto; }
             #telemetry-controls { flex-shrink: 0; border-right: 0; border-bottom: 1px solid #444; }
             #telemetry-main { height: calc(100vh - 250px); }
             
-            /* スマホ時はさらに少し小さく、上に配置（コントロールと被らないように） */
             #hud-overlay {
                 bottom: 20px;
                 padding: 4px 20px;
@@ -199,14 +191,12 @@
                 </div>
             </div>
             <div id="telemetry-main">
-                <div id="mapContainer">
-                    <div id="map" style="width: 100%; height: 100%;">
-                        <div class="d-flex justify-content-center align-items-center h-100">
-                            <div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div>
-                        </div>
+                <div id="map">
+                    <div class="d-flex justify-content-center align-items-center h-100">
+                        <div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div>
                     </div>
 
-                    {# ▼▼▼ 修正: コンパクトでシンプルなHUD構造 (d-noneはJSが表示時に削除します) ▼▼▼ #}
+                    {# ▼▼▼ HUDオーバーレイ ▼▼▼ #}
                     <div id="hud-overlay" class="d-none">
                         <div class="hud-gear-container">
                             <span id="hud-gear">-</span>
@@ -227,7 +217,7 @@
 
                         <div id="hud-rpm-bar"></div>
                     </div>
-                    {# ▲▲▲ 修正ここまで ▲▲▲ #}
+                    {# ▲▲▲ HUDオーバーレイ ▲▲▲ #}
                 </div>
                 <div id="playback-controls" class="p-2 border-top">
                     <div class="d-flex align-items-center">

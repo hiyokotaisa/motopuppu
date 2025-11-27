@@ -30,10 +30,9 @@ window.motopuppuMapViewer = {
         // パフォーマンス最適化用変数
         let lastPlaybackIndex = 0;
         
-        // ▼▼▼ 追加: チャート更新間引き用の時間管理変数 ▼▼▼
+        // チャート更新間引き用の時間管理変数
         let lastChartUpdateTime = 0;
         const CHART_UPDATE_INTERVAL = 100; // ミリ秒 (0.1秒に1回更新)
-        // ▲▲▲ 追加ここまで ▲▲▲
 
         // --- 関数定義 (内部ヘルパー) ---
         function initializeMap(containerId) {
@@ -50,7 +49,6 @@ window.motopuppuMapViewer = {
             }
             const canvasEl = document.getElementById(canvasId);
             if (!canvasEl) {
-                // console.error(`Chart canvas element with ID "${canvasId}" not found.`); // エラー抑制
                 return null;
             }
             const ctx = canvasEl.getContext('2d');
@@ -121,14 +119,12 @@ window.motopuppuMapViewer = {
             return `rgb(${r},${g},${b})`;
         }
 
-        // ▼▼▼ 修正: 速度バケットを使ってPolylineを統合し、描画オブジェクト数を削減する ▼▼▼
         function drawLapPolyline(track, minSpeed, maxSpeed, mapInstance) {
             const lapPolylines = [];
             if (!track || track.length < 2) return lapPolylines;
 
             let currentPath = [track[0]];
             
-            // 速度の「バケツ（階級）」を作る関数
             const getSpeedBucketColor = (speed) => {
                 const range = maxSpeed - minSpeed || 1;
                 const step = range / 20; // 20段階
@@ -142,9 +138,8 @@ window.motopuppuMapViewer = {
                 const point = track[i];
                 const nextColor = getSpeedBucketColor(point.speed || 0);
 
-                // 色が変わったら、ここまでのパスでPolylineを作成してリセット
                 if (nextColor !== currentColor) {
-                    currentPath.push(point); // つなぎ目を滑らかにするため点を含める
+                    currentPath.push(point);
 
                     const segment = new google.maps.Polyline({
                         path: currentPath,
@@ -152,7 +147,7 @@ window.motopuppuMapViewer = {
                         strokeColor: currentColor,
                         strokeOpacity: 1.0,
                         strokeWeight: 4,
-                        zIndex: 1 // マーカーより下
+                        zIndex: 1
                     });
                     if (mapInstance) segment.setMap(mapInstance);
                     lapPolylines.push(segment);
@@ -179,7 +174,6 @@ window.motopuppuMapViewer = {
 
             return lapPolylines;
         }
-        // ▲▲▲ 修正ここまで ▲▲▲
 
         function findSignificantPoints(track, options = {}) {
             const { lookahead = 25, speedChangeThreshold = 4.0, cooldown = 30 } = options;
@@ -290,15 +284,13 @@ window.motopuppuMapViewer = {
         }
 
 
-        // ▼▼▼ 修正: indexとratioを受け取り、チャート更新を間引くロジックを追加 ▼▼▼
         function updateDashboard(index, ratio = 0) {
             if (!currentLapData || index < 0 || index >= currentLapData.track.length) return;
             
-            // --- 1. マーカー位置の計算（補間あり：毎フレーム実行） ---
             const p1 = currentLapData.track[index];
             const p2 = currentLapData.track[index + 1] || p1; 
 
-            // 緯度経度の線形補間 (Linear Interpolation)
+            // 緯度経度の線形補間
             const lat = p1.lat + (p2.lat - p1.lat) * ratio;
             const lng = p1.lng + (p2.lng - p1.lng) * ratio;
 
@@ -306,7 +298,7 @@ window.motopuppuMapViewer = {
                 bikeMarker.setPosition({ lat: lat, lng: lng }); 
             }
             
-            // --- 2. HUD表示の計算（補間あり：毎フレーム実行） ---
+            // HUD表示
             const speed = (p1.speed || 0) + ((p2.speed || 0) - (p1.speed || 0)) * ratio;
             const rpm = (p1.rpm || 0) + ((p2.rpm || 0) - (p1.rpm || 0)) * ratio;
 
@@ -346,18 +338,16 @@ window.motopuppuMapViewer = {
                 gearDisplay.textContent = currentGear !== null ? currentGear : 'N';
             }
 
-            // --- 3. チャート・スクラバーの更新（時間間引きあり） ---
-            // 現在時刻を取得
+            // チャート・スクラバーの更新
             const now = Date.now();
             
-            // 前回の更新から一定時間（100ms）経過しているか、または再生停止中（強制更新）の場合のみ実行
             if (now - lastChartUpdateTime > CHART_UPDATE_INTERVAL || !isPlaying) {
                 
                 Object.values(charts).forEach(chart => {
                     if (chart) {
-                        chart.options.plugins.annotation.annotations.line1.value = index + ratio; // 補間位置も反映
+                        chart.options.plugins.annotation.annotations.line1.value = index + ratio;
                         chart.options.plugins.annotation.annotations.line1.display = true;
-                        chart.update('none'); // アニメーションなしで高速更新
+                        chart.update('none');
                     }
                 });
                 
@@ -373,11 +363,9 @@ window.motopuppuMapViewer = {
                     timeDisplay.textContent = formatRuntime(intraLapTime);
                 }
 
-                // 更新時刻を記録
                 lastChartUpdateTime = now;
             }
         }
-        // ▲▲▲ 修正ここまで ▲▲▲
 
         function playLoop() {
             if (!isPlaying) return;
@@ -390,15 +378,12 @@ window.motopuppuMapViewer = {
                 return;
             }
 
-            // ▼▼▼ 修正: 検索ロジックを「区間探索」に変更し、ratioを計算する ▼▼▼
             let currentIndex = lastPlaybackIndex;
             
-            // 安全策: インデックスが範囲外や、時間が戻った場合はリセット
             if (currentIndex >= currentLapData.track.length - 1 || (currentLapData.track[currentIndex] && currentLapData.track[currentIndex].runtime > elapsedTime)) {
                 currentIndex = 0;
             }
 
-            // elapsedTime が含まれる区間 [i, i+1] を探す
             for (let i = currentIndex; i < currentLapData.track.length - 1; i++) {
                 const pNow = currentLapData.track[i];
                 const pNext = currentLapData.track[i + 1];
@@ -409,9 +394,8 @@ window.motopuppuMapViewer = {
                 }
             }
             
-            lastPlaybackIndex = currentIndex; // 次回のために保存
+            lastPlaybackIndex = currentIndex;
 
-            // 補間係数 (ratio) の計算: 0.0 〜 1.0
             const p1 = currentLapData.track[currentIndex];
             const p2 = currentLapData.track[currentIndex + 1];
             let ratio = 0;
@@ -423,9 +407,8 @@ window.motopuppuMapViewer = {
             if (ratio < 0) ratio = 0;
             if (ratio > 1) ratio = 1;
 
-            updateDashboard(currentIndex, ratio); // 補間係数を渡す
+            updateDashboard(currentIndex, ratio);
             animationFrameId = requestAnimationFrame(playLoop);
-            // ▲▲▲ 修正ここまで ▲▲▲
         }
 
         function startPlayback() {
@@ -454,7 +437,6 @@ window.motopuppuMapViewer = {
             
             if (currentLapData) { playbackStartOffset = currentLapData.track[currentIndex]?.runtime || 0; }
             
-            // 停止時は即座に画面更新（間引きを無視して最終位置を表示）
             updateDashboard(currentIndex);
         }
 
@@ -482,8 +464,8 @@ window.motopuppuMapViewer = {
             }
 
             const vehicleSpecs = data.vehicle_specs;
-            const canEstimateGear = vehicleSpecs && vehicleSpecs.primary_ratio && vehicleSpecs.gear_ratios && vehicleSpecs.front_sprocket && vehicleSpecs.rear_sprocket && vehicleSpecs.rear_tyre_size;
-
+            // ▼▼▼ 修正: データの内容からギア推定可能か判定 ▼▼▼
+            // 回転数データがない場合はギア推定もしない
             const parseTimeToSeconds = (timeStr) => {
                 if (!timeStr || typeof timeStr !== 'string') return Infinity;
                 const parts = timeStr.split(':');
@@ -516,7 +498,6 @@ window.motopuppuMapViewer = {
             const loadLapData = (lapIndex) => {
                 stopPlayback();
                 
-                // 変数リセット
                 lastPlaybackIndex = 0;
                 lastChartUpdateTime = 0;
                 lastChartUpdateIndex = -1;
@@ -525,6 +506,35 @@ window.motopuppuMapViewer = {
                 if (!currentLapData || !currentLapData.track || currentLapData.track.length < 2) return;
                 
                 const mapTrackData = currentLapData.map_track || currentLapData.track;
+
+                // ▼▼▼ 追加: データの有効性チェック (RPM, Throttle) ▼▼▼
+                const maxRpm = mapTrackData.reduce((max, p) => Math.max(max, p.rpm || 0), 0);
+                const hasRpm = maxRpm > 0;
+                
+                const maxThrottle = mapTrackData.reduce((max, p) => Math.max(max, p.throttle || 0), 0);
+                const hasThrottle = maxThrottle > 0;
+
+                const canEstimateGear = hasRpm && vehicleSpecs && vehicleSpecs.primary_ratio && vehicleSpecs.gear_ratios && vehicleSpecs.front_sprocket && vehicleSpecs.rear_sprocket && vehicleSpecs.rear_tyre_size;
+                // ▲▲▲ 追加ここまで ▲▲▲
+
+                // ▼▼▼ 追加: HUD要素の表示/非表示制御 ▼▼▼
+                const hudGearContainer = container.querySelector('.hud-gear-container');
+                const hudRpmContainer = container.querySelector('.hud-rpm-container');
+                const hudRpmBar = container.querySelector('#hud-rpm-bar');
+                const hudDivider = container.querySelector('.hud-divider');
+
+                if (hasRpm) {
+                    if(hudGearContainer) hudGearContainer.classList.remove('d-none');
+                    if(hudRpmContainer) hudRpmContainer.classList.remove('d-none');
+                    if(hudRpmBar) hudRpmBar.classList.remove('d-none');
+                    if(hudDivider) hudDivider.classList.remove('d-none');
+                } else {
+                    if(hudGearContainer) hudGearContainer.classList.add('d-none');
+                    if(hudRpmContainer) hudRpmContainer.classList.add('d-none');
+                    if(hudRpmBar) hudRpmBar.classList.add('d-none');
+                    if(hudDivider) hudDivider.classList.add('d-none');
+                }
+                // ▲▲▲ 追加ここまで ▲▲▲
 
                 lapStartTime = currentLapData.track[0]?.runtime || 0;
                 polylines.flat().forEach(p => p.setMap(null));
@@ -559,19 +569,15 @@ window.motopuppuMapViewer = {
 
                 if (canEstimateGear) {
                     const gearKeys = Object.keys(vehicleSpecs.gear_ratios);
-                    const maxGear = gearKeys.length > 0
-                        ? Math.max(...gearKeys.map(Number))
-                        : 6; 
+                    const maxGear = gearKeys.length > 0 ? Math.max(...gearKeys.map(Number)) : 6; 
                     
                     charts.gear = setupChart('gearChart', '使用ギア', 'rgba(255, 159, 64, 1)', 'step', {
                          ticks: { stepSize: 1, callback: function(value) { if (Number.isInteger(value)) { return value; } } },
                          suggestedMin: 1,
                          suggestedMax: maxGear
                     });
-                    
                     const estimatedGears = currentLapData.track.map(p => estimateGear(p, vehicleSpecs));
                     smoothedGears = applySmoothingFilter(estimatedGears, 5);
-
                     if (charts.gear) {
                         charts.gear.data.labels = labels;
                         charts.gear.data.datasets[0].data = smoothedGears;
@@ -586,18 +592,36 @@ window.motopuppuMapViewer = {
                 }
                 
                 charts.speed = setupChart('speedChart', '速度 (km/h)', 'rgba(54, 162, 235, 1)');
-                charts.rpm = setupChart('rpmChart', 'エンジン回転数 (rpm)', 'rgba(255, 99, 132, 1)');
-                charts.throttle = setupChart('throttleChart', 'スロットル開度 (%)', 'rgba(75, 192, 192, 1)');
+                
+                // ▼▼▼ 修正: データがない場合はチャート非表示 ▼▼▼
+                const rpmChartCanvas = document.getElementById('rpmChart');
+                if (hasRpm) {
+                    charts.rpm = setupChart('rpmChart', 'エンジン回転数 (rpm)', 'rgba(255, 99, 132, 1)');
+                    if (rpmChartCanvas) rpmChartCanvas.parentElement.style.display = 'block';
+                } else {
+                    if (charts.rpm) charts.rpm.destroy();
+                    if (rpmChartCanvas) rpmChartCanvas.parentElement.style.display = 'none';
+                }
+
+                const throttleChartCanvas = document.getElementById('throttleChart');
+                if (hasThrottle) {
+                    charts.throttle = setupChart('throttleChart', 'スロットル開度 (%)', 'rgba(75, 192, 192, 1)');
+                    if (throttleChartCanvas) throttleChartCanvas.parentElement.style.display = 'block';
+                } else {
+                    if (charts.throttle) charts.throttle.destroy();
+                    if (throttleChartCanvas) throttleChartCanvas.parentElement.style.display = 'none';
+                }
+                // ▲▲▲ 修正ここまで ▲▲▲
                 
                 if(charts.speed) {
                     charts.speed.data.labels = labels;
                     charts.speed.data.datasets[0].data = currentLapData.track.map(p => p.speed);
                 }
-                if(charts.rpm) {
+                if(charts.rpm && hasRpm) {
                     charts.rpm.data.labels = labels;
                     charts.rpm.data.datasets[0].data = currentLapData.track.map(p => p.rpm);
                 }
-                if(charts.throttle) {
+                if(charts.throttle && hasThrottle) {
                     charts.throttle.data.labels = labels;
                     charts.throttle.data.datasets[0].data = currentLapData.track.map(p => p.throttle);
                 }
