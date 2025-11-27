@@ -257,6 +257,24 @@ def maintenance_log():
         search_term = f'%{keyword}%'
         query = query.filter(or_(MaintenanceEntry.description.ilike(search_term), MaintenanceEntry.location.ilike(search_term), MaintenanceEntry.notes.ilike(search_term)))
 
+    # ▼▼▼ 統計情報の計算 (ページネーション前) ▼▼▼
+    # 現在のフィルター条件に基づいて、合計コストと件数を計算する
+    summary_stats = {'total_cost': 0, 'total_count': 0}
+    try:
+        summary_res = query.with_entities(
+            func.count(MaintenanceEntry.id),
+            func.sum(MaintenanceEntry.parts_cost),
+            func.sum(MaintenanceEntry.labor_cost)
+        ).first()
+        
+        if summary_res:
+            count_res, parts_res, labor_res = summary_res
+            summary_stats['total_count'] = count_res or 0
+            summary_stats['total_cost'] = (parts_res or 0) + (labor_res or 0)
+    except Exception as e:
+        current_app.logger.error(f"Error calculating maintenance summary: {e}")
+    # ▲▲▲ 計算ここまで ▲▲▲
+
     sort_column_map = {
         'date': MaintenanceEntry.maintenance_date, 'vehicle': Motorcycle.name,
         'odo_reading': MaintenanceEntry.odometer_reading_at_maintenance,
@@ -290,7 +308,8 @@ def maintenance_log():
                            request_args=active_filters,
                            current_sort_by=current_sort_by, current_order=current_order,
                            is_filter_active=is_filter_active,
-                           upload_form=upload_form)
+                           upload_form=upload_form,
+                           summary_stats=summary_stats) # 統計情報を渡す
 
 @maintenance_bp.route('/add', methods=['GET', 'POST'])
 @limiter.limit("60 per hour")

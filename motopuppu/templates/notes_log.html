@@ -5,37 +5,86 @@
 
 {% block content %}
 {% include '_breadcrumbs.html' %}
-<h2><i class="fas fa-sticky-note me-1"></i> ノート</h2>
-<p>車両に関するノートや、一般的な記録を残すことができます。</p>
-{# --- ノート追加ボタン --- #}
-<div class="mb-3 d-flex justify-content-between align-items-center">
-    <a href="{{ url_for('notes.add_note') }}" class="btn btn-success">
-        <i class="fas fa-plus me-1"></i> 新しいノートを追加
-    </a>
+
+<style>
+    /* --- カードグリッド表示用CSS --- */
+    .hover-lift {
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .hover-lift:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 .5rem 1rem rgba(0,0,0,.15)!important;
+    }
+    
+    /* カードの種別によるアクセント */
+    .note-card.type-task {
+        border-top: 4px solid #0d6efd; /* Primary Blue */
+    }
+    .note-card.type-note {
+        border-top: 4px solid #6c757d; /* Secondary Gray */
+    }
+    
+    /* TODOリストのスタイル */
+    .todo-preview-list li {
+        position: relative;
+        padding-left: 1.5rem;
+        margin-bottom: 0.25rem;
+    }
+    .todo-preview-list li i {
+        position: absolute;
+        left: 0;
+        top: 0.25rem;
+    }
+</style>
+
+{# --- ヘッダーエリア --- #}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+        <h2 class="fw-bold mb-0 text-dark"><i class="fas fa-sticky-note me-2 text-warning"></i>ノート</h2>
+        <p class="text-muted mb-0 small">車両に関するメモやTODOリストを管理</p>
+    </div>
+    
+    {# --- アクションボタン群 --- #}
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('notes.add_note') }}" class="btn btn-success shadow-sm">
+            <i class="fas fa-plus me-1"></i> ノート追加
+        </a>
+        
+        {# --- 表示モード切替トグル --- #}
+        <div class="btn-group" role="group" aria-label="View Mode Toggle">
+            <input type="radio" class="btn-check" name="viewMode" id="viewModeDashboard" autocomplete="off">
+            <label class="btn btn-outline-secondary" for="viewModeDashboard" title="カード表示">
+                <i class="bi bi-grid-fill"></i> 
+            </label>
+        
+            <input type="radio" class="btn-check" name="viewMode" id="viewModeTable" autocomplete="off">
+            <label class="btn btn-outline-secondary" for="viewModeTable" title="リスト表示">
+                <i class="fas fa-list"></i>
+            </label>
+        </div>
+    </div>
 </div>
 
-{# --- フィルター展開ボタン --- #}
+{# --- フィルターエリア --- #}
 <div class="mb-3">
-    <button class="btn btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#filterCollapse" aria-expanded="{{ 'true' if is_filter_active else 'false' }}" aria-controls="filterCollapse">
-        <i class="fas fa-filter me-1"></i> フィルター {% if is_filter_active %}(適用中){% endif %}
+    <button class="btn btn-sm btn-outline-secondary rounded-pill" type="button" data-bs-toggle="collapse" data-bs-target="#filterCollapse" aria-expanded="{{ 'true' if is_filter_active else 'false' }}">
+        <i class="fas fa-filter me-1"></i> 絞り込み検索 {% if is_filter_active %}<span class="badge bg-primary rounded-pill">ON</span>{% endif %}
     </button>
 </div>
 
-{# --- フィルターフォーム (Collapse) --- #}
-<div class="collapse {% if is_filter_active %}show{% endif %}" id="filterCollapse">
-    {# ▼▼▼ form タグに id="notes-filter-form" を追加 ▼▼▼ #}
-    <form method="GET" action="{{ url_for('notes.notes_log') }}" class="mb-4 p-3 border rounded bg-light" id="notes-filter-form">
-        <div class="row g-3 align-items-end">
-            <div class="col-md-3">
-                <label for="start_date" class="form-label">開始日</label>
+<div class="collapse {% if is_filter_active %}show{% endif %} mb-4" id="filterCollapse">
+    <div class="card card-body bg-light border-0 shadow-sm">
+        <form method="GET" action="{{ url_for('notes.notes_log') }}" class="row g-2 align-items-end" id="notes-filter-form">
+            <div class="col-md-2">
+                <label for="start_date" class="form-label small text-muted">開始日</label>
                 <input type="date" class="form-control form-control-sm" id="start_date" name="start_date" value="{{ request_args.get('start_date', '') }}">
             </div>
-            <div class="col-md-3">
-                <label for="end_date" class="form-label">終了日</label>
+            <div class="col-md-2">
+                <label for="end_date" class="form-label small text-muted">終了日</label>
                 <input type="date" class="form-control form-control-sm" id="end_date" name="end_date" value="{{ request_args.get('end_date', '') }}">
             </div>
             <div class="col-md-3">
-                <label for="vehicle_id" class="form-label">関連車両</label>
+                <label for="vehicle_id" class="form-label small text-muted">関連車両</label>
                 <select class="form-select form-select-sm" id="vehicle_id" name="vehicle_id">
                     <option value="" {% if not request_args.get('vehicle_id') %}selected{% endif %}>すべて</option>
                     <option value="0" {% if request_args.get('vehicle_id') == '0' %}selected{% endif %}>-- 車両未指定 --</option>
@@ -46,8 +95,8 @@
                     {% endfor %}
                 </select>
             </div>
-            <div class="col-md-3">
-                <label for="category" class="form-label">カテゴリー</label>
+            <div class="col-md-2">
+                <label for="category" class="form-label small text-muted">カテゴリー</label>
                 <select class="form-select form-select-sm" id="category" name="category">
                     <option value="" {% if not selected_category %}selected{% endif %}>すべて</option>
                     {% for cat_opt in allowed_categories_for_template %}
@@ -58,24 +107,24 @@
                 </select>
             </div>
              <div class="col-md-3">
-                 <label for="q" class="form-label">キーワード</label>
+                 <label for="q" class="form-label small text-muted">キーワード</label>
                 <input type="text" class="form-control form-control-sm" id="q" name="q" value="{{ request_args.get('q', '') }}" placeholder="タイトル, 内容">
              </div>
-            <div class="col-md-9 mt-2 d-flex justify-content-end">
+            <div class="col-md-12 mt-2 text-end">
                  <a href="{{ url_for('notes.notes_log') }}" class="btn btn-outline-secondary btn-sm me-2">リセット</a>
                  <button type="submit" class="btn btn-primary btn-sm">
                     <i class="fas fa-filter me-1"></i> 絞り込む
                 </button>
             </div>
-        </div>
-    </form>
+        </form>
+    </div>
 </div>
 
 {# --- フラッシュメッセージ表示 --- #}
 {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
         {% for category, message in messages %}
-            <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show" role="alert">
+            <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show shadow-sm" role="alert">
                 {{ message | safe }} <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             </div>
         {% endfor %}
@@ -83,86 +132,200 @@
 {% endwith %}
 
 
-{# =================================================================== #}
-{# ▼▼▼ ここから追加 ▼▼▼ #}
-{# --- 表示設定トグル --- #}
-<div class="d-flex align-items-center flex-wrap gap-3 mb-2 view-toggles-container">
-    {# --- UI表示形式 切替スイッチ (SPのみ) --- #}
-    <div class="form-check form-switch d-lg-none">
-        <input class="form-check-input" type="checkbox" id="uiViewToggle" role="switch">
-        <label class="form-check-label" for="uiViewToggle">リスト表示に切り替え</label>
+{# ================================================================= #}
+{# ▼▼▼ VIEW MODE 1: DASHBOARD (カードグリッド形式) ▼▼▼ #}
+{# ================================================================= #}
+<div id="view-dashboard-container" class="d-none">
+
+    {# 1. 統計カード #}
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm h-100" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
+                <div class="card-body d-flex align-items-center p-3">
+                    <div class="bg-white text-secondary shadow-sm me-3 rounded-3 d-flex align-items-center justify-content-center" style="width:48px; height:48px; font-size:1.5rem;">
+                        <i class="fas fa-sticky-note"></i>
+                    </div>
+                    <div>
+                        <h6 class="text-uppercase text-muted fw-bold mb-0" style="font-size: 0.7rem;">メモ数 (表示中)</h6>
+                        <h3 class="mb-0 fw-bold">{{ "{:,}".format(summary_stats.note_count) }}<span class="fs-6 text-muted ms-1">件</span></h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm h-100" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
+                <div class="card-body d-flex align-items-center p-3">
+                    <div class="bg-white text-primary shadow-sm me-3 rounded-3 d-flex align-items-center justify-content-center" style="width:48px; height:48px; font-size:1.5rem;">
+                        <i class="fas fa-tasks"></i>
+                    </div>
+                    <div>
+                        <h6 class="text-uppercase text-muted fw-bold mb-0" style="font-size: 0.7rem;">タスク数 (表示中)</h6>
+                        <h3 class="mb-0 fw-bold">{{ "{:,}".format(summary_stats.task_count) }}<span class="fs-6 text-muted ms-1">件</span></h3>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
+
+    {# 2. ノートカード一覧 (Masonry的なグリッド) #}
+    {% if entries %}
+    <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4">
+        {% for note in entries %}
+        <div class="col">
+            <div class="card h-100 border-0 shadow-sm hover-lift note-card type-{{ note.category }}">
+                
+                {# カードヘッダー: タイトルとバッジ #}
+                <div class="card-header bg-white border-0 pt-3 pb-0 d-flex justify-content-between align-items-start">
+                    <div class="flex-grow-1 me-2">
+                        <div class="mb-1">
+                            {% if note.category == 'task' %}
+                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill" style="font-size: 0.7rem;">TASK</span>
+                            {% else %}
+                                <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle rounded-pill" style="font-size: 0.7rem;">NOTE</span>
+                            {% endif %}
+                            <small class="text-muted ms-1" style="font-size: 0.75rem;">{{ note.note_date.strftime('%Y/%m/%d') }}</small>
+                        </div>
+                        <h5 class="card-title fw-bold mb-0 text-dark fs-6 text-truncate" title="{{ note.title }}">
+                            {{ note.title if note.title else '(タイトルなし)' }}
+                        </h5>
+                    </div>
+                    
+                    {# 関連車両バッジ (右上に配置) #}
+                    {% if note.motorcycle %}
+                        <span class="badge bg-light text-dark border" style="font-size: 0.7rem; max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                            {{ note.motorcycle.name }}
+                        </span>
+                    {% endif %}
+                </div>
+
+                {# カードボディ: 内容プレビュー #}
+                <div class="card-body pt-2 pb-0">
+                    <hr class="my-2 opacity-25">
+                    
+                    <div style="min-height: 80px;">
+                        {% if note.category == 'task' and note.todos %}
+                            <ul class="list-unstyled mb-0 todo-preview-list small text-secondary">
+                                {% for item in note.todos[:4] %}
+                                    <li class="text-truncate {% if item.checked %}text-muted text-decoration-line-through{% endif %}">
+                                        <i class="far {{ 'fa-check-square' if item.checked else 'fa-square' }} me-2"></i>
+                                        {{ item.text | escape }}
+                                    </li>
+                                {% endfor %}
+                                {% if note.todos|length > 4 %}
+                                    <li class="text-muted fst-italic ps-4">...他 {{ note.todos|length - 4 }} 件</li>
+                                {% endif %}
+                            </ul>
+                        {% elif note.category == 'task' %}
+                            <p class="text-muted small fst-italic">TODOアイテムなし</p>
+                        {% elif note.content %}
+                             <p class="card-text text-secondary small" style="display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden;">
+                                {{ note.content | striptags }}
+                             </p>
+                        {% else %}
+                            <p class="text-muted small fst-italic">本文なし</p>
+                        {% endif %}
+                    </div>
+                </div>
+
+                {# カードフッター: アクション #}
+                <div class="card-footer bg-white border-0 pt-0 pb-3 mt-2">
+                    <div class="d-flex justify-content-end align-items-center">
+                         <a href="{{ url_for('notes.edit_note', note_id=note.id) }}" class="btn btn-sm btn-outline-secondary border-0 rounded-circle p-2" title="編集" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
+                            <i class="fas fa-pen fa-xs"></i>
+                        </a>
+                        <form action="{{ url_for('notes.delete_note', note_id=note.id) }}" method="POST" class="d-inline ms-1" onsubmit="return confirm('このノートを削除してもよろしいですか？');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                            <button type="submit" class="btn btn-sm btn-outline-danger border-0 rounded-circle p-2" title="削除" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
+                                <i class="fas fa-trash fa-xs"></i>
+                            </button>
+                        </form>
+                        <button class="btn btn-sm btn-outline-info border-0 rounded-circle p-2 ms-1 btn-share-misskey"
+                                data-type="note"
+                                data-category="{{ note.category }}"
+                                data-date="{{ note.note_date.isoformat() }}"
+                                data-title="{{ note.title or '' }}"
+                                data-vehicle-name="{{ note.motorcycle.name if note.motorcycle else '' }}"
+                                data-content="{{ (note.content[:100] + '...') if note.category == 'note' and note.content and note.content|length > 100 else (note.content or '') if note.category == 'note' else '' }}"
+                                data-todos='{{ note.todos | tojson | safe if note.category == "task" and note.todos else "" }}'
+                                title="Misskeyで共有" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
+                            <i class="fas fa-share-alt fa-xs"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-5 text-muted">
+        <i class="fas fa-sticky-note fa-3x mb-3 text-light"></i>
+        <p>ノートがありません。「ノート追加」ボタンから記録を作成しましょう。</p>
+    </div>
+    {% endif %}
 </div>
-{# ▲▲▲ ここまで追加 ▲▲▲ #}
-{# =================================================================== #}
 
 
-{# --- ノート一覧テーブル --- #}
-{% if entries %}
-
-{# =================================================================== #}
-{# ▼▼▼ PC/タブレット向けテーブル表示 (d-none d-lg-block) ▼▼▼ #}
-{# =================================================================== #}
-<div id="table-view-container" class="d-none d-lg-block">
-    <div class="table-responsive">
-        <table class="table table-striped table-hover table-sm">
+{# ================================================================= #}
+{# ▼▼▼ VIEW MODE 2: TABLE (既存UIの改善版) ▼▼▼ #}
+{# ================================================================= #}
+<div id="view-table-container" class="d-none">
+    <div class="table-responsive bg-white shadow-sm rounded">
+        <table class="table table-hover table-sm mb-0 align-middle">
             <thead class="table-light">
                 <tr>
-                    <th style="width: 10%;">日付</th>
+                    <th style="width: 12%;">日付</th>
                     <th style="width: 15%;">関連車両</th>
                     <th style="width: 25%;">タイトル</th>
                     <th style="width: 35%;">内容 / TODOリスト</th>
-                    <th style="width: 15%;">操作</th>
+                    <th style="width: 13%;" class="text-center">操作</th>
                 </tr>
             </thead>
             <tbody>
                 {% for note in entries %}
                 <tr>
-                    <td>{{ note.note_date.strftime('%Y-%m-%d') }}</td>
+                    <td class="ps-3">{{ note.note_date.strftime('%Y-%m-%d') }}</td>
                     <td>
-                        {# --- ▼ここを変更▼ --- #}
                         {% if note.motorcycle %}
-                        <a href="{{ url_for('notes.edit_note', note_id=note.id) }}" title="ノート「{{ note.title if note.title else '(タイトルなし)' }}」を編集 (車両: {{note.motorcycle.name}})">{{ note.motorcycle.name }}</a>
+                        <a href="{{ url_for('notes.edit_note', note_id=note.id) }}" class="text-decoration-none text-dark" title="車両: {{note.motorcycle.name}}">{{ note.motorcycle.name }}</a>
                         {% else %}
-                        <span class="text-muted">--</span>
+                        <span class="text-muted small">--</span>
                         {% endif %}
-                        {# --- ▲ここまで変更▲ --- #}
                     </td>
                     <td>
                          <span class="me-1" title="カテゴリー: {{ 'タスク' if note.category == 'task' else 'ノート' }}">
-                             {% if note.category == 'task' %} <i class="fas fa-tasks text-primary"></i>
+                             {% if note.category == 'task' %} <i class="fas fa-check-square text-primary"></i>
                              {% else %} <i class="fas fa-sticky-note text-secondary"></i> {% endif %}
                          </span>
-                        <a href="{{ url_for('notes.edit_note', note_id=note.id) }}">
+                        <a href="{{ url_for('notes.edit_note', note_id=note.id) }}" class="fw-bold text-dark text-decoration-none">
                             {{ note.title if note.title else '(タイトルなし)' }}
                         </a>
                       </td>
                     <td>
                         {% if note.category == 'task' and note.todos %}
-                            <ul class="list-unstyled mb-0 small" style="max-height: 100px; overflow-y: auto;">
-                                {% for item in note.todos[:3] %} {# 最大3件表示 #}
-                                    <li {% if item.checked %}class="todo-item-done"{% endif %}>
+                            <ul class="list-unstyled mb-0 small" style="max-height: 80px; overflow-y: hidden;">
+                                {% for item in note.todos[:2] %}
+                                    <li class="text-truncate {% if item.checked %}text-muted text-decoration-line-through{% endif %}">
                                         <i class="far {{ 'fa-check-square' if item.checked else 'fa-square' }} me-1"></i>
                                         {{ item.text | escape }}
                                     </li>
                                 {% endfor %}
-                                {% if note.todos|length > 3 %}
-                                    <li>...他{{ note.todos|length - 3 }}件</li>
+                                {% if note.todos|length > 2 %}
+                                    <li class="text-muted fst-italic">他 {{ note.todos|length - 2 }} 件...</li>
                                 {% endif %}
                             </ul>
                         {% elif note.category == 'task' %}
                              <span class="text-muted small">（TODOアイテムなし）</span>
                         {% else %}
-                            <span title="{{ note.content|striptags if note.content else '' }}" data-bs-toggle="tooltip" data-bs-placement="top">
-                                {{ note.content | striptags | truncate(80) if note.content else '-' }}
+                            <span class="text-muted small text-truncate d-inline-block" style="max-width: 300px;">
+                                {{ note.content | striptags | truncate(60) if note.content else '-' }}
                             </span>
                         {% endif %}
                     </td>
-                    <td class="text-nowrap">
-                        <a href="{{ url_for('notes.edit_note', note_id=note.id) }}" class="btn btn-sm btn-outline-primary me-1" title="編集"><i class="fas fa-edit fa-fw"></i></a>
+                    <td class="text-center text-nowrap">
+                        <a href="{{ url_for('notes.edit_note', note_id=note.id) }}" class="btn btn-sm btn-outline-secondary border-0"><i class="fas fa-edit"></i></a>
                         <form action="{{ url_for('notes.delete_note', note_id=note.id) }}" method="POST" class="d-inline" onsubmit="return confirm('このノートを削除してもよろしいですか？');">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                            <button type="submit" class="btn btn-sm btn-outline-danger" title="削除"><i class="fas fa-trash fa-fw"></i></button>
+                            <button type="submit" class="btn btn-sm btn-outline-danger border-0"><i class="fas fa-trash"></i></button>
                         </form>
                         <button class="btn btn-sm btn-info btn-share-misskey ms-1"
                                 data-type="note"
@@ -177,84 +340,19 @@
                         </button>
                     </td>
                 </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="text-center py-4 text-muted">ノートがありません</td>
+                </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
 </div>
 
-{# =================================================================== #}
-{# ▼▼▼ スマートフォン向けカード表示 (d-block d-lg-none) - 新規追加 ▼▼▼ #}
-{# =================================================================== #}
-<div id="card-view-container" class="d-block d-lg-none">
-    {% for note in entries %}
-    <div class="card mb-3 notes-log-card">
-        <div class="card-header fw-bold">
-            {% if note.category == 'task' %}
-                <span class="badge bg-primary me-2">タスク</span>
-            {% else %}
-                <span class="badge bg-secondary me-2">ノート</span>
-            {% endif %}
-            {{ note.title if note.title else '(タイトルなし)' }}
-        </div>
-        <div class="card-body">
-            {% if note.category == 'task' and note.todos %}
-                <ul class="list-unstyled mb-0 small">
-                    {% for item in note.todos %}
-                        <li {% if item.checked %}class="text-decoration-line-through text-muted"{% endif %}>
-                            <i class="far {{ 'fa-check-square' if item.checked else 'fa-square' }} me-1"></i>
-                            {{ item.text | escape }}
-                        </li>
-                    {% endfor %}
-                </ul>
-            {% elif note.category == 'task' %}
-                <p class="card-text text-muted small">(TODOアイテムはありません)</p>
-            {% elif note.content %}
-                <p class="card-text small" style="white-space: pre-wrap;">{{ note.content | striptags | truncate(150, true) }}</p>
-            {% else %}
-                <p class="card-text text-muted small">(本文はありません)</p>
-            {% endif %}
-        </div>
-        <ul class="list-group list-group-flush">
-             <li class="list-group-item">
-                <dl>
-                    <dt><i class="bi bi-calendar-event me-2 text-primary"></i>日付</dt>
-                    <dd>{{ note.note_date.strftime('%Y年%m月%d日') }}</dd>
-                </dl>
-             </li>
-             <li class="list-group-item">
-                <dl>
-                    <dt><i class="bi bi-bicycle me-2 text-primary"></i>関連車両</dt>
-                    <dd>{{ note.motorcycle.name if note.motorcycle else '指定なし' }}</dd>
-                </dl>
-             </li>
-        </ul>
-        <div class="card-footer bg-white text-end">
-            <a href="{{ url_for('notes.edit_note', note_id=note.id) }}" class="btn btn-sm btn-outline-primary me-1" title="編集"><i class="fas fa-edit fa-fw"></i> 編集</a>
-            <form action="{{ url_for('notes.delete_note', note_id=note.id) }}" method="POST" class="d-inline" onsubmit="return confirm('このノートを削除してもよろしいですか？');">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                <button type="submit" class="btn btn-sm btn-outline-danger" title="削除"><i class="fas fa-trash fa-fw"></i></button>
-            </form>
-            <button class="btn btn-sm btn-info btn-share-misskey ms-1"
-                    data-type="note"
-                    data-category="{{ note.category }}"
-                    data-date="{{ note.note_date.isoformat() }}"
-                    data-title="{{ note.title or '' }}"
-                    data-vehicle-name="{{ note.motorcycle.name if note.motorcycle else '' }}"
-                    data-content="{{ (note.content[:100] + '...') if note.category == 'note' and note.content and note.content|length > 100 else (note.content or '') if note.category == 'note' else '' }}"
-                    data-todos='{{ note.todos | tojson | safe if note.category == "task" and note.todos else "" }}'
-                    title="Misskeyで共有">
-                <i class="fa-solid fa-share-nodes fa-fw"></i>
-            </button>
-        </div>
-    </div>
-    {% endfor %}
-</div>
-
-
-{# --- ページネーション --- #}
+{# --- ページネーション (共通) --- #}
 {% if pagination and pagination.pages > 1 %}
-<nav aria-label="Page navigation">
+<nav aria-label="Page navigation" class="mt-4">
     <ul class="pagination justify-content-center">
         <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}"> <a class="page-link" href="{{ url_for('notes.notes_log', page=pagination.prev_num, **request_args) }}">&laquo;</a> </li>
         {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
@@ -264,12 +362,6 @@
         <li class="page-item {% if not pagination.has_next %}disabled{% endif %}"> <a class="page-link" href="{{ url_for('notes.notes_log', page=pagination.next_num, **request_args) }}">&raquo;</a> </li>
     </ul>
 </nav>
-{% endif %}
-
-{% else %}
-<div class="alert alert-info" role="alert">
-  まだノートが登録されていません。「新しいノートを追加」ボタンから最初のノートを登録しましょう。
-</div>
 {% endif %}
 
 {% endblock %}
@@ -284,61 +376,36 @@ document.addEventListener('DOMContentLoaded', function() {
       return new bootstrap.Tooltip(tooltipTriggerEl)
     })
     
-    {# =================================================================== #}
-    {# ▼▼▼ ここから追加 ▼▼▼ #}
-    {# --- UI表示切り替え機能 --- #}
-    const uiViewToggle = document.getElementById('uiViewToggle');
-    const cardViewContainer = document.getElementById('card-view-container');
-    const tableViewContainer = document.getElementById('table-view-container');
-    // キーをこのページ専用に変更
-    const viewModeKey = 'motopuppu-notes-view-mode';
+    // --- View Mode Toggle Logic (共通ロジック) ---
+    const dashboardRadio = document.getElementById('viewModeDashboard');
+    const tableRadio = document.getElementById('viewModeTable');
+    const dashboardContainer = document.getElementById('view-dashboard-container');
+    const tableContainer = document.getElementById('view-table-container');
+    
+    // localStorage key
+    const STORAGE_KEY = 'motopuppu_notes_view_pref';
 
-    // スマホ表示のときだけ実行 (画面幅がBootstrapのlgブレークポイント未満)
-    if (window.innerWidth < 992) {
-        
-        // 表示を更新する関数
-        const setView = (isListView) => {
-            if (isListView) {
-                // リスト表示 (テーブル) にする
-                cardViewContainer.classList.remove('d-block');
-                cardViewContainer.classList.add('d-none');
-                tableViewContainer.classList.remove('d-none');
-                tableViewContainer.classList.add('d-block');
-                
-                if (uiViewToggle) uiViewToggle.checked = true;
-                localStorage.setItem(viewModeKey, 'list');
-            } else {
-                // カード表示 (デフォルト) にする
-                tableViewContainer.classList.remove('d-block');
-                tableViewContainer.classList.add('d-none');
-                cardViewContainer.classList.remove('d-none');
-                cardViewContainer.classList.add('d-block');
-
-                if (uiViewToggle) uiViewToggle.checked = false;
-                localStorage.setItem(viewModeKey, 'card');
-            }
-        };
-
-        // ページ読み込み時にlocalStorageの設定を復元
-        const savedViewMode = localStorage.getItem(viewModeKey);
-        if (savedViewMode === 'list') {
-            setView(true);
+    function setViewMode(mode) {
+        if (mode === 'dashboard') {
+            dashboardContainer.classList.remove('d-none');
+            tableContainer.classList.add('d-none');
+            dashboardRadio.checked = true;
+            localStorage.setItem(STORAGE_KEY, 'dashboard');
         } else {
-            // デフォルトはカード表示なので、明示的に設定
-            setView(false); 
-        }
-
-        // トグルスイッチのイベントリスナー
-        if (uiViewToggle) {
-            uiViewToggle.addEventListener('change', function() {
-                setView(this.checked);
-            });
+            dashboardContainer.classList.add('d-none');
+            tableContainer.classList.remove('d-none');
+            tableRadio.checked = true;
+            localStorage.setItem(STORAGE_KEY, 'table');
         }
     }
-    {# ▲▲▲ ここまで追加 ▲▲▲ #}
-    {# =================================================================== #}
 
-    // このテンプレート固有のMisskey共有スクリプトは削除されました。共通スクリプトが base.html で読み込まれます。
+    // Initial Load
+    const savedMode = localStorage.getItem(STORAGE_KEY) || 'dashboard'; // Default to dashboard
+    setViewMode(savedMode);
+
+    // Event Listeners
+    if (dashboardRadio) dashboardRadio.addEventListener('change', () => setViewMode('dashboard'));
+    if (tableRadio) tableRadio.addEventListener('change', () => setViewMode('table'));
 });
 </script>
 {# ▼▼▼ 作成した filter_persistence.js を読み込む ▼▼▼ #}

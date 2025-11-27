@@ -5,61 +5,106 @@
 
 {% block content %}
 {% include '_breadcrumbs.html' %}
-<h2><i class="fas fa-tools me-1"></i> 整備記録</h2>
 
-{# ▼▼▼ ボタンエリアを修正 ▼▼▼ #}
-<div class="mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
-    <a href="{{ url_for('maintenance.add_maintenance', vehicle_id=request_args.get('vehicle_id') if request_args.get('vehicle_id') else '') }}" class="btn btn-success">
-        <i class="fas fa-plus me-1"></i> 新しい整備記録を追加
-    </a>
+<style>
+    /* --- タイムライン表示用CSS --- */
+    .maintenance-timeline {
+        position: relative;
+        padding-left: 2rem;
+        margin-left: 0.5rem;
+    }
+    /* 縦線 */
+    .maintenance-timeline::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 6px; /* マーカーの中心に合わせる */
+        width: 2px;
+        background-color: #dee2e6;
+    }
+    .timeline-item {
+        position: relative;
+        padding-bottom: 2.5rem;
+    }
+    .timeline-item:last-child {
+        padding-bottom: 0;
+    }
+    /* マーカー（点） */
+    .timeline-marker {
+        position: absolute;
+        left: -2rem; /* 親のpadding分戻す */
+        top: 1rem; /* カードの上部に合わせる */
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background-color: #fff;
+        border: 3px solid #adb5bd; /* デフォルトはグレー */
+        z-index: 1;
+        margin-left: -1px; /* 線との微調整 */
+    }
+    /* 最新の記録（最初の要素）を目立たせる */
+    .timeline-item:first-child .timeline-marker {
+        border-color: #198754; /* Success Color (Maintenance) */
+        background-color: #198754;
+        box-shadow: 0 0 0 4px rgba(25, 135, 84, 0.2);
+    }
+    /* 最新のカード */
+    .timeline-item:first-child .card {
+        border-left: 4px solid #198754;
+    }
+</style>
+
+{# --- ヘッダーエリア --- #}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+        <h2 class="fw-bold mb-0 text-dark"><i class="fas fa-tools me-2 text-success"></i>整備記録</h2>
+        <p class="text-muted mb-0 small">愛車のメンテナンスとコストを管理</p>
+    </div>
     
-    {# --- CSV関連ボタン --- #}
-    {% set current_vehicle_id_str = request_args.get('vehicle_id') %}
-    {% if current_vehicle_id_str and current_vehicle_id_str != '' %}
-        {% set selected_vehicle_id = current_vehicle_id_str|int %}
-        {% set selected_vehicle = motorcycles|selectattr('id', 'equalto', selected_vehicle_id)|first %}
-        {% if selected_vehicle %}
-        <div class="btn-group">
-            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#csvImportModal">
-                <i class="fas fa-file-import me-1"></i> CSVインポート
-            </button>
-            <a href="{{ url_for('maintenance.export_maintenance_logs_csv', motorcycle_id=selected_vehicle_id) }}" class="btn btn-info">
-                <i class="fas fa-file-csv me-1"></i> CSVエクスポート
-            </a>
-        </div>
-        {% endif %}
-    {% elif motorcycles|length > 0 %}
-        <a href="{{ url_for('maintenance.export_all_maintenance_logs_csv') }}" class="btn btn-secondary">
-            <i class="fas fa-download me-1"></i> 全車両の整備記録をエクスポート
+    {# --- アクションボタン群 --- #}
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('maintenance.add_maintenance', vehicle_id=request_args.get('vehicle_id') if request_args.get('vehicle_id') else '') }}" class="btn btn-success shadow-sm">
+            <i class="fas fa-plus me-1"></i> 記録追加
         </a>
-    {% endif %}
+        
+        {# --- 表示モード切替トグル --- #}
+        <div class="btn-group" role="group" aria-label="View Mode Toggle">
+            <input type="radio" class="btn-check" name="viewMode" id="viewModeDashboard" autocomplete="off">
+            <label class="btn btn-outline-secondary" for="viewModeDashboard" title="ダッシュボード表示">
+                <i class="fas fa-stream"></i> 
+            </label>
+        
+            <input type="radio" class="btn-check" name="viewMode" id="viewModeTable" autocomplete="off">
+            <label class="btn btn-outline-secondary" for="viewModeTable" title="テーブル表示">
+                <i class="fas fa-table"></i>
+            </label>
+        </div>
+    </div>
 </div>
-{# ▲▲▲ 修正ここまで ▲▲▲ #}
 
-
-{# --- フィルター展開ボタン --- #}
+{# --- フィルターエリア --- #}
 <div class="mb-3">
-    <button class="btn btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#filterCollapse" aria-expanded="{{ 'true' if is_filter_active else 'false' }}" aria-controls="filterCollapse">
-        <i class="fas fa-filter me-1"></i> フィルター {% if is_filter_active %}(適用中){% endif %}
+    <button class="btn btn-sm btn-outline-secondary rounded-pill" type="button" data-bs-toggle="collapse" data-bs-target="#filterCollapse" aria-expanded="{{ 'true' if is_filter_active else 'false' }}">
+        <i class="fas fa-filter me-1"></i> 絞り込み検索 {% if is_filter_active %}<span class="badge bg-primary rounded-pill">ON</span>{% endif %}
     </button>
 </div>
 
-{# --- フィルターフォーム (Collapse) --- #}
-<div class="collapse {% if is_filter_active %}show{% endif %}" id="filterCollapse">
-    <form method="GET" action="{{ url_for('maintenance.maintenance_log') }}" class="mb-4 p-3 border rounded bg-light" id="maintenance-filter-form">
-        <div class="row g-3 align-items-end">
+<div class="collapse {% if is_filter_active %}show{% endif %} mb-4" id="filterCollapse">
+    <div class="card card-body bg-light border-0 shadow-sm">
+        <form method="GET" action="{{ url_for('maintenance.maintenance_log') }}" class="row g-2 align-items-end" id="maintenance-filter-form">
             <div class="col-md-2">
-                <label for="start_date" class="form-label">開始日</label>
+                <label for="start_date" class="form-label small text-muted">開始日</label>
                 <input type="date" class="form-control form-control-sm" id="start_date" name="start_date" value="{{ request_args.get('start_date', '') }}">
             </div>
             <div class="col-md-2">
-                <label for="end_date" class="form-label">終了日</label>
+                <label for="end_date" class="form-label small text-muted">終了日</label>
                 <input type="date" class="form-control form-control-sm" id="end_date" name="end_date" value="{{ request_args.get('end_date', '') }}">
             </div>
             <div class="col-md-2">
-                <label for="vehicle_id" class="form-label">車両</label>
+                <label for="vehicle_id" class="form-label small text-muted">車両</label>
                 <select class="form-select form-select-sm" id="vehicle_id" name="vehicle_id">
-                    <option value="">全車両</option>
+                    <option value="">すべての車両</option>
                     {% for motorcycle in motorcycles %}
                     <option value="{{ motorcycle.id }}" {% if request_args.get('vehicle_id')|string == motorcycle.id|string %}selected{% endif %}>
                         {{ motorcycle.name }}
@@ -68,28 +113,26 @@
                 </select>
             </div>
             <div class="col-md-2">
-                <label for="category" class="form-label">カテゴリ</label>
+                <label for="category" class="form-label small text-muted">カテゴリ</label>
                 <input type="text" class="form-control form-control-sm" id="category" name="category" value="{{ request_args.get('category', '') }}" placeholder="カテゴリ名(部分一致)">
             </div>
             <div class="col-md-2">
-                <label for="q" class="form-label">キーワード</label>
+                <label for="q" class="form-label small text-muted">キーワード</label>
                 <input type="text" class="form-control form-control-sm" id="q" name="q" value="{{ request_args.get('q', '') }}" placeholder="内容, 場所, メモ">
             </div>
-            <div class="col-md-2">
-                <button type="submit" class="btn btn-primary btn-sm w-100">
-                    <i class="fas fa-filter me-1"></i> 絞り込む
-                </button>
+            <div class="col-md-2 text-end mt-2">
+                <button type="submit" class="btn btn-primary btn-sm w-100">適用</button>
                 <a href="{{ url_for('maintenance.maintenance_log') }}" class="btn btn-outline-secondary btn-sm w-100 mt-1">リセット</a>
             </div>
-        </div>
-    </form>
+        </form>
+    </div>
 </div>
 
-{# --- フラッシュメッセージ表示 --- #}
+{# フラッシュメッセージ #}
 {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
         {% for category, message in messages %}
-            <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show" role="alert">
+            <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show shadow-sm" role="alert">
                 {{ message | safe }}
                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             </div>
@@ -97,31 +140,148 @@
     {% endif %}
 {% endwith %}
 
-{# --- 表示設定トグル --- #}
-<div class="d-flex align-items-center flex-wrap gap-3 mb-2 view-toggles-container">
-    {# --- ODO/実走行距離 表示切替スイッチ --- #}
-    <div class="form-check form-switch">
-        <input class="form-check-input" type="checkbox" id="odoDisplayToggle" role="switch">
-        <label class="form-check-label" for="odoDisplayToggle" id="odoDisplayToggleLabel">ODOメーター値を表示</label>
+
+{# ================================================================= #}
+{# ▼▼▼ VIEW MODE 1: DASHBOARD (タイムラインUI) ▼▼▼ #}
+{# ================================================================= #}
+<div id="view-dashboard-container" class="d-none">
+    
+    {# 1. ヒーロー統計 (グラフの代わり) #}
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm h-100" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
+                <div class="card-body d-flex align-items-center p-3">
+                    <div class="bg-white text-success shadow-sm me-3 rounded-3 d-flex align-items-center justify-content-center" style="width:48px; height:48px; font-size:1.5rem;">
+                        <i class="fas fa-yen-sign"></i>
+                    </div>
+                    <div>
+                        <h6 class="text-uppercase text-muted fw-bold mb-0" style="font-size: 0.7rem;">整備費合計 (表示中)</h6>
+                        <h3 class="mb-0 fw-bold">{{ "{:,}".format(summary_stats.total_cost|int) }}<span class="fs-6 text-muted ms-1">円</span></h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm h-100" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
+                <div class="card-body d-flex align-items-center p-3">
+                    <div class="bg-white text-primary shadow-sm me-3 rounded-3 d-flex align-items-center justify-content-center" style="width:48px; height:48px; font-size:1.5rem;">
+                        <i class="fas fa-clipboard-check"></i>
+                    </div>
+                    <div>
+                        <h6 class="text-uppercase text-muted fw-bold mb-0" style="font-size: 0.7rem;">整備回数 (表示中)</h6>
+                        <h3 class="mb-0 fw-bold">{{ "{:,}".format(summary_stats.total_count) }}<span class="fs-6 text-muted ms-1">回</span></h3>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
-    {# --- UI表示形式 切替スイッチ (SPのみ) --- #}
-    <div class="form-check form-switch d-lg-none">
-        <input class="form-check-input" type="checkbox" id="uiViewToggle" role="switch">
-        <label class="form-check-label" for="uiViewToggle">リスト表示に切り替え</label>
+
+    {# 2. タイムラインリスト (Vertical Layout) #}
+    <div class="maintenance-timeline">
+        {% for entry in entries %}
+        <div class="timeline-item">
+            <div class="timeline-marker"></div>
+            
+            <div class="card border-0 shadow-sm hover-lift">
+                <div class="card-body">
+                    {# ヘッダー行: 日付、車両名、コスト #}
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div>
+                            <h5 class="fw-bold mb-0 d-flex align-items-center gap-2 flex-wrap">
+                                {{ entry.maintenance_date.strftime('%Y/%m/%d') }}
+                                <span class="badge bg-light text-dark border fw-normal" style="font-size: 0.75rem;">{{ entry.motorcycle.name }}</span>
+                                {% if entry.category %}
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size: 0.75rem;">{{ entry.category }}</span>
+                                {% endif %}
+                            </h5>
+                        </div>
+                        <div class="text-end">
+                            <span class="fw-bold font-monospace fs-4 text-dark">
+                                {% if entry.total_cost is not none %}
+                                    {{ "{:,}".format(entry.total_cost|round|int) }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </span>
+                            <span class="text-muted small">円</span>
+                        </div>
+                    </div>
+
+                    <div class="fw-bold text-dark mb-2">
+                         {{ entry.description }}
+                    </div>
+
+                    <hr class="my-2 opacity-50">
+
+                    {# 詳細データ行 #}
+                    <div class="row g-2 mt-1">
+                        <div class="col-6 col-md-3">
+                            <div class="small text-muted mb-1"><i class="fas fa-tachometer-alt me-1"></i>ODO</div>
+                            <div class="fw-bold distance-value-cell"
+                                 data-odo-value="{{ entry.odometer_reading_at_maintenance }}"
+                                 data-actual-value="{{ entry.total_distance_at_maintenance if entry.total_distance_at_maintenance is not none else entry.odometer_reading_at_maintenance }}">
+                                {{ "{:,}".format(entry.odometer_reading_at_maintenance) }} km
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="small text-muted mb-1"><i class="fas fa-cogs me-1"></i>部品代</div>
+                            <div class="fw-bold">{{ "{:,}".format(entry.parts_cost|int) if entry.parts_cost is not none else '0' }} 円</div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="small text-muted mb-1"><i class="fas fa-wrench me-1"></i>工賃</div>
+                            <div class="fw-bold">{{ "{:,}".format(entry.labor_cost|int) if entry.labor_cost is not none else '0' }} 円</div>
+                        </div>
+                         <div class="col-6 col-md-3">
+                            <div class="small text-muted mb-1"><i class="fas fa-map-marker-alt me-1"></i>場所</div>
+                            <div class="text-truncate" title="{{ entry.location }}">{{ entry.location or '-' }}</div>
+                        </div>
+                    </div>
+
+                    {% if entry.notes %}
+                    <div class="bg-light p-2 rounded small text-muted mt-3" style="white-space: pre-wrap;"><i class="fas fa-sticky-note me-1"></i>{{ entry.notes }}</div>
+                    {% endif %}
+
+                    {# フッター: アクション #}
+                    <div class="d-flex justify-content-end align-items-center mt-3 pt-2 border-top">
+                        <a href="{{ url_for('maintenance.edit_maintenance', entry_id=entry.id) }}" class="btn btn-sm btn-link text-decoration-none text-secondary p-0 me-3">編集</a>
+                        <form action="{{ url_for('maintenance.delete_maintenance', entry_id=entry.id) }}" method="POST" class="d-inline" onsubmit="return confirm('この整備記録を削除してもよろしいですか？');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                            <button type="submit" class="btn btn-sm btn-link text-decoration-none text-danger p-0 me-3">削除</button>
+                        </form>
+                        <button class="btn btn-sm btn-link text-decoration-none text-info p-0 btn-share-misskey" 
+                                data-type="maintenance"
+                                data-vehicle-name="{{ entry.motorcycle.name }}"
+                                data-date="{{ entry.maintenance_date.isoformat() }}"
+                                data-odo="{{ entry.odometer_reading_at_maintenance }}"
+                                data-total-distance = "{{ entry.total_distance_at_maintenance if entry.total_distance_at_maintenance is not none else '' }}"
+                                data-category="{{ entry.category or '' }}"
+                                data-description="{{ entry.description }}"
+                                data-cost="{{ entry.total_cost|round|int if entry.total_cost else '' }}"
+                                data-location="{{ entry.location or '' }}">
+                            <i class="fas fa-share-alt"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="text-center py-5 text-muted">
+            <i class="fas fa-tools fa-3x mb-3 text-light"></i>
+            <p>表示できる整備記録がありません。</p>
+        </div>
+        {% endfor %}
     </div>
 </div>
 
 
-{# --- 記録テーブル --- #}
-{% if entries %}
-
-{# =================================================================== #}
-{# ▼▼▼ PC/タブレット向けテーブル表示 (d-none d-lg-block) ▼▼▼ #}
-{# =================================================================== #}
-<div id="table-view-container" class="d-none d-lg-block">
-    <div class="table-responsive">
-        <table class="table table-striped table-hover table-sm">
-            <thead>
+{# ================================================================= #}
+{# ▼▼▼ VIEW MODE 2: TABLE (既存UIの改善版) ▼▼▼ #}
+{# ================================================================= #}
+<div id="view-table-container" class="d-none">
+    
+    <div class="table-responsive bg-white shadow-sm rounded">
+        <table class="table table-hover table-sm mb-0 align-middle">
+            <thead class="table-light">
                 <tr>
                     {% macro sortable_th(sort_key, display_text, current_sort, current_order, request_args, th_class="", th_id="") %}
                         {% set current_request_args = request_args.copy() %}
@@ -144,27 +304,25 @@
                         </th>
                     {% endmacro %}
 
-                    {# ▼▼▼ここから変更▼▼▼ #}
-                    {{ sortable_th('date', '<i class="bi bi-calendar-event me-2"></i>日付', current_sort_by, current_order, request_args) }}
+                    {{ sortable_th('date', '<i class="bi bi-calendar-event me-2"></i>日付', current_sort_by, current_order, request_args, "ps-3") }}
                     {{ sortable_th('vehicle', '<i class="bi bi-bicycle me-2"></i>車両', current_sort_by, current_order, request_args) }}
-                    {{ sortable_th('odo_reading', '<i class="bi bi-speedometer2 me-2"></i>ODO (km)', current_sort_by, current_order, request_args, "text-end", "distance_header") }}
+                    {{ sortable_th('odo_reading', '<i class="bi bi-speedometer2 me-2"></i>ODO', current_sort_by, current_order, request_args, "text-end", "distance_header") }}
                     {{ sortable_th('category', '<i class="bi bi-tag-fill me-2"></i>カテゴリ', current_sort_by, current_order, request_args) }}
                     <th><i class="bi bi-card-text me-2"></i>内容</th>
-                    <th class="text-end"><i class="bi bi-currency-yen me-2"></i>費用 (円)</th>
-                    <th><i class="bi bi-gear-fill me-2"></i>操作</th>
-                    {# ▲▲▲ここまで変更▲▲▲ #}
+                    <th class="text-end"><i class="bi bi-currency-yen me-2"></i>費用</th>
+                    <th class="text-center">操作</th>
                 </tr>
             </thead>
             <tbody>
                 {% for entry in entries %}
                 <tr>
-                    <td>{{ entry.maintenance_date.strftime('%Y-%m-%d') }}</td>
+                    <td class="ps-3">{{ entry.maintenance_date.strftime('%Y-%m-%d') }}</td>
                     <td>
-                        <a href="{{ url_for('maintenance.edit_maintenance', entry_id=entry.id) }}" title="整備記録「{{ entry.motorcycle.name }} - {{ entry.description|truncate(15) }}」を編集">
+                        <a href="{{ url_for('maintenance.edit_maintenance', entry_id=entry.id) }}" title="編集" class="text-decoration-none text-dark">
                             {{ entry.motorcycle.name }}
                         </a>
                     </td>
-                    <td class="text-end distance-value-cell"
+                    <td class="text-end font-monospace distance-value-cell"
                         data-odo-value="{{ entry.odometer_reading_at_maintenance }}"
                         data-actual-value="{{ entry.total_distance_at_maintenance if entry.total_distance_at_maintenance is not none else entry.odometer_reading_at_maintenance }}">
                         {{ "{:,}".format(entry.odometer_reading_at_maintenance) }}
@@ -175,18 +333,18 @@
                             {{ entry.description|truncate(30) }}
                         </span>
                     </td>
-                    <td class="text-end">
+                    <td class="text-end font-monospace">
                         {% if entry.total_cost is not none %}
-                            {{ entry.total_cost|round|int }}
+                            {{ "{:,}".format(entry.total_cost|round|int) }}
                         {% else %}
                             -
                         {% endif %}
                     </td>
-                    <td class="text-nowrap">
-                        <a href="{{ url_for('maintenance.edit_maintenance', entry_id=entry.id) }}" class="btn btn-sm btn-outline-primary me-1" title="編集"><i class="fas fa-edit fa-fw"></i></a>
+                    <td class="text-center text-nowrap">
+                        <a href="{{ url_for('maintenance.edit_maintenance', entry_id=entry.id) }}" class="btn btn-sm btn-outline-secondary border-0"><i class="fas fa-edit"></i></a>
                         <form action="{{ url_for('maintenance.delete_maintenance', entry_id=entry.id) }}" method="POST" class="d-inline" onsubmit="return confirm('この整備記録を削除してもよろしいですか？');">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                            <button type="submit" class="btn btn-sm btn-outline-danger" title="削除"><i class="fas fa-trash fa-fw"></i></button>
+                            <button type="submit" class="btn btn-sm btn-outline-danger border-0"><i class="fas fa-trash"></i></button>
                         </form>
                         <button class="btn btn-sm btn-info btn-share-misskey ms-1"
                                 data-type="maintenance"
@@ -203,88 +361,51 @@
                         </button>
                     </td>
                 </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7" class="text-center py-4 text-muted">記録がありません</td>
+                </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
-</div>
-
-{# =================================================================== #}
-{# ▼▼▼ スマートフォン向けカード表示 (d-block d-lg-none) - 新規追加 ▼▼▼ #}
-{# =================================================================== #}
-<div id="card-view-container" class="d-block d-lg-none">
-    {% for entry in entries %}
-    <div class="card mb-3 maintenance-log-card">
-        <div class="card-header fw-bold">
-            {{ entry.maintenance_date.strftime('%Y年%m月%d日') }}
-            <small class="text-muted fw-normal ms-2">{{ entry.motorcycle.name }}</small>
+    
+    {# --- ODO/実走行距離 表示切替スイッチ (テーブルモード用) --- #}
+    <div class="mt-2 d-flex justify-content-between align-items-center">
+        <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="odoDisplayToggle" role="switch">
+            <label class="form-check-label small text-muted" for="odoDisplayToggle" id="odoDisplayToggleLabel">ODOメーター値を表示 (OFFで実走行距離)</label>
         </div>
-        <div class="card-body">
-            <h5 class="card-title fs-6 fw-bold">
-                <span class="badge bg-info me-1">{{ entry.category if entry.category else 'その他' }}</span>
-                {{ entry.description }}
-            </h5>
-            
-            <div class="row mt-3">
-                <div class="col-6">
-                    <dl>
-                        <dt><i class="bi bi-speedometer2 me-2 text-primary"></i>走行距離</dt>
-                        <dd class="fs-5 distance-value-cell"
-                            data-odo-value="{{ entry.odometer_reading_at_maintenance }}"
-                            data-actual-value="{{ entry.total_distance_at_maintenance if entry.total_distance_at_maintenance is not none else entry.odometer_reading_at_maintenance }}">
-                            {{ "{:,}".format(entry.odometer_reading_at_maintenance) }}
-                        </dd>
-                    </dl>
-                </div>
-                <div class="col-6">
-                    <dl>
-                        <dt><i class="bi bi-currency-yen me-2 text-primary"></i>費用</dt>
-                        <dd>
-                           {% if entry.total_cost is not none %}
-                                <span class="fs-5">{{ "{:,}".format(entry.total_cost|round|int) }}</span> 円
-                           {% else %}
-                                -
-                           {% endif %}
-                        </dd>
-                    </dl>
-                </div>
-            </div>
 
-            {% if entry.notes %}
-            <dl class="mt-2">
-                <dt><i class="bi bi-card-text me-2 text-primary"></i>作業内容・メモ</dt>
-                <dd class="text-muted small" style="white-space: pre-wrap;">{{ entry.notes }}</dd>
-            </dl>
+        {# CSVエクスポートボタンなど #}
+        <div class="text-end">
+            {% set current_vehicle_id_str = request_args.get('vehicle_id') %}
+            {% if current_vehicle_id_str and current_vehicle_id_str != '' %}
+                {% set selected_vehicle_id = current_vehicle_id_str|int %}
+                {% set selected_vehicle = motorcycles|selectattr('id', 'equalto', selected_vehicle_id)|first %}
+                {% if selected_vehicle %}
+                <div class="btn-group">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#csvImportModal">
+                        <i class="fas fa-file-import me-1"></i> CSVインポート
+                    </button>
+                    <a href="{{ url_for('maintenance.export_maintenance_logs_csv', motorcycle_id=selected_vehicle_id) }}" class="btn btn-sm btn-outline-secondary">
+                        <i class="fas fa-file-csv me-1"></i> CSVエクスポート
+                    </a>
+                </div>
+                {% endif %}
+            {% elif motorcycles|length > 0 %}
+                <a href="{{ url_for('maintenance.export_all_maintenance_logs_csv') }}" class="btn btn-sm btn-outline-secondary">
+                    <i class="fas fa-download me-1"></i> 全車両CSVエクスポート
+                </a>
             {% endif %}
         </div>
-        <div class="card-footer bg-white text-end">
-            <a href="{{ url_for('maintenance.edit_maintenance', entry_id=entry.id) }}" class="btn btn-sm btn-outline-primary me-1" title="編集"><i class="fas fa-edit fa-fw"></i> 編集</a>
-            <form action="{{ url_for('maintenance.delete_maintenance', entry_id=entry.id) }}" method="POST" class="d-inline" onsubmit="return confirm('この整備記録を削除してもよろしいですか？');">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                <button type="submit" class="btn btn-sm btn-outline-danger" title="削除"><i class="fas fa-trash fa-fw"></i></button>
-            </form>
-            <button class="btn btn-sm btn-info btn-share-misskey ms-1"
-                    data-type="maintenance"
-                    data-vehicle-name="{{ entry.motorcycle.name }}"
-                    data-date="{{ entry.maintenance_date.isoformat() }}"
-                    data-odo="{{ entry.odometer_reading_at_maintenance }}"
-                    data-total-distance = "{{ entry.total_distance_at_maintenance if entry.total_distance_at_maintenance is not none else '' }}"
-                    data-category="{{ entry.category or '' }}"
-                    data-description="{{ entry.description }}"
-                    data-cost="{{ entry.total_cost|round|int if entry.total_cost else '' }}"
-                    data-location="{{ entry.location or '' }}"
-                    title="Misskeyで共有">
-                <i class="fa-solid fa-share-nodes fa-fw"></i>
-            </button>
-        </div>
     </div>
-    {% endfor %}
 </div>
 
 
-{# --- ページネーション --- #}
+{# --- ページネーション (共通) --- #}
 {% if pagination and pagination.pages > 1 %}
-<nav aria-label="Page navigation">
+<nav aria-label="Page navigation" class="mt-4">
     <ul class="pagination justify-content-center">
         <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
             <a class="page-link" href="{{ url_for('maintenance.maintenance_log', page=pagination.prev_num, **request_args) }}" aria-label="Previous">&laquo;</a>
@@ -305,11 +426,6 @@
 </nav>
 {% endif %}
 
-{% else %}
-<div class="alert alert-info" role="alert">
-  表示できる整備記録がありません。
-</div>
-{% endif %}
 {% endblock %}
 
 
@@ -318,70 +434,95 @@
 {{ super() }}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // ツールチップ初期化
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
     var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
         return new bootstrap.Tooltip(tooltipTriggerEl)
     });
 
-    {# =================================================================== #}
-    {# ▼▼▼ ここから追加 ▼▼▼ #}
-    {# --- UI表示切り替え機能 --- #}
-    const uiViewToggle = document.getElementById('uiViewToggle');
-    const cardViewContainer = document.getElementById('card-view-container');
-    const tableViewContainer = document.getElementById('table-view-container');
-    // キーをこのページ専用に変更
-    const viewModeKey = 'motopuppu-maintenance-view-mode';
+    // --- View Mode Toggle Logic (Fuel Log style) ---
+    const dashboardRadio = document.getElementById('viewModeDashboard');
+    const tableRadio = document.getElementById('viewModeTable');
+    const dashboardContainer = document.getElementById('view-dashboard-container');
+    const tableContainer = document.getElementById('view-table-container');
+    
+    // localStorage key for persistence
+    const STORAGE_KEY = 'motopuppu_maintenance_view_pref';
 
-    // スマホ表示のときだけ実行 (画面幅がBootstrapのlgブレークポイント未満)
-    if (window.innerWidth < 992) {
-        
-        // 表示を更新する関数
-        const setView = (isListView) => {
-            if (isListView) {
-                // リスト表示 (テーブル) にする
-                cardViewContainer.classList.remove('d-block');
-                cardViewContainer.classList.add('d-none');
-                tableViewContainer.classList.remove('d-none');
-                tableViewContainer.classList.add('d-block');
-                
-                if (uiViewToggle) uiViewToggle.checked = true;
-                localStorage.setItem(viewModeKey, 'list');
-            } else {
-                // カード表示 (デフォルト) にする
-                tableViewContainer.classList.remove('d-block');
-                tableViewContainer.classList.add('d-none');
-                cardViewContainer.classList.remove('d-none');
-                cardViewContainer.classList.add('d-block');
+    function setViewMode(mode) {
+        if (mode === 'dashboard') {
+            dashboardContainer.classList.remove('d-none');
+            tableContainer.classList.add('d-none');
+            dashboardRadio.checked = true;
+            localStorage.setItem(STORAGE_KEY, 'dashboard');
+        } else {
+            dashboardContainer.classList.add('d-none');
+            tableContainer.classList.remove('d-none');
+            tableRadio.checked = true;
+            localStorage.setItem(STORAGE_KEY, 'table');
+        }
+    }
 
-                if (uiViewToggle) uiViewToggle.checked = false;
-                localStorage.setItem(viewModeKey, 'card');
+    // Initial Load
+    const savedMode = localStorage.getItem(STORAGE_KEY) || 'dashboard'; // Default to dashboard
+    setViewMode(savedMode);
+
+    // Event Listeners
+    if (dashboardRadio) dashboardRadio.addEventListener('change', () => setViewMode('dashboard'));
+    if (tableRadio) tableRadio.addEventListener('change', () => setViewMode('table'));
+
+
+    // --- ODO Toggle Logic (Adapted for new structure) ---
+    const odoToggle = document.getElementById('odoDisplayToggle');
+    const odoLabel = document.getElementById('odoDisplayToggleLabel');
+    const distHeader = document.getElementById('distance_header');
+
+    if (odoToggle) {
+        const toggleDistDisplay = () => {
+            const isOdo = odoToggle.checked;
+            const cells = document.querySelectorAll('.distance-value-cell');
+            
+            cells.forEach(cell => {
+                const val = isOdo ? cell.dataset.odoValue : cell.dataset.actualValue;
+                // カンマ区切りフォーマット
+                cell.textContent = parseInt(val).toLocaleString();
+                // ダッシュボード表示のときは " km" をつける
+                if (cell.classList.contains('fw-bold')) { // 簡易的な判定: ダッシュボード側はfw-boldがついている
+                     cell.textContent += ' km';
+                }
+            });
+
+            if (odoLabel) odoLabel.textContent = isOdo ? "ODOメーター値を表示 (ON)" : "実走行距離を表示 (OFF)";
+            
+            // テーブルヘッダーの書き換え
+            if (distHeader) {
+                const iconHtml = '<i class="bi bi-speedometer2 me-2"></i>';
+                const text = isOdo ? "ODO (km)" : "実走行 (km)";
+                // ソートアイコンが含まれている可能性があるので、単純置換は注意が必要だが、
+                // sortable_thマクロを使っている場合、中のspan.header-textを書き換えるのが安全
+                const headerTextSpan = distHeader.querySelector('.header-text');
+                if (headerTextSpan) {
+                    headerTextSpan.innerHTML = iconHtml + text;
+                }
             }
         };
 
-        // ページ読み込み時にlocalStorageの設定を復元
-        const savedViewMode = localStorage.getItem(viewModeKey);
-        if (savedViewMode === 'list') {
-            setView(true);
-        } else {
-            // デフォルトはカード表示なので、明示的に設定
-            setView(false); 
-        }
-
-        // トグルスイッチのイベントリスナー
-        if (uiViewToggle) {
-            uiViewToggle.addEventListener('change', function() {
-                setView(this.checked);
-            });
-        }
+        odoToggle.addEventListener('change', toggleDistDisplay);
+        // 初期状態適用 (デフォルトOFF=実走行距離, HTML側はODO表示でレンダリングされていることが多いので調整)
+        // ここではHTMLの初期レンダリングがODOなので、トグルONをデフォルトとして扱うか、
+        // あるいはHTML側でdatasetを使ってJSで即時書き換えるか。
+        // シンプルにするため、ページロード時はHTMLのまま(ODO)とし、トグルもOFF(checked=false)なら実走行へ切り替える処理を入れる
+        
+        // もし前回状態を保存したい場合はlocalStorageを使うが、今回は省略
+        // デフォルトはODO表示(checked=true状態にしたいならHTMLでchecked属性をつけるが、今回はJSで制御)
+        odoToggle.checked = true; 
+        toggleDistDisplay(); 
     }
-    {# ▲▲▲ ここまで追加 ▲▲▲ #}
-    {# =================================================================== #}
 });
 </script>
 <script src="{{ url_for('static', filename='js/filter_persistence.js') }}"></script>
 {% endblock %}
 
-{# ▼▼▼ modals ブロックを追記 ▼▼▼ #}
 {% block modals %}
 {{ super() }}
 {# --- CSVインポート用モーダル --- #}
@@ -440,4 +581,3 @@ document.addEventListener('DOMContentLoaded', function() {
     {% endif %}
 {% endif %}
 {% endblock %}
-{# ▲▲▲ 追記ここまで ▲▲▲ #}

@@ -3,12 +3,10 @@ from flask import (
     Blueprint, flash, redirect, render_template, request, url_for, abort, current_app, jsonify
 )
 from datetime import date, timezone, datetime 
-from sqlalchemy import or_
+from sqlalchemy import or_, func
 import json
 
-# ▼▼▼ インポート文を修正 ▼▼▼
 from flask_login import login_required, current_user
-# ▲▲▲ 変更ここまで ▲▲▲
 from ..models import db, Motorcycle, GeneralNote
 from ..forms import NoteForm
 from ..constants import NOTE_CATEGORIES, MAX_TODO_ITEMS
@@ -19,17 +17,16 @@ from .. import limiter
 notes_bp = Blueprint('notes', __name__, url_prefix='/notes')
 
 @notes_bp.route('/')
-@login_required # ▼▼▼ デコレータを修正 ▼▼▼
+@login_required
 def notes_log():
     page = request.args.get('page', 1, type=int)
     per_page = current_app.config.get('NOTES_PER_PAGE', 20)
-    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
+    
     user_motorcycles = Motorcycle.query.filter_by(user_id=current_user.id).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
     user_motorcycle_ids = [m.id for m in user_motorcycles]
 
     request_args_dict = {k: v for k, v in request.args.items() if k != 'page'}
     query = GeneralNote.query.filter_by(user_id=current_user.id)
-    # ▲▲▲ 変更ここまで ▲▲▲
 
     start_date_str = request.args.get('start_date')
     end_date_str = request.args.get('end_date')
@@ -37,6 +34,7 @@ def notes_log():
     keyword = request.args.get('q', '').strip()
     category_filter = request.args.get('category')
 
+    # --- フィルタリング適用 ---
     try:
         if start_date_str: query = query.filter(GeneralNote.note_date >= date.fromisoformat(start_date_str))
         if end_date_str: query = query.filter(GeneralNote.note_date <= date.fromisoformat(end_date_str))
@@ -64,6 +62,25 @@ def notes_log():
     elif category_filter:
         flash('無効なカテゴリフィルターが指定されました。', 'warning'); request_args_dict.pop('category', None)
 
+    # --- 統計情報の計算 (ページネーション前) ---
+    summary_stats = {
+        'total_count': 0,
+        'note_count': 0,
+        'task_count': 0
+    }
+    try:
+        # カテゴリごとの件数を取得
+        stats_query = query.with_entities(GeneralNote.category, func.count(GeneralNote.id)).group_by(GeneralNote.category).all()
+        for cat, count in stats_query:
+            if cat == 'note':
+                summary_stats['note_count'] = count
+            elif cat == 'task':
+                summary_stats['task_count'] = count
+        summary_stats['total_count'] = summary_stats['note_count'] + summary_stats['task_count']
+    except Exception as e:
+        current_app.logger.error(f"Error calculating notes summary: {e}")
+
+    # --- クエリ実行 ---
     pagination = query.order_by(GeneralNote.note_date.desc(), GeneralNote.created_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
     entries = pagination.items
     
@@ -74,15 +91,14 @@ def notes_log():
                            motorcycles=user_motorcycles, request_args=request_args_dict,
                            allowed_categories_for_template=[{'value': val, 'display': disp} for val, disp in NOTE_CATEGORIES],
                            selected_category=category_filter,
-                           is_filter_active=is_filter_active)
+                           is_filter_active=is_filter_active,
+                           summary_stats=summary_stats) # 統計情報を追加
 
 @notes_bp.route('/add', methods=['GET', 'POST'])
 @limiter.limit("30 per hour")
-@login_required # ▼▼▼ デコレータを修正 ▼▼▼
+@login_required
 def add_note():
-    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
     user_motorcycles = Motorcycle.query.filter_by(user_id=current_user.id).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
-    # ▲▲▲ 変更ここまで ▲▲▲
     form = NoteForm()
     form.motorcycle_id.choices = [(0, '-- 車両に紐付けない --')] + [(m.id, m.name) for m in user_motorcycles]
 
@@ -96,9 +112,7 @@ def add_note():
             form.motorcycle_id.data = preselected_motorcycle_id
 
     if form.validate_on_submit():
-        # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
         new_note = GeneralNote(user_id=current_user.id)
-        # ▲▲▲ 変更ここまで ▲▲▲
         selected_motorcycle_id = form.motorcycle_id.data
         new_note.motorcycle_id = selected_motorcycle_id if selected_motorcycle_id != 0 else None
         new_note.note_date = form.note_date.data
@@ -128,17 +142,13 @@ def add_note():
             flash('ノートを追加しました。', 'success')
 
             event_data_for_ach = {'new_note_id': new_note.id, 'category': new_note.category}
-            # ▼▼▼ g.user を current_user に変更 ▼▼▼
             check_achievements_for_event(current_user, EVENT_ADD_NOTE, event_data=event_data_for_ach)
-            # ▲▲▲ 変更ここまで ▲▲▲
 
             return redirect(url_for('notes.notes_log'))
         except Exception as e:
             db.session.rollback()
-            # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
             flash(f'ノートの保存中にエラーが発生しました: {e}', 'error')
             current_app.logger.error(f"Error saving new general note for user {current_user.id}: {e}", exc_info=True)
-            # ▲▲▲ 変更ここまで ▲▲▲
 
     elif request.method == 'POST': 
         form.motorcycle_id.choices = [(0, '-- 車両に紐付けない --')] + [(m.id, m.name) for m in user_motorcycles]
@@ -154,12 +164,10 @@ def add_note():
 
 @notes_bp.route('/<int:note_id>/edit', methods=['GET', 'POST'])
 @limiter.limit("30 per hour")
-@login_required # ▼▼▼ デコレータを修正 ▼▼▼
+@login_required
 def edit_note(note_id):
-    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
     note = GeneralNote.query.filter_by(id=note_id, user_id=current_user.id).first_or_404()
     user_motorcycles = Motorcycle.query.filter_by(user_id=current_user.id).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
-    # ▲▲▲ 変更ここまで ▲▲▲
     form = NoteForm(obj=note)
     form.motorcycle_id.choices = [(0, '-- 車両に紐付けない --')] + [(m.id, m.name) for m in user_motorcycles]
 
@@ -223,11 +231,9 @@ def edit_note(note_id):
 
 @notes_bp.route('/<int:note_id>/delete', methods=['POST'])
 @limiter.limit("30 per hour")
-@login_required # ▼▼▼ デコレータを修正 ▼▼▼
+@login_required
 def delete_note(note_id):
-    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
     note = GeneralNote.query.filter_by(id=note_id, user_id=current_user.id).first_or_404()
-    # ▲▲▲ 変更ここまで ▲▲▲
     try:
         db.session.delete(note)
         db.session.commit()
