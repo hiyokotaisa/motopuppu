@@ -68,9 +68,11 @@
  #telemetry-main {
     min-width: 0;
  }
- #mapContainer {
+ /* ▼▼▼ 修正: #mapContainer -> #map ▼▼▼ */
+ #map {
     min-height: 200px;
  }
+ /* ▲▲▲ 修正ここまで ▲▲▲ */
  .chart-container {
     position: relative;
     min-height: 0;
@@ -101,9 +103,11 @@
         display: flex;
         flex-direction: column;
     }
-    #mapContainer {
+    /* ▼▼▼ 修正: #mapContainer -> #map ▼▼▼ */
+    #map {
         flex-grow: 1;
     }
+    /* ▲▲▲ 修正ここまで ▲▲▲ */
     #telemetry-graphs {
         flex-shrink: 0;
         height: 300px;
@@ -134,9 +138,11 @@
         flex-direction: column;
         height: calc(100vh - 150px); /* 画面の高さいっぱいを使うように調整 */
     }
-    #mapContainer {
+    /* ▼▼▼ 修正: #mapContainer -> #map ▼▼▼ */
+    #map {
         flex-grow: 1;
     }
+    /* ▲▲▲ 修正ここまで ▲▲▲ */
     #telemetry-graphs {
         flex-shrink: 0;
         height: 300px; /* グラフエリアの高さは維持 */
@@ -661,7 +667,7 @@
                 </div>
             </div>
             <div id="telemetry-main">
-                <div id="mapContainer">
+                <div id="map">
                     <div class="d-flex justify-content-center align-items-center h-100">
                         <div class="spinner-border" role="status">
                             <span class="visually-hidden">Loading...</span>
