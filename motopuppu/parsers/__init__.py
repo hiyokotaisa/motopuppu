@@ -1,24 +1,26 @@
 # motopuppu/parsers/__init__.py
 from .base_parser import BaseLapTimeParser
-from .ziix_parser import ZiixParser
-from .mylaps_parser import MylapsParser
-# --- ▼▼▼ 変更 ▼▼▼ ---
-from .simple_csv_parser import SimpleCsvParser
-# --- ▲▲▲ 変更ここまで ▲▲▲ ---
+from .simple_csv_parser import SimpleCsvParser  # SimpleCSVParser -> SimpleCsvParser に修正
+from .ziix_parser import ZiixParser             # ZiiXParser -> ZiixParser に修正
+from .mylaps_parser import MylapsParser         # MyLapsParser -> MylapsParser に修正
 from .drogger_parser import DroggerParser
+from .racechrono_parser import RaceChronoParser
 
-# マッピングを定義
 PARSERS = {
-    # --- ▼▼▼ 変更 ▼▼▼ ---
     'simple_csv': SimpleCsvParser,
-    # --- ▲▲▲ 変更ここまで ▲▲▲ ---
     'ziix': ZiixParser,
     'mylaps': MylapsParser,
     'drogger': DroggerParser,
+    'racechrono': RaceChronoParser,
 }
 
-def get_parser(device_type: str) -> BaseLapTimeParser:
+def get_parser(device_type) -> BaseLapTimeParser:
+    """
+    指定されたデバイスタイプに対応するパーサークラスのインスタンスを返す
+    """
     parser_class = PARSERS.get(device_type)
-    if not parser_class:
-        raise ValueError(f"サポートされていない機種です: {device_type}")
-    return parser_class()
+    if parser_class:
+        return parser_class()
+    
+    # デフォルトまたは該当なしの場合はNoneを返す（呼び出し元で処理）
+    return None

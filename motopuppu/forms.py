@@ -489,7 +489,8 @@ class LapTimeImportForm(FlaskForm):
             ('simple_csv', '手入力 / シンプルCSV'),
             ('ziix', 'ZiiX'),
             ('mylaps', 'MYLAPS(Speedhive)'),
-            ('drogger', 'Drogger')
+            ('drogger', 'Drogger'),
+            ('racechrono', 'RaceChrono (v3 CSV)') # 追加: RaceChronoを選択肢に追加
         ],
         validators=[DataRequired(message="機種を選択してください。")]
     )
@@ -701,7 +702,6 @@ class ParticipantForm(FlaskForm):
             Length(max=20, message='お名前は20文字以内で入力してください。')
         ]
     )
-    # ▼▼▼【ここから追記】▼▼▼
     vehicle_name = StringField(
         '車種 (任意)',
         validators=[
@@ -710,7 +710,6 @@ class ParticipantForm(FlaskForm):
         ],
         render_kw={"placeholder": "例: YZF-R1 / 徒歩"}
     )
-    # ▲▲▲【追記ここまで】▲▲▲
     comment = StringField(
         '一言コメント (任意)',
         validators=[
