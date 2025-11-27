@@ -27,19 +27,18 @@ window.motopuppuMapViewer = {
         let playbackStartOffset = 0;
         let lapStartTime = 0;
         
-        // ▼▼▼ 追加: パフォーマンス最適化用変数 ▼▼▼
+        // パフォーマンス最適化用変数
         let lastPlaybackIndex = 0;
-        let lastChartUpdateIndex = -1;
+        
+        // ▼▼▼ 追加: チャート更新間引き用の時間管理変数 ▼▼▼
+        let lastChartUpdateTime = 0;
+        const CHART_UPDATE_INTERVAL = 100; // ミリ秒 (0.1秒に1回更新)
         // ▲▲▲ 追加ここまで ▲▲▲
 
         // --- 関数定義 (内部ヘルパー) ---
         function initializeMap(containerId) {
             const mapContainer = document.getElementById(containerId);
             if (!mapContainer || typeof google === 'undefined') return null;
-            
-            // ▼▼▼ 修正: HTML側に構造を作ったのでinnerHTMLクリアはしない ▼▼▼
-            // mapContainer.innerHTML = '';
-            // ▲▲▲ 修正ここまで ▲▲▲
             
             return new google.maps.Map(mapContainer, {
                 mapTypeId: 'satellite', streetViewControl: false, mapTypeControl: false, fullscreenControl: false,
@@ -291,44 +290,48 @@ window.motopuppuMapViewer = {
         }
 
 
-        function updateDashboard(index) {
+        // ▼▼▼ 修正: indexとratioを受け取り、チャート更新を間引くロジックを追加 ▼▼▼
+        function updateDashboard(index, ratio = 0) {
             if (!currentLapData || index < 0 || index >= currentLapData.track.length) return;
-            const point = currentLapData.track[index];
-            if (bikeMarker) { bikeMarker.setPosition({ lat: point.lat, lng: point.lng }); }
             
-            const gearDisplay = container.querySelector('#currentGearDisplay');
-            if (gearDisplay) {
-                const currentGear = smoothedGears[index];
-                gearDisplay.textContent = currentGear !== null ? currentGear : 'N';
-            }
+            // --- 1. マーカー位置の計算（補間あり：毎フレーム実行） ---
+            const p1 = currentLapData.track[index];
+            const p2 = currentLapData.track[index + 1] || p1; 
 
-            // ▼▼▼ 追加: HUDオーバーレイの更新処理 ▼▼▼
+            // 緯度経度の線形補間 (Linear Interpolation)
+            const lat = p1.lat + (p2.lat - p1.lat) * ratio;
+            const lng = p1.lng + (p2.lng - p1.lng) * ratio;
+
+            if (bikeMarker) { 
+                bikeMarker.setPosition({ lat: lat, lng: lng }); 
+            }
+            
+            // --- 2. HUD表示の計算（補間あり：毎フレーム実行） ---
+            const speed = (p1.speed || 0) + ((p2.speed || 0) - (p1.speed || 0)) * ratio;
+            const rpm = (p1.rpm || 0) + ((p2.rpm || 0) - (p1.rpm || 0)) * ratio;
+
+            // HUDオーバーレイの更新
             const hudOverlay = container.querySelector('#hud-overlay');
             if (hudOverlay) {
                 hudOverlay.classList.remove('d-none');
                 
-                // ギア
                 const currentGear = smoothedGears[index];
                 const hudGearEl = container.querySelector('#hud-gear');
                 if (hudGearEl) hudGearEl.textContent = currentGear !== null ? currentGear : '-';
                 
-                // 速度 (小数点以下四捨五入)
                 const hudSpeedEl = container.querySelector('#hud-speed');
-                if (hudSpeedEl) hudSpeedEl.textContent = Math.round(point.speed || 0);
+                if (hudSpeedEl) hudSpeedEl.textContent = Math.round(speed);
                 
-                // RPMバー
                 const hudRpmEl = container.querySelector('#hud-rpm-val');
                 const hudRpmBar = container.querySelector('#hud-rpm-bar');
                 if (hudRpmEl && hudRpmBar) {
-                    const rpm = Math.round(point.rpm || 0);
-                    hudRpmEl.textContent = rpm;
+                    const rpmVal = Math.round(rpm);
+                    hudRpmEl.textContent = rpmVal;
                     
-                    // 最大回転数を仮定して割合を計算 (例: 14000rpm)
                     const maxRpm = 14000; 
-                    const percentage = Math.min((rpm / maxRpm) * 100, 100);
+                    const percentage = Math.min((rpmVal / maxRpm) * 100, 100);
                     hudRpmBar.style.width = `${percentage}%`;
                     
-                    // 高回転域で色を変える演出
                     if (percentage > 85) {
                         hudRpmBar.className = 'progress-bar bg-danger';
                     } else {
@@ -336,29 +339,46 @@ window.motopuppuMapViewer = {
                     }
                 }
             }
-            // ▲▲▲ 追加ここまで ▲▲▲
+            
+            const gearDisplay = container.querySelector('#currentGearDisplay');
+            if (gearDisplay) {
+                const currentGear = smoothedGears[index];
+                gearDisplay.textContent = currentGear !== null ? currentGear : 'N';
+            }
 
-            // ▼▼▼ 修正: チャート更新の間引き処理 ▼▼▼
-            if (index !== lastChartUpdateIndex) {
+            // --- 3. チャート・スクラバーの更新（時間間引きあり） ---
+            // 現在時刻を取得
+            const now = Date.now();
+            
+            // 前回の更新から一定時間（100ms）経過しているか、または再生停止中（強制更新）の場合のみ実行
+            if (now - lastChartUpdateTime > CHART_UPDATE_INTERVAL || !isPlaying) {
+                
                 Object.values(charts).forEach(chart => {
                     if (chart) {
-                        chart.options.plugins.annotation.annotations.line1.value = index;
+                        chart.options.plugins.annotation.annotations.line1.value = index + ratio; // 補間位置も反映
                         chart.options.plugins.annotation.annotations.line1.display = true;
-                        chart.update('none');
+                        chart.update('none'); // アニメーションなしで高速更新
                     }
                 });
-                lastChartUpdateIndex = index;
-            }
-            // ▲▲▲ 修正ここまで ▲▲▲
+                
+                const scrubber = container.querySelector('#timelineScrubber');
+                if (scrubber) { 
+                    scrubber.value = index; 
+                }
+                
+                const timeDisplay = container.querySelector('#playbackTime');
+                if (timeDisplay) {
+                    const currentRuntime = (p1.runtime || 0) + ((p2.runtime || 0) - (p1.runtime || 0)) * ratio;
+                    const intraLapTime = currentRuntime - lapStartTime;
+                    timeDisplay.textContent = formatRuntime(intraLapTime);
+                }
 
-            const scrubber = container.querySelector('#timelineScrubber');
-            if (scrubber) { scrubber.value = index; }
-            const timeDisplay = container.querySelector('#playbackTime');
-            if (timeDisplay) {
-                const intraLapTime = (point.runtime || 0) - lapStartTime;
-                timeDisplay.textContent = formatRuntime(intraLapTime);
+                // 更新時刻を記録
+                lastChartUpdateTime = now;
             }
         }
+        // ▲▲▲ 修正ここまで ▲▲▲
+
         function playLoop() {
             if (!isPlaying) return;
             const elapsedTime = (Date.now() - playbackStartTime) / 1000 + playbackStartOffset;
@@ -370,32 +390,50 @@ window.motopuppuMapViewer = {
                 return;
             }
 
-            // ▼▼▼ 修正: 検索開始位置を最適化 (前回のインデックスから開始) ▼▼▼
+            // ▼▼▼ 修正: 検索ロジックを「区間探索」に変更し、ratioを計算する ▼▼▼
             let currentIndex = lastPlaybackIndex;
-            // 安全のため、配列の範囲内かつ時間が戻っていないかチェック
-            if (currentIndex >= currentLapData.track.length || (currentLapData.track[currentIndex] && currentLapData.track[currentIndex].runtime > elapsedTime)) {
+            
+            // 安全策: インデックスが範囲外や、時間が戻った場合はリセット
+            if (currentIndex >= currentLapData.track.length - 1 || (currentLapData.track[currentIndex] && currentLapData.track[currentIndex].runtime > elapsedTime)) {
                 currentIndex = 0;
             }
 
-            for (let i = currentIndex; i < currentLapData.track.length; i++) {
-                if (currentLapData.track[i].runtime >= elapsedTime) {
+            // elapsedTime が含まれる区間 [i, i+1] を探す
+            for (let i = currentIndex; i < currentLapData.track.length - 1; i++) {
+                const pNow = currentLapData.track[i];
+                const pNext = currentLapData.track[i + 1];
+                
+                if (pNow.runtime <= elapsedTime && elapsedTime < pNext.runtime) {
                     currentIndex = i;
                     break;
                 }
             }
+            
             lastPlaybackIndex = currentIndex; // 次回のために保存
-            // ▲▲▲ 修正ここまで ▲▲▲
 
-            updateDashboard(currentIndex);
+            // 補間係数 (ratio) の計算: 0.0 〜 1.0
+            const p1 = currentLapData.track[currentIndex];
+            const p2 = currentLapData.track[currentIndex + 1];
+            let ratio = 0;
+            
+            if (p1 && p2 && (p2.runtime - p1.runtime) > 0) {
+                ratio = (elapsedTime - p1.runtime) / (p2.runtime - p1.runtime);
+            }
+            
+            if (ratio < 0) ratio = 0;
+            if (ratio > 1) ratio = 1;
+
+            updateDashboard(currentIndex, ratio); // 補間係数を渡す
             animationFrameId = requestAnimationFrame(playLoop);
+            // ▲▲▲ 修正ここまで ▲▲▲
         }
+
         function startPlayback() {
             if (isPlaying || !currentLapData) return;
             isPlaying = true;
             const scrubber = container.querySelector('#timelineScrubber');
             const currentIndex = parseInt(scrubber.value, 10);
             
-            // 再生開始時のインデックスを保存
             lastPlaybackIndex = currentIndex;
             
             playbackStartOffset = currentLapData.track[currentIndex]?.runtime || 0;
@@ -412,30 +450,25 @@ window.motopuppuMapViewer = {
             const scrubber = container.querySelector('#timelineScrubber');
             const currentIndex = parseInt(scrubber.value, 10);
             
-            // 停止時のインデックスを保存
             lastPlaybackIndex = currentIndex;
             
             if (currentLapData) { playbackStartOffset = currentLapData.track[currentIndex]?.runtime || 0; }
+            
+            // 停止時は即座に画面更新（間引きを無視して最終位置を表示）
+            updateDashboard(currentIndex);
         }
 
         // --- メイン処理 ---
         const telemetrySessionName = container.querySelector('#telemetrySessionName');
         if (telemetrySessionName) telemetrySessionName.textContent = sessionName;
         
-        // ▼▼▼ 修正: mapContainerではなく、内側の 'map' ID を取得してスピナー操作 ▼▼▼
         const mapContainerEl = container.querySelector('#map');
-        // ▲▲▲ 修正ここまで ▲▲▲
         
         const lapSelectorContainer = container.querySelector('#lapSelectorContainer');
-        // ▼▼▼ 修正: HTML側でスピナーを配置したのでinnerHTMLクリアは削除 ▼▼▼
-        // mapContainerEl.innerHTML = ...; 
-        // ▲▲▲ 修正ここまで ▲▲▲
         
         if (lapSelectorContainer) lapSelectorContainer.innerHTML = `<p class="text-muted">走行データを読み込んでいます...</p>`;
         
-        // ▼▼▼ 修正: initializeMapには、地図用のdivのID 'map' を渡す ▼▼▼
         if (!map) { map = initializeMap('map'); }
-        // ▲▲▲ 修正ここまで ▲▲▲
         
         try {
             const response = await fetch(dataUrl);
@@ -443,9 +476,7 @@ window.motopuppuMapViewer = {
             const data = await response.json();
             
             if (!data.laps || data.laps.length === 0 || !data.lap_times || data.lap_times.length === 0) {
-                // ▼▼▼ 修正: mapContainerElのスピナーを消去 ▼▼▼
                 if(mapContainerEl) mapContainerEl.innerHTML = '';
-                // ▲▲▲ 修正ここまで ▲▲▲
                 if(lapSelectorContainer) lapSelectorContainer.innerHTML = `<div class="alert alert-warning">データがありません。</div>`;
                 return;
             }
@@ -487,14 +518,13 @@ window.motopuppuMapViewer = {
                 
                 // 変数リセット
                 lastPlaybackIndex = 0;
+                lastChartUpdateTime = 0;
                 lastChartUpdateIndex = -1;
 
                 currentLapData = data.laps[lapIndex];
                 if (!currentLapData || !currentLapData.track || currentLapData.track.length < 2) return;
                 
-                // ▼▼▼ 修正: 地図用には軽量化データ(map_track)を優先使用 ▼▼▼
                 const mapTrackData = currentLapData.map_track || currentLapData.track;
-                // ▲▲▲ 修正ここまで ▲▲▲
 
                 lapStartTime = currentLapData.track[0]?.runtime || 0;
                 polylines.flat().forEach(p => p.setMap(null));
@@ -511,7 +541,6 @@ window.motopuppuMapViewer = {
                 mapTrackData.forEach(p => bounds.extend(p));
                 if (map && !bounds.isEmpty()) { map.fitBounds(bounds); }
                 
-                // 軽量データで描画
                 polylines = drawLapPolyline(mapTrackData, minSpeed, maxSpeed, map);
                 
                 const { brakingPoints, accelPoints } = findSignificantPoints(currentLapData.track);
@@ -590,10 +619,7 @@ window.motopuppuMapViewer = {
                 scrubber.addEventListener('input', (e) => {
                     stopPlayback(); 
                     const newIndex = parseInt(e.target.value, 10);
-                    
-                    // 手動スクラブ時はlastIndexも更新
                     lastPlaybackIndex = newIndex;
-                    
                     updateDashboard(newIndex);
                     playbackStartOffset = currentLapData.track[newIndex]?.runtime || 0;
                 });
@@ -648,9 +674,7 @@ window.motopuppuMapViewer = {
 
         } catch (error) {
             console.error('Error:', error);
-            // ▼▼▼ 修正: mapContainerElのスピナーを消去 ▼▼▼
             if(mapContainerEl) mapContainerEl.innerHTML = '';
-            // ▲▲▲ 修正ここまで ▲▲▲
             if(lapSelectorContainer) lapSelectorContainer.innerHTML = `<div class="alert alert-danger">データの読み込みに失敗しました。</div>`;
         }
     }
