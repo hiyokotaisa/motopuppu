@@ -270,9 +270,14 @@
                         <div>
                             <a href="{{ url_for('fuel.edit_fuel', entry_id=entry.id) }}" class="btn btn-sm btn-link text-decoration-none text-secondary p-0 me-3">編集</a>
                             <button class="btn btn-sm btn-link text-decoration-none text-info p-0 btn-share-misskey" 
-                                    data-type="fuel" data-vehicle-name="{{ entry.motorcycle.name }}"
-                                    data-date="{{ entry.entry_date.isoformat() }}" data-odo="{{ entry.odometer_reading }}"
-                                    data-kpl="{{ entry.km_per_liter if entry.km_per_liter is not none else '' }}">
+                                    data-type="fuel" 
+                                    data-vehicle-name="{{ entry.motorcycle.name }}"
+                                    data-date="{{ entry.entry_date.isoformat() }}" 
+                                    data-odo="{{ entry.odometer_reading }}"
+                                    data-volume="{{ entry.fuel_volume }}"
+                                    data-kpl="{{ entry.km_per_liter if entry.km_per_liter is not none else '' }}"
+                                    data-cost="{{ entry.total_cost|round|int if entry.total_cost is not none else '' }}"
+                                    data-station="{{ entry.station_name or '' }}">
                                 <i class="fas fa-share-alt"></i>
                             </button>
                         </div>
