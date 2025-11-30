@@ -131,7 +131,13 @@ class FuelEntry(db.Model):
             return None
 
         distance_diff = self.total_distance - prev_entry.total_distance
-        fuel_consumed = self.fuel_volume
+        
+        # 区間内の合計給油量を算出 (途中給油を含む)
+        fuel_consumed = db.session.query(func.sum(FuelEntry.fuel_volume)).filter(
+            FuelEntry.motorcycle_id == self.motorcycle_id,
+            FuelEntry.total_distance > prev_entry.total_distance,
+            FuelEntry.total_distance <= self.total_distance
+        ).scalar()
 
         if fuel_consumed is not None and fuel_consumed > 0 and distance_diff > 0:
             try:
