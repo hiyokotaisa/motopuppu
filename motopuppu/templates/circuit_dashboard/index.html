@@ -159,8 +159,15 @@
                     
                     {# ヘッダー: サーキット名とランク #}
                     <div class="d-flex justify-content-between align-items-start mb-2 position-relative">
-                        <h5 class="card-title fw-bold mb-0 text-truncate" style="max-width: 70%;" title="{{ circuit.name }}">
+                        <h5 class="card-title fw-bold mb-0 text-truncate" style="max-width: 85%;" title="{{ circuit.name }}">
                             {{ circuit.name }}
+                            {# ▼▼▼ 修正: 公式サイトリンクをここに配置 ▼▼▼ #}
+                            {% if circuit.metadata.url %}
+                                <a href="{{ circuit.metadata.url }}" target="_blank" class="ms-1 text-decoration-none text-muted small" title="公式サイトへ">
+                                    <i class="fas fa-external-link-alt fa-xs"></i>
+                                </a>
+                            {% endif %}
+                            {# ▲▲▲ 修正ここまで ▲▲▲ #}
                         </h5>
                         
                         {% if circuit.leaderboard.rank %}
@@ -211,7 +218,7 @@
                         {% endif %}
                     </div>
 
-                    {# 【追加】Latest情報とトレンド #}
+                    {# Latest情報とトレンド #}
                     {% if circuit.latest_session and circuit.latest_session.id != circuit.best_session.id %}
                         <div class="bg-light rounded p-2 mb-2 d-flex justify-content-between align-items-center">
                             <div>
@@ -237,6 +244,78 @@
                             {% endif %}
                         </div>
                     {% endif %}
+
+                    {# ▼▼▼ 追加・修正: 天気予報と走行スケジュール（機能強化版） ▼▼▼ #}
+                    <div class="row g-0 mt-3 border-top pt-3">
+                        
+                        {# 左側: 天気予報 (HTMX Lazy Load) #}
+                        <div class="col-12 mb-3">
+                            <h6 class="text-muted fw-bold small text-uppercase mb-2">
+                                <i class="fas fa-cloud-sun me-1"></i> Forecast
+                            </h6>
+                            {% if circuit.weather_endpoint %}
+                                <div hx-get="{{ circuit.weather_endpoint }}" hx-trigger="load" hx-swap="innerHTML">
+                                    <div class="text-center py-2 text-muted">
+                                        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                    </div>
+                                </div>
+                            {% else %}
+                                <div class="text-muted small fst-italic">
+                                    位置情報未登録
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        {# 右側: 走行枠 (1週間分・コース名と入門枠表示) #}
+                        {# ▼▼▼ 修正: データがある場合のみ表示 ▼▼▼ #}
+                        {% if circuit.upcoming_schedules %}
+                        <div class="col-12">
+                            <h6 class="text-muted fw-bold small text-uppercase mb-2">
+                                <i class="fas fa-calendar-alt me-1"></i> Schedule (1 Week)
+                            </h6>
+                            
+                            <div class="d-flex flex-wrap gap-2">
+                                {% for schedule in circuit.upcoming_schedules %}
+                                    {# 日付とボタンをセットにしたバッジ #}
+                                    <div class="d-flex align-items-center bg-light border rounded px-2 py-1" style="font-size: 0.8rem;">
+                                        
+                                        {# 日付・曜日 #}
+                                        <div class="me-2">
+                                            <span class="fw-bold text-dark">{{ schedule.date.strftime('%m/%d') }}</span>
+                                            <span class="text-muted small">({{ ['月','火','水','木','金','土','日'][schedule.date.weekday()] }})</span>
+                                        </div>
+
+                                        {# コース名・内訳ラベル #}
+                                        {% if schedule.course_label %}
+                                            <span class="badge bg-secondary text-white me-2" style="font-size: 0.7rem;">{{ schedule.course_label }}</span>
+                                        {% endif %}
+
+                                        {# 入門枠バッジ #}
+                                        {% if schedule.has_beginner %}
+                                            <span class="badge bg-success text-white me-2" style="font-size: 0.7rem;" title="入門枠あり">入門</span>
+                                        {% endif %}
+                                        
+                                        {# ログ作成ボタン #}
+                                        {% if circuit.latest_vehicle_id %}
+                                            <a href="{{ url_for('activity.add_activity', 
+                                                        vehicle_id=circuit.latest_vehicle_id,
+                                                        activity_date=schedule.date.strftime('%Y-%m-%d'),
+                                                        location_type='circuit',
+                                                        circuit_name=schedule.circuit_full_name) }}" 
+                                               class="text-decoration-none text-primary" 
+                                               title="この日のログを作成">
+                                                <i class="fas fa-pen-square fa-lg"></i>
+                                            </a>
+                                        {% else %}
+                                            <span class="text-muted" title="車両が登録されていません"><i class="fas fa-pen-square"></i></span>
+                                        {% endif %}
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                        {# ▲▲▲ 修正ここまで ▲▲▲ #}
+                    </div>
 
                     {# スパークライン (ミニグラフ) #}
                     <div class="sparkline-container mt-auto">

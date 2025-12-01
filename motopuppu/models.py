@@ -536,3 +536,35 @@ class Team(db.Model):
 
     def __repr__(self):
         return f'<Team id={self.id} name="{self.name}">'
+
+# --- ▼▼▼ 追加: 走行枠スケジュール管理用モデル ▼▼▼ ---
+class TrackSchedule(db.Model):
+    """
+    サーキットの公式走行枠情報
+    ユーザーの予定(Event)とは区別し、パブリックな情報として扱う。
+    """
+    __tablename__ = 'track_schedules'
+    id = db.Column(db.Integer, primary_key=True)
+    
+    # マスタテーブルを作らず、文字列でサーキット名を持つ（constants.pyと連携）
+    circuit_name = db.Column(db.String(150), nullable=False, index=True)
+    
+    date = db.Column(db.Date, nullable=False, index=True)
+    start_time = db.Column(db.Time, nullable=True)
+    end_time = db.Column(db.Time, nullable=True)
+    
+    title = db.Column(db.String(100), nullable=False, comment="走行枠名 (例: 2S, R1, 大型枠)")
+    notes = db.Column(db.String(200), nullable=True, comment="クラス分けや資格などの補足")
+    
+    # 将来的にスクレイピングのソース元などを記録する場合用
+    source_url = db.Column(db.String(2048), nullable=True)
+    
+    created_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
+
+    # 重複登録を防ぐためのユニーク制約（サーキット、日付、開始時間、タイトル）
+    __table_args__ = (
+        db.UniqueConstraint('circuit_name', 'date', 'start_time', 'title', name='uq_track_schedule'),
+    )
+
+    def __repr__(self):
+        return f'<TrackSchedule {self.circuit_name} {self.date} {self.title}>'

@@ -1,15 +1,17 @@
 # motopuppu/views/circuit_dashboard.py
 import decimal
+import requests
+from datetime import date, datetime, timedelta
 from flask import Blueprint, render_template, current_app, url_for, request, flash, redirect
 from flask_login import login_required, current_user
-from sqlalchemy import func, case
+from sqlalchemy import func, case, or_, desc
 from sqlalchemy.orm import aliased, joinedload
 
-from ..models import db, ActivityLog, SessionLog, User, Motorcycle, UserCircuitTarget
+from ..models import db, ActivityLog, SessionLog, User, Motorcycle, UserCircuitTarget, TrackSchedule
+from ..constants import CIRCUIT_METADATA
 from ..utils.lap_time_utils import format_seconds_to_time, parse_time_to_seconds
 from ..forms import TargetLapTimeForm
 
-# 新しいBlueprintを定義
 circuit_dashboard_bp = Blueprint(
     'circuit_dashboard',
     __name__,
@@ -123,6 +125,9 @@ def index():
         joinedload(SessionLog.activity)
     ).order_by(ActivityLog.activity_date.asc()).all()
 
+    today = date.today()
+    next_week = today + timedelta(days=7)
+
     for best_session in best_sessions:
         circuit_name = best_session.activity.circuit_name
         
@@ -192,13 +197,22 @@ def index():
         leaderboard_info = get_leaderboard_rankings(circuit_name, current_user.id)
         
         # 2d. 最新セッションを取得 (直近の調子判定用)
-        # 日付が新しい順、同じ日付ならIDが大きい順
         latest_session_row = base_query.filter(
             ActivityLog.circuit_name == circuit_name
         ).order_by(ActivityLog.activity_date.desc(), SessionLog.id.desc()).first()
         
-        # SessionLogオブジェクトを取り出す
         latest_session_obj = latest_session_row.SessionLog if latest_session_row else None
+        
+        # ログ作成リンク用の車両IDを取得 (最新セッションの車両、またはデフォルト車両)
+        latest_vehicle_id = None
+        if latest_session_obj:
+            latest_vehicle_id = latest_session_obj.activity.motorcycle_id
+        elif vehicle_data:
+            latest_vehicle_id = vehicle_data[0]['id'] # データがあれば最初の車両
+        else:
+            first_bike = Motorcycle.query.filter_by(user_id=current_user.id).first()
+            if first_bike:
+                latest_vehicle_id = first_bike.id
 
         # 目標タイムとフォームをデータに追加
         target_lap_seconds = targets_map.get(circuit_name)
@@ -206,17 +220,95 @@ def index():
         if target_lap_seconds:
             form.target_time.data = format_seconds_to_time(target_lap_seconds)
 
+        # メタデータと走行枠情報の取得
+        metadata = CIRCUIT_METADATA.get(circuit_name, {})
+        
+        # スケジュール取得 (1週間分)
+        raw_schedules = TrackSchedule.query.filter(
+            TrackSchedule.date >= today,
+            TrackSchedule.date <= next_week,
+            or_(
+                TrackSchedule.circuit_name == circuit_name,
+                TrackSchedule.circuit_name.contains(circuit_name)
+            )
+        ).order_by(TrackSchedule.date.asc(), TrackSchedule.start_time.asc()).all()
+        
+        # ▼▼▼【修正】スケジュール集計ロジック（走行枠の内訳分析を追加）▼▼▼
+        # 日付ごとにデータをまとめる一時辞書
+        daily_slots = {}
+        
+        for s in raw_schedules:
+            if s.date not in daily_slots:
+                daily_slots[s.date] = {
+                    'date': s.date,
+                    'titles': set(), # 枠名を重複なしで収集 (例: ミニバイク①, 大型バイク①)
+                    'circuit_name': s.circuit_name, # 代表のサーキット名
+                    'notes': s.notes or ""
+                }
+            daily_slots[s.date]['titles'].add(s.title)
+            # 備考は最初のものを優先採用（または結合してもよいが長くなるため）
+            if not daily_slots[s.date]['notes'] and s.notes:
+                daily_slots[s.date]['notes'] = s.notes
+
+        upcoming_schedules = []
+        
+        # 集計結果から表示データを作成
+        for d_date, d_data in sorted(daily_slots.items()):
+            # 1. 桶川のコース判定 (ロング/ミドル/ショート)
+            course_label = ""
+            if "桶川" in d_data['circuit_name']:
+                if "ロング" in d_data['circuit_name']:
+                    course_label = "ロング"
+                elif "ミドル" in d_data['circuit_name']:
+                    course_label = "ミドル"
+                elif "ショート" in d_data['circuit_name']:
+                    course_label = "ショート"
+            
+            # 2. 走行枠の内訳判定 (大型/ミニ)
+            titles = d_data['titles']
+            has_large = any("大型" in t for t in titles)
+            has_mini = any("ミニ" in t for t in titles)
+            
+            slot_detail_label = ""
+            if has_large and has_mini:
+                slot_detail_label = "(大型・ミニ)"
+            elif has_large:
+                slot_detail_label = "(大型)"
+            elif has_mini:
+                slot_detail_label = "(ミニ)"
+            
+            # コース名と内訳を結合 (例: "ロング(大型・ミニ)")
+            display_label = f"{course_label}{slot_detail_label}" if course_label else slot_detail_label
+
+            # 3. 入門枠の有無判定
+            has_beginner = "入門" in d_data['notes']
+
+            upcoming_schedules.append({
+                'date': d_date,
+                'course_label': display_label, # 結合したラベル
+                'has_beginner': has_beginner,
+                'circuit_full_name': d_data['circuit_name']
+            })
+        # ▲▲▲ 修正ここまで ▲▲▲
+
+        # 天気予報APIエンドポイント
+        weather_api_url = None
+        if metadata.get('lat') and metadata.get('lng'):
+            weather_api_url = url_for('circuit_dashboard.get_circuit_weather', circuit_name=circuit_name)
+
         circuit_data.append({
             'name': circuit_name,
             'best_session': best_session,
             'latest_session': latest_session_obj,
+            'latest_vehicle_id': latest_vehicle_id,
             'chart_data': chart_data,
             'leaderboard': leaderboard_info,
             'vehicle_breakdown': vehicle_data,
-            # ▼▼▼【修正】float()キャストを削除し、Decimal型のまま渡す ▼▼▼
             'target_lap_seconds': target_lap_seconds if target_lap_seconds else None,
-            # ▲▲▲【修正ここまで】▲▲▲
             'form': form,
+            'metadata': metadata,
+            'upcoming_schedules': upcoming_schedules,
+            'weather_endpoint': weather_api_url
         })
         
     # 3. 総合サマリー情報を計算
@@ -239,6 +331,80 @@ def index():
         circuit_data=circuit_data,
         format_seconds_to_time=format_seconds_to_time
     )
+
+@circuit_dashboard_bp.route('/weather/<path:circuit_name>')
+@login_required
+def get_circuit_weather(circuit_name):
+    """Open-Meteo APIから天気予報を取得してHTMLフラグメントを返す"""
+    metadata = CIRCUIT_METADATA.get(circuit_name)
+    
+    if not metadata or 'lat' not in metadata or 'lng' not in metadata:
+        return '<div class="text-muted small">位置情報未定義</div>'
+
+    try:
+        # Open-Meteo API (無料・認証不要)
+        url = "https://api.open-meteo.com/v1/forecast"
+        params = {
+            "latitude": metadata['lat'],
+            "longitude": metadata['lng'],
+            "daily": "weather_code,temperature_2m_max,precipitation_probability_max",
+            "timezone": "Asia/Tokyo",
+            "forecast_days": 7
+        }
+        response = requests.get(url, params=params, timeout=5)
+        response.raise_for_status()
+        data = response.json()
+        
+        # WMO天気コードの簡易変換マップ
+        wmo_codes = {
+            0: ('快晴', 'fa-sun', 'text-warning'),
+            1: ('晴れ', 'fa-sun', 'text-warning'),
+            2: ('曇り時々晴れ', 'fa-cloud-sun', 'text-warning'),
+            3: ('曇り', 'fa-cloud', 'text-secondary'),
+            45: ('霧', 'fa-smog', 'text-secondary'),
+            48: ('霧', 'fa-smog', 'text-secondary'),
+            51: ('小雨', 'fa-cloud-rain', 'text-info'),
+            53: ('雨', 'fa-cloud-rain', 'text-info'),
+            55: ('雨', 'fa-cloud-showers-heavy', 'text-primary'),
+            61: ('雨', 'fa-umbrella', 'text-primary'),
+            63: ('雨', 'fa-umbrella', 'text-primary'),
+            65: ('大雨', 'fa-umbrella', 'text-primary'),
+            80: ('にわか雨', 'fa-cloud-sun-rain', 'text-info'),
+            81: ('にわか雨', 'fa-cloud-sun-rain', 'text-info'),
+            82: ('激しい雨', 'fa-cloud-showers-heavy', 'text-primary'),
+        }
+
+        daily = data.get('daily', {})
+        forecasts = []
+        
+        dates = daily.get('time', [])
+        codes = daily.get('weather_code', [])
+        temps = daily.get('temperature_2m_max', [])
+        probs = daily.get('precipitation_probability_max', [])
+
+        # 直近5日分を表示
+        for i in range(min(5, len(dates))):
+            code = codes[i]
+            weather_info = wmo_codes.get(code, ('不明', 'fa-cloud', 'text-muted'))
+            
+            dt = datetime.strptime(dates[i], '%Y-%m-%d')
+            is_weekend = dt.weekday() >= 5
+            
+            forecasts.append({
+                'date': dt.strftime('%m/%d') + f" ({['月','火','水','木','金','土','日'][dt.weekday()]})",
+                'is_weekend': is_weekend,
+                'label': weather_info[0],
+                'icon': weather_info[1],
+                'color_class': weather_info[2],
+                'temp_max': temps[i],
+                'precip_prob': probs[i]
+            })
+
+        return render_template('circuit_dashboard/_weather_widget.html', forecasts=forecasts)
+
+    except Exception as e:
+        current_app.logger.error(f"Weather API Error for {circuit_name}: {e}")
+        return '<div class="text-muted small"><i class="fas fa-exclamation-triangle"></i> 天気取得失敗</div>'
 
 @circuit_dashboard_bp.route('/set-target/<path:circuit_name>', methods=['POST'])
 @login_required

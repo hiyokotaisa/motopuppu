@@ -75,7 +75,6 @@ GAS_STATION_BRANDS = [
     'ENEOS', '出光興産/apollostation', 'コスモ石油', 'キグナス石油', 'JA-SS', 'SOLATO',
 ]
 
-# ▼▼▼【ここから変更】元の変数名を復活させ、両方のデータ構造を定義 ▼▼▼
 # 日本の二輪走行可能サーキットリスト（地方別）
 CIRCUITS_BY_REGION = {
     "北海道・東北": [
@@ -129,7 +128,78 @@ CIRCUITS_BY_REGION = {
 
 # 従来の `JAPANESE_CIRCUITS` という名前でフラットなリストも定義する
 JAPANESE_CIRCUITS = [circuit for region_circuits in CIRCUITS_BY_REGION.values() for circuit in region_circuits]
-# ▲▲▲【変更はここまで】▲▲▲
+
+# ▼▼▼【修正】サーキットのメタデータ (short_nameを削除) ▼▼▼
+CIRCUIT_METADATA = {
+    "筑波サーキット TC2000": {
+        "lat": 36.1533, "lng": 139.9208,
+        "url": "https://www.tsukuba-circuit.jp/"
+    },
+    "筑波サーキット TC1000": {
+        "lat": 36.1522, "lng": 139.9220,
+        "url": "https://www.tsukuba-circuit.jp/"
+    },
+    "ツインリンクもてぎ ロードコース": {
+        "lat": 36.5333, "lng": 140.2274,
+        "url": "https://www.mr-motegi.jp/"
+    },
+    "袖ヶ浦フォレストレースウェイ": {
+        "lat": 35.4056, "lng": 140.1130,
+        "url": "http://www.sodegaura-forest-raceway.com/"
+    },
+    "桶川スポーツランド ロングコース": {
+        "lat": 35.9866, "lng": 139.5445,
+        "url": "https://okspo.jp/"
+    },
+    "桶川スポーツランド ミドルコース": {
+        "lat": 35.9866, "lng": 139.5445,
+        "url": "https://okspo.jp/"
+    },
+    "桶川スポーツランド ショートコース": {
+        "lat": 35.9866, "lng": 139.5445,
+        "url": "https://okspo.jp/"
+    },
+    "富士スピードウェイ 本コース": {
+        "lat": 35.3705, "lng": 138.9272,
+        "url": "https://www.fsw.tv/"
+    },
+    "鈴鹿サーキット フルコース": {
+        "lat": 34.8431, "lng": 136.5408,
+        "url": "https://www.suzukacircuit.jp/"
+    },
+    "井頭モーターパーク": {
+        "lat": 36.4360, "lng": 139.9920,
+        "url": "https://www.linson.co.jp/"
+    },
+    "茂原ツインサーキット ショートコース(西)": {
+        "lat": 35.3821, "lng": 140.2811,
+        "url": "http://www.mobara-tc.com/"
+    },
+    "茂原ツインサーキット ロングコース(東)": {
+        "lat": 35.3821, "lng": 140.2811,
+        "url": "http://www.mobara-tc.com/"
+    },
+    "白糸スピードランド": {
+        "lat": 35.3095, "lng": 138.5878,
+        "url": "https://www.shiraito-speedland.co.jp/"
+    },
+    "スパ西浦モーターパーク": {
+        "lat": 34.7748, "lng": 137.1865,
+        "url": "http://www.itoracing.co.jp/snmp/"
+    },
+    "レインボースポーツ カートコース": {
+        "lat": 35.1025, "lng": 136.6439,
+        "url": "https://www.rainbowsports.jp/"
+    },
+    "近畿スポーツランド": {
+        "lat": 34.8708, "lng": 135.8519,
+        "url": "http://www.kinspo.jp/"
+    },
+    "モーターランド鈴鹿": {
+        "lat": 34.8072, "lng": 136.5052,
+        "url": "http://www.motorlandsuzuka.com/"
+    },
+}
 
 
 # 油種の選択肢 (FuelForm用)

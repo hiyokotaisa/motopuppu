@@ -1,7 +1,7 @@
 # motopuppu/views/activity/activity_routes.py
 import json
-import math # 追加: RDPアルゴリズム用
-import statistics # 追加: 統計計算用
+import math
+import statistics
 from datetime import date
 from decimal import Decimal
 import uuid
@@ -9,10 +9,9 @@ import uuid
 from flask import (
     flash, redirect, render_template, request, url_for, abort, current_app, jsonify
 )
-from sqlalchemy.orm import joinedload, defer # 追加: deferをインポート
+from sqlalchemy.orm import joinedload, defer
 from sqlalchemy import func
 
-# 分割したBlueprintとユーティリティをインポート
 from . import activity_bp
 from ...utils.lap_time_utils import calculate_lap_stats, parse_time_to_seconds, _calculate_and_set_best_lap, format_seconds_to_time
 from ...constants import SETTING_KEY_MAP
@@ -22,7 +21,7 @@ from ...models import db, Motorcycle, ActivityLog, SessionLog, SettingSheet, Use
 from ...forms import ActivityLogForm, SessionLogForm, LapTimeImportForm
 from ... import limiter
 
-# --- 追加: RDPアルゴリズム (session_routes.pyと循環参照を防ぐためここにも定義) ---
+# --- RDPアルゴリズム (Douglas-Peucker) のヘルパー関数 ---
 def _calculate_perpendicular_distance(point, start, end):
     """点と直線の距離を計算する (平面近似)"""
     if start == end:
@@ -60,8 +59,6 @@ def _ramer_douglas_peucker(points, epsilon):
         return rec_results1[:-1] + rec_results2
     else:
         return [points[0], points[end]]
-# -----------------------------------------------------------
-
 
 def get_motorcycle_or_404(vehicle_id):
     """指定されたIDの車両を取得し、所有者でなければ404を返す"""
@@ -149,12 +146,22 @@ def add_activity(vehicle_id):
     if request.method == 'GET':
         form.motorcycle_id.data = vehicle_id
         form.activity_title.data = request.args.get('activity_title', '')
+        
         activity_date_str = request.args.get('activity_date')
         if activity_date_str:
             try:
                 form.activity_date.data = date.fromisoformat(activity_date_str)
             except (ValueError, TypeError):
                 form.activity_date.data = date.today()
+        
+        # ▼▼▼ 追加: URLパラメータからサーキット情報を取得してセット ▼▼▼
+        location_type = request.args.get('location_type')
+        if location_type == 'circuit':
+            form.location_type.data = 'circuit'
+            circuit_name = request.args.get('circuit_name')
+            if circuit_name:
+                form.circuit_name.data = circuit_name
+        # ▲▲▲ 追加ここまで ▲▲▲
         
         custom_location = request.args.get('custom_location')
         if custom_location:
@@ -277,17 +284,14 @@ def detail_activity(activity_id):
                 if sec is not None and sec > 0:
                     lap_seconds_for_chart.append(float(sec))
         
-        # 2. ▼▼▼ 修正: 統計情報計算とヒートマップ用クラスの付与 ▼▼▼
+        # 2. 統計情報計算とヒートマップ用クラスの付与
         if lap_seconds_for_chart:
-            # 中央値とワースト（最大値）を計算
             median_sec = statistics.median(lap_seconds_for_chart)
             worst_sec = max(lap_seconds_for_chart)
             
-            # テンプレートや他で使うためにセッションオブジェクトにも保持
             session.median_lap_seconds = median_sec
             session.worst_lap_seconds = worst_sec
             
-            # lap_details に表示用クラス (row_class) を付与
             if session.lap_details:
                 for detail in session.lap_details:
                     sec = parse_time_to_seconds(detail['time_str'])
@@ -296,17 +300,16 @@ def detail_activity(activity_id):
                         detail['seconds'] = sec
                         
                         if detail.get('is_best'):
-                            detail['row_class'] = 'table-success fw-bold' # ベスト: 緑
+                            detail['row_class'] = 'table-success fw-bold' 
                         elif sec == worst_sec:
-                            detail['row_class'] = 'table-danger'          # ワースト: 赤
+                            detail['row_class'] = 'table-danger'          
                         elif sec < median_sec:
-                            detail['row_class'] = 'table-info'            # 中央値より速い: 青
+                            detail['row_class'] = 'table-info'            
                         else:
-                            detail['row_class'] = 'table-warning'         # 中央値より遅い: 黄
+                            detail['row_class'] = 'table-warning'         
                     else:
                         detail['row_class'] = ''
 
-            # チャート用データ作成
             best_lap_seconds = min(lap_seconds_for_chart)
             lap_percentages = [(best_lap_seconds / sec) * 100 for sec in lap_seconds_for_chart]
             session.lap_chart_dict = {
@@ -318,7 +321,6 @@ def detail_activity(activity_id):
             session.lap_chart_dict = None
             session.median_lap_seconds = None
             session.worst_lap_seconds = None
-        # ▲▲▲ 修正ここまで ▲▲▲
     
     session_form = SessionLogForm()
     import_form = LapTimeImportForm()
@@ -400,13 +402,12 @@ def toggle_team_share(activity_id):
 @activity_bp.route('/share/session/<uuid:token>')
 def public_session_view(token):
     """【公開】トークンを使って共有セッションページを表示する"""
-    # HTML表示に不要な重いカラムをdeferで除外
     session = db.session.query(SessionLog).filter_by(
         public_share_token=str(token), 
         is_public=True
     ).options(
-        defer(SessionLog.gps_tracks), # 巨大なJSONは読み込まない
-        defer(SessionLog.lap_times),  # HTMLでは使わない
+        defer(SessionLog.gps_tracks), 
+        defer(SessionLog.lap_times), 
         joinedload(SessionLog.activity).joinedload(ActivityLog.motorcycle),
         joinedload(SessionLog.activity).joinedload(ActivityLog.user)
     ).first()
@@ -431,7 +432,6 @@ def public_gps_data(token):
     if not session or not session.gps_tracks or not session.gps_tracks.get('laps'):
         return jsonify({'error': 'No GPS data available'}), 404
 
-    # 車両スペック情報の取得 (ギア計算用)
     motorcycle = session.activity.motorcycle
     setting_sheet = session.setting_sheet
     vehicle_specs = {
@@ -442,7 +442,6 @@ def public_gps_data(token):
         'rear_tyre_size': None,
     }
 
-    # セッティングシートからスプロケット設定などを上書き
     if setting_sheet and setting_sheet.details:
         sprocket_settings = setting_sheet.details.get('sprocket', {})
         tyre_settings = setting_sheet.details.get('tire_rear', {}) 
@@ -464,14 +463,11 @@ def public_gps_data(token):
         'vehicle_specs': vehicle_specs
     }
     
-    # RDPアルゴリズムによる地図用データの生成
     raw_laps = session.gps_tracks.get('laps', [])
     for lap in raw_laps:
         raw_track = lap.get('track', [])
         if len(raw_track) > 500:
-            # ▼▼▼ 修正: 閾値を 0.000003 に変更 ▼▼▼
             simplified_track = _ramer_douglas_peucker(raw_track, 0.000003)
-            # ▲▲▲ 修正ここまで ▲▲▲
         else:
             simplified_track = raw_track
             
@@ -483,7 +479,6 @@ def public_gps_data(token):
     
     response = jsonify(response_data)
     
-    # 強力なブラウザキャッシュ設定 (1年間)
     response.headers['Cache-Control'] = 'public, max-age=31536000'
     response.add_etag()
     
