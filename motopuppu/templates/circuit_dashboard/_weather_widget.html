@@ -6,9 +6,18 @@
             <div class="small fw-bold {{ 'text-danger' if day.is_weekend else 'text-muted' }}" style="font-size: 0.7rem;">
                 {{ day.date }}
             </div>
+            
+            {# 天気アイコン #}
             <div class="my-1">
                 <i class="fas {{ day.icon }} {{ day.color_class }} fa-lg"></i>
             </div>
+
+            {# ▼▼▼ 追加: 走行適性判定 (◎, ○, △, ☓) ▼▼▼ #}
+            <div class="mb-1" style="font-size: 1.1rem; line-height: 1;">
+                <span class="{{ day.rating_class }}">{{ day.rating_symbol }}</span>
+            </div>
+            {# ▲▲▲ 追加ここまで ▲▲▲ #}
+
             <div class="fw-bold text-dark" style="font-size: 0.8rem;">
                 {{ day.temp_max }}<span style="font-size: 0.6rem;">℃</span>
             </div>

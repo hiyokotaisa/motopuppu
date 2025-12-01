@@ -233,39 +233,42 @@ def index():
             )
         ).order_by(TrackSchedule.date.asc(), TrackSchedule.start_time.asc()).all()
         
-        # ▼▼▼【修正】スケジュール集計ロジック（走行枠の内訳分析を追加）▼▼▼
-        # 日付ごとにデータをまとめる一時辞書
-        daily_slots = {}
-        
+        # スケジュール整形処理
+        grouped_schedules = {}
         for s in raw_schedules:
-            if s.date not in daily_slots:
-                daily_slots[s.date] = {
-                    'date': s.date,
-                    'titles': set(), # 枠名を重複なしで収集 (例: ミニバイク①, 大型バイク①)
-                    'circuit_name': s.circuit_name, # 代表のサーキット名
-                    'notes': s.notes or ""
-                }
-            daily_slots[s.date]['titles'].add(s.title)
-            # 備考は最初のものを優先採用（または結合してもよいが長くなるため）
-            if not daily_slots[s.date]['notes'] and s.notes:
-                daily_slots[s.date]['notes'] = s.notes
+            if s.date not in grouped_schedules:
+                # 桶川特有のコース種別判定
+                course_label = ""
+                if "桶川" in s.circuit_name:
+                    if "ロング" in s.circuit_name:
+                        course_label = "ロング"
+                    elif "ミドル" in s.circuit_name:
+                        course_label = "ミドル"
+                    elif "ショート" in s.circuit_name:
+                        course_label = "ショート"
+                
+                # 入門枠の有無判定
+                has_beginner = "入門" in (s.notes or "")
 
-        upcoming_schedules = []
+                grouped_schedules[s.date] = {
+                    'date': s.date,
+                    'notes': s.notes,
+                    'course_label': course_label, # 表示用ラベル
+                    'has_beginner': has_beginner, # 入門枠フラグ
+                    'circuit_full_name': s.circuit_name # ログ作成時のパラメータ用
+                }
         
-        # 集計結果から表示データを作成
-        for d_date, d_data in sorted(daily_slots.items()):
-            # 1. 桶川のコース判定 (ロング/ミドル/ショート)
-            course_label = ""
-            if "桶川" in d_data['circuit_name']:
-                if "ロング" in d_data['circuit_name']:
-                    course_label = "ロング"
-                elif "ミドル" in d_data['circuit_name']:
-                    course_label = "ミドル"
-                elif "ショート" in d_data['circuit_name']:
-                    course_label = "ショート"
+        # ここで、走行枠タイトル（大型/ミニ）の内訳を追加集計する
+        # raw_schedules を再走査して titles を集める
+        date_titles_map = {}
+        for s in raw_schedules:
+            if s.date not in date_titles_map:
+                date_titles_map[s.date] = set()
+            date_titles_map[s.date].add(s.title)
             
-            # 2. 走行枠の内訳判定 (大型/ミニ)
-            titles = d_data['titles']
+        upcoming_schedules = []
+        for d_date, d_data in grouped_schedules.items():
+            titles = date_titles_map.get(d_date, set())
             has_large = any("大型" in t for t in titles)
             has_mini = any("ミニ" in t for t in titles)
             
@@ -276,20 +279,14 @@ def index():
                 slot_detail_label = "(大型)"
             elif has_mini:
                 slot_detail_label = "(ミニ)"
-            
-            # コース名と内訳を結合 (例: "ロング(大型・ミニ)")
-            display_label = f"{course_label}{slot_detail_label}" if course_label else slot_detail_label
-
-            # 3. 入門枠の有無判定
-            has_beginner = "入門" in d_data['notes']
-
-            upcoming_schedules.append({
-                'date': d_date,
-                'course_label': display_label, # 結合したラベル
-                'has_beginner': has_beginner,
-                'circuit_full_name': d_data['circuit_name']
-            })
-        # ▲▲▲ 修正ここまで ▲▲▲
+                
+            # ラベルを更新
+            if d_data['course_label']:
+                d_data['course_label'] = f"{d_data['course_label']}{slot_detail_label}"
+            else:
+                d_data['course_label'] = slot_detail_label
+                
+            upcoming_schedules.append(d_data)
 
         # 天気予報APIエンドポイント
         weather_api_url = None
@@ -373,6 +370,17 @@ def get_circuit_weather(circuit_name):
             81: ('にわか雨', 'fa-cloud-sun-rain', 'text-info'),
             82: ('激しい雨', 'fa-cloud-showers-heavy', 'text-primary'),
         }
+        
+        # ▼▼▼【追加】雨天とみなすWMOコード一覧 ▼▼▼
+        # 51-57(霧雨), 61-67(雨), 71-77(雪), 80-82(しゅう雨), 85-86(雪しゅう雨), 95-99(雷雨)
+        BAD_WEATHER_CODES = [
+            51, 53, 55, 56, 57, 
+            61, 63, 65, 66, 67, 
+            71, 73, 75, 77, 
+            80, 81, 82, 
+            85, 86, 
+            95, 96, 99
+        ]
 
         daily = data.get('daily', {})
         forecasts = []
@@ -385,19 +393,48 @@ def get_circuit_weather(circuit_name):
         # 直近5日分を表示
         for i in range(min(5, len(dates))):
             code = codes[i]
+            max_temp = float(temps[i])
+            
+            # アイコン情報の取得
             weather_info = wmo_codes.get(code, ('不明', 'fa-cloud', 'text-muted'))
             
             dt = datetime.strptime(dates[i], '%Y-%m-%d')
             is_weekend = dt.weekday() >= 5
             
+            # ▼▼▼【追加】走行適性判定ロジック ▼▼▼
+            rating_symbol = ''
+            rating_class = ''
+            
+            if code in BAD_WEATHER_CODES:
+                rating_symbol = '☓'
+                rating_class = 'text-danger fw-bold' # 赤・太字
+            elif max_temp < 10.0:
+                rating_symbol = '△'
+                rating_class = 'text-info fw-bold' # 青・太字 (低温注意)
+            else:
+                # 雨でなく、10度以上
+                if code in [0, 1]: # 快晴・晴れ
+                    rating_symbol = '◎'
+                    rating_class = 'text-warning fw-bold' # ゴールド/オレンジっぽく (絶好)
+                elif code in [2, 3]: # 曇り
+                    rating_symbol = '○'
+                    rating_class = 'text-success fw-bold' # 緑 (良好)
+                else:
+                    # それ以外（霧など）
+                    rating_symbol = '△' 
+                    rating_class = 'text-secondary'
+
             forecasts.append({
                 'date': dt.strftime('%m/%d') + f" ({['月','火','水','木','金','土','日'][dt.weekday()]})",
                 'is_weekend': is_weekend,
                 'label': weather_info[0],
                 'icon': weather_info[1],
                 'color_class': weather_info[2],
-                'temp_max': temps[i],
-                'precip_prob': probs[i]
+                'temp_max': max_temp,
+                'precip_prob': probs[i],
+                # 判定結果
+                'rating_symbol': rating_symbol,
+                'rating_class': rating_class
             })
 
         return render_template('circuit_dashboard/_weather_widget.html', forecasts=forecasts)
