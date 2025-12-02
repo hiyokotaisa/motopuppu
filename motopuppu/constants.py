@@ -64,6 +64,23 @@ SETTING_KEY_MAP = {
         "keys": {
             "map_name": "セット名"
         }
+    },
+    "brake": {
+        "title": "ブレーキ",
+        "keys": {
+            "front_pad": "F: パッド銘柄",
+            "rear_pad": "R: パッド銘柄",
+            "master_cylinder": "マスターシリンダー",
+            "lever_position": "レバー位置"
+        }
+    },
+    "position": {
+        "title": "ポジション",
+        "keys": {
+            "handlebar": "ハンドル位置/角度",
+            "step_position": "ステップ位置",
+            "seat_height": "シート高"
+        }
     }
 }
 
