@@ -1,188 +1,447 @@
 {# motopuppu/templates/index.html #}
 {% extends "base.html" %}
 
-{% block title %}もとぷっぷーへようこそ - ログイン{% endblock %} 
+{% block title %}もとぷっぷーへようこそ - ログイン{% endblock %}
 
 {% block page_specific_head %}
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link
+    href="https://fonts.googleapis.com/css2?family=Kanit:ital,wght@1,800&family=Poppins:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
 {% endblock %}
 
 {% block content %}
-<div class="container mt-5">
-    <div class="row justify-content-center">
-        <div class="col-md-6 col-lg-5">
-            <h2 class="text-center mb-2">もとぷっぷー</h2>
-            <p class="text-center text-muted mb-4 px-3">
-                愛車の記録を、もっと手軽に、もっと楽しく。あなたのバイクライフをサポートします。
-            </p>
+<style>
+    /* --- Hero Section --- */
+    .hero-section {
+        /* Deep Blue / Night Ride Theme */
+        background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
+        color: white;
+        padding: 5rem 0 7rem;
+        margin-bottom: -3rem;
+        border-radius: 0 0 50% 50% / 3rem;
+        position: relative;
+        overflow: hidden;
+    }
 
-            {% with messages = get_flashed_messages(with_categories=true) %}
-                {% if messages %}
+    /* Asphalt/Carbon Texture Overlay */
+    .hero-section::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-image:
+            radial-gradient(#ffffff 15%, transparent 16%),
+            radial-gradient(#ffffff 15%, transparent 16%);
+        background-size: 60px 60px;
+        background-position: 0 0, 30px 30px;
+        opacity: 0.03;
+    }
+
+    /* Speed Lines / Dynamic Accent */
+    .hero-section::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        background: repeating-linear-gradient(45deg,
+                transparent,
+                transparent 10px,
+                rgba(255, 255, 255, 0.03) 10px,
+                rgba(255, 255, 255, 0.03) 20px);
+        pointer-events: none;
+    }
+
+    .hero-content {
+        position: relative;
+        z-index: 2;
+    }
+
+    /* --- App Title Styling --- */
+    .app-title {
+        font-family: 'Kanit', sans-serif;
+        font-weight: 800;
+        font-style: italic;
+        letter-spacing: -0.02em;
+        text-transform: uppercase;
+        text-shadow: 3px 3px 0px rgba(0, 0, 0, 0.3);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #ffffff !important;
+        -webkit-text-fill-color: initial;
+        /* Ensure no gradient fill persists */
+    }
+
+    .app-icon-wrapper {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 80px;
+        height: 80px;
+        background: linear-gradient(135deg, #ff9966 0%, #ff5e62 100%);
+        border-radius: 20px;
+        transform: skew(-10deg);
+        margin-right: 1rem;
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+        border: 2px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .app-icon-wrapper i {
+        transform: skew(10deg);
+        /* Counter-skew icon */
+        font-size: 2.5rem;
+        color: white;
+        -webkit-text-fill-color: white;
+        /* Override gradient text fill */
+    }
+
+    /* --- Feature Cards (Gradient) --- */
+    .feature-card {
+        border: none;
+        border-radius: 1rem;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        overflow: hidden;
+        height: 100%;
+    }
+
+    .feature-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 1rem 3rem rgba(0, 0, 0, .175) !important;
+    }
+
+    .feature-icon-wrapper {
+        width: 64px;
+        height: 64px;
+        border-radius: 1rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2rem;
+        margin-bottom: 1.5rem;
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+    }
+
+    /* --- Timeline Section --- */
+    .step-timeline {
+        position: relative;
+        padding-left: 2rem;
+    }
+
+    .step-timeline::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 15px;
+        width: 3px;
+        background: #e9ecef;
+    }
+
+    .step-item {
+        position: relative;
+        padding-bottom: 3rem;
+        padding-left: 2rem;
+    }
+
+    .step-item:last-child {
+        padding-bottom: 0;
+    }
+
+    .step-marker {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: #fff;
+        border: 4px solid #0d6efd;
+        z-index: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        color: #0d6efd;
+    }
+
+    /* --- Login Card Floating --- */
+    .login-card-wrapper {
+        margin-top: -4rem;
+        position: relative;
+        z-index: 10;
+    }
+</style>
+
+{# --- Hero Section --- #}
+<div class="hero-section text-center">
+    <div class="container hero-content">
+        <div class="mb-4 d-flex justify-content-center align-items-center">
+            <div class="app-icon-wrapper">
+                <i class="fas fa-motorcycle"></i>
+            </div>
+            <h1 class="display-2 mb-0 app-title">
+                もとぷっぷー
+            </h1>
+        </div>
+        <p class="fs-4 fw-light mb-4 text-light opacity-75" style="letter-spacing: 1px;">Bike Life, All in One Place</p>
+        <p class="lead mb-5 text-light opacity-75">
+            愛車の記録を、もっと手軽に、もっと楽しく。<br>
+            給油からサーキット走行まで、あなたのバイクライフをトータルサポート。
+        </p>
+        <div class="d-flex justify-content-center gap-3">
+            <a href="#login-area" class="btn btn-light btn-lg px-4 fw-bold text-primary shadow-sm">
+                <i class="fas fa-sign-in-alt me-2"></i>今すぐ始める
+            </a>
+            <a href="#features-area" class="btn btn-outline-light btn-lg px-4">
+                機能を見る
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="container mb-5">
+    {# --- Login Card (Floating) --- #}
+    <div class="row justify-content-center login-card-wrapper" id="login-area">
+        <div class="col-md-8 col-lg-6">
+            <div class="card border-0 shadow-lg rounded-3">
+                <div class="card-body p-4 p-md-5 text-center">
+                    <h3 class="card-title fw-bold mb-3">Misskey アカウントでログイン</h3>
+                    <p class="text-muted mb-4">
+                        面倒な登録は不要です。<br>お使いのMisskeyアカウントですぐに始められます。
+                    </p>
+
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
                     {% for category, message in messages %}
-                        <div class="alert alert-{{ category if category != 'message' else 'info' }} alert-dismissible fade show" role="alert">
-                            {{ message }}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                        </div>
+                    <div class="alert alert-{{ category if category != 'message' else 'info' }} alert-dismissible fade show text-start"
+                        role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
                     {% endfor %}
-                {% endif %}
-            {% endwith %}
+                    {% endif %}
+                    {% endwith %}
 
-            <div class="card mb-4 shadow-sm">
-                <div class="card-body text-center">
-                    <h5 class="card-title">Misskey アカウントでログイン</h5>
-                    <p class="card-text small text-muted">下のボタンをクリックして認証を開始します。</p>
-                    
-                    <a href="{{ url_for('auth.login') }}" class="btn btn-primary btn-lg" id="login-button">
+                    <a href="{{ url_for('auth.login') }}"
+                        class="btn btn-primary btn-lg w-100 mb-3 py-3 fw-bold shadow-sm" id="login-button">
                         <i class="fas fa-key me-2"></i>Misskeyでログイン
                     </a>
-                    
-                    {# ▼▼▼ チェックボックスの位置をインスタンス表示の下に移動 ▼▼▼ #}
-                    <p class="mt-2 mb-3"><small>インスタンス: {{ config.MISSKEY_INSTANCE_URL }}</small></p>
 
-                    <div class="d-flex justify-content-center">
-                        <div class="form-check">
+                    <div class="d-flex justify-content-center align-items-center gap-2 mb-3">
+                        <div class="form-check mb-0">
                             <input class="form-check-input" type="checkbox" value="" id="remember-me" checked>
-                            <label class="form-check-label small" for="remember-me">
+                            <label class="form-check-label small text-muted" for="remember-me">
                                 ログインしたままにする
                             </label>
                         </div>
                     </div>
-                    {# ▲▲▲ 変更ここまで ▲▲▲ #}
+
+                    <p class="small text-muted mb-0">インスタンス: {{ config.MISSKEY_INSTANCE_URL }}</p>
                 </div>
             </div>
+        </div>
+    </div>
 
-            <div class="card mb-4" id="indexFunctionalHighlights">
-                <div class="card-header">
-                    <i class="fas fa-star me-1"></i> もとぷっぷーの主な機能
-                </div>
-                <div class="list-group list-group-flush">
-                    <div class="list-group-item py-2">
-                        <div class="d-flex w-100 justify-content-start align-items-center">
-                            <div class="flex-shrink-0 me-3 text-center" style="width: 2.5rem;">
-                                <i class="fas fa-motorcycle fa-lg text-primary"></i>
-                            </div>
-                            <div>
-                                <h6 class="mb-0">オールインワン車両管理</h6>
-                                <small class="text-muted d-block">公道走行車両からレーサーまで、詳細情報を一元管理。</small>
-                            </div>
+    {# --- Features Section --- #}
+    <div class="py-5" id="features-area">
+        <div class="text-center mb-5">
+            <span class="badge bg-primary-subtle text-primary rounded-pill px-3 py-2 mb-2">FEATURES</span>
+            <h2 class="fw-bold">もとぷっぷーでできること</h2>
+            <p class="text-muted">バイクライフを充実させるための機能が満載です。</p>
+        </div>
+
+        <div class="row g-4">
+            <div class="col-md-6 col-lg-3">
+                <div class="card feature-card shadow-sm h-100 bg-primary text-white"
+                    style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                    <div class="card-body p-4">
+                        <div class="feature-icon-wrapper">
+                            <i class="fas fa-gas-pump"></i>
                         </div>
-                    </div>
-                    <div class="list-group-item py-2">
-                        <div class="d-flex w-100 justify-content-start align-items-center">
-                            <div class="flex-shrink-0 me-3 text-center" style="width: 2.5rem;">
-                                <i class="fas fa-clipboard-list fa-lg text-success"></i>
-                            </div>
-                            <div>
-                                <h6 class="mb-0">多角的な記録と分析</h6>
-                                <small class="text-muted d-block">燃費、整備、稼働時間、ノートなど、あらゆる活動を記録・分析。</small>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="list-group-item py-2">
-                        <div class="d-flex w-100 justify-content-start align-items-center">
-                             <div class="flex-shrink-0 me-3 text-center" style="width: 2.5rem;">
-                                <i class="fas fa-trophy fa-lg text-warning"></i>
-                            </div>
-                            <div>
-                                <h6 class="mb-0">リマインダー＆実績機能</h6>
-                                <small class="text-muted d-block">メンテナンス通知や、利用状況に応じた楽しい実績解除も。</small>
-                            </div>
-                        </div>
+                        <h5 class="fw-bold mb-3">給油記録 & 燃費分析</h5>
+                        <p class="opacity-75 mb-0">
+                            日々の給油を記録して、燃費の推移をグラフで確認。コスト管理もばっちりです。
+                        </p>
                     </div>
                 </div>
             </div>
+            <div class="col-md-6 col-lg-3">
+                <div class="card feature-card shadow-sm h-100 text-white"
+                    style="background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 99%, #fecfef 100%); color: #555 !important;">
+                    <div class="card-body p-4">
+                        <div class="feature-icon-wrapper text-white" style="background: rgba(0,0,0,0.1);">
+                            <i class="fas fa-tools"></i>
+                        </div>
+                        <h5 class="fw-bold mb-3 text-dark">メンテナンス管理</h5>
+                        <p class="text-dark opacity-75 mb-0">
+                            オイル交換やタイヤ交換などの整備履歴を記録。次回のメンテナンス時期もお知らせ。
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-3">
+                <div class="card feature-card shadow-sm h-100 text-white"
+                    style="background: linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%); color: #444 !important;">
+                    <div class="card-body p-4">
+                        <div class="feature-icon-wrapper text-white" style="background: rgba(0,0,0,0.1);">
+                            <i class="fas fa-tachometer-alt"></i>
+                        </div>
+                        <h5 class="fw-bold mb-3 text-dark">サーキット走行ログ</h5>
+                        <p class="text-dark opacity-75 mb-0">
+                            サーキットごとの走行データやセッティングを詳細に記録。ベストタイム更新を目指そう。
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-3">
+                <div class="card feature-card shadow-sm h-100 text-white"
+                    style="background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%); color: #555 !important;">
+                    <div class="card-body p-4">
+                        <div class="feature-icon-wrapper text-white" style="background: rgba(0,0,0,0.1);">
+                            <i class="fas fa-share-alt"></i>
+                        </div>
+                        <h5 class="fw-bold mb-3 text-dark">Misskey 連携</h5>
+                        <p class="text-dark opacity-75 mb-0">
+                            記録した内容はボタン一つでMisskeyにシェア。バイク仲間と活動を共有できます。
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
+    {# --- How it Works (Timeline) --- #}
+    <div class="py-5 bg-light rounded-4 px-4 px-md-5">
+        <div class="row align-items-center">
+            <div class="col-lg-5 mb-4 mb-lg-0">
+                <h2 class="fw-bold mb-4">使い方はとても簡単</h2>
+                <p class="text-muted mb-4">
+                    もとぷっぷーは、直感的な操作で誰でも簡単に使い始められます。<br>
+                    あなたの愛車との思い出を、今日から記録し始めましょう。
+                </p>
+                <a href="{{ url_for('auth.login') }}" class="btn btn-primary btn-lg rounded-pill px-4 shadow-sm">
+                    まずはログイン <i class="fas fa-arrow-right ms-2"></i>
+                </a>
+            </div>
+            <div class="col-lg-7">
+                <div class="step-timeline ms-md-4">
+                    <div class="step-item">
+                        <div class="step-marker">1</div>
+                        <h5 class="fw-bold">Misskeyでログイン</h5>
+                        <p class="text-muted small">お持ちのMisskeyアカウントを使って認証します。面倒なID登録は不要です。</p>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-marker">2</div>
+                        <h5 class="fw-bold">車両を登録</h5>
+                        <p class="text-muted small">あなたの愛車を登録しましょう。複数台の管理も可能です。</p>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-marker">3</div>
+                        <h5 class="fw-bold">活動を記録</h5>
+                        <p class="text-muted small">給油、メンテナンス、ツーリングの記録をつけましょう。写真も添付できます。</p>
+                    </div>
+                    <div class="step-item">
+                        <div class="step-marker">4</div>
+                        <h5 class="fw-bold">ダッシュボードで確認</h5>
+                        <p class="text-muted small">集まったデータはダッシュボードで可視化。愛車の状態が一目でわかります。</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# --- Notices & Footer Links --- #}
+    <div class="row justify-content-center mt-5">
+        <div class="col-md-8">
             {% if important_notice %}
-            <div class="alert alert-warning p-3 mb-3 small" role="alert">
-                <h6 class="alert-heading fw-bold"><i class="fas fa-exclamation-triangle me-1"></i> {{ important_notice.title }}</h6>
+            <div class="alert alert-warning p-3 mb-4 small shadow-sm" role="alert">
+                <h6 class="alert-heading fw-bold"><i class="fas fa-exclamation-triangle me-1"></i> {{
+                    important_notice.title }}</h6>
                 <hr class="my-2">
                 <p class="mb-0">{{ important_notice.content | replace('\n', '<br>') | safe }}</p>
             </div>
             {% endif %}
 
-            <div class="text-center my-3">
-                <small class="text-muted">
-                    本サービスを利用することにより、<a href="{{ url_for('main.terms_of_service') }}" target="_blank" rel="noopener noreferrer">利用規約</a>および<a href="{{ url_for('main.privacy_policy') }}" target="_blank" rel="noopener noreferrer">プライバシーポリシー</a>に同意したものとみなされます。
-                </small>
-            </div>
-
-            {% if config.ENV == 'development' %}
-            <div class="text-center my-4">
-                <p class="small text-muted">開発用ログイン (.envのLOCAL_DEV_USER_IDを使用)</p>
-                {% if config.LOCAL_DEV_USER_ID %}
-                <a href="{{ url_for('dev_auth.local_login') }}" class="btn btn-secondary btn-sm">
-                    開発用ログイン
-                </a>
-                {% else %}
-                <button class="btn btn-secondary btn-sm" disabled title=".envにLOCAL_DEV_USER_IDを設定してください">開発用ログイン (ID未設定)</button>
-                {% endif %}
-            </div>
-            {% endif %}
-
-            {% if announcements %} 
-            <div class="card mb-4">
-                <div class="card-header">
-                    <i class="fas fa-info-circle me-1"></i> その他のお知らせ
+            {% if announcements %}
+            <div class="card mb-4 border-0 shadow-sm">
+                <div class="card-header bg-white border-bottom-0 pt-3">
+                    <i class="fas fa-info-circle me-1 text-info"></i> お知らせ
                 </div>
                 <div class="list-group list-group-flush">
                     {% set latest_notice_for_card = announcements | first %}
                     {% if latest_notice_for_card %}
-                    <div class="list-group-item">
-                        <h6 class="mb-1">{{ latest_notice_for_card.title }}</h6>
-                        <p class="mb-1 small">
-                            {{ latest_notice_for_card.content | truncate(100, true, '...') | replace('\n', '<br>') | safe }}
+                    <div class="list-group-item border-0">
+                        <h6 class="mb-1 fw-bold">{{ latest_notice_for_card.title }}</h6>
+                        <p class="mb-1 small text-muted">
+                            {{ latest_notice_for_card.content | truncate(100, true, '...') | replace('\n', '<br>') |
+                            safe }}
                         </p>
                     </div>
                     {% endif %}
-
-                    {% if announcements|length > 0 %}
-                    <div class="list-group-item text-center py-2">
-                        <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#announcementsModal">
-                            {% if announcements|length > 1 or (latest_notice_for_card and announcements|length == 1 and latest_notice_for_card.content|length > 100) %}
-                                他のお知らせも見る
-                            {% else %}
-                                お知らせ詳細を見る
-                            {% endif %}
+                    <div class="list-group-item border-0 text-center py-2">
+                        <button type="button" class="btn btn-link btn-sm text-decoration-none" data-bs-toggle="modal"
+                            data-bs-target="#announcementsModal">
+                            すべてのお知らせを見る
                         </button>
                     </div>
-                    {% elif not latest_notice_for_card %}
-                    <div class="list-group-item text-muted small py-2">
-                        現在、他のお知らせはありません。
-                    </div>
-                    {% endif %}
                 </div>
-            </div>
-
-            <div class="modal fade" id="announcementsModal" tabindex="-1" aria-labelledby="announcementsModalLabel" aria-hidden="true">
-                <div class="modal-dialog modal-lg modal-dialog-scrollable">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title" id="announcementsModalLabel"><i class="fas fa-info-circle me-2"></i>お知らせ一覧</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                        <div class="modal-body">
-                            {% for notice in announcements %}
-                            <div class="mb-3 pb-2 {% if not loop.last %}border-bottom{% endif %}">
-                                <h6 class="mb-1">{{ notice.title }}</h6>
-                                <p class="mb-0 small">{{ notice.content | replace('\n', '<br>') | safe }}</p>
-                            </div>
-                            {% else %}
-                            <p>現在、表示できる他のお知らせはありません。</p>
-                            {% endfor %}
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">閉じる</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            {% elif not important_notice %} 
-            <div class="text-center text-muted small my-3">
-                <p><i class="fas fa-info-circle me-1"></i> 現在、お知らせはありません。</p>
             </div>
             {% endif %}
+
+            <div class="text-center my-4">
+                <small class="text-muted">
+                    本サービスを利用することにより、<a href="{{ url_for('main.terms_of_service') }}" target="_blank"
+                        rel="noopener noreferrer">利用規約</a>および<a href="{{ url_for('main.privacy_policy') }}"
+                        target="_blank" rel="noopener noreferrer">プライバシーポリシー</a>に同意したものとみなされます。
+                </small>
+            </div>
+
+            {% if config.ENV == 'development' %}
+            <div class="text-center my-4 p-3 bg-light rounded border border-warning border-opacity-25">
+                <p class="small text-muted mb-2 fw-bold">🛠 開発者用メニュー</p>
+                {% if config.LOCAL_DEV_USER_ID %}
+                <a href="{{ url_for('dev_auth.local_login') }}" class="btn btn-secondary btn-sm">
+                    <i class="fas fa-code me-1"></i>開発用ローカルログイン
+                </a>
+                {% else %}
+                <button class="btn btn-secondary btn-sm" disabled title=".envにLOCAL_DEV_USER_IDを設定してください">開発用ログイン
+                    (ID未設定)</button>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{# --- Announcements Modal --- #}
+<div class="modal fade" id="announcementsModal" tabindex="-1" aria-labelledby="announcementsModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="announcementsModalLabel"><i class="fas fa-info-circle me-2"></i>お知らせ一覧</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                {% for notice in announcements %}
+                <div class="mb-3 pb-2 {% if not loop.last %}border-bottom{% endif %}">
+                    <h6 class="mb-1 fw-bold">{{ notice.title }}</h6>
+                    <p class="mb-0 small text-muted">{{ notice.content | replace('\n', '<br>') | safe }}</p>
+                </div>
+                {% else %}
+                <p>現在、表示できる他のお知らせはありません。</p>
+                {% endfor %}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">閉じる</button>
+            </div>
         </div>
     </div>
 </div>
@@ -191,28 +450,28 @@
 {% block scripts %}
 {{ super() }}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const loginButton = document.getElementById('login-button');
-    if (loginButton) {
-        loginButton.addEventListener('click', function(event) {
-            event.preventDefault();
-            
-            const rememberMeCheckbox = document.getElementById('remember-me');
-            const remember = rememberMeCheckbox.checked;
-            
-            let loginUrl = this.href;
-            
-            if (remember) {
-                if (loginUrl.includes('?')) {
-                    loginUrl += '&remember=1';
-                } else {
-                    loginUrl += '?remember=1';
+    document.addEventListener('DOMContentLoaded', function () {
+        const loginButton = document.getElementById('login-button');
+        if (loginButton) {
+            loginButton.addEventListener('click', function (event) {
+                event.preventDefault();
+
+                const rememberMeCheckbox = document.getElementById('remember-me');
+                const remember = rememberMeCheckbox.checked;
+
+                let loginUrl = this.href;
+
+                if (remember) {
+                    if (loginUrl.includes('?')) {
+                        loginUrl += '&remember=1';
+                    } else {
+                        loginUrl += '?remember=1';
+                    }
                 }
-            }
-            
-            window.location.href = loginUrl;
-        });
-    }
-});
+
+                window.location.href = loginUrl;
+            });
+        }
+    });
 </script>
 {% endblock %}
