@@ -41,8 +41,28 @@ SETTING_KEY_MAP = {
             "rear_damping_rebound": "R: 減衰(伸側)"
         }
     },
+    "tire_front": {
+        "title": "タイヤ (フロント)",
+        "keys": {
+            "tire_brand": "タイヤ銘柄",
+            "tire_compound": "コンパウンド",
+            "tire_pressure_cold_kpa": "空気圧(冷間)",
+            "tire_pressure_hot_kpa": "空気圧(温間)",
+            "tire_size": "サイズ"
+        }
+    },
+    "tire_rear": {
+        "title": "タイヤ (リア)",
+        "keys": {
+            "tire_brand": "タイヤ銘柄",
+            "tire_compound": "コンパウンド",
+            "tire_pressure_cold_kpa": "空気圧(冷間)",
+            "tire_pressure_hot_kpa": "空気圧(温間)",
+            "tire_size": "サイズ"
+        }
+    },
     "tire": {
-        "title": "タイヤ",
+        "title": "タイヤ (旧データ)",
         "keys": {
             "tire_brand": "タイヤ銘柄",
             "tire_compound": "コンパウンド",

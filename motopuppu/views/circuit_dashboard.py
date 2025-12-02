@@ -150,7 +150,9 @@ def index():
             Motorcycle.name.label('motorcycle_name'),
             func.min(SessionLog.best_lap_seconds).label('vehicle_best_lap'),
             func.count(SessionLog.id).label('session_count'),
-            best_session_id_subq.c.best_session_id
+            best_session_id_subq.c.best_session_id,
+            # ▼▼▼ 追加: セッティングシートIDを取得 ▼▼▼
+            SessionLog.setting_sheet_id
         ).join(
             ActivityLog, SessionLog.activity_log_id == ActivityLog.id
         ).join(
@@ -160,11 +162,14 @@ def index():
         ).filter(
             ActivityLog.user_id == current_user.id,
             ActivityLog.circuit_name == circuit_name,
-            SessionLog.best_lap_seconds.isnot(None)
+            SessionLog.best_lap_seconds.isnot(None),
+            # ▼▼▼ 追加: ベストセッションのレコードのみを対象にするためのフィルタ ▼▼▼
+            SessionLog.id == best_session_id_subq.c.best_session_id
         ).group_by(
             Motorcycle.id, 
             Motorcycle.name,
-            best_session_id_subq.c.best_session_id
+            best_session_id_subq.c.best_session_id,
+            SessionLog.setting_sheet_id
         ).order_by(
             func.min(SessionLog.best_lap_seconds).asc()
         ).all()
@@ -180,7 +185,8 @@ def index():
                 'session_count': row.session_count,
                 'gap_to_pb': gap,
                 'is_pb_holder': abs(gap) < decimal.Decimal('0.0001') if gap is not None else False,
-                'best_session_id': row.best_session_id
+                'best_session_id': row.best_session_id,
+                'setting_sheet_id': row.setting_sheet_id
             })
         
         # 2b. ラップタイム推移グラフ（スパークライン）のデータを作成

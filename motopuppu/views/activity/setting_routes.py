@@ -154,3 +154,22 @@ def delete_setting(setting_id):
         current_app.logger.error(f"Error deleting setting sheet {setting_id}: {e}", exc_info=True)
         flash('セッティングシートの削除中にエラーが発生しました。', 'danger')
     return redirect(url_for('activity.list_settings', vehicle_id=vehicle_id))
+
+@activity_bp.route('/settings/<int:setting_id>/preview')
+@login_required
+def preview_setting(setting_id):
+    """セッティングシートのプレビュー用HTMLを返す（モーダル表示用）"""
+    setting = SettingSheet.query.filter_by(id=setting_id, user_id=current_user.id).first_or_404()
+    
+    # SQLite + JSONB の組み合わせで文字列として取得される場合の対策
+    if isinstance(setting.details, str):
+        try:
+            setting.details = json.loads(setting.details)
+        except (json.JSONDecodeError, TypeError):
+            setting.details = {}
+            
+    from ...constants import SETTING_KEY_MAP
+    
+    return render_template('activity/_setting_preview.html',
+                           setting=setting,
+                           setting_key_map=SETTING_KEY_MAP)

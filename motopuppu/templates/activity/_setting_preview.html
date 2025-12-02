@@ -1,0 +1,42 @@
+{# motopuppu/templates/activity/_setting_preview.html #}
+<div class="setting-preview">
+    <h5 class="border-bottom pb-2 mb-3">{{ setting.sheet_name }}</h5>
+
+    {% if setting.notes %}
+    <div class="alert alert-light border mb-3">
+        <small class="text-muted d-block">メモ</small>
+        {{ setting.notes|nl2br }}
+    </div>
+    {% endif %}
+
+    <div class="row">
+        {% for category_key, category_data in setting_key_map.items() %}
+        {% set ns = namespace(has_value=False) %}
+        {% for key in category_data['keys'] %}
+        {% if setting.details.get(category_key, {}).get(key) %}
+        {% set ns.has_value = True %}
+        {% endif %}
+        {% endfor %}
+
+        {% if ns.has_value %}
+        <div class="col-md-6 mb-3">
+            <div class="card h-100">
+                <div class="card-header py-1 bg-light">
+                    <small class="fw-bold">{{ category_data.title }}</small>
+                </div>
+                <ul class="list-group list-group-flush small">
+                    {% for key, label in category_data['keys'].items() %}
+                    {% if setting.details.get(category_key, {}).get(key) %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center px-2 py-1">
+                        <span class="text-muted">{{ label }}</span>
+                        <span class="fw-bold">{{ setting.details.get(category_key, {}).get(key) }}</span>
+                    </li>
+                    {% endif %}
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        {% endif %}
+        {% endfor %}
+    </div>
+</div>

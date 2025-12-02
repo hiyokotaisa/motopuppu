@@ -103,6 +103,15 @@ def create_app(config_name=None):
             return value
 
     app.jinja_env.filters['format_number'] = format_number_filter
+
+    def nl2br_filter(value):
+        """改行コードを<br>タグに変換するフィルタ"""
+        if not value:
+            return ""
+        from markupsafe import Markup
+        return Markup(value.replace('\n', '<br>\n'))
+
+    app.jinja_env.filters['nl2br'] = nl2br_filter
     
     from .models import User
     @login_manager.user_loader
