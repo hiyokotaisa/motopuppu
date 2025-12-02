@@ -1,0 +1,485 @@
+{# motopuppu/templates/activity/activity_log.html #}
+{% extends "base.html" %}
+
+{% block title %}走行ログ一覧 - もとぷっぷー{% endblock %}
+
+{% block content %}
+{% include '_breadcrumbs.html' %}
+
+<style>
+    /* --- タイムライン表示用CSS (fuel_log.htmlから流用・調整) --- */
+    .activity-timeline {
+        position: relative;
+        padding-left: 2rem;
+        margin-left: 0.5rem;
+    }
+
+    .activity-timeline::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 6px;
+        width: 2px;
+        background-color: #dee2e6;
+    }
+
+    .timeline-item {
+        position: relative;
+        padding-bottom: 2.5rem;
+    }
+
+    .timeline-item:last-child {
+        padding-bottom: 0;
+    }
+
+    .timeline-marker {
+        position: absolute;
+        left: -2rem;
+        top: 1rem;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background-color: #fff;
+        border: 3px solid #adb5bd;
+        z-index: 1;
+        margin-left: -1px;
+    }
+
+    /* アクティビティ（サーキット）用マーカー */
+    .timeline-item.type-activity .timeline-marker {
+        border-color: #dc3545;
+        /* Danger Color */
+        background-color: #dc3545;
+        box-shadow: 0 0 0 4px rgba(220, 53, 69, 0.2);
+    }
+
+    /* ツーリング用マーカー */
+    .timeline-item.type-touring .timeline-marker {
+        border-color: #198754;
+        /* Success Color */
+        background-color: #198754;
+        box-shadow: 0 0 0 4px rgba(25, 135, 84, 0.2);
+    }
+
+    .timeline-item.type-activity .card {
+        border-left: 4px solid #dc3545;
+    }
+
+    .timeline-item.type-touring .card {
+        border-left: 4px solid #198754;
+    }
+</style>
+
+{# --- ヘッダーエリア --- #}
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+        <h2 class="fw-bold mb-0 text-dark"><i class="fas fa-history me-2 text-primary"></i>走行ログ一覧</h2>
+        <p class="text-muted mb-0 small">サーキット走行とツーリングの記録をまとめて管理</p>
+    </div>
+
+    {# --- アクションボタン群 --- #}
+    <div class="d-flex gap-2">
+        {# 車両IDが指定されている場合はその車両の追加画面へ、そうでなければ車両選択が必要なのでここでは汎用的なボタンにはしない #}
+
+        {# --- 表示モード切替トグル --- #}
+        <div class="btn-group" role="group" aria-label="View Mode Toggle">
+            <input type="radio" class="btn-check" name="viewMode" id="viewModeTimeline" autocomplete="off">
+            <label class="btn btn-outline-secondary" for="viewModeTimeline" title="タイムライン表示">
+                <i class="fas fa-stream"></i>
+            </label>
+
+            <input type="radio" class="btn-check" name="viewMode" id="viewModeTable" autocomplete="off">
+            <label class="btn btn-outline-secondary" for="viewModeTable" title="テーブル表示">
+                <i class="fas fa-table"></i>
+            </label>
+        </div>
+    </div>
+</div>
+
+{# --- フィルターエリア --- #}
+<div class="mb-3">
+    <button class="btn btn-sm btn-outline-secondary rounded-pill" type="button" data-bs-toggle="collapse"
+        data-bs-target="#filterCollapse" aria-expanded="{{ 'true' if is_filter_active else 'false' }}">
+        <i class="fas fa-filter me-1"></i> 絞り込み検索 {% if is_filter_active %}<span
+            class="badge bg-primary rounded-pill">ON</span>{% endif %}
+    </button>
+</div>
+
+<div class="collapse {% if is_filter_active %}show{% endif %} mb-4" id="filterCollapse">
+    <div class="card card-body bg-light border-0 shadow-sm">
+        <form method="GET" action="{{ url_for('activity.activity_log') }}" class="row g-2 align-items-end">
+            <div class="col-md-2">
+                <label class="form-label small text-muted">開始日</label>
+                <input type="date" class="form-control form-control-sm" name="start_date"
+                    value="{{ request_args.get('start_date', '') }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small text-muted">終了日</label>
+                <input type="date" class="form-control form-control-sm" name="end_date"
+                    value="{{ request_args.get('end_date', '') }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small text-muted">車両</label>
+                <select class="form-select form-select-sm" name="vehicle_id">
+                    <option value="">すべての車両</option>
+                    {% for motorcycle in motorcycles %}
+                    <option value="{{ motorcycle.id }}" {% if
+                        request_args.get('vehicle_id')|string==motorcycle.id|string %}selected{% endif %}>
+                        {{ motorcycle.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small text-muted">種別</label>
+                <select class="form-select form-select-sm" name="log_type">
+                    <option value="">すべて</option>
+                    <option value="activity" {% if request_args.get('log_type')=='activity' %}selected{% endif %}>サーキット
+                    </option>
+                    <option value="touring" {% if request_args.get('log_type')=='touring' %}selected{% endif %}>ツーリング
+                    </option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label for="q" class="form-label small text-muted">キーワード</label>
+                <input type="text" class="form-control form-control-sm" id="q" name="q"
+                    value="{{ request_args.get('q', '') }}" placeholder="タイトル, 場所, メモ">
+            </div>
+            <div class="col-md-12 text-end mt-2">
+                <button type="submit" class="btn btn-primary btn-sm">適用</button>
+                <a href="{{ url_for('activity.activity_log') }}" class="btn btn-outline-secondary btn-sm">リセット</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+{# フラッシュメッセージ #}
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+{% for category, message in messages %}
+<div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show shadow-sm" role="alert">
+    {{ message | safe }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+{% endfor %}
+{% endif %}
+{% endwith %}
+
+{# ================================================================= #}
+{# ▼▼▼ VIEW MODE 1: TIMELINE (タイムラインUI) ▼▼▼ #}
+{# ================================================================= #}
+<div id="view-timeline-container" class="d-none">
+
+    {# 統計情報 #}
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100 bg-light">
+                <div class="card-body d-flex align-items-center p-3">
+                    <div class="bg-white text-primary shadow-sm me-3 rounded-3 d-flex align-items-center justify-content-center"
+                        style="width:48px; height:48px; font-size:1.5rem;">
+                        <i class="fas fa-list"></i>
+                    </div>
+                    <div>
+                        <h6 class="text-uppercase text-muted fw-bold mb-0" style="font-size: 0.7rem;">全ログ数</h6>
+                        <h3 class="mb-0 fw-bold">{{ summary_stats.total_count }}</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100 bg-light">
+                <div class="card-body d-flex align-items-center p-3">
+                    <div class="bg-white text-danger shadow-sm me-3 rounded-3 d-flex align-items-center justify-content-center"
+                        style="width:48px; height:48px; font-size:1.5rem;">
+                        <i class="fas fa-stopwatch"></i>
+                    </div>
+                    <div>
+                        <h6 class="text-uppercase text-muted fw-bold mb-0" style="font-size: 0.7rem;">サーキット走行</h6>
+                        <h3 class="mb-0 fw-bold">{{ summary_stats.activity_count }}</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100 bg-light">
+                <div class="card-body d-flex align-items-center p-3">
+                    <div class="bg-white text-success shadow-sm me-3 rounded-3 d-flex align-items-center justify-content-center"
+                        style="width:48px; height:48px; font-size:1.5rem;">
+                        <i class="fas fa-map-marked-alt"></i>
+                    </div>
+                    <div>
+                        <h6 class="text-uppercase text-muted fw-bold mb-0" style="font-size: 0.7rem;">ツーリング</h6>
+                        <h3 class="mb-0 fw-bold">{{ summary_stats.touring_count }}</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# タイムラインリスト #}
+    <div class="activity-timeline">
+        {% for log in logs %}
+        <div class="timeline-item type-{{ log.type }}">
+            <div class="timeline-marker"></div>
+
+            <div class="card border-0 shadow-sm hover-lift">
+                <div class="card-body">
+                    {# ヘッダー行: 日付、車両名、種別 #}
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div>
+                            <h5 class="fw-bold mb-0 d-flex align-items-center gap-2 flex-wrap">
+                                {{ log.date.strftime('%Y/%m/%d') }}
+                                <span class="badge bg-light text-dark border fw-normal" style="font-size: 0.75rem;">
+                                    <i class="fas fa-motorcycle me-1"></i>{{ log.vehicle.name }}
+                                </span>
+                                {% if log.type == 'activity' %}
+                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle"
+                                    style="font-size: 0.75rem;">
+                                    <i class="fas fa-stopwatch me-1"></i>Circuit
+                                </span>
+                                {% else %}
+                                <span class="badge bg-success-subtle text-success border border-success-subtle"
+                                    style="font-size: 0.75rem;">
+                                    <i class="fas fa-map-marked-alt me-1"></i>Touring
+                                </span>
+                                {% endif %}
+                            </h5>
+                        </div>
+                    </div>
+
+                    <h5 class="fw-bold mt-2">
+                        {% if log.type == 'activity' %}
+                        <a href="{{ url_for('activity.detail_activity', activity_id=log.obj.id) }}"
+                            class="text-decoration-none text-dark stretched-link">
+                            {{ log.title }}
+                        </a>
+                        {% else %}
+                        <a href="{{ url_for('touring.detail_log', log_id=log.obj.id) }}"
+                            class="text-decoration-none text-dark stretched-link">
+                            {{ log.title }}
+                        </a>
+                        {% endif %}
+                    </h5>
+
+                    <hr class="my-2 opacity-50">
+
+                    {# 詳細データ行 #}
+                    <div class="row g-2 mt-1">
+                        {% if log.type == 'activity' %}
+                        <div class="col-6 col-sm-4">
+                            <div class="small text-muted mb-1"><i class="fas fa-map-marker-alt me-1"></i>場所</div>
+                            <div class="text-truncate">{{ log.details.location or '-' }}</div>
+                        </div>
+                        <div class="col-6 col-sm-4">
+                            <div class="small text-muted mb-1"><i class="fas fa-trophy me-1"></i>Best Lap</div>
+                            <div class="fw-bold font-monospace">{{ log.details.best_lap or '-' }}</div>
+                        </div>
+                        <div class="col-6 col-sm-4">
+                            <div class="small text-muted mb-1"><i class="fas fa-cloud-sun me-1"></i>天気</div>
+                            <div>{{ log.details.weather or '-' }}</div>
+                        </div>
+                        {% else %}
+                        <div class="col-6 col-sm-4">
+                            <div class="small text-muted mb-1"><i class="fas fa-map-pin me-1"></i>スポット数</div>
+                            <div class="fw-bold">{{ log.details.spot_count }} か所</div>
+                        </div>
+                        <div class="col-6 col-sm-4">
+                            <div class="small text-muted mb-1"><i class="fas fa-images me-1"></i>スクラップブック</div>
+                            <div class="fw-bold">{{ log.details.scrapbook_count }} 件</div>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    {# フッター: アクション (stretched-linkがあるのでボタンはz-indexを上げる必要あり) #}
+                    <div class="d-flex justify-content-end align-items-center mt-3 pt-2 border-top position-relative"
+                        style="z-index: 2;">
+                        {% if log.type == 'activity' %}
+                        <a href="{{ url_for('activity.edit_activity', activity_id=log.obj.id) }}"
+                            class="btn btn-sm btn-link text-decoration-none text-secondary p-0 me-3">編集</a>
+                        {% else %}
+                        <a href="{{ url_for('touring.edit_log', log_id=log.obj.id) }}"
+                            class="btn btn-sm btn-link text-decoration-none text-secondary p-0 me-3">編集</a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="text-center py-5 text-muted">
+            <i class="fas fa-clipboard-list fa-3x mb-3 text-light"></i>
+            <p>表示できるログがありません。</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+
+{# ================================================================= #}
+{# ▼▼▼ VIEW MODE 2: TABLE (テーブルUI) ▼▼▼ #}
+{# ================================================================= #}
+<div id="view-table-container" class="d-none">
+
+    <div class="table-responsive bg-white shadow-sm rounded">
+        <table class="table table-hover table-sm mb-0 align-middle">
+            <thead class="table-light">
+                <tr>
+                    {% macro sortable_th(sort_key, display_text, current_sort, current_order, request_args, th_class="",
+                    th_id="") %}
+                    {% set current_request_args = request_args.copy() %}
+                    {% set sort_order = 'asc' %}
+                    {% set sort_icon_html = '<i class="fas fa-sort fa-fw text-muted ms-1"></i>' %}
+                    {% if current_sort == sort_key %}
+                    {% if current_order == 'asc' %}
+                    {% set sort_order = 'desc' %}
+                    {% set sort_icon_html = '<i class="fas fa-sort-up fa-fw ms-1"></i>' %}
+                    {% else %}
+                    {% set sort_icon_html = '<i class="fas fa-sort-down fa-fw ms-1"></i>' %}
+                    {% endif %}
+                    {% endif %}
+                    {% set _ = current_request_args.update({'sort_by': sort_key, 'order': sort_order, 'page': 1}) %}
+                    <th class="{{ th_class }}" {% if th_id %}id="{{ th_id }}" {% endif %}>
+                        <a href="{{ url_for('activity.activity_log', **current_request_args) }}"
+                            class="text-decoration-none text-dark">
+                            <span class="header-text">{{ display_text|safe }}</span>
+                            <span class="sort-icon">{{ sort_icon_html|safe }}</span>
+                        </a>
+                    </th>
+                    {% endmacro %}
+
+                    {{ sortable_th('date', '<i class="bi bi-calendar-event me-2"></i>日付', current_sort_by,
+                    current_order, request_args, "ps-3") }}
+                    <th class="text-center">種別</th>
+                    {{ sortable_th('vehicle', '<i class="bi bi-bicycle me-2"></i>車両', current_sort_by, current_order,
+                    request_args) }}
+                    <th>タイトル / 場所</th>
+                    <th>詳細</th>
+                    <th class="text-center">操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in logs %}
+                <tr>
+                    <td class="ps-3 text-nowrap">{{ log.date.strftime('%Y-%m-%d') }}</td>
+                    <td class="text-center">
+                        {% if log.type == 'activity' %}
+                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle" title="サーキット走行"><i
+                                class="fas fa-stopwatch"></i></span>
+                        {% else %}
+                        <span class="badge bg-success-subtle text-success border border-success-subtle" title="ツーリング"><i
+                                class="fas fa-map-marked-alt"></i></span>
+                        {% endif %}
+                    </td>
+                    <td>{{ log.vehicle.name }}</td>
+                    <td>
+                        {% if log.type == 'activity' %}
+                        <a href="{{ url_for('activity.detail_activity', activity_id=log.obj.id) }}"
+                            class="text-decoration-none fw-bold text-dark">
+                            {{ log.title }}
+                        </a>
+                        <div class="small text-muted">{{ log.details.location }}</div>
+                        {% else %}
+                        <a href="{{ url_for('touring.detail_log', log_id=log.obj.id) }}"
+                            class="text-decoration-none fw-bold text-dark">
+                            {{ log.title }}
+                        </a>
+                        {% endif %}
+                    </td>
+                    <td class="small">
+                        {% if log.type == 'activity' %}
+                        {% if log.details.best_lap %}
+                        <span class="text-muted">Best:</span> <span class="font-monospace fw-bold">{{
+                            log.details.best_lap }}</span>
+                        {% else %}
+                        <span class="text-muted">-</span>
+                        {% endif %}
+                        {% else %}
+                        <span class="text-muted">Spots:</span> {{ log.details.spot_count }}
+                        {% endif %}
+                    </td>
+                    <td class="text-center text-nowrap">
+                        {% if log.type == 'activity' %}
+                        <a href="{{ url_for('activity.edit_activity', activity_id=log.obj.id) }}"
+                            class="btn btn-sm btn-outline-secondary border-0"><i class="fas fa-edit"></i></a>
+                        {% else %}
+                        <a href="{{ url_for('touring.edit_log', log_id=log.obj.id) }}"
+                            class="btn btn-sm btn-outline-secondary border-0"><i class="fas fa-edit"></i></a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="text-center py-4 text-muted">ログがありません</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{# --- ページネーション (共通) --- #}
+{% if pagination.pages > 1 %}
+<nav aria-label="Page navigation" class="mt-4">
+    <ul class="pagination justify-content-center">
+        <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+            <a class="page-link"
+                href="{{ url_for('activity.activity_log', page=pagination.prev_num, **request_args) }}">&laquo;</a>
+        </li>
+        {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=1) %}
+        {% if page_num %}
+        <li class="page-item {% if page_num == pagination.page %}active{% endif %}">
+            <a class="page-link" href="{{ url_for('activity.activity_log', page=page_num, **request_args) }}">{{
+                page_num }}</a>
+        </li>
+        {% else %}
+        <li class="page-item disabled"><span class="page-link">...</span></li>
+        {% endif %}
+        {% endfor %}
+        <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+            <a class="page-link"
+                href="{{ url_for('activity.activity_log', page=pagination.next_num, **request_args) }}">&raquo;</a>
+        </li>
+    </ul>
+</nav>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // --- View Mode Toggle Logic ---
+        const timelineRadio = document.getElementById('viewModeTimeline');
+        const tableRadio = document.getElementById('viewModeTable');
+        const timelineContainer = document.getElementById('view-timeline-container');
+        const tableContainer = document.getElementById('view-table-container');
+
+        // localStorage key
+        const STORAGE_KEY = 'motopuppu_activity_view_pref';
+
+        function setViewMode(mode) {
+            if (mode === 'timeline') {
+                timelineContainer.classList.remove('d-none');
+                tableContainer.classList.add('d-none');
+                timelineRadio.checked = true;
+                localStorage.setItem(STORAGE_KEY, 'timeline');
+            } else {
+                timelineContainer.classList.add('d-none');
+                tableContainer.classList.remove('d-none');
+                tableRadio.checked = true;
+                localStorage.setItem(STORAGE_KEY, 'table');
+            }
+        }
+
+        // Initial Load
+        const savedMode = localStorage.getItem(STORAGE_KEY) || 'timeline'; // Default to timeline
+        setViewMode(savedMode);
+
+        // Event Listeners
+        timelineRadio.addEventListener('change', () => setViewMode('timeline'));
+        tableRadio.addEventListener('change', () => setViewMode('table'));
+    });
+</script>
+<script src="{{ url_for('static', filename='js/filter_persistence.js') }}"></script>
+{% endblock %}

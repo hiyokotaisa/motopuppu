@@ -17,7 +17,7 @@ from ...utils.lap_time_utils import calculate_lap_stats, parse_time_to_seconds, 
 from ...constants import SETTING_KEY_MAP
 
 from flask_login import login_required, current_user
-from ...models import db, Motorcycle, ActivityLog, SessionLog, SettingSheet, User 
+from ...models import db, Motorcycle, ActivityLog, SessionLog, SettingSheet, User, TouringLog, TouringSpot, TouringScrapbookEntry 
 from ...forms import ActivityLogForm, SessionLogForm, LapTimeImportForm
 from ... import limiter
 
@@ -63,6 +63,219 @@ def _ramer_douglas_peucker(points, epsilon):
 def get_motorcycle_or_404(vehicle_id):
     """指定されたIDの車両を取得し、所有者でなければ404を返す"""
     return Motorcycle.query.filter_by(id=vehicle_id, user_id=current_user.id).first_or_404()
+
+
+@activity_bp.route('/')
+@login_required
+def activity_log():
+    """全車両の走行ログとツーリングログを統合して表示する"""
+    start_date_str = request.args.get('start_date')
+    end_date_str = request.args.get('end_date')
+    vehicle_id_str = request.args.get('vehicle_id')
+    keyword = request.args.get('q', '').strip()
+    sort_by = request.args.get('sort_by', 'date')
+    order = request.args.get('order', 'desc')
+    page = request.args.get('page', 1, type=int)
+    per_page = current_app.config.get('ACTIVITIES_PER_PAGE', 20)
+
+    # ユーザーの全車両を取得（フィルタ用）
+    user_motorcycles = Motorcycle.query.filter_by(user_id=current_user.id).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
+    user_motorcycle_ids = [m.id for m in user_motorcycles]
+
+    if not user_motorcycles:
+        flash('ログを閲覧するには、まず車両を登録してください。', 'info')
+        return redirect(url_for('vehicle.add_vehicle'))
+
+    log_type = request.args.get('log_type', '')
+
+    # --- 1. ActivityLog (走行ログ) のクエリ構築 ---
+    activity_query = None
+    if not log_type or log_type == 'activity':
+        activity_query = db.session.query(ActivityLog).options(
+            joinedload(ActivityLog.motorcycle)
+        ).filter(ActivityLog.user_id == current_user.id)
+
+    # --- 2. TouringLog (ツーリングログ) のクエリ構築 ---
+    touring_query = None
+    if not log_type or log_type == 'touring':
+        touring_query = db.session.query(TouringLog).options(
+            joinedload(TouringLog.motorcycle),
+            joinedload(TouringLog.spots),
+            joinedload(TouringLog.scrapbook_entries)
+        ).filter(TouringLog.user_id == current_user.id)
+
+    # --- 3. フィルタリングの適用 ---
+    active_filters = {k: v for k, v in request.args.items() if k not in ['page', 'sort_by', 'order']}
+
+    try:
+        if start_date_str:
+            start_date = date.fromisoformat(start_date_str)
+            if activity_query: activity_query = activity_query.filter(ActivityLog.activity_date >= start_date)
+            if touring_query: touring_query = touring_query.filter(TouringLog.touring_date >= start_date)
+        if end_date_str:
+            end_date = date.fromisoformat(end_date_str)
+            if activity_query: activity_query = activity_query.filter(ActivityLog.activity_date <= end_date)
+            if touring_query: touring_query = touring_query.filter(TouringLog.touring_date <= end_date)
+    except ValueError:
+        flash('日付の形式が無効です。YYYY-MM-DD形式で入力してください。', 'warning')
+        active_filters.pop('start_date', None)
+        active_filters.pop('end_date', None)
+
+    if vehicle_id_str:
+        try:
+            vehicle_id = int(vehicle_id_str)
+            if vehicle_id in user_motorcycle_ids:
+                if activity_query: activity_query = activity_query.filter(ActivityLog.motorcycle_id == vehicle_id)
+                if touring_query: touring_query = touring_query.filter(TouringLog.motorcycle_id == vehicle_id)
+            else:
+                flash('選択された車両は有効ではありません。', 'warning')
+                active_filters.pop('vehicle_id', None)
+        except ValueError:
+            active_filters.pop('vehicle_id', None)
+
+    if keyword:
+        search_term = f'%{keyword}%'
+        # ActivityLog: タイトル、場所名、メモ、サーキット名
+        if activity_query:
+            activity_query = activity_query.filter(
+                db.or_(
+                    ActivityLog.activity_title.ilike(search_term),
+                    ActivityLog.location_name.ilike(search_term),
+                    ActivityLog.notes.ilike(search_term),
+                    ActivityLog.circuit_name.ilike(search_term),
+                    ActivityLog.custom_location.ilike(search_term)
+                )
+            )
+        # TouringLog: タイトル、メモ
+        if touring_query:
+            touring_query = touring_query.filter(
+                db.or_(
+                    TouringLog.title.ilike(search_term),
+                    TouringLog.memo.ilike(search_term)
+                )
+            )
+
+    # --- 4. データ取得と統合 ---
+    activities = activity_query.all() if activity_query else []
+    tourings = touring_query.all() if touring_query else []
+
+    combined_logs = []
+    
+    # ActivityLogを共通形式に変換
+    for act in activities:
+        # ベストラップ情報の取得（N+1回避のため簡易的に取得するか、必要なら別途クエリ）
+        # ここではリスト表示用に代表的な情報だけ持たせる
+        best_lap_str = None
+        best_session = SessionLog.query.filter(
+            SessionLog.activity_log_id == act.id,
+            SessionLog.best_lap_seconds.isnot(None)
+        ).order_by(SessionLog.best_lap_seconds.asc()).first()
+        
+        if best_session:
+            best_lap_str = format_seconds_to_time(best_session.best_lap_seconds)
+
+        combined_logs.append({
+            'type': 'activity',
+            'obj': act,
+            'date': act.activity_date,
+            'title': act.activity_title or act.location_name_display or '走行ログ',
+            'vehicle': act.motorcycle,
+            'details': {
+                'location': act.location_name_display,
+                'best_lap': best_lap_str,
+                'weather': act.weather
+            }
+        })
+
+    # TouringLogを共通形式に変換
+    for tour in tourings:
+        combined_logs.append({
+            'type': 'touring',
+            'obj': tour,
+            'date': tour.touring_date,
+            'title': tour.title,
+            'vehicle': tour.motorcycle,
+            'details': {
+                'spot_count': len(tour.spots),
+                'scrapbook_count': len(tour.scrapbook_entries)
+            }
+        })
+
+    # --- 5. ソートとページネーション (Python側で処理) ---
+    # デフォルトは日付降順
+    reverse_sort = True if order == 'desc' else False
+    
+    if sort_by == 'date':
+        combined_logs.sort(key=lambda x: x['date'], reverse=reverse_sort)
+    elif sort_by == 'vehicle':
+        combined_logs.sort(key=lambda x: x['vehicle'].name, reverse=reverse_sort)
+    
+    # 統計情報の計算
+    summary_stats = {
+        'total_count': len(combined_logs),
+        'activity_count': len(activities),
+        'touring_count': len(tourings)
+    }
+
+    # ページネーション
+    total_items = len(combined_logs)
+    start_idx = (page - 1) * per_page
+    end_idx = start_idx + per_page
+    paginated_logs = combined_logs[start_idx:end_idx]
+
+    # 簡易的なページネーションオブジェクトを作成（テンプレート互換用）
+    class SimplePagination:
+        def __init__(self, page, per_page, total):
+            self.page = page
+            self.per_page = per_page
+            self.total = total
+            self.items = paginated_logs
+        
+        @property
+        def pages(self):
+            if self.per_page == 0: return 0
+            return math.ceil(self.total / self.per_page)
+        
+        @property
+        def has_prev(self):
+            return self.page > 1
+        
+        @property
+        def has_next(self):
+            return self.page < self.pages
+        
+        @property
+        def prev_num(self):
+            return self.page - 1
+        
+        @property
+        def next_num(self):
+            return self.page + 1
+
+        def iter_pages(self, left_edge=2, left_current=2, right_current=5, right_edge=2):
+            last = 0
+            for num in range(1, self.pages + 1):
+                if num <= left_edge or \
+                   (num > self.page - left_current - 1 and num < self.page + right_current) or \
+                   num > self.pages - right_edge:
+                    if last + 1 != num:
+                        yield None
+                    yield num
+                    last = num
+
+    pagination = SimplePagination(page, per_page, total_items)
+
+    is_filter_active = bool(active_filters)
+
+    return render_template('activity/activity_log.html',
+                           logs=paginated_logs,
+                           pagination=pagination,
+                           motorcycles=user_motorcycles,
+                           request_args=active_filters,
+                           current_sort_by=sort_by,
+                           current_order=order,
+                           is_filter_active=is_filter_active,
+                           summary_stats=summary_stats)
 
 
 @activity_bp.route('/<int:vehicle_id>')
