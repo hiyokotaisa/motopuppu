@@ -1,59 +1,126 @@
 {# motopuppu/templates/dashboard/_circuit_widget.html #}
 <div class="accordion-item card my-4" data-widget-name="circuit">
     <h2 class="accordion-header d-flex align-items-center" id="heading-circuit">
-        <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-circuit" aria-expanded="true" aria-controls="collapse-circuit">
+        <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-circuit"
+            aria-expanded="true" aria-controls="collapse-circuit">
             <span class="widget-grab-handle me-2" title="ドラッグして並び替え"><i class="fas fa-grip-vertical"></i></span>
             <span class="me-auto"><i class="fas fa-flag-checkered me-1"></i> <strong>サーキット・活動ログ</strong></span>
         </button>
     </h2>
     <div id="collapse-circuit" class="accordion-collapse collapse show" aria-labelledby="heading-circuit">
-        <div class="card-body">
-            
-            <div class="row text-center mb-3">
-                <div class="col-6">
+        <div class="card-body p-0">
+            {# --- 次回の走行予定 (あれば表示) --- #}
+            {% if circuit_stats.next_circuit_event %}
+            <div class="alert alert-info m-3 mb-0 d-flex align-items-center shadow-sm border-0" role="alert">
+                <div class="fs-1 me-3"><i class="fas fa-stopwatch"></i></div>
+                <div>
+                    <h6 class="alert-heading fw-bold mb-1">Next Run: {{
+                        circuit_stats.next_circuit_event.activity_date.strftime('%m/%d') }}</h6>
+                    <p class="mb-0 small">{{ circuit_stats.next_circuit_event.activity_title or 'サーキット走行' }} @ {{
+                        circuit_stats.next_circuit_event.circuit_name }}</p>
+                </div>
+            </div>
+            {% endif %}
+
+            {# --- 統計サマリー (共通) --- #}
+            <div class="row text-center py-3 border-bottom mx-0 bg-light">
+                <div class="col-6 border-end">
                     <div class="stat">
                         <div class="fs-5 fw-bold">{{ circuit_stats.summary.total_circuits }}</div>
-                        <div class="text-muted small">走行サーキット数</div>
+                        <div class="text-muted small" style="font-size: 0.7rem;">サーキット数</div>
                     </div>
                 </div>
                 <div class="col-6">
                     <div class="stat">
                         <div class="fs-5 fw-bold">{{ circuit_stats.summary.total_sessions }}</div>
-                        <div class="text-muted small">総セッション数</div>
+                        <div class="text-muted small" style="font-size: 0.7rem;">総セッション</div>
                     </div>
                 </div>
             </div>
 
-            {% if circuit_stats.recent_activities %}
-                <div class="list-group list-group-flush">
-                    {% for activity in circuit_stats.recent_activities %}
-                    <a href="{{ url_for('activity.detail_activity', activity_id=activity.id) }}" class="list-group-item list-group-item-action">
-                        <div class="d-flex w-100 justify-content-between">
-                            <h6 class="mb-1 text-primary">{{ activity.activity_title or activity.location_name_display }}</h6>
-                            <small class="text-muted">{{ activity.activity_date.strftime('%Y/%m/%d') }}</small>
-                        </div>
-                        <div class="d-flex align-items-center">
-                            <p class="mb-0 small text-muted">
-                                <i class="fas fa-motorcycle me-1"></i> {{ activity.motorcycle.name }}
-                            </p>
-                            {# ▼▼▼【ここから追記】ベストラップ表示 ▼▼▼ #}
-                            {% if activity.best_lap_for_activity %}
-                                <small class="ms-3 text-muted">
-                                    <i class="fas fa-trophy text-warning me-1"></i>
-                                    Best: <strong>{{ format_seconds_to_time(activity.best_lap_for_activity) }}</strong>
+            {# --- タブナビゲーション --- #}
+            <ul class="nav nav-tabs nav-fill" id="circuitWidgetTab" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active py-2 small fw-bold" id="recent-tab" data-bs-toggle="tab"
+                        data-bs-target="#recent-pane" type="button" role="tab" aria-controls="recent-pane"
+                        aria-selected="true">
+                        <i class="fas fa-history me-1"></i>最近の活動
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link py-2 small fw-bold" id="records-tab" data-bs-toggle="tab"
+                        data-bs-target="#records-pane" type="button" role="tab" aria-controls="records-pane"
+                        aria-selected="false">
+                        <i class="fas fa-trophy me-1"></i>自己ベスト
+                    </button>
+                </li>
+            </ul>
+
+            <div class="tab-content" id="circuitWidgetTabContent">
+                {# --- タブ1: 最近の活動 --- #}
+                <div class="tab-pane fade show active" id="recent-pane" role="tabpanel" aria-labelledby="recent-tab">
+                    {% if circuit_stats.recent_activities %}
+                    <div class="list-group list-group-flush">
+                        {% for activity in circuit_stats.recent_activities %}
+                        <a href="{{ url_for('activity.detail_activity', activity_id=activity.id) }}"
+                            class="list-group-item list-group-item-action py-2">
+                            <div class="d-flex w-100 justify-content-between align-items-center">
+                                <h6 class="mb-0 text-truncate" style="max-width: 60%;">
+                                    {{ activity.activity_title or activity.location_name_display }}
+                                </h6>
+                                <small class="text-muted" style="font-size: 0.75rem;">{{
+                                    activity.activity_date.strftime('%m/%d') }}</small>
+                            </div>
+                            <div class="d-flex align-items-center mt-1">
+                                <small class="text-muted me-auto" style="font-size: 0.75rem;">
+                                    <i class="fas fa-motorcycle me-1"></i>{{ activity.motorcycle.name }}
                                 </small>
-                            {% endif %}
-                            {# ▲▲▲【追記はここまで】▲▲▲ #}
+                                {% if activity.best_lap_for_activity %}
+                                <span class="badge bg-light text-dark border fs-6">
+                                    <i class="fas fa-stopwatch me-1 text-secondary"></i>{{
+                                    format_seconds_to_time(activity.best_lap_for_activity) }}
+                                </span>
+                                {% endif %}
+                            </div>
+                        </a>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center my-4 small">まだ活動ログがありません。</p>
+                    {% endif %}
+                </div>
+
+                {# --- タブ2: 自己ベスト (Records) --- #}
+                <div class="tab-pane fade" id="records-pane" role="tabpanel" aria-labelledby="records-tab">
+                    {% if circuit_stats.personal_bests %}
+                    <div class="list-group list-group-flush">
+                        {% for pb in circuit_stats.personal_bests %}
+                        <div class="list-group-item py-2">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="fw-bold text-dark">{{ pb.circuit_name }}</span>
+                                <span class="badge bg-warning text-dark fw-bold fs-6">
+                                    {{ format_seconds_to_time(pb.best_lap) }}
+                                </span>
+                            </div>
+                            <div class="text-end">
+                                <small class="text-muted" style="font-size: 0.7rem;">
+                                    <i class="fas fa-motorcycle me-1"></i>{{ pb.vehicle_name }}
+                                </small>
+                            </div>
                         </div>
-                    </a>
-                    {% endfor %}
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center my-4 small">ベストタイム記録がありません。</p>
+                    {% endif %}
                 </div>
-                 <div class="text-end mt-2">
-                    <a href="{{ url_for('circuit_dashboard.index') }}" class="btn btn-sm btn-outline-primary">サーキットダッシュボードへ <i class="fas fa-arrow-right fa-xs"></i></a>
-                </div>
-            {% else %}
-                <p class="text-muted text-center mt-3">まだ活動ログがありません。</p>
-            {% endif %}
+            </div>
+
+            <div class="card-footer bg-white border-top-0 text-end p-2">
+                <a href="{{ url_for('circuit_dashboard.index') }}" class="btn btn-sm btn-link text-decoration-none">
+                    詳細ダッシュボードへ <i class="fas fa-arrow-right ms-1"></i>
+                </a>
+            </div>
         </div>
     </div>
 </div>

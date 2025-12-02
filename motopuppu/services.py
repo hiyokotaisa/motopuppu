@@ -538,9 +538,57 @@ def get_circuit_activity_for_dashboard(user_id):
         for activity in recent_activities:
             activity.best_lap_for_activity = best_laps_map.get(activity.id)
 
+    # --- 追加: サーキットごとの自己ベスト (Top 5) ---
+    # 回数が多いサーキット順に、そのサーキットでのベストタイムを取得
+    personal_bests = []
+    
+    # まず、よく行くサーキットTop5を取得
+    top_circuits = db.session.query(
+        ActivityLog.circuit_name,
+        func.count(ActivityLog.id).label('visit_count')
+    ).filter(
+        ActivityLog.user_id == user_id,
+        ActivityLog.circuit_name.isnot(None)
+    ).group_by(
+        ActivityLog.circuit_name
+    ).order_by(
+        func.count(ActivityLog.id).desc()
+    ).limit(5).all()
+
+    for circuit_name, _ in top_circuits:
+        # 各サーキットのベストタイムを取得
+        best_session = db.session.query(
+            SessionLog.best_lap_seconds,
+            Motorcycle.name.label('vehicle_name')
+        ).select_from(SessionLog).join(ActivityLog).join(Motorcycle).filter(
+            ActivityLog.user_id == user_id,
+            ActivityLog.circuit_name == circuit_name,
+            SessionLog.best_lap_seconds.isnot(None)
+        ).order_by(
+            SessionLog.best_lap_seconds.asc()
+        ).first()
+
+        if best_session:
+            personal_bests.append({
+                'circuit_name': circuit_name,
+                'best_lap': best_session.best_lap_seconds,
+                'vehicle_name': best_session.vehicle_name
+            })
+
+    # --- 追加: 次回のサーキット走行予定 ---
+    # ユーザー要望: イベント機能ではなく、「アクティビティ」の走行ログで将来の日付になっているものを予定として扱う
+    today = datetime.now(ZoneInfo("Asia/Tokyo")).date()
+    next_circuit_event = ActivityLog.query.filter(
+        ActivityLog.user_id == user_id,
+        ActivityLog.activity_date >= today,
+        ActivityLog.circuit_name.isnot(None)
+    ).order_by(ActivityLog.activity_date.asc()).first()
+
     return {
         'summary': summary,
-        'recent_activities': recent_activities
+        'recent_activities': recent_activities,
+        'personal_bests': personal_bests,
+        'next_circuit_event': next_circuit_event
     }
 
 
