@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const addLapBtn = document.getElementById('addLapBtn');
     const lapTemplate = document.getElementById('lapTemplate');
     const hiddenLapInput = document.getElementById('lap_times_json');
+    const hiddenIndicesInput = document.getElementById('lap_time_indices_json');
     const bestLapDisplay = document.getElementById('bestLap');
     const avgLapDisplay = document.getElementById('avgLap');
     
@@ -55,6 +56,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateCalculationsAndHiddenField() {
         const lapInputs = lapTimeContainer.querySelectorAll('.lap-time-input');
         const validLapTimes = [];
+        const validIndices = [];
         
         lapInputs.forEach(input => {
             const timeValue = input.value.trim();
@@ -63,6 +65,9 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (LAP_TIME_REGEX.test(timeValue)) {
                 input.classList.remove('is-invalid');
                 validLapTimes.push(timeValue);
+                // オリジナルのインデックスを取得（新規追加の場合はnull）
+                const originalIndex = input.getAttribute('data-original-index');
+                validIndices.push(originalIndex !== null ? parseInt(originalIndex, 10) : null);
             } else {
                 input.classList.add('is-invalid');
             }
@@ -70,6 +75,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (hiddenLapInput) {
             hiddenLapInput.value = JSON.stringify(validLapTimes);
+        }
+        if (hiddenIndicesInput) {
+            hiddenIndicesInput.value = JSON.stringify(validIndices);
         }
 
         const lapSeconds = validLapTimes.map(parseTimeToSeconds).filter(s => s !== null);
@@ -90,14 +98,18 @@ document.addEventListener('DOMContentLoaded', () => {
     /**
      * 新しいラップ入力欄を追加する
      * @param {string} [value=''] - 入力欄に設定する初期値
+     * @param {number|null} [originalIndex=null] - オリジナルのインデックス
      */
-    function addLapRow(value = '') {
+    function addLapRow(value = '', originalIndex = null) {
         const newRow = lapTemplate.content.cloneNode(true);
         const input = newRow.querySelector('.lap-time-input');
         
         // 値を設定
         if(input) {
             input.value = value;
+            if (originalIndex !== null) {
+                input.setAttribute('data-original-index', originalIndex);
+            }
         }
         
         lapTimeContainer.appendChild(newRow);
@@ -136,8 +148,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // バックエンドから渡されたグローバル変数 `initialLapTimes` を確認
         if (typeof initialLapTimes !== 'undefined' && Array.isArray(initialLapTimes)) {
             // 既存のデータを元に入力欄を作成
-            initialLapTimes.forEach(lapValue => {
-                addLapRow(lapValue);
+            initialLapTimes.forEach((lapValue, index) => {
+                addLapRow(lapValue, index);
             });
             
             // 初期化後に一度だけ計算を実行

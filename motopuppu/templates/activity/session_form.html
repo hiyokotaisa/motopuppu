@@ -5,26 +5,28 @@
 
 {% block content %}
 <div class="d-flex align-items-center mb-3">
-    <a href="{{ url_for('activity.detail_activity', activity_id=session.activity_log_id) }}" class="btn btn-sm btn-outline-secondary me-3" title="走行ログ詳細へ戻る">
+    <a href="{{ url_for('activity.detail_activity', activity_id=session.activity_log_id) }}"
+        class="btn btn-sm btn-outline-secondary me-3" title="走行ログ詳細へ戻る">
         <i class="fas fa-arrow-left"></i>
     </a>
     <div>
         <h2 class="mb-0">セッション記録の編集</h2>
         {# --- ▼▼▼ 変更: 新しいタイトル構造に対応 ▼▼▼ --- #}
-        <span class="text-muted">{{ motorcycle.name }} - {{ session.activity.activity_title or session.activity.location_name }}</span>
+        <span class="text-muted">{{ motorcycle.name }} - {{ session.activity.activity_title or
+            session.activity.location_name }}</span>
     </div>
 </div>
 
 {# Flash Messages #}
 {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-        {% for category, message in messages %}
-            <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show" role="alert">
-                {{ message }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-        {% endfor %}
-    {% endif %}
+{% if messages %}
+{% for category, message in messages %}
+<div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show" role="alert">
+    {{ message }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+{% endfor %}
+{% endif %}
 {% endwith %}
 
 <div class="card">
@@ -36,33 +38,37 @@
                     {{ form.session_name.label(class="form-label") }}
                     {{ form.session_name(class="form-control" + (" is-invalid" if form.session_name.errors else "")) }}
                     {% if form.session_name.errors %}
-                        <div class="invalid-feedback">{% for e in form.session_name.errors %}{{e}}{% endfor %}</div>
+                    <div class="invalid-feedback">{% for e in form.session_name.errors %}{{e}}{% endfor %}</div>
                     {% endif %}
                 </div>
                 <div class="col-md-6 mb-3">
                     {{ form.setting_sheet_id.label(class="form-label") }}
                     <div class="input-group">
-                        {{ form.setting_sheet_id(class="form-select" + (" is-invalid" if form.setting_sheet_id.errors else "")) }}
-                        <a href="{{ url_for('activity.list_settings', vehicle_id=motorcycle.id) }}" class="btn btn-outline-secondary" title="セッティング管理へ"><i class="fas fa-cog"></i></a>
+                        {{ form.setting_sheet_id(class="form-select" + (" is-invalid" if form.setting_sheet_id.errors
+                        else "")) }}
+                        <a href="{{ url_for('activity.list_settings', vehicle_id=motorcycle.id) }}"
+                            class="btn btn-outline-secondary" title="セッティング管理へ"><i class="fas fa-cog"></i></a>
                     </div>
                     {% if form.setting_sheet_id.errors %}
-                        <div class="invalid-feedback">{% for e in form.setting_sheet_id.errors %}{{e}}{% endfor %}</div>
+                    <div class="invalid-feedback">{% for e in form.setting_sheet_id.errors %}{{e}}{% endfor %}</div>
                     {% endif %}
                 </div>
             </div>
-            
+
             <div id="racer-fields" class="mb-3 {% if not motorcycle.is_racer %}d-none{% endif %}">
                 {{ form.session_duration_hours.label(class="form-label") }}
-                {{ form.session_duration_hours(class="form-control" + (" is-invalid" if form.session_duration_hours.errors else "")) }}
+                {{ form.session_duration_hours(class="form-control" + (" is-invalid" if
+                form.session_duration_hours.errors else "")) }}
                 {% if form.session_duration_hours.errors %}
-                    <div class="invalid-feedback">{% for e in form.session_duration_hours.errors %}{{e}}{% endfor %}</div>
+                <div class="invalid-feedback">{% for e in form.session_duration_hours.errors %}{{e}}{% endfor %}</div>
                 {% endif %}
             </div>
             <div id="street-fields" class="mb-3 {% if motorcycle.is_racer %}d-none{% endif %}">
                 {{ form.session_distance.label(class="form-label") }}
-                {{ form.session_distance(class="form-control" + (" is-invalid" if form.session_distance.errors else "")) }}
+                {{ form.session_distance(class="form-control" + (" is-invalid" if form.session_distance.errors else ""))
+                }}
                 {% if form.session_distance.errors %}
-                    <div class="invalid-feedback">{% for e in form.session_distance.errors %}{{e}}{% endfor %}</div>
+                <div class="invalid-feedback">{% for e in form.session_distance.errors %}{{e}}{% endfor %}</div>
                 {% endif %}
             </div>
 
@@ -70,10 +76,10 @@
                 {{ form.rider_feel.label(class="form-label") }}
                 {{ form.rider_feel(class="form-control" + (" is-invalid" if form.rider_feel.errors else "")) }}
                 {% if form.rider_feel.errors %}
-                    <div class="invalid-feedback">{% for e in form.rider_feel.errors %}{{e}}{% endfor %}</div>
+                <div class="invalid-feedback">{% for e in form.rider_feel.errors %}{{e}}{% endfor %}</div>
                 {% endif %}
             </div>
-            
+
             <div class="mb-3">
                 <label class="form-label">ラップタイム</label>
                 <div class="d-flex justify-content-end gap-3 mb-2 small">
@@ -97,8 +103,9 @@
                     </div>
                 </div>
             </template>
-            
+
             <input type="hidden" id="lap_times_json" name="lap_times_json" value="{{ lap_times_json|e }}">
+            <input type="hidden" id="lap_time_indices_json" name="lap_time_indices_json" value="">
 
             {# --- ▼▼▼ 変更: リーダーボード設定のチェックボックスを追加 ▼▼▼ --- #}
             <div class="mb-3">
@@ -110,7 +117,8 @@
             {# --- ▲▲▲ 変更ここまで ▲▲▲ --- #}
 
             <div class="d-flex justify-content-end">
-                <a href="{{ url_for('activity.detail_activity', activity_id=session.activity_log_id) }}" class="btn btn-secondary me-2">キャンセル</a>
+                <a href="{{ url_for('activity.detail_activity', activity_id=session.activity_log_id) }}"
+                    class="btn btn-secondary me-2">キャンセル</a>
                 {{ form.submit(class="btn btn-primary", value="更新する") }}
             </div>
         </form>
@@ -121,8 +129,8 @@
 {% block scripts %}
 {{ super() }}
 <script>
-// グローバルスコープで初期データを設定
-var initialLapTimes = {{ lap_times_json|safe }};
+    // グローバルスコープで初期データを設定
+    var initialLapTimes = {{ lap_times_json| safe }};
 </script>
 <script src="{{ url_for('static', filename='js/lap_time_manager.js') }}"></script>
 {% endblock %}

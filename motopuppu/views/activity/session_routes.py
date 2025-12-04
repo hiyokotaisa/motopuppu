@@ -410,6 +410,39 @@ def edit_session(session_id):
         session.rider_feel = form.rider_feel.data
         
         lap_times_list = json.loads(form.lap_times_json.data) if form.lap_times_json.data else []
+        
+        # ▼▼▼ 追加: GPSデータの同期処理 ▼▼▼
+        lap_indices_json = request.form.get('lap_time_indices_json')
+        if lap_indices_json and session.gps_tracks and session.gps_tracks.get('laps'):
+            try:
+                lap_indices = json.loads(lap_indices_json)
+                current_gps_laps = {lap['lap_number']: lap for lap in session.gps_tracks['laps']}
+                new_gps_laps = []
+                
+                # インデックスリスト（[0, 2, 4, null, ...]）を走査して新しいGPSリストを構築
+                # nullは新規追加されたラップなのでGPSデータなし
+                for i, original_idx in enumerate(lap_indices):
+                    if original_idx is not None:
+                        # オリジナルのラップ番号は index + 1
+                        original_lap_num = original_idx + 1
+                        if original_lap_num in current_gps_laps:
+                            # 既存のトラックデータを取得し、新しいラップ番号を割り当てて保存
+                            track_data = current_gps_laps[original_lap_num]
+                            # deep copy的なことをして新しいオブジェクトにする
+                            new_track_data = track_data.copy()
+                            new_track_data['lap_number'] = i + 1
+                            new_gps_laps.append(new_track_data)
+                
+                if new_gps_laps:
+                    session.gps_tracks = {'laps': new_gps_laps}
+                else:
+                    session.gps_tracks = None
+                    
+            except (json.JSONDecodeError, ValueError) as e:
+                current_app.logger.warning(f"Failed to sync GPS tracks: {e}")
+                # エラー時は安全のためGPSデータを変更しない（あるいは整合性が取れないので削除するか要検討だが、一旦維持）
+        # ▲▲▲ 追加ここまで ▲▲▲
+
         session.lap_times = lap_times_list
         _calculate_and_set_best_lap(session, lap_times_list)
         
