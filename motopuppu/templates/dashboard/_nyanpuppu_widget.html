@@ -2,7 +2,8 @@
 {% if nyanpuppu_advice and nyanpuppu_advice.image_filename %}
 <div class="accordion-item card mb-4" data-widget-name="nyanpuppu">
     <h2 class="accordion-header" id="heading-nyanpuppu">
-        <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-nyanpuppu" aria-expanded="true" aria-controls="collapse-nyanpuppu">
+        <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-nyanpuppu"
+            aria-expanded="true" aria-controls="collapse-nyanpuppu">
             <span class="widget-grab-handle me-2" title="ドラッグして並び替え"><i class="fas fa-grip-vertical"></i></span>
             <span class="me-auto"><i class="fa-solid fa-cat me-1"></i> <strong>にゃんぷっぷーからの一言</strong></span>
         </button>
@@ -10,15 +11,65 @@
     <div id="collapse-nyanpuppu" class="accordion-collapse collapse show" aria-labelledby="heading-nyanpuppu">
         <div class="card-body">
             <div class="d-flex align-items-center">
-                <img src="{{ url_for('static', filename='images/nyanpuppu/' + nyanpuppu_advice.image_filename) }}" 
-                     alt="にゃんぷっぷー" 
-                     class="nyanpuppu-image me-3"
-                     aria-hidden="true">
-                <div class="nyanpuppu-bubble">
-                    <p class="mb-0">{{ nyanpuppu_advice.text }}</p>
+                <img src="{{ url_for('static', filename='images/nyanpuppu/' + nyanpuppu_advice.image_filename) }}"
+                    alt="にゃんぷっぷー" class="nyanpuppu-image me-3" aria-hidden="true" id="nyanpuppu-image">
+                <div class="nyanpuppu-bubble position-relative pe-4">
+                    <p class="mb-0" id="nyanpuppu-text">{{ nyanpuppu_advice.text }}</p>
+                    <button onclick="reloadNyanpuppu(this)"
+                        class="btn btn-sm text-secondary position-absolute bottom-0 end-0 p-1 mb-1 me-2"
+                        title="別のアドバイスを聞く" style="line-height: 1;">
+                        <i class="fas fa-sync-alt" id="nyanpuppu-reload-icon"></i>
+                    </button>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<script>
+    function reloadNyanpuppu(triggerElem) {
+        const icon = document.getElementById('nyanpuppu-reload-icon');
+        const image = document.getElementById('nyanpuppu-image');
+        const text = document.getElementById('nyanpuppu-text');
+
+        // 回転アニメーション開始
+        icon.classList.add('fa-spin');
+        triggerElem.disabled = true; // pointerEventsからdisabledに変更（buttonタグなので）
+
+        fetch('/api/dashboard/nyanpuppu')
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    console.error('Error:', data.error);
+                    return;
+                }
+
+                // 画像とテキストを更新
+                const currentSrc = image.src;
+                const baseUrl = currentSrc.substring(0, currentSrc.lastIndexOf('/') + 1);
+
+                // フェードアウト効果
+                image.style.opacity = 0;
+                text.style.opacity = 0;
+
+                setTimeout(() => {
+                    image.src = baseUrl + data.image_filename;
+                    text.textContent = data.text;
+
+                    image.style.opacity = 1;
+                    text.style.opacity = 1;
+                }, 200);
+            })
+            .catch(error => {
+                console.error('Error fetching nyanpuppu advice:', error);
+            })
+            .finally(() => {
+                // アニメーション終了
+                setTimeout(() => {
+                    icon.classList.remove('fa-spin');
+                    triggerElem.disabled = false;
+                }, 500); // 少なくとも500msは回す
+            });
+    }
+</script>
 {% endif %}

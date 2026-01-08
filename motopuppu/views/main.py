@@ -322,6 +322,19 @@ def misskey_redirect(note_id):
     return redirect(f"{misskey_instance_url}/notes/{note_id}")
 
 
+@main_bp.route('/api/dashboard/nyanpuppu')
+@login_required
+def get_nyanpuppu_advice_api():
+    """にゃんぷっぷーのアドバイスをJSONで返すAPI"""
+    user_motorcycles_all = Motorcycle.query.filter_by(user_id=current_user.id).all()
+    advice_data = services.get_nyanpuppu_advice(current_user, user_motorcycles_all)
+    
+    if advice_data:
+        return jsonify(advice_data)
+    else:
+        return jsonify({'error': 'No advice available'}), 404
+
+
 @main_bp.route('/dashboard/toggle-cost-display', methods=['POST'])
 @login_required
 def toggle_dashboard_cost_display():

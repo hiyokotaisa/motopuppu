@@ -432,6 +432,8 @@ def get_advice(user, motorcycles):
                 advice_pool.append(("そろそろおやすみの時間にゃ。いい夢を見るにゃん…", "blobcat_oyasumi.png"))
                 # ▼▼▼【前回の追記】時間帯のセリフを追加 ▼▼▼
                 advice_pool.append(("夜更かしは整備の大敵にゃんよ...（？）。明日もがんばるにゃん。", "blobcat_oyasumi.png"))
+                advice_pool.append(("寝る前に明日の天気をチェックするにゃ。雨なら...寝坊するにゃん！", "blobcat_8bit_sleep.gif"))
+                advice_pool.append(("夜のガレージは静かで好きにゃ...。でもお化けは怖いにゃん。", "blobcat_aseri2.png"))
                 # ▲▲▲【追記はここまで】▲▲▲
 
             # --- 季節 ---
@@ -444,6 +446,8 @@ def get_advice(user, motorcycles):
                     # ▼▼▼【前回の追記】季節のセリフを追加 ▼▼▼
                     ("ぽかぽか陽気で眠くなるにゃん...。居眠り運転はダメにゃんよ。", "blobcat_nemunemu.png"),
                     ("山の雪解け水は、冷たくて滑りやすいから気をつけるにゃ。", "blobcat_aseri.png"),
+                    ("冬眠明けのバイクは、念入りに点検してから走り出すにゃん。", "blobcat_thumbsup.png"),
+                    ("つくしが生えてるにゃ！...食べるつもりはないにゃん。", "blobcataww.png"),
                     # ▲▲▲【追記はここまで】▲▲▲
                 ])
             elif month in [6, 7]:
@@ -452,6 +456,8 @@ def get_advice(user, motorcycles):
                     ("雨の日は視界が悪くなりがちにゃ。後続車に気づいてもらえるように、早めにアピールするにゃん。", None),
                     # ▼▼▼【前回の追記】季節のセリフを追加 ▼▼▼
                     ("カッパの準備はOKかにゃ？急なゲリラ豪雨に注意にゃ！", "ablobcatcomfy_raincoat.apng"),
+                    ("紫陽花が綺麗にゃ〜。雨の中のツーリングも、装備さえ良ければ悪くないにゃん。", "blobcat_rain.gif"),
+                    ("湿気でヘルメットの中がムレムレにゃ...。休憩して換気するにゃん。", "blobcat_woozy.png"),
                     # ▲▲▲【追記はここまで】▲▲▲
                 ])
             elif month in [8]:
@@ -462,6 +468,9 @@ def get_advice(user, motorcycles):
                     ("夕立に注意にゃ。天気予報はしっかり見るにゃん。", "blobcat_aseri.png"),
                     # ▼▼▼【前回の追記】季節のセリフを追加 ▼▼▼
                     ("暑いからって軽装はダメにゃんよ。プロテクターもしっかりにゃ！", "blobcat_thumbsup.png"),
+                    ("セミのミサイル攻撃に注意にゃ！当たると結構痛いにゃん。", "blobcat_oh.png"),
+                    ("バイクの下からの熱気がすごいにゃ...。低温火傷に気をつけるにゃん。", "ablobcatsweatsip.apng"),
+                    ("エンジンの熱で焼き猫になっちゃうにゃ〜！", "blobcat_melting.webp"),
                     # ▲▲▲【追記はここまで】▲▲▲
                 ])
             elif month in [9, 10, 11]:
@@ -471,6 +480,9 @@ def get_advice(user, motorcycles):
                     ("だんだん日が短くなってきたにゃ。早めのライト点灯を心がけるにゃ。", "blobcat_ohayo.png"),
                     # ▼▼▼【前回の追記】季節のセリフを追加 ▼▼▼
                     ("夜はぐっと冷えるにゃ。ウインドブレーカー一枚あると安心にゃん。", "blobcatcomfy.png"),
+                    ("食欲の秋にゃ...さんま...栗ご飯...ツーリング先のご当地グルメ...じゅるり。", "blobcat_mogumogu.gif"),
+                    ("金木犀の香りがすると、秋だにゃ〜って思うにゃん。", "blobcat_uwu.png"),
+                    ("冬が来る前に、行きたいところに行っておくにゃ！", "blobcat_rider.gif"),
                     # ▲▲▲【追記はここまで】▲▲▲
                 ])
             elif month in [12, 1, 2]:
@@ -483,6 +495,8 @@ def get_advice(user, motorcycles):
                     # ▼▼▼【前回の追記】季節のセリフを追加 ▼▼▼
                     ("電熱ウェアは人類の宝にゃ...。一度体験したら戻れないにゃん...", "ablobcat_cheer.gif"),
                     ("寒いとバッテリーが弱りやすいにゃ。しばらく乗らない時は注意にゃ。", "blobcat_aseri2.png"),
+                    ("こたつで丸まってたい気もするけど...走れば寒くないにゃ！（嘘にゃ、寒いにゃ）", "ablobcatsnowjoy.gif"),
+                    ("塩カリ（凍結防止剤）はサビの原因にゃ！走った後は洗車するにゃん。", "blobcat_water_gun.png"),
                     # ▲▲▲【追記はここまで】▲▲▲
                 ])
 
