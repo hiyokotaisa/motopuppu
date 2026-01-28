@@ -12,6 +12,7 @@
         width: auto;
         flex-shrink: 0;
     }
+
     .nyanpuppu-bubble {
         position: relative;
         background: #ffffff;
@@ -20,6 +21,7 @@
         padding: 0.75rem 1rem;
         width: 100%;
     }
+
     .nyanpuppu-bubble::before {
         content: '';
         position: absolute;
@@ -32,6 +34,7 @@
         border-width: 11px 11px 11px 0;
         border-color: transparent #ced4da transparent transparent;
     }
+
     .nyanpuppu-bubble::after {
         content: '';
         position: absolute;
@@ -45,7 +48,7 @@
         border-color: transparent #ffffff transparent transparent;
     }
 
-    #dashboard-widgets-container > .accordion-item + .accordion-item {
+    #dashboard-widgets-container>.accordion-item+.accordion-item {
         border-top: 1px solid rgba(0, 0, 0, 0.125);
     }
 
@@ -58,11 +61,13 @@
         overflow-y: auto;
         padding-right: 10px;
     }
+
     .timeline-item {
         position: relative;
         margin-bottom: 1.5rem;
         padding-left: 50px;
     }
+
     .timeline-item::before {
         content: '';
         position: absolute;
@@ -73,9 +78,11 @@
         background-color: #e9ecef;
         z-index: 1;
     }
+
     .timeline-item:last-child::before {
         display: none;
     }
+
     .timeline-item-marker {
         position: absolute;
         top: 0;
@@ -91,14 +98,17 @@
         font-size: 1.2rem;
         z-index: 10;
     }
+
     .timeline-item-marker.type-fuel {
         color: #198754;
         border-color: #198754;
     }
+
     .timeline-item-marker.type-maintenance {
         color: #ffc107;
         border-color: #ffc107;
     }
+
     .timeline-item-content {
         position: relative;
         background-color: #f8f9fa;
@@ -108,50 +118,67 @@
         cursor: pointer;
         transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
     }
+
     .timeline-item-content:hover {
         background-color: #f1f3f5;
         border-color: #dee2e6;
     }
+
     .timeline-item-date {
         font-weight: 600;
         font-size: 0.9rem;
         color: #6c757d;
     }
+
     .timeline-item-title {
         font-weight: 600;
         margin-bottom: 0.1rem;
         color: #212529;
     }
+
     .timeline-item-description {
         font-size: 0.9rem;
         color: #495057;
     }
+
     .timeline-item-cost {
         font-size: 0.85rem;
         color: #6c757d;
     }
-    #timelineDetailModal .modal-header .icon-fuel { color: #198754; }
-    #timelineDetailModal .modal-header .icon-maintenance { color: #ffc107; }
+
+    #timelineDetailModal .modal-header .icon-fuel {
+        color: #198754;
+    }
+
+    #timelineDetailModal .modal-header .icon-maintenance {
+        color: #ffc107;
+    }
 
     /* ポップオーバーの最大幅など */
     .motopuppu-popover {
         max-width: 350px;
     }
+
     /* 日付セルの高さを少し確保（イベントが多いときに見やすく） */
     .fc-daygrid-day-frame {
         min-height: 100px;
     }
+
     /* 祝日の背景色など */
     .fc .fc-daygrid-day.fc-day-holiday {
         background-color: rgba(255, 0, 0, 0.05);
     }
+
     /* 土日の日付番号の色 */
     .fc .fc-daygrid-day-number.is-sat {
         color: #0d6efd;
     }
-    .fc .fc-daygrid-day-number.is-sun, .fc .fc-daygrid-day-number.is-holiday {
+
+    .fc .fc-daygrid-day-number.is-sun,
+    .fc .fc-daygrid-day-number.is-holiday {
         color: #dc3545;
     }
+
     /* 祝日名 */
     .fc-holiday-name {
         display: block;
@@ -164,44 +191,53 @@
         padding: 0 2px;
         margin-top: -2px;
     }
+
     /* TODOリストのスタイル調整 */
     .motopuppu-popover .list-unstyled li {
         margin-bottom: 0.2rem;
     }
+
     .motopuppu-popover .list-unstyled label {
         vertical-align: middle;
         word-break: break-word;
     }
+
     .motopuppu-popover .form-check-input {
         margin-top: 0.1em;
         cursor: default;
     }
-    
+
     /* 並び替えモード用のスタイル */
     .widget-grab-handle {
         cursor: grab;
-        display: none; /* 通常時は非表示 */
+        display: none;
+        /* 通常時は非表示 */
     }
+
     .widget-action-btn {
-        display: none; /* 通常時は非表示 */
+        display: none;
+        /* 通常時は非表示 */
     }
+
     .sortable-ghost {
         opacity: 0.4;
         background: #c8ebfb;
     }
-    
+
     /* 編集モード時の表示 */
     .is-sorting .widget-grab-handle {
         display: inline-block;
     }
+
     .is-sorting .widget-action-btn {
         display: inline-block;
     }
+
     .is-sorting .card-header {
         background-color: #f0f8ff !important;
         border-bottom: 1px solid #dae0e5;
     }
-    
+
     /* 非表示ウィジェットエリアのスタイル */
     #inactive-widgets-area {
         display: none;
@@ -211,29 +247,37 @@
         background-color: #f8f9fa;
         margin-bottom: 1.5rem;
     }
+
     #inactive-widgets-area h5 {
         font-size: 1rem;
         color: #6c757d;
         margin-bottom: 1rem;
     }
+
     .is-sorting #inactive-widgets-area {
         display: block;
     }
+
     /* 非表示ウィジェットは中身を表示せず、ヘッダーのみにする */
     #inactive-widgets-container .accordion-collapse {
         display: none !important;
     }
+
     #inactive-widgets-container .accordion-button::after {
         display: none !important;
     }
+
     #inactive-widgets-container .accordion-button {
         background-color: #e9ecef;
         color: #6c757d;
-        pointer-events: none; /* 中身の開閉無効 */
+        pointer-events: none;
+        /* 中身の開閉無効 */
     }
-    #inactive-widgets-container .widget-grab-handle, 
+
+    #inactive-widgets-container .widget-grab-handle,
     #inactive-widgets-container .widget-action-btn {
-        pointer-events: auto; /* ハンドルとボタンは有効 */
+        pointer-events: auto;
+        /* ハンドルとボタンは有効 */
     }
 </style>
 {% endblock %}
@@ -242,132 +286,176 @@
 {# --- ヘッダー --- #}
 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
     <div class="d-flex align-items-center">
-        <h1 class="h2 mb-0 me-2">{% if current_user.is_authenticated %}ようこそ、{{ current_user.display_name or current_user.misskey_username }}さん{% else %}ダッシュボード{% endif %}</h1>
-        <button type="button" id="restart-dashboard-tour-btn" class="btn btn-sm btn-outline-secondary rounded-circle" style="width: 2rem; height: 2rem;" title="ダッシュボードツアーを開始">
+        <h1 class="h2 mb-0 me-2">{% if current_user.is_authenticated %}ようこそ、{{ current_user.display_name or
+            current_user.misskey_username }}さん{% else %}ダッシュボード{% endif %}</h1>
+        <button type="button" id="restart-dashboard-tour-btn" class="btn btn-sm btn-outline-secondary rounded-circle"
+            style="width: 2rem; height: 2rem;" title="ダッシュボードツアーを開始">
             <i class="fas fa-question"></i>
         </button>
     </div>
     <div class="btn-toolbar mb-2 mb-md-0">
         <div id="layout-buttons-default" class="me-2">
-            <button id="edit-layout-btn" type="button" class="btn btn-sm btn-outline-secondary" title="レイアウトを編集" aria-label="レイアウトを編集">
+            <button id="edit-layout-btn" type="button" class="btn btn-sm btn-outline-secondary" title="レイアウトを編集"
+                aria-label="レイアウトを編集">
                 <i class="bi bi-gear-fill"></i>
             </button>
         </div>
         <div id="layout-buttons-editing" class="btn-group me-2" style="display: none;">
-            <button id="save-layout-btn" type="button" class="btn btn-sm btn-success"><i class="fas fa-check me-1"></i> 保存</button>
-            <button id="reset-layout-btn" type="button" class="btn btn-sm btn-info text-white"><i class="fas fa-undo me-1"></i> デフォルトに戻す</button>
-            <button id="cancel-layout-btn" type="button" class="btn btn-sm btn-secondary"><i class="fas fa-times me-1"></i> キャンセル</button>
+            <button id="save-layout-btn" type="button" class="btn btn-sm btn-success"><i class="fas fa-check me-1"></i>
+                保存</button>
+            <button id="reset-layout-btn" type="button" class="btn btn-sm btn-info text-white"><i
+                    class="fas fa-undo me-1"></i> デフォルトに戻す</button>
+            <button id="cancel-layout-btn" type="button" class="btn btn-sm btn-secondary"><i
+                    class="fas fa-times me-1"></i> キャンセル</button>
         </div>
         <div class="btn-group">
-            <a href="{{ url_for('fuel.add_fuel') }}" class="btn btn-sm btn-success"><i class="fas fa-gas-pump me-1"></i> 給油記録を追加</a>
-            <a href="{{ url_for('maintenance.add_maintenance') }}" class="btn btn-sm btn-warning text-white"><i class="fas fa-tools me-1"></i> 整備記録を追加</a>
-            <a href="{{ url_for('notes.add_note') }}" class="btn btn-sm btn-primary"><i class="fas fa-sticky-note me-1"></i> ノートを追加</a>
+            <a href="{{ url_for('fuel.add_fuel') }}" class="btn btn-sm btn-success"><i class="fas fa-gas-pump me-1"></i>
+                給油記録を追加</a>
+            <a href="{{ url_for('maintenance.add_maintenance') }}" class="btn btn-sm btn-warning text-white"><i
+                    class="fas fa-tools me-1"></i> 整備記録を追加</a>
+            <a href="{{ url_for('notes.add_note') }}" class="btn btn-sm btn-primary"><i
+                    class="fas fa-sticky-note me-1"></i> ノートを追加</a>
         </div>
     </div>
 </div>
 
 {# --- フラッシュメッセージ --- #}
 {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-        {% for category, message in messages %}
-            <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show" role="alert">
-                {{ message | safe }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-        {% endfor %}
-    {% endif %}
+{% if messages %}
+{% for category, message in messages %}
+<div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show" role="alert">
+    {{ message | safe }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+{% endfor %}
+{% endif %}
 {% endwith %}
 
 {% if not motorcycles %}
 <div class="alert alert-info" role="alert">
-  <h4 class="alert-heading">はじめましょう！</h4>
-  <p>もとぷっぷーへようこそ！まずはあなたの愛車を登録して、記録を開始しましょう。</p>
-  <hr>
-  <a href="{{ url_for('vehicle.add_vehicle') }}" id="tutorial-start-add-vehicle" class="btn btn-primary btn-lg">
-      <i class="fas fa-plus-circle me-2"></i>最初の車両を登録する
-  </a>
+    <h4 class="alert-heading">はじめましょう！</h4>
+    <p>もとぷっぷーへようこそ！まずはあなたの愛車を登録して、記録を開始しましょう。</p>
+    <hr>
+    <a href="{{ url_for('vehicle.add_vehicle') }}" id="tutorial-start-add-vehicle" class="btn btn-primary btn-lg">
+        <i class="fas fa-plus-circle me-2"></i>最初の車両を登録する
+    </a>
 </div>
 {% endif %}
 
 {# ▼▼▼ マクロ定義: ウィジェットラッパー（削除/追加ボタンを含む） ▼▼▼ #}
 {% macro widget_wrapper(widget_name, is_active) %}
-    {# アクティブ/非アクティブでボタンを切り替え #}
-    {# ▼▼▼ 修正: data-widget-name 属性を追加してJSが正しくIDを取得できるようにする ▼▼▼ #}
-    <div class="position-relative widget-wrapper-inner" data-widget-name="{{ widget_name }}">
-        {# 削除ボタン (Active時のみ) #}
-        {# ▼▼▼ 修正: me-5 クラスを追加して、アコーディオンの矢印と重ならないように位置調整 ▼▼▼ #}
-        <button type="button" class="btn btn-sm btn-danger rounded-circle position-absolute top-0 end-0 mt-2 me-5 widget-action-btn remove-widget-btn" 
-                style="z-index: 100; {% if not is_active %}display: none !important;{% endif %}" title="非表示にする">
-            <i class="fas fa-times"></i>
-        </button>
-        
-        {# 追加ボタン (Inactive時のみ) #}
-        <button type="button" class="btn btn-sm btn-success rounded-circle position-absolute top-0 end-0 mt-2 me-2 widget-action-btn add-widget-btn" 
-                style="z-index: 100; {% if is_active %}display: none !important;{% endif %}" title="表示する">
-            <i class="fas fa-plus"></i>
-        </button>
+{# アクティブ/非アクティブでボタンを切り替え #}
+{# ▼▼▼ 修正: data-widget-name 属性を追加してJSが正しくIDを取得できるようにする ▼▼▼ #}
+<div class="position-relative widget-wrapper-inner" data-widget-name="{{ widget_name }}">
+    {# 削除ボタン (Active時のみ) #}
+    {# ▼▼▼ 修正: me-5 クラスを追加して、アコーディオンの矢印と重ならないように位置調整 ▼▼▼ #}
+    <button type="button"
+        class="btn btn-sm btn-danger rounded-circle position-absolute top-0 end-0 mt-2 me-5 widget-action-btn remove-widget-btn"
+        style="z-index: 100; {% if not is_active %}display: none !important;{% endif %}" title="非表示にする">
+        <i class="fas fa-times"></i>
+    </button>
 
-        {# ウィジェット本体のインクルード #}
-        {% if widget_name == 'nyanpuppu' %}
-            {% include 'dashboard/_nyanpuppu_widget.html' %}
-        {% elif widget_name == 'reminders' %}
-            {% include 'dashboard/_reminders_widget.html' %}
-        {% elif widget_name == 'events' %}
-            {% include 'dashboard/_events_widget.html' %}
-        {% elif widget_name == 'stats' %}
-            <div class="accordion-item card mb-4" 
-                 data-widget-name="stats" 
-                 hx-get="{{ url_for('main.dashboard_stats_widget', **request.args) }}" 
-                 hx-trigger="load" 
-                 hx-swap="outerHTML">
-                <h2 class="accordion-header">
-                    <button class="accordion-button collapsed" type="button" disabled>
-                        <span class="me-auto"><i class="fas fa-chart-line me-1"></i> <strong>統計情報</strong></span>
-                    </button>
-                </h2>
-                <div class="card-body text-center py-4">
-                    <div class="spinner-border text-primary" role="status"></div>
-                    <p class="text-muted small mt-2">統計を計算中...</p>
-                </div>
-            </div>
-        {% elif widget_name == 'vehicles' %}
-            <div class="accordion-item card mb-4" 
-                 data-widget-name="vehicles" 
-                 hx-get="{{ url_for('main.dashboard_vehicles_widget') }}" 
-                 hx-trigger="load" 
-                 hx-swap="outerHTML">
-                <h2 class="accordion-header">
-                    <button class="accordion-button collapsed" type="button" disabled>
-                        <span class="me-auto"><i class="fas fa-motorcycle me-1"></i> <strong>登録車両</strong></span>
-                    </button>
-                </h2>
-                <div class="card-body text-center py-4">
-                    <div class="spinner-border text-primary" role="status"></div>
-                    <p class="text-muted small mt-2">車両情報を取得中...</p>
-                </div>
-            </div>
-        {% elif widget_name == 'timeline' %}
-            <div class="accordion-item card my-4" 
-                 data-widget-name="timeline"
-                 hx-get="{{ url_for('main.dashboard_timeline_widget', **request.args) }}" 
-                 hx-trigger="load" 
-                 hx-swap="outerHTML">
-                <h2 class="accordion-header">
-                    <button class="accordion-button collapsed" type="button" disabled>
-                        <span class="me-auto"><i class="fas fa-stream me-1"></i> <strong>給油・整備タイムライン</strong></span>
-                    </button>
-                </h2>
-                <div class="card-body text-center py-4">
-                    <div class="spinner-border text-primary" role="status"></div>
-                    <p class="text-muted small mt-2">タイムラインを取得中...</p>
-                </div>
-            </div>
-        {% elif widget_name == 'circuit' %}
-            {% include 'dashboard/_circuit_widget.html' %}
-        {% elif widget_name == 'calendar' %}
-            {% include 'dashboard/_calendar_widget.html' %}
-        {% endif %}
+    {# 追加ボタン (Inactive時のみ) #}
+    <button type="button"
+        class="btn btn-sm btn-success rounded-circle position-absolute top-0 end-0 mt-2 me-2 widget-action-btn add-widget-btn"
+        style="z-index: 100; {% if is_active %}display: none !important;{% endif %}" title="表示する">
+        <i class="fas fa-plus"></i>
+    </button>
+
+    {# ウィジェット本体のインクルード #}
+    {% if widget_name == 'nyanpuppu' %}
+    <div class="accordion-item card mb-4" data-widget-name="nyanpuppu"
+        hx-get="{{ url_for('main.dashboard_nyanpuppu_widget') }}" hx-trigger="load" hx-swap="outerHTML">
+        <h2 class="accordion-header" id="heading-nyanpuppu">
+            <button class="accordion-button" type="button" disabled>
+                <span class="me-auto"><i class="fa-solid fa-cat me-1"></i> <strong>にゃんぷっぷーからの一言</strong></span>
+            </button>
+        </h2>
+        <div class="card-body py-4 text-center">
+            <div class="spinner-border text-primary" role="status"></div>
+        </div>
     </div>
+    {% elif widget_name == 'reminders' %}
+    <div class="accordion-item card mb-4" data-widget-name="reminders"
+        hx-get="{{ url_for('main.dashboard_reminders_widget') }}" hx-trigger="load" hx-swap="outerHTML">
+        <h2 class="accordion-header" id="heading-reminders">
+            <button class="accordion-button" type="button" disabled>
+                <span class="me-auto"><i class="fas fa-bell me-1 text-muted"></i> <strong>メンテナンス通知</strong></span>
+            </button>
+        </h2>
+        <div class="card-body py-4 text-center">
+            <div class="spinner-border text-secondary" role="status"></div>
+        </div>
+    </div>
+    {% elif widget_name == 'events' %}
+    <div class="accordion-item card mb-4" data-widget-name="events"
+        hx-get="{{ url_for('main.dashboard_events_widget') }}" hx-trigger="load" hx-swap="outerHTML">
+        <h2 class="accordion-header" id="heading-events">
+            <button class="accordion-button" type="button" disabled>
+                <span class="me-auto"><i class="fas fa-calendar-alt me-1 text-muted"></i>
+                    <strong>参加中のイベント</strong></span>
+            </button>
+        </h2>
+        <div class="card-body py-4 text-center">
+            <div class="spinner-border text-info" role="status"></div>
+        </div>
+    </div>
+    {% elif widget_name == 'stats' %}
+    <div class="accordion-item card mb-4" data-widget-name="stats"
+        hx-get="{{ url_for('main.dashboard_stats_widget', **request.args) }}" hx-trigger="load" hx-swap="outerHTML">
+        <h2 class="accordion-header">
+            <button class="accordion-button collapsed" type="button" disabled>
+                <span class="me-auto"><i class="fas fa-chart-line me-1"></i> <strong>統計情報</strong></span>
+            </button>
+        </h2>
+        <div class="card-body text-center py-4">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="text-muted small mt-2">統計を計算中...</p>
+        </div>
+    </div>
+    {% elif widget_name == 'vehicles' %}
+    <div class="accordion-item card mb-4" data-widget-name="vehicles"
+        hx-get="{{ url_for('main.dashboard_vehicles_widget') }}" hx-trigger="load" hx-swap="outerHTML">
+        <h2 class="accordion-header">
+            <button class="accordion-button collapsed" type="button" disabled>
+                <span class="me-auto"><i class="fas fa-motorcycle me-1"></i> <strong>登録車両</strong></span>
+            </button>
+        </h2>
+        <div class="card-body text-center py-4">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="text-muted small mt-2">車両情報を取得中...</p>
+        </div>
+    </div>
+    {% elif widget_name == 'timeline' %}
+    <div class="accordion-item card my-4" data-widget-name="timeline"
+        hx-get="{{ url_for('main.dashboard_timeline_widget', **request.args) }}" hx-trigger="load" hx-swap="outerHTML">
+        <h2 class="accordion-header">
+            <button class="accordion-button collapsed" type="button" disabled>
+                <span class="me-auto"><i class="fas fa-stream me-1"></i> <strong>給油・整備タイムライン</strong></span>
+            </button>
+        </h2>
+        <div class="card-body text-center py-4">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="text-muted small mt-2">タイムラインを取得中...</p>
+        </div>
+    </div>
+    {% elif widget_name == 'circuit' %}
+    <div class="accordion-item card my-4" data-widget-name="circuit"
+        hx-get="{{ url_for('main.dashboard_circuit_widget') }}" hx-trigger="load" hx-swap="outerHTML">
+        <h2 class="accordion-header">
+            <button class="accordion-button collapsed" type="button" disabled>
+                <span class="me-auto"><i class="fas fa-flag-checkered me-1"></i> <strong>サーキット・活動ログ</strong></span>
+            </button>
+        </h2>
+        <div class="card-body text-center py-4">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="text-muted small mt-2">活動ログを取得中...</p>
+        </div>
+    </div>
+    {% elif widget_name == 'calendar' %}
+    {% include 'dashboard/_calendar_widget.html' %}
+    {% endif %}
+</div>
 {% endmacro %}
 
 {# ▼▼▼ 非表示ウィジェットエリア (編集時のみ表示) ▼▼▼ #}
@@ -375,7 +463,7 @@
     <h5><i class="fas fa-archive me-2"></i>非表示のウィジェット (ドラッグまたは＋ボタンで追加)</h5>
     <div id="inactive-widgets-container" class="dashboard-widgets">
         {% for widget_name in inactive_widgets %}
-            {{ widget_wrapper(widget_name, False) }}
+        {{ widget_wrapper(widget_name, False) }}
         {% endfor %}
     </div>
 </div>
@@ -383,38 +471,39 @@
 {# ▼▼▼ メインウィジェットエリア (表示中) ▼▼▼ #}
 <div id="dashboard-widgets-container" class="accordion dashboard-widgets">
     {% for widget_name in dashboard_layout %}
-        {{ widget_wrapper(widget_name, True) }}
+    {{ widget_wrapper(widget_name, True) }}
     {% endfor %}
 </div>
 
 
-<div class="modal fade" id="timelineDetailModal" tabindex="-1" aria-labelledby="timelineDetailModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="timelineDetailModalLabel">
-            <span id="modal-icon-placeholder"></span>
-            <span id="modal-title-placeholder"></span>
-        </h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body">
-        <dl class="row">
-            <dt class="col-sm-4">日付</dt>
-            <dd class="col-sm-8" id="modal-date"></dd>
+<div class="modal fade" id="timelineDetailModal" tabindex="-1" aria-labelledby="timelineDetailModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="timelineDetailModalLabel">
+                    <span id="modal-icon-placeholder"></span>
+                    <span id="modal-title-placeholder"></span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <dl class="row">
+                    <dt class="col-sm-4">日付</dt>
+                    <dd class="col-sm-8" id="modal-date"></dd>
 
-            <dt class="col-sm-4">ODOメーター</dt>
-            <dd class="col-sm-8" id="modal-odo"></dd>
-        </dl>
-        <hr>
-        <dl class="row" id="modal-details-container"></dl>
-      </div>
-      <div class="modal-footer">
-        <a href="#" id="modal-edit-button" class="btn btn-primary">編集する</a>
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">閉じる</button>
-      </div>
+                    <dt class="col-sm-4">ODOメーター</dt>
+                    <dd class="col-sm-8" id="modal-odo"></dd>
+                </dl>
+                <hr>
+                <dl class="row" id="modal-details-container"></dl>
+            </div>
+            <div class="modal-footer">
+                <a href="#" id="modal-edit-button" class="btn btn-primary">編集する</a>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">閉じる</button>
+            </div>
+        </div>
     </div>
-  </div>
 </div>
 {% endblock %}
 
@@ -425,426 +514,427 @@
 <script src="{{ url_for('static', filename='js/tutorial.js') }}"></script>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // --- レイアウト並び替え機能 ---
-    const activeContainer = document.getElementById('dashboard-widgets-container');
-    const inactiveContainer = document.getElementById('inactive-widgets-container');
-    const dashboardWrapper = document.querySelector('.col-lg-9') || document.body; // 並び替えクラス付与用
+    document.addEventListener('DOMContentLoaded', function () {
+        // --- レイアウト並び替え機能 ---
+        const activeContainer = document.getElementById('dashboard-widgets-container');
+        const inactiveContainer = document.getElementById('inactive-widgets-container');
+        const dashboardWrapper = document.querySelector('.col-lg-9') || document.body; // 並び替えクラス付与用
 
-    const editBtn = document.getElementById('edit-layout-btn');
-    const saveBtn = document.getElementById('save-layout-btn');
-    const cancelBtn = document.getElementById('cancel-layout-btn');
-    const resetBtn = document.getElementById('reset-layout-btn');
-    const defaultButtons = document.getElementById('layout-buttons-default');
-    const editingButtons = document.getElementById('layout-buttons-editing');
-    
-    let activeSortable = null;
-    let inactiveSortable = null;
-    let originalHTMLActive = '';
-    let originalHTMLInactive = '';
-    
-    const defaultOrder = ['nyanpuppu', 'reminders', 'events', 'stats', 'vehicles', 'timeline', 'circuit', 'calendar'];
+        const editBtn = document.getElementById('edit-layout-btn');
+        const saveBtn = document.getElementById('save-layout-btn');
+        const cancelBtn = document.getElementById('cancel-layout-btn');
+        const resetBtn = document.getElementById('reset-layout-btn');
+        const defaultButtons = document.getElementById('layout-buttons-default');
+        const editingButtons = document.getElementById('layout-buttons-editing');
 
-    // ヘルパー: ウィジェットの移動 (ボタン操作用)
-    const moveWidget = (widgetElement, toContainer) => {
-        toContainer.appendChild(widgetElement);
-        // ボタンの表示切り替え
-        const removeBtn = widgetElement.querySelector('.remove-widget-btn');
-        const addBtn = widgetElement.querySelector('.add-widget-btn');
-        
-        if (toContainer.id === 'dashboard-widgets-container') {
-            // Activeへ移動
-            removeBtn.style.setProperty('display', 'block', 'important');
-            addBtn.style.setProperty('display', 'none', 'important');
-        } else {
-            // Inactiveへ移動
-            removeBtn.style.setProperty('display', 'none', 'important');
-            addBtn.style.setProperty('display', 'block', 'important');
-        }
-    };
+        let activeSortable = null;
+        let inactiveSortable = null;
+        let originalHTMLActive = '';
+        let originalHTMLInactive = '';
 
-    // イベント委譲: 追加/削除ボタン
-    document.addEventListener('click', function(e) {
-        const removeBtn = e.target.closest('.remove-widget-btn');
-        const addBtn = e.target.closest('.add-widget-btn');
-        
-        if (removeBtn) {
-            // .accordion-item ではなく .widget-wrapper-inner (の親?)
-            // マクロ構造: <div class="widget-wrapper-inner" ...> <button> <div class="accordion-item">
-            // ボタンは wrapper-inner の直下。
-            const widgetWrapper = removeBtn.closest('.widget-wrapper-inner'); 
-            if(widgetWrapper) moveWidget(widgetWrapper, inactiveContainer);
-        } else if (addBtn) {
-            const widgetWrapper = addBtn.closest('.widget-wrapper-inner');
-            if(widgetWrapper) moveWidget(widgetWrapper, activeContainer);
-        }
-    });
+        const defaultOrder = ['nyanpuppu', 'reminders', 'events', 'stats', 'vehicles', 'timeline', 'circuit', 'calendar'];
 
-    // 並び替えモードを開始
-    editBtn.addEventListener('click', function() {
-        // 現在の状態を保存（キャンセル用）
-        originalHTMLActive = activeContainer.innerHTML;
-        originalHTMLInactive = inactiveContainer.innerHTML;
+        // ヘルパー: ウィジェットの移動 (ボタン操作用)
+        const moveWidget = (widgetElement, toContainer) => {
+            toContainer.appendChild(widgetElement);
+            // ボタンの表示切り替え
+            const removeBtn = widgetElement.querySelector('.remove-widget-btn');
+            const addBtn = widgetElement.querySelector('.add-widget-btn');
 
-        document.body.classList.add('is-sorting'); // bodyにクラスを付与して全体スタイル制御
-        defaultButtons.style.display = 'none';
-        editingButtons.style.display = 'inline-flex';
-
-        // Activeリストの設定
-        activeSortable = new Sortable(activeContainer, {
-            group: 'widgets', // 両方のリストで共有
-            animation: 150,
-            handle: '.widget-grab-handle',
-            ghostClass: 'sortable-ghost',
-            onAdd: function (evt) {
-                // Inactive -> Active にドロップされた時
-                const item = evt.item;
-                item.querySelector('.remove-widget-btn').style.setProperty('display', 'block', 'important');
-                item.querySelector('.add-widget-btn').style.setProperty('display', 'none', 'important');
-            }
-        });
-
-        // Inactiveリストの設定
-        inactiveSortable = new Sortable(inactiveContainer, {
-            group: 'widgets',
-            animation: 150,
-            handle: '.widget-grab-handle',
-            ghostClass: 'sortable-ghost',
-            sort: false, // 非表示エリア内での並び替えは不要（追加順でOK）
-            onAdd: function (evt) {
-                // Active -> Inactive にドロップされた時
-                const item = evt.item;
-                item.querySelector('.remove-widget-btn').style.setProperty('display', 'none', 'important');
-                item.querySelector('.add-widget-btn').style.setProperty('display', 'block', 'important');
-            }
-        });
-    });
-
-    const endEditingMode = () => {
-        if (activeSortable) {
-            activeSortable.destroy();
-            activeSortable = null;
-        }
-        if (inactiveSortable) {
-            inactiveSortable.destroy();
-            inactiveSortable = null;
-        }
-        document.body.classList.remove('is-sorting');
-        defaultButtons.style.display = 'block';
-        editingButtons.style.display = 'none';
-    };
-
-    // 変更を保存
-    saveBtn.addEventListener('click', function() {
-        // Activeコンテナ内のウィジェットのみを収集
-        const newOrder = Array.from(activeContainer.children)
-            .filter(el => el.dataset.widgetName) // 念のためチェック
-            .map(el => el.dataset.widgetName);
-            
-        const csrfTokenEl = document.querySelector('meta[name="csrf-token"]');
-        if (!csrfTokenEl) {
-            alert('エラー: CSRFトークンが見つかりません。base.htmlを確認してください。');
-            return;
-        }
-        const csrfToken = csrfTokenEl.getAttribute('content');
-
-        fetch("{{ url_for('main.save_dashboard_layout') }}", {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': csrfToken
-            },
-            body: JSON.stringify({ layout: newOrder })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === 'success') {
-                window.location.reload(); // リロードして状態を完全に反映（特にスタイルのリセットなど）
+            if (toContainer.id === 'dashboard-widgets-container') {
+                // Activeへ移動
+                removeBtn.style.setProperty('display', 'block', 'important');
+                addBtn.style.setProperty('display', 'none', 'important');
             } else {
-                console.error('Failed to save layout:', data.message);
-                alert('レイアウトの保存に失敗しました。');
+                // Inactiveへ移動
+                removeBtn.style.setProperty('display', 'none', 'important');
+                addBtn.style.setProperty('display', 'block', 'important');
             }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('通信エラーが発生しました。');
+        };
+
+        // イベント委譲: 追加/削除ボタン
+        document.addEventListener('click', function (e) {
+            const removeBtn = e.target.closest('.remove-widget-btn');
+            const addBtn = e.target.closest('.add-widget-btn');
+
+            if (removeBtn) {
+                // .accordion-item ではなく .widget-wrapper-inner (の親?)
+                // マクロ構造: <div class="widget-wrapper-inner" ...> <button> <div class="accordion-item">
+                // ボタンは wrapper-inner の直下。
+                const widgetWrapper = removeBtn.closest('.widget-wrapper-inner');
+                if (widgetWrapper) moveWidget(widgetWrapper, inactiveContainer);
+            } else if (addBtn) {
+                const widgetWrapper = addBtn.closest('.widget-wrapper-inner');
+                if (widgetWrapper) moveWidget(widgetWrapper, activeContainer);
+            }
         });
-    });
-    
-    // デフォルトに戻す（リロードで対応）
-    resetBtn.addEventListener('click', function() {
-        if(confirm('レイアウトを初期状態に戻しますか？')) {
-            const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
-            // デフォルトリストを保存してリロード
+
+        // 並び替えモードを開始
+        editBtn.addEventListener('click', function () {
+            // 現在の状態を保存（キャンセル用）
+            originalHTMLActive = activeContainer.innerHTML;
+            originalHTMLInactive = inactiveContainer.innerHTML;
+
+            document.body.classList.add('is-sorting'); // bodyにクラスを付与して全体スタイル制御
+            defaultButtons.style.display = 'none';
+            editingButtons.style.display = 'inline-flex';
+
+            // Activeリストの設定
+            activeSortable = new Sortable(activeContainer, {
+                group: 'widgets', // 両方のリストで共有
+                animation: 150,
+                handle: '.widget-grab-handle',
+                ghostClass: 'sortable-ghost',
+                onAdd: function (evt) {
+                    // Inactive -> Active にドロップされた時
+                    const item = evt.item;
+                    item.querySelector('.remove-widget-btn').style.setProperty('display', 'block', 'important');
+                    item.querySelector('.add-widget-btn').style.setProperty('display', 'none', 'important');
+                }
+            });
+
+            // Inactiveリストの設定
+            inactiveSortable = new Sortable(inactiveContainer, {
+                group: 'widgets',
+                animation: 150,
+                handle: '.widget-grab-handle',
+                ghostClass: 'sortable-ghost',
+                sort: false, // 非表示エリア内での並び替えは不要（追加順でOK）
+                onAdd: function (evt) {
+                    // Active -> Inactive にドロップされた時
+                    const item = evt.item;
+                    item.querySelector('.remove-widget-btn').style.setProperty('display', 'none', 'important');
+                    item.querySelector('.add-widget-btn').style.setProperty('display', 'block', 'important');
+                }
+            });
+        });
+
+        const endEditingMode = () => {
+            if (activeSortable) {
+                activeSortable.destroy();
+                activeSortable = null;
+            }
+            if (inactiveSortable) {
+                inactiveSortable.destroy();
+                inactiveSortable = null;
+            }
+            document.body.classList.remove('is-sorting');
+            defaultButtons.style.display = 'block';
+            editingButtons.style.display = 'none';
+        };
+
+        // 変更を保存
+        saveBtn.addEventListener('click', function () {
+            // Activeコンテナ内のウィジェットのみを収集
+            const newOrder = Array.from(activeContainer.children)
+                .filter(el => el.dataset.widgetName) // 念のためチェック
+                .map(el => el.dataset.widgetName);
+
+            const csrfTokenEl = document.querySelector('meta[name="csrf-token"]');
+            if (!csrfTokenEl) {
+                alert('エラー: CSRFトークンが見つかりません。base.htmlを確認してください。');
+                return;
+            }
+            const csrfToken = csrfTokenEl.getAttribute('content');
+
             fetch("{{ url_for('main.save_dashboard_layout') }}", {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'X-CSRFToken': csrfToken
                 },
-                body: JSON.stringify({ layout: defaultOrder })
-            }).then(() => window.location.reload());
-        }
-    });
+                body: JSON.stringify({ layout: newOrder })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        window.location.reload(); // リロードして状態を完全に反映（特にスタイルのリセットなど）
+                    } else {
+                        console.error('Failed to save layout:', data.message);
+                        alert('レイアウトの保存に失敗しました。');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('通信エラーが発生しました。');
+                });
+        });
 
-    // 変更をキャンセル
-    cancelBtn.addEventListener('click', function() {
-        activeContainer.innerHTML = originalHTMLActive;
-        inactiveContainer.innerHTML = originalHTMLInactive;
-        endEditingMode();
-    });
+        // デフォルトに戻す（リロードで対応）
+        resetBtn.addEventListener('click', function () {
+            if (confirm('レイアウトを初期状態に戻しますか？')) {
+                const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+                // デフォルトリストを保存してリロード
+                fetch("{{ url_for('main.save_dashboard_layout') }}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken
+                    },
+                    body: JSON.stringify({ layout: defaultOrder })
+                }).then(() => window.location.reload());
+            }
+        });
 
-    // --- タイムライン機能 (既存コード維持) ---
-    document.addEventListener('click', function(e) {
-        const filterBtn = e.target.closest('#timeline-filter-buttons button');
-        if (filterBtn) {
-            const filter = filterBtn.dataset.filter;
-            const buttonsContainer = filterBtn.closest('#timeline-filter-buttons');
-            buttonsContainer.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
-            filterBtn.classList.add('active');
-            document.querySelectorAll('.timeline-item').forEach(item => {
-                if (filter === 'all' || item.dataset.eventType === filter) {
-                    item.style.display = 'block';
-                } else {
-                    item.style.display = 'none';
+        // 変更をキャンセル
+        cancelBtn.addEventListener('click', function () {
+            activeContainer.innerHTML = originalHTMLActive;
+            inactiveContainer.innerHTML = originalHTMLInactive;
+            endEditingMode();
+        });
+
+        // --- タイムライン機能 (既存コード維持) ---
+        document.addEventListener('click', function (e) {
+            const filterBtn = e.target.closest('#timeline-filter-buttons button');
+            if (filterBtn) {
+                const filter = filterBtn.dataset.filter;
+                const buttonsContainer = filterBtn.closest('#timeline-filter-buttons');
+                buttonsContainer.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
+                filterBtn.classList.add('active');
+                document.querySelectorAll('.timeline-item').forEach(item => {
+                    if (filter === 'all' || item.dataset.eventType === filter) {
+                        item.style.display = 'block';
+                    } else {
+                        item.style.display = 'none';
+                    }
+                });
+            }
+        });
+
+        const timelineDetailModal = document.getElementById('timelineDetailModal');
+        if (timelineDetailModal) {
+            timelineDetailModal.addEventListener('show.bs.modal', function (event) {
+                const item = event.relatedTarget;
+                if (!item) return;
+                const eventType = item.dataset.eventType;
+                const details = JSON.parse(item.dataset.eventDetails);
+                const editUrl = item.dataset.eventEditUrl;
+
+                const modalTitle = timelineDetailModal.querySelector('#modal-title-placeholder');
+                const modalIcon = timelineDetailModal.querySelector('#modal-icon-placeholder');
+                const modalDate = timelineDetailModal.querySelector('#modal-date');
+                const modalOdo = timelineDetailModal.querySelector('#modal-odo');
+                const modalDetailsContainer = timelineDetailModal.querySelector('#modal-details-container');
+                const modalEditButton = timelineDetailModal.querySelector('#modal-edit-button');
+
+                if (eventType === 'fuel') {
+                    modalIcon.innerHTML = '<i class="fas fa-gas-pump icon-fuel"></i>';
+                    modalTitle.textContent = '給油記録詳細';
+                } else if (eventType === 'maintenance') {
+                    modalIcon.innerHTML = '<i class="fas fa-tools icon-maintenance"></i>';
+                    modalTitle.textContent = '整備記録詳細';
                 }
+
+                modalDate.textContent = item.dataset.eventDate;
+                modalOdo.textContent = `${parseInt(item.dataset.eventOdo).toLocaleString()} km`;
+
+                modalDetailsContainer.innerHTML = '';
+                for (const [key, value] of Object.entries(details)) {
+                    if (key === '車両名') {
+                        const selectedVehicle = document.querySelector('select[name="timeline_vehicle_id"]');
+                        if (selectedVehicle && selectedVehicle.value !== 'all') continue;
+                    }
+                    const dt = document.createElement('dt');
+                    dt.className = 'col-sm-4';
+                    dt.textContent = key;
+                    const dd = document.createElement('dd');
+                    dd.className = 'col-sm-8';
+                    dd.textContent = value;
+                    modalDetailsContainer.appendChild(dt);
+                    modalDetailsContainer.appendChild(dd);
+                }
+                modalEditButton.href = editUrl;
             });
         }
-    });
 
-    const timelineDetailModal = document.getElementById('timelineDetailModal');
-    if (timelineDetailModal) {
-        timelineDetailModal.addEventListener('show.bs.modal', function (event) {
-            const item = event.relatedTarget;
-            if (!item) return;
-            const eventType = item.dataset.eventType;
-            const details = JSON.parse(item.dataset.eventDetails);
-            const editUrl = item.dataset.eventEditUrl;
-            
-            const modalTitle = timelineDetailModal.querySelector('#modal-title-placeholder');
-            const modalIcon = timelineDetailModal.querySelector('#modal-icon-placeholder');
-            const modalDate = timelineDetailModal.querySelector('#modal-date');
-            const modalOdo = timelineDetailModal.querySelector('#modal-odo');
-            const modalDetailsContainer = timelineDetailModal.querySelector('#modal-details-container');
-            const modalEditButton = timelineDetailModal.querySelector('#modal-edit-button');
-
-            if (eventType === 'fuel') {
-                modalIcon.innerHTML = '<i class="fas fa-gas-pump icon-fuel"></i>';
-                modalTitle.textContent = '給油記録詳細';
-            } else if (eventType === 'maintenance') {
-                modalIcon.innerHTML = '<i class="fas fa-tools icon-maintenance"></i>';
-                modalTitle.textContent = '整備記録詳細';
-            }
-
-            modalDate.textContent = item.dataset.eventDate;
-            modalOdo.textContent = `${parseInt(item.dataset.eventOdo).toLocaleString()} km`;
-
-            modalDetailsContainer.innerHTML = '';
-            for (const [key, value] of Object.entries(details)) {
-                if (key === '車両名') {
-                   const selectedVehicle = document.querySelector('select[name="timeline_vehicle_id"]');
-                   if (selectedVehicle && selectedVehicle.value !== 'all') continue;
-                }
-                const dt = document.createElement('dt');
-                dt.className = 'col-sm-4';
-                dt.textContent = key;
-                const dd = document.createElement('dd');
-                dd.className = 'col-sm-8';
-                dd.textContent = value;
-                modalDetailsContainer.appendChild(dt);
-                modalDetailsContainer.appendChild(dd);
-            }
-            modalEditButton.href = editUrl;
-        });
-    }
-    
-    // --- カレンダー機能 (既存コード維持) ---
-    var calendarEl = document.getElementById('calendar');
-    let holidaysMap = {};
-    try {
-        const holidaysData = JSON.parse('{{ holidays_json | safe }}');
-        if (typeof holidaysData === 'object' && holidaysData !== null) {
-            holidaysMap = holidaysData;
-        }
-    } catch (e) {}
-
-    function escapeHtml(unsafe) {
-        if (typeof unsafe !== 'string') return unsafe;
-        return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-    }
-
-    if (calendarEl) {
-        var calendar = new FullCalendar.Calendar(calendarEl, {
-            initialView: 'dayGridMonth',
-            locale: 'ja',
-            headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,dayGridWeek,listMonth' },
-            buttonText: { today: '今日', month: '月', week: '週', list: 'リスト(月)' },
-            contentHeight: 'auto',
-            dayCellContent: function(arg) { return { html: `<span class="fc-daygrid-day-number">${arg.date.getDate()}</span>` }; },
-            dayCellDidMount: function(arg) {
-                const year = arg.date.getFullYear();
-                const month = (arg.date.getMonth() + 1).toString().padStart(2, '0');
-                const day = arg.date.getDate().toString().padStart(2, '0');
-                const dateStr = `${year}-${month}-${day}`;
-                const dayNumberEl = arg.el.querySelector('.fc-daygrid-day-number');
-                const dayTopEl = arg.el.querySelector('.fc-daygrid-day-top');
-                const dayOfWeek = arg.date.getDay();
-                if (!dayNumberEl || !dayTopEl) return;
-                arg.el.classList.remove('fc-day-holiday', 'fc-day-sun', 'fc-day-sat');
-                dayNumberEl.classList.remove('is-holiday', 'is-sun', 'is-sat');
-                const existingHolidayName = dayTopEl.querySelector('.fc-holiday-name');
-                if (existingHolidayName) { dayTopEl.removeChild(existingHolidayName); }
-                
-                if (holidaysMap.hasOwnProperty(dateStr)) {
-                    const holidayName = holidaysMap[dateStr];
-                    const holidayNameEl = document.createElement('span');
-                    holidayNameEl.classList.add('fc-holiday-name');
-                    holidayNameEl.textContent = holidayName;
-                    dayTopEl.appendChild(holidayNameEl);
-                    arg.el.classList.add('fc-day-holiday');
-                    dayNumberEl.classList.add('is-holiday');
-                } else if (dayOfWeek === 0) {
-                    arg.el.classList.add('fc-day-sun');
-                    dayNumberEl.classList.add('is-sun');
-                } else if (dayOfWeek === 6) {
-                    arg.el.classList.add('fc-day-sat');
-                    dayNumberEl.classList.add('is-sat');
-                }
-            },
-            events: '/api/dashboard/events',
-            eventClick: function(info) {
-                info.jsEvent.preventDefault();
-                const editUrl = info.event.extendedProps?.editUrl || info.event.url;
-                if (editUrl) window.location.href = editUrl;
-            },
-            eventDidMount: function(info) {
-                if (info.event.extendedProps) {
-                    var props = info.event.extendedProps;
-                    var popoverTitle = '';
-                    var popoverContent = '';
-                    var eventDateStr = '日付不明';
-                    if (info.event.start) {
-                        try { eventDateStr = info.event.start.toLocaleDateString('ja-JP', { year: 'numeric', month: 'short', day: 'numeric' }); } 
-                        catch (e) { eventDateStr = info.event.start.toISOString().split('T')[0]; }
-                    }
-                    var editUrl = props.editUrl;
-                    if (props.type === 'fuel') {
-                        popoverTitle = `⛽ 給油 (${escapeHtml(props.motorcycleName || '車両不明')})`;
-                        popoverContent = `<dl class="mb-0 small"><dt>日付:</dt><dd>${escapeHtml(eventDateStr)}</dd><dt>ODO:</dt><dd>${props.odometer ? escapeHtml(props.odometer.toLocaleString()) + ' km' : '-'}</dd><dt>給油量:</dt><dd>${props.fuelVolume ? escapeHtml(props.fuelVolume.toFixed(2)) + ' L' : '-'}</dd><dt>燃費:</dt><dd>${props.kmPerLiter || '-'}</dd><dt>金額:</dt><dd>${props.totalCost ? escapeHtml(props.totalCost.toLocaleString()) + ' 円' : '-'}</dd>` + (props.stationName ? `<dt>スタンド:</dt><dd>${escapeHtml(props.stationName)}</dd>` : '') + (props.notes ? `<dt>メモ:</dt><dd style="white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(props.notes)}</dd>` : '') + `</dl>`;
-                    } else if (props.type === 'maintenance') {
-                        popoverTitle = `🔧 ${escapeHtml(props.category || '整備')} (${escapeHtml(props.motorcycleName || '車両不明')})`;
-                        popoverContent = `<dl class="mb-0 small"><dt>日付:</dt><dd>${escapeHtml(eventDateStr)}</dd><dt>ODO:</dt><dd>${props.odometer ? escapeHtml(props.odometer.toLocaleString()) + ' km' : '-'}</dd><dt>内容:</dt><dd style="white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(props.description || '記載なし')}</dd>` + (props.category ? `<dt>カテゴリ:</dt><dd>${escapeHtml(props.category)}</dd>` : '') + `<dt>費用:</dt><dd>${props.totalCost ? escapeHtml(props.totalCost.toLocaleString()) + ' 円' : '-'}</dd>` + (props.location ? `<dt>場所:</dt><dd>${escapeHtml(props.location)}</dd>` : '') + (props.notes ? `<dt>メモ:</dt><dd style="white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(props.notes)}</dd>` : '') + `</dl>`;
-                    } else if (props.type === 'activity') {
-                        let racerBadge = props.isRacer ? ' <span class="badge bg-info text-dark small">レーサー</span>' : '';
-                        popoverTitle = `🏁 ${escapeHtml(props.activityTitle)} (${escapeHtml(props.motorcycleName || '車両不明')}${racerBadge})`;
-                        popoverContent = `<dl class="mb-0 small"><dt>日付:</dt><dd>${escapeHtml(eventDateStr)}</dd><dt>場所:</dt><dd>${escapeHtml(props.location || '未設定')}</dd>` + (props.weather ? `<dt>天候:</dt><dd>${escapeHtml(props.weather)}</dd>` : '') + (props.temperature ? `<dt>気温:</dt><dd>${escapeHtml(props.temperature)}</dd>` : '') + (props.notes ? `<dt>メモ:</dt><dd style="white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(props.notes)}</dd>` : '') + `</dl>`;
-                    } else if (props.type === 'note') {
-                        let noteTitle = props.title || '(無題のノート)';
-                        let racerBadge = props.isRacer ? ' <span class="badge bg-info text-dark small">レーサー</span>' : '';
-                        popoverTitle = `📝 ノート ${props.motorcycleName ? '(' + escapeHtml(props.motorcycleName) + racerBadge + ')' : ''}`;
-                        popoverContent = `<dl class="mb-0 small"><dt>日付:</dt><dd>${escapeHtml(props.noteDate || eventDateStr)}</dd><dt>タイトル:</dt><dd>${escapeHtml(noteTitle)}</dd><dt>内容:</dt><dd style="white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(props.content || '記載なし')}</dd>` + (props.motorcycleName ? `<dt>関連車両:</dt><dd>${escapeHtml(props.motorcycleName)}</dd>` : '') + (props.createdAt ? `<dt>作成:</dt><dd>${escapeHtml(props.createdAt)}</dd>` : '') + (props.updatedAt ? `<dt>更新:</dt><dd>${escapeHtml(props.updatedAt)}</dd>` : '') + `</dl>`;
-                    } else if (props.type === 'task') {
-                        let taskTitle = props.title || '(無題のタスク)';
-                        let racerBadge = props.isRacer ? ' <span class="badge bg-info text-dark small">レーサー</span>' : '';
-                        popoverTitle = `✅ タスク ${props.motorcycleName ? '(' + escapeHtml(props.motorcycleName) + racerBadge + ')' : ''}`;
-                        popoverContent = `<dl class="mb-0 small"><dt>日付:</dt><dd>${escapeHtml(props.noteDate || eventDateStr)}</dd><dt>タイトル:</dt><dd>${escapeHtml(taskTitle)}</dd>` + (props.motorcycleName ? `<dt>関連車両:</dt><dd>${escapeHtml(props.motorcycleName)}</dd>` : '') + '<dt>TODO:</dt><dd>';
-                        if (props.todos && Array.isArray(props.todos) && props.todos.length > 0) {
-                            popoverContent += '<ul class="list-unstyled mb-0 small ps-1">';
-                            props.todos.forEach(function(todo, index) {
-                                const isChecked = todo && todo.checked;
-                                const text = todo && todo.text ? escapeHtml(todo.text) : '(空)';
-                                const checkboxId = `todo-${info.event.id}-${index}`;
-                                popoverContent += `<li class="d-flex align-items-center"><input type="checkbox" id="${checkboxId}" disabled ${isChecked ? 'checked' : ''} class="form-check-input me-1"><label for="${checkboxId}" class="${isChecked ? 'text-decoration-line-through text-muted' : ''}">${text}</label></li>`;
-                            });
-                            popoverContent += '</ul>';
-                        } else { popoverContent += '<span class="text-muted">TODOはありません</span>'; }
-                        popoverContent += '</dd>';
-                        popoverContent += (props.createdAt ? `<dt>作成:</dt><dd>${escapeHtml(props.createdAt)}</dd>` : '') + (props.updatedAt ? `<dt>更新:</dt><dd>${escapeHtml(props.updatedAt)}</dd>` : '');
-                        popoverContent += `</dl>`;
-                    }
-                    if (editUrl) {
-                        popoverContent += `<a href="${escapeHtml(editUrl)}" class="btn btn-sm btn-outline-primary mt-2 py-0 px-1" title="編集"><i class="fas fa-edit fa-xs me-1"></i>編集</a>`;
-                    }
-                    if (popoverTitle && popoverContent) {
-                        var popover = new bootstrap.Popover(info.el, { title: popoverTitle, content: popoverContent, trigger: 'hover focus', placement: 'auto', boundary: 'viewport', html: true, sanitize: false, container: 'body', customClass: 'motopuppu-popover' });
-                        info.el.addEventListener('remove', () => { if(popover) { popover.dispose(); } });
-                    }
-                }
-            }
-        });
-        calendar.render();
-    }
-
-    const WIDGET_STATE_KEY = 'dashboardWidgetStates';
-    const applyWidgetStates = () => {
-        const savedStatesJSON = localStorage.getItem(WIDGET_STATE_KEY);
-        if (!savedStatesJSON) { return; }
+        // --- カレンダー機能 (既存コード維持) ---
+        var calendarEl = document.getElementById('calendar');
+        let holidaysMap = {};
         try {
-            const savedStates = JSON.parse(savedStatesJSON);
+            const holidaysData = JSON.parse('{{ holidays_json | safe }}');
+            if (typeof holidaysData === 'object' && holidaysData !== null) {
+                holidaysMap = holidaysData;
+            }
+        } catch (e) { }
+
+        function escapeHtml(unsafe) {
+            if (typeof unsafe !== 'string') return unsafe;
+            return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+
+        if (calendarEl) {
+            var calendar = new FullCalendar.Calendar(calendarEl, {
+                initialView: 'dayGridMonth',
+                locale: 'ja',
+                headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,dayGridWeek,listMonth' },
+                buttonText: { today: '今日', month: '月', week: '週', list: 'リスト(月)' },
+                contentHeight: 'auto',
+                dayCellContent: function (arg) { return { html: `<span class="fc-daygrid-day-number">${arg.date.getDate()}</span>` }; },
+                dayCellDidMount: function (arg) {
+                    const year = arg.date.getFullYear();
+                    const month = (arg.date.getMonth() + 1).toString().padStart(2, '0');
+                    const day = arg.date.getDate().toString().padStart(2, '0');
+                    const dateStr = `${year}-${month}-${day}`;
+                    const dayNumberEl = arg.el.querySelector('.fc-daygrid-day-number');
+                    const dayTopEl = arg.el.querySelector('.fc-daygrid-day-top');
+                    const dayOfWeek = arg.date.getDay();
+                    if (!dayNumberEl || !dayTopEl) return;
+                    arg.el.classList.remove('fc-day-holiday', 'fc-day-sun', 'fc-day-sat');
+                    dayNumberEl.classList.remove('is-holiday', 'is-sun', 'is-sat');
+                    const existingHolidayName = dayTopEl.querySelector('.fc-holiday-name');
+                    if (existingHolidayName) { dayTopEl.removeChild(existingHolidayName); }
+
+                    if (holidaysMap.hasOwnProperty(dateStr)) {
+                        const holidayName = holidaysMap[dateStr];
+                        const holidayNameEl = document.createElement('span');
+                        holidayNameEl.classList.add('fc-holiday-name');
+                        holidayNameEl.textContent = holidayName;
+                        dayTopEl.appendChild(holidayNameEl);
+                        arg.el.classList.add('fc-day-holiday');
+                        dayNumberEl.classList.add('is-holiday');
+                    } else if (dayOfWeek === 0) {
+                        arg.el.classList.add('fc-day-sun');
+                        dayNumberEl.classList.add('is-sun');
+                    } else if (dayOfWeek === 6) {
+                        arg.el.classList.add('fc-day-sat');
+                        dayNumberEl.classList.add('is-sat');
+                    }
+                },
+                events: '/api/dashboard/events',
+                eventClick: function (info) {
+                    info.jsEvent.preventDefault();
+                    const editUrl = info.event.extendedProps?.editUrl || info.event.url;
+                    if (editUrl) window.location.href = editUrl;
+                },
+                eventDidMount: function (info) {
+                    if (info.event.extendedProps) {
+                        var props = info.event.extendedProps;
+                        var popoverTitle = '';
+                        var popoverContent = '';
+                        var eventDateStr = '日付不明';
+                        if (info.event.start) {
+                            try { eventDateStr = info.event.start.toLocaleDateString('ja-JP', { year: 'numeric', month: 'short', day: 'numeric' }); }
+                            catch (e) { eventDateStr = info.event.start.toISOString().split('T')[0]; }
+                        }
+                        var editUrl = props.editUrl;
+                        if (props.type === 'fuel') {
+                            popoverTitle = `⛽ 給油 (${escapeHtml(props.motorcycleName || '車両不明')})`;
+                            popoverContent = `<dl class="mb-0 small"><dt>日付:</dt><dd>${escapeHtml(eventDateStr)}</dd><dt>ODO:</dt><dd>${props.odometer ? escapeHtml(props.odometer.toLocaleString()) + ' km' : '-'}</dd><dt>給油量:</dt><dd>${props.fuelVolume ? escapeHtml(props.fuelVolume.toFixed(2)) + ' L' : '-'}</dd><dt>燃費:</dt><dd>${props.kmPerLiter || '-'}</dd><dt>金額:</dt><dd>${props.totalCost ? escapeHtml(props.totalCost.toLocaleString()) + ' 円' : '-'}</dd>` + (props.stationName ? `<dt>スタンド:</dt><dd>${escapeHtml(props.stationName)}</dd>` : '') + (props.notes ? `<dt>メモ:</dt><dd style="white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(props.notes)}</dd>` : '') + `</dl>`;
+                        } else if (props.type === 'maintenance') {
+                            popoverTitle = `🔧 ${escapeHtml(props.category || '整備')} (${escapeHtml(props.motorcycleName || '車両不明')})`;
+                            popoverContent = `<dl class="mb-0 small"><dt>日付:</dt><dd>${escapeHtml(eventDateStr)}</dd><dt>ODO:</dt><dd>${props.odometer ? escapeHtml(props.odometer.toLocaleString()) + ' km' : '-'}</dd><dt>内容:</dt><dd style="white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(props.description || '記載なし')}</dd>` + (props.category ? `<dt>カテゴリ:</dt><dd>${escapeHtml(props.category)}</dd>` : '') + `<dt>費用:</dt><dd>${props.totalCost ? escapeHtml(props.totalCost.toLocaleString()) + ' 円' : '-'}</dd>` + (props.location ? `<dt>場所:</dt><dd>${escapeHtml(props.location)}</dd>` : '') + (props.notes ? `<dt>メモ:</dt><dd style="white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(props.notes)}</dd>` : '') + `</dl>`;
+                        } else if (props.type === 'activity') {
+                            let racerBadge = props.isRacer ? ' <span class="badge bg-info text-dark small">レーサー</span>' : '';
+                            popoverTitle = `🏁 ${escapeHtml(props.activityTitle)} (${escapeHtml(props.motorcycleName || '車両不明')}${racerBadge})`;
+                            popoverContent = `<dl class="mb-0 small"><dt>日付:</dt><dd>${escapeHtml(eventDateStr)}</dd><dt>場所:</dt><dd>${escapeHtml(props.location || '未設定')}</dd>` + (props.weather ? `<dt>天候:</dt><dd>${escapeHtml(props.weather)}</dd>` : '') + (props.temperature ? `<dt>気温:</dt><dd>${escapeHtml(props.temperature)}</dd>` : '') + (props.notes ? `<dt>メモ:</dt><dd style="white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(props.notes)}</dd>` : '') + `</dl>`;
+                        } else if (props.type === 'note') {
+                            let noteTitle = props.title || '(無題のノート)';
+                            let racerBadge = props.isRacer ? ' <span class="badge bg-info text-dark small">レーサー</span>' : '';
+                            popoverTitle = `📝 ノート ${props.motorcycleName ? '(' + escapeHtml(props.motorcycleName) + racerBadge + ')' : ''}`;
+                            popoverContent = `<dl class="mb-0 small"><dt>日付:</dt><dd>${escapeHtml(props.noteDate || eventDateStr)}</dd><dt>タイトル:</dt><dd>${escapeHtml(noteTitle)}</dd><dt>内容:</dt><dd style="white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(props.content || '記載なし')}</dd>` + (props.motorcycleName ? `<dt>関連車両:</dt><dd>${escapeHtml(props.motorcycleName)}</dd>` : '') + (props.createdAt ? `<dt>作成:</dt><dd>${escapeHtml(props.createdAt)}</dd>` : '') + (props.updatedAt ? `<dt>更新:</dt><dd>${escapeHtml(props.updatedAt)}</dd>` : '') + `</dl>`;
+                        } else if (props.type === 'task') {
+                            let taskTitle = props.title || '(無題のタスク)';
+                            let racerBadge = props.isRacer ? ' <span class="badge bg-info text-dark small">レーサー</span>' : '';
+                            popoverTitle = `✅ タスク ${props.motorcycleName ? '(' + escapeHtml(props.motorcycleName) + racerBadge + ')' : ''}`;
+                            popoverContent = `<dl class="mb-0 small"><dt>日付:</dt><dd>${escapeHtml(props.noteDate || eventDateStr)}</dd><dt>タイトル:</dt><dd>${escapeHtml(taskTitle)}</dd>` + (props.motorcycleName ? `<dt>関連車両:</dt><dd>${escapeHtml(props.motorcycleName)}</dd>` : '') + '<dt>TODO:</dt><dd>';
+                            if (props.todos && Array.isArray(props.todos) && props.todos.length > 0) {
+                                popoverContent += '<ul class="list-unstyled mb-0 small ps-1">';
+                                props.todos.forEach(function (todo, index) {
+                                    const isChecked = todo && todo.checked;
+                                    const text = todo && todo.text ? escapeHtml(todo.text) : '(空)';
+                                    const checkboxId = `todo-${info.event.id}-${index}`;
+                                    popoverContent += `<li class="d-flex align-items-center"><input type="checkbox" id="${checkboxId}" disabled ${isChecked ? 'checked' : ''} class="form-check-input me-1"><label for="${checkboxId}" class="${isChecked ? 'text-decoration-line-through text-muted' : ''}">${text}</label></li>`;
+                                });
+                                popoverContent += '</ul>';
+                            } else { popoverContent += '<span class="text-muted">TODOはありません</span>'; }
+                            popoverContent += '</dd>';
+                            popoverContent += (props.createdAt ? `<dt>作成:</dt><dd>${escapeHtml(props.createdAt)}</dd>` : '') + (props.updatedAt ? `<dt>更新:</dt><dd>${escapeHtml(props.updatedAt)}</dd>` : '');
+                            popoverContent += `</dl>`;
+                        }
+                        if (editUrl) {
+                            popoverContent += `<a href="${escapeHtml(editUrl)}" class="btn btn-sm btn-outline-primary mt-2 py-0 px-1" title="編集"><i class="fas fa-edit fa-xs me-1"></i>編集</a>`;
+                        }
+                        if (popoverTitle && popoverContent) {
+                            var popover = new bootstrap.Popover(info.el, { title: popoverTitle, content: popoverContent, trigger: 'hover focus', placement: 'auto', boundary: 'viewport', html: true, sanitize: false, container: 'body', customClass: 'motopuppu-popover' });
+                            info.el.addEventListener('remove', () => { if (popover) { popover.dispose(); } });
+                        }
+                    }
+                }
+            });
+            calendar.render();
+        }
+
+        const WIDGET_STATE_KEY = 'dashboardWidgetStates';
+        const applyWidgetStates = () => {
+            const savedStatesJSON = localStorage.getItem(WIDGET_STATE_KEY);
+            if (!savedStatesJSON) { return; }
+            try {
+                const savedStates = JSON.parse(savedStatesJSON);
+                const widgets = activeContainer.querySelectorAll('.accordion-item');
+                widgets.forEach(widget => {
+                    const widgetName = widget.dataset.widgetName;
+                    if (widgetName in savedStates) {
+                        const shouldBeOpen = savedStates[widgetName];
+                        const collapseElement = widget.querySelector('.accordion-collapse');
+                        const button = widget.querySelector('.accordion-button');
+                        if (widget.closest('#inactive-widgets-container')) return;
+
+                        if (shouldBeOpen) {
+                            collapseElement.classList.add('show');
+                            button.classList.remove('collapsed');
+                            button.setAttribute('aria-expanded', 'true');
+                        } else {
+                            collapseElement.classList.remove('show');
+                            button.classList.add('collapsed');
+                            button.setAttribute('aria-expanded', 'false');
+                        }
+                    }
+                });
+            } catch (e) {
+                localStorage.removeItem(WIDGET_STATE_KEY);
+            }
+        };
+        const saveWidgetStates = () => {
+            const states = {};
             const widgets = activeContainer.querySelectorAll('.accordion-item');
             widgets.forEach(widget => {
                 const widgetName = widget.dataset.widgetName;
-                if (widgetName in savedStates) {
-                    const shouldBeOpen = savedStates[widgetName];
-                    const collapseElement = widget.querySelector('.accordion-collapse');
-                    const button = widget.querySelector('.accordion-button');
-                    if (widget.closest('#inactive-widgets-container')) return;
-
-                    if (shouldBeOpen) {
-                        collapseElement.classList.add('show');
-                        button.classList.remove('collapsed');
-                        button.setAttribute('aria-expanded', 'true');
-                    } else {
-                        collapseElement.classList.remove('show');
-                        button.classList.add('collapsed');
-                        button.setAttribute('aria-expanded', 'false');
-                    }
+                const collapseElement = widget.querySelector('.accordion-collapse');
+                if (collapseElement) {
+                    states[widgetName] = collapseElement.classList.contains('show');
                 }
             });
-        } catch (e) {
-            localStorage.removeItem(WIDGET_STATE_KEY);
-        }
-    };
-    const saveWidgetStates = () => {
-        const states = {};
-        const widgets = activeContainer.querySelectorAll('.accordion-item');
-        widgets.forEach(widget => {
-            const widgetName = widget.dataset.widgetName;
-            const collapseElement = widget.querySelector('.accordion-collapse');
-            if(collapseElement) {
-                states[widgetName] = collapseElement.classList.contains('show');
-            }
-        });
-        localStorage.setItem(WIDGET_STATE_KEY, JSON.stringify(states));
-    };
-    applyWidgetStates();
-    activeContainer.addEventListener('shown.bs.collapse', saveWidgetStates);
-    activeContainer.addEventListener('hidden.bs.collapse', saveWidgetStates);
+            localStorage.setItem(WIDGET_STATE_KEY, JSON.stringify(states));
+        };
+        applyWidgetStates();
+        activeContainer.addEventListener('shown.bs.collapse', saveWidgetStates);
+        activeContainer.addEventListener('hidden.bs.collapse', saveWidgetStates);
 
-    const costToggle = document.getElementById('cost-display-toggle');
-    if (costToggle) {
-        costToggle.addEventListener('change', function() {
-            const csrfTokenEl = document.querySelector('meta[name="csrf-token"]');
-            if (!csrfTokenEl) { alert('エラー: CSRFトークンが見つかりません。'); return; }
-            const csrfToken = csrfTokenEl.getAttribute('content');
-            this.disabled = true;
-            fetch("{{ url_for('main.toggle_dashboard_cost_display') }}", {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken }
-            })
-            .then(response => {
-                if (response.ok) { window.location.reload(); }
-                else { this.checked = !this.checked; this.disabled = false; alert('設定の変更に失敗しました。ページを再読み込みしてください。'); }
-            })
-            .catch(error => {
-                this.checked = !this.checked; this.disabled = false; alert('通信エラーが発生しました。');
+        const costToggle = document.getElementById('cost-display-toggle');
+        if (costToggle) {
+            costToggle.addEventListener('change', function () {
+                const csrfTokenEl = document.querySelector('meta[name="csrf-token"]');
+                if (!csrfTokenEl) { alert('エラー: CSRFトークンが見つかりません。'); return; }
+                const csrfToken = csrfTokenEl.getAttribute('content');
+                this.disabled = true;
+                fetch("{{ url_for('main.toggle_dashboard_cost_display') }}", {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken }
+                })
+                    .then(response => {
+                        if (response.ok) { window.location.reload(); }
+                        else { this.checked = !this.checked; this.disabled = false; alert('設定の変更に失敗しました。ページを再読み込みしてください。'); }
+                    })
+                    .catch(error => {
+                        this.checked = !this.checked; this.disabled = false; alert('通信エラーが発生しました。');
+                    });
             });
-        });
-    }
+        }
 
-    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 
-    const shouldStartInitialTutorial = {{ start_initial_tutorial | tojson }};
+        const shouldStartInitialTutorial = {{ start_initial_tutorial | tojson
+    }};
     if (shouldStartInitialTutorial) {
         startInitialSetupTutorial(csrfToken);
     }
@@ -857,7 +947,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     if (restartTourBtn) {
-        restartTourBtn.addEventListener('click', function() {
+        restartTourBtn.addEventListener('click', function () {
             startDashboardTour(csrfToken);
         });
     }

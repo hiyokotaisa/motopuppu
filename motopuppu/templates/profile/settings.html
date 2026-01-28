@@ -9,14 +9,14 @@
     <h1 class="mb-4">プロフィール設定</h1>
 
     {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            {% for category, message in messages %}
-                <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show" role="alert">
-                    {{ message | safe }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            {% endfor %}
-        {% endif %}
+    {% if messages %}
+    {% for category, message in messages %}
+    <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show" role="alert">
+        {{ message | safe }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endfor %}
+    {% endif %}
     {% endwith %}
 
     <div class="card mb-4">
@@ -25,40 +25,49 @@
         </div>
         <div class="card-body">
             {# ▼▼▼ g.user を current_user に変更 ▼▼▼ #}
-            <p>ダッシュボードやリーダーボードなどで表示される名前を設定します。未設定の場合はMisskeyのユーザー名（<strong>{{ current_user.misskey_username }}</strong>）が使用されます。</p>
+            <p>ダッシュボードやリーダーボードなどで表示される名前を設定します。未設定の場合はMisskeyのユーザー名（<strong>{{ current_user.misskey_username
+                    }}</strong>）が使用されます。</p>
             {# ▲▲▲ 変更ここまで ▲▲▲ #}
             <form method="POST" action="{{ url_for('profile.settings') }}" novalidate>
                 {{ profile_form.hidden_tag() }}
                 <div class="mb-3">
                     {{ profile_form.display_name.label(class="form-label") }}
-                    {{ profile_form.display_name(class="form-control" + (" is-invalid" if profile_form.display_name.errors else ""), autocomplete="off") }}
+                    {{ profile_form.display_name(class="form-control" + (" is-invalid" if
+                    profile_form.display_name.errors else ""), autocomplete="off") }}
                     {% if profile_form.display_name.errors %}
-                        <div class="invalid-feedback">
-                            {% for error in profile_form.display_name.errors %}
-                                <span>{{ error }}</span>
-                            {% endfor %}
-                        </div>
+                    <div class="invalid-feedback">
+                        {% for error in profile_form.display_name.errors %}
+                        <span>{{ error }}</span>
+                        {% endfor %}
+                    </div>
                     {% endif %}
                 </div>
-                
+
                 {# ▼▼▼【ここから追記】にゃんぷっぷー設定のトグルスイッチを追加 ▼▼▼ #}
                 <hr>
-                <div class="mb-3">
-                    <div class="form-check form-switch">
-                        {{ profile_form.nyanpuppu_simple_mode(class="form-check-input") }}
-                        {{ profile_form.nyanpuppu_simple_mode.label(class="form-check-label") }}
-                    </div>
+                <div class="form-check form-switch mb-3">
+                    {{ profile_form.nyanpuppu_simple_mode(class="form-check-input") }}
+                    {{ profile_form.nyanpuppu_simple_mode.label(class="form-check-label") }}
                     {% if profile_form.nyanpuppu_simple_mode.description %}
-                    <small class="form-text text-muted">{{ profile_form.nyanpuppu_simple_mode.description }}</small>
+                    <div class="form-text small text-muted ms-1">{{ profile_form.nyanpuppu_simple_mode.description }}
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div class="form-check form-switch mb-4">
+                    {{ profile_form.use_lite_dashboard(class="form-check-input") }}
+                    {{ profile_form.use_lite_dashboard.label(class="form-check-label") }}
+                    {% if profile_form.use_lite_dashboard.description %}
+                    <div class="form-text small text-muted ms-1">{{ profile_form.use_lite_dashboard.description }}</div>
                     {% endif %}
                 </div>
                 {# ▲▲▲【追記はここまで】▲▲▲ #}
-                
+
                 {{ profile_form.submit_profile(class="btn btn-primary mt-3") }}
             </form>
         </div>
     </div>
-    
+
     <div class="card mb-4">
         <div class="card-header">
             <h5 class="mb-0">その他の設定</h5>
@@ -79,18 +88,19 @@
         <div class="card-body">
             <p class="text-danger"><strong>注意:</strong> この操作は元に戻せません。アカウントを削除すると、登録したすべての車両、記録、実績データが完全に失われます。</p>
             <p>退会処理を続行するには、以下のテキストボックスに「<strong class="text-danger">削除します</strong>」と正確に入力してください。</p>
-            
+
             <form method="POST" action="{{ url_for('profile.settings') }}" novalidate>
                 {{ delete_form.hidden_tag() }}
                 <div class="mb-3">
                     {{ delete_form.confirm_text.label(class="form-label fw-bold") }}
-                    {{ delete_form.confirm_text(class="form-control" + (" is-invalid" if delete_form.confirm_text.errors else ""), autocomplete="off") }}
+                    {{ delete_form.confirm_text(class="form-control" + (" is-invalid" if delete_form.confirm_text.errors
+                    else ""), autocomplete="off") }}
                     {% if delete_form.confirm_text.errors %}
-                        <div class="invalid-feedback">
-                            {% for error in delete_form.confirm_text.errors %}
-                                <span>{{ error }}</span>
-                            {% endfor %}
-                        </div>
+                    <div class="invalid-feedback">
+                        {% for error in delete_form.confirm_text.errors %}
+                        <span>{{ error }}</span>
+                        {% endfor %}
+                    </div>
                     {% endif %}
                 </div>
                 <div class="d-grid">

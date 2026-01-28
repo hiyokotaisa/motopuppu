@@ -433,6 +433,10 @@ class ProfileForm(FlaskForm):
         'にゃんぷっぷーから知能を取り上げる',
         description='ONにすると、ダッシュボードのにゃんぷっぷーが知的なアドバイスをしなくなり、「ぷにゃあん」などとしか話さなくなります。'
     )
+    use_lite_dashboard = BooleanField(
+        '軽量ダッシュボードを優先する',
+        description='ONにすると、ログイン時やホーム画面で簡易版のダッシュボードが表示されます（通信量の節約や高速化に有効です）。'
+    )
 
     submit_profile = SubmitField('更新する')
 

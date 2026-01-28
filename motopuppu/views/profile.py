@@ -26,6 +26,7 @@ def settings():
         # ▼▼▼【ここから変更】にゃんぷっぷー設定の保存処理を追加 ▼▼▼
         current_user.display_name = profile_form.display_name.data
         current_user.nyanpuppu_simple_mode = profile_form.nyanpuppu_simple_mode.data
+        current_user.use_lite_dashboard = profile_form.use_lite_dashboard.data
         try:
             db.session.commit()
             flash('プロフィール情報を更新しました。', 'success')
@@ -70,6 +71,7 @@ def settings():
         # ▼▼▼【ここから変更】フォームの初期値を設定 ▼▼▼
         profile_form.display_name.data = current_user.display_name or current_user.misskey_username
         profile_form.nyanpuppu_simple_mode.data = current_user.nyanpuppu_simple_mode
+        profile_form.use_lite_dashboard.data = current_user.use_lite_dashboard
         # ▲▲▲【変更はここまで】▲▲▲
 
     return render_template('profile/settings.html',

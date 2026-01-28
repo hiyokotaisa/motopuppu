@@ -111,7 +111,15 @@ def index():
 def dashboard():
     """
     メインのダッシュボードルート。
-    重い処理（統計、車両詳細、タイムライン）はここでは行わず、HTMXによって後から読み込まれる。
+    """
+    # ▼▼▼ 軽量ダッシュボードへのリダイレクト判定 ▼▼▼
+    # ユーザー設定が有効、かつURLパラメータで 'mode=full' が指定されていない場合リダイレクト
+    if current_user.use_lite_dashboard and request.args.get('mode') != 'full':
+        return redirect(url_for('main.dashboard_lite'))
+    # ▲▲▲ 判定ここまで ▲▲▲
+
+    """
+    重い処理（統計、車両詳細、タイムライン、イベント、リマインダー、サーキット、にゃんぷっぷー）はここでは行わず、HTMXによって後から読み込まれる。
     """
     # 1. 基本データの準備 (ナビゲーションバーなどで必要)
     user_motorcycles_all = Motorcycle.query.filter_by(user_id=current_user.id).order_by(
@@ -126,36 +134,18 @@ def dashboard():
 
     show_dashboard_tour = request.args.get('tutorial_completed') == '1' and not current_user.completed_tutorials.get('dashboard_tour')
 
-    # 軽いデータのみ取得 (リマインダー、サーキットサマリー、祝日、にゃんぷっぷー)
-    upcoming_reminders = services.get_upcoming_reminders(user_motorcycles_all, current_user.id)
-    circuit_stats = services.get_circuit_activity_for_dashboard(current_user.id)
-    nyanpuppu_advice = services.get_nyanpuppu_advice(current_user, user_motorcycles_all)
+    # 軽いデータのみ取得 (祝日)
+    # リマインダー、サーキットサマリー、にゃんぷっぷー、イベントはHTMXで取得するため除外
     holidays_json = services.get_holidays_json()
-
-    # イベント情報の取得
-    now_utc = datetime.now(timezone.utc)
-    dashboard_events = Event.query.outerjoin(EventParticipant).filter(
-        or_(
-            Event.user_id == current_user.id,  # 主催
-            and_(
-                EventParticipant.user_id == current_user.id,  # 参加者として紐付いている
-                EventParticipant.status.in_([ParticipationStatus.ATTENDING, ParticipationStatus.TENTATIVE]) # 参加 or 保留
-            )
-        ),
-        Event.start_datetime >= now_utc
-    ).order_by(Event.start_datetime.asc()).distinct().all()
 
     # --- レイアウト設定 ---
     dashboard_layout = current_user.dashboard_layout
     
     # 初回ユーザーまたはレイアウト未設定の場合のデフォルト
-    # ▼▼▼ 修正: Noneの場合のみデフォルト適用（空リスト[]はユーザーの意図として尊重） ▼▼▼
     if dashboard_layout is None:
         dashboard_layout = ALL_AVAILABLE_WIDGETS.copy()
-    # ▼▼▼ 修正: 強制的にウィジェットを追加するロジックを削除 ▼▼▼
     
     # 非表示(Inactive)ウィジェットの計算
-    # DBにない未知のIDが含まれていた場合のエラー防止のため、ALL_AVAILABLE_WIDGETSに含まれるものだけを扱う
     active_widgets = [w for w in dashboard_layout if w in ALL_AVAILABLE_WIDGETS]
     inactive_widgets = [w for w in ALL_AVAILABLE_WIDGETS if w not in active_widgets]
 
@@ -170,8 +160,8 @@ def dashboard():
         'dashboard.html',
         motorcycles=user_motorcycles_all,
         motorcycles_public=motorcycles_public,
-        upcoming_reminders=upcoming_reminders,
-        dashboard_events=dashboard_events,
+        # upcoming_reminders=[], # HTMX化
+        # dashboard_events=[],   # HTMX化
         selected_timeline_vehicle_id=request.args.get('timeline_vehicle_id', 'all'),
         selected_stats_vehicle_id=request.args.get('stats_vehicle_id', type=int),
         holidays_json=holidays_json,
@@ -179,13 +169,65 @@ def dashboard():
         start_date_str=start_date_str,
         end_date_str=end_date_str,
         current_date_str=datetime.now(ZoneInfo("Asia/Tokyo")).date().isoformat(),
-        dashboard_layout=active_widgets, # フィルタ済みのリストを渡す
+        dashboard_layout=active_widgets,
         inactive_widgets=inactive_widgets,
-        circuit_stats=circuit_stats,
+        # circuit_stats={},      # HTMX化
         format_seconds_to_time=format_seconds_to_time,
         start_initial_tutorial=start_initial_tutorial,
         show_dashboard_tour=show_dashboard_tour,
-        nyanpuppu_advice=nyanpuppu_advice
+        # nyanpuppu_advice=None  # HTMX化
+    )
+
+
+# ▼▼▼ にゃんぷっぷーウィジェット専用ルート (HTMX用) ▼▼▼
+@main_bp.route('/dashboard/widgets/nyanpuppu')
+@login_required
+def dashboard_nyanpuppu_widget():
+    user_motorcycles_all = Motorcycle.query.filter_by(user_id=current_user.id).all()
+    # 重い処理: DBクエリが走る可能性あり
+    nyanpuppu_advice = services.get_nyanpuppu_advice(current_user, user_motorcycles_all)
+    return render_template('dashboard/_nyanpuppu_widget.html', nyanpuppu_advice=nyanpuppu_advice)
+
+
+# ▼▼▼ リマインダーウィジェット専用ルート (HTMX用) ▼▼▼
+@main_bp.route('/dashboard/widgets/reminders')
+@login_required
+def dashboard_reminders_widget():
+    user_motorcycles_all = Motorcycle.query.filter_by(user_id=current_user.id).all()
+    # 重い処理: 距離計算など
+    upcoming_reminders = services.get_upcoming_reminders(user_motorcycles_all, current_user.id)
+    return render_template('dashboard/_reminders_widget.html', upcoming_reminders=upcoming_reminders)
+
+
+# ▼▼▼ イベントウィジェット専用ルート (HTMX用) ▼▼▼
+@main_bp.route('/dashboard/widgets/events')
+@login_required
+def dashboard_events_widget():
+    now_utc = datetime.now(timezone.utc)
+    dashboard_events = Event.query.outerjoin(EventParticipant).filter(
+        or_(
+            Event.user_id == current_user.id,  # 主催
+            and_(
+                EventParticipant.user_id == current_user.id,  # 参加者として紐付いている
+                EventParticipant.status.in_([ParticipationStatus.ATTENDING, ParticipationStatus.TENTATIVE]) # 参加 or 保留
+            )
+        ),
+        Event.start_datetime >= now_utc
+    ).order_by(Event.start_datetime.asc()).distinct().all()
+    
+    return render_template('dashboard/_events_widget.html', dashboard_events=dashboard_events)
+
+
+# ▼▼▼ サーキットウィジェット専用ルート (HTMX用) ▼▼▼
+@main_bp.route('/dashboard/widgets/circuit')
+@login_required
+def dashboard_circuit_widget():
+    # 重い処理: 集計クエリ
+    circuit_stats = services.get_circuit_activity_for_dashboard(current_user.id)
+    return render_template(
+        'dashboard/_circuit_widget.html', 
+        circuit_stats=circuit_stats,
+        format_seconds_to_time=format_seconds_to_time
     )
 
 
@@ -402,3 +444,20 @@ def complete_tutorial():
         db.session.rollback()
         current_app.logger.error(f"Error completing tutorial '{tutorial_key}' for user {current_user.id}: {e}", exc_info=True)
         return jsonify({'status': 'error', 'message': 'Could not update tutorial status.'}), 500
+
+
+@main_bp.route('/dashboard/lite')
+@login_required
+def dashboard_lite():
+    """軽量モードのダッシュボード"""
+    # ユーザーの車両リストを取得
+    user_motorcycles_all = Motorcycle.query.filter_by(user_id=current_user.id).order_by(
+        Motorcycle.is_default.desc(), Motorcycle.name).all()
+    
+    # デフォルト車両を特定 (リストの先頭は is_default=True のはず)
+    default_vehicle = user_motorcycles_all[0] if user_motorcycles_all else None
+
+    return render_template('dashboard_lite.html', 
+                           title="軽量ダッシュボード",
+                           default_vehicle=default_vehicle,
+                           user_motorcycles_all=user_motorcycles_all)
