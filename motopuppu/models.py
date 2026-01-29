@@ -235,6 +235,7 @@ class GeneralNote(db.Model):
     title = db.Column(db.String(150), nullable=True)
     content = db.Column(db.Text, nullable=True)
     category = db.Column(db.String(20), nullable=False, default='note', server_default='note', index=True)
+    is_pinned = db.Column(db.Boolean, nullable=False, default=False, server_default='false', index=True)
     todos = db.Column(JSONB, nullable=True)
     created_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
     updated_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now(), onupdate=db.func.now())

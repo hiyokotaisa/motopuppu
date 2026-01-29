@@ -81,7 +81,8 @@ def notes_log():
         current_app.logger.error(f"Error calculating notes summary: {e}")
 
     # --- クエリ実行 ---
-    pagination = query.order_by(GeneralNote.note_date.desc(), GeneralNote.created_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
+    # ピン留めされたノートを優先し、日付順、作成日順でソート
+    pagination = query.order_by(GeneralNote.is_pinned.desc(), GeneralNote.note_date.desc(), GeneralNote.created_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
     entries = pagination.items
     
     is_filter_active = bool(request_args_dict)
@@ -118,6 +119,7 @@ def add_note():
         new_note.note_date = form.note_date.data
         new_note.category = form.category.data
         new_note.title = form.title.data.strip() if form.title.data else None
+        new_note.is_pinned = form.is_pinned.data
 
         if new_note.category == 'note':
             new_note.content = form.content.data.strip() if form.content.data else None
@@ -191,6 +193,7 @@ def edit_note(note_id):
         note.note_date = form.note_date.data
         note.category = form.category.data
         note.title = form.title.data.strip() if form.title.data else None
+        note.is_pinned = form.is_pinned.data
 
         if note.category == 'note':
             note.content = form.content.data.strip() if form.content.data else None

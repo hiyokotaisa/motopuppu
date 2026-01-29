@@ -8,29 +8,30 @@
 {% include '_breadcrumbs.html' %}
 <h2>{{ page_title }}</h2>
 {% if form_action == 'edit' and form.motorcycle_id.data %}
-    {% if motorcycles %}
-        {% set current_moto_id_int = form.motorcycle_id.data | int(0) %}
-        {% for mc_item in motorcycles %}
-            {% if mc_item.id == current_moto_id_int %}
-                <h4 class="text-muted mb-4">関連車両: {{ mc_item.name }}</h4>
-            {% endif %}
-        {% endfor %}
-    {% endif %}
+{% if motorcycles %}
+{% set current_moto_id_int = form.motorcycle_id.data | int(0) %}
+{% for mc_item in motorcycles %}
+{% if mc_item.id == current_moto_id_int %}
+<h4 class="text-muted mb-4">関連車両: {{ mc_item.name }}</h4>
+{% endif %}
+{% endfor %}
+{% endif %}
 {% endif %}
 
 {# Flash Messages (一般的なメッセージ用) #}
 {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-        {% for category, message in messages %}
-            <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show" role="alert">
-                {{ message }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-        {% endfor %}
-    {% endif %}
+{% if messages %}
+{% for category, message in messages %}
+<div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show" role="alert">
+    {{ message }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+{% endfor %}
+{% endif %}
 {% endwith %}
 
-<form method="POST" id="note-form" action="{{ url_for('notes.add_note') if form_action == 'add' else url_for('notes.edit_note', note_id=note_id if note_id else 0) }}">
+<form method="POST" id="note-form"
+    action="{{ url_for('notes.add_note') if form_action == 'add' else url_for('notes.edit_note', note_id=note_id if note_id else 0) }}">
     {{ form.hidden_tag() }} {# CSRFトークン等 (NoteForm) #}
 
     {# 関連車両選択 #}
@@ -40,45 +41,49 @@
         </label>
         {{ form.motorcycle_id(class="form-select" + (" is-invalid" if form.motorcycle_id.errors else "")) }}
         {% if form.motorcycle_id.errors %}
-            <div class="invalid-feedback">
-                {% for error in form.motorcycle_id.errors %}<span>{{ error }}</span><br>{% endfor %}
-            </div>
+        <div class="invalid-feedback">
+            {% for error in form.motorcycle_id.errors %}<span>{{ error }}</span><br>{% endfor %}
+        </div>
         {% else %}
-             <div class="form-text">このノートを特定の車両に関連付ける場合に選択します。</div>
+        <div class="form-text">このノートを特定の車両に関連付ける場合に選択します。</div>
         {% endif %}
     </div>
 
     {# 日付 #}
     <div class="mb-3">
         <label for="{{ form.note_date.id }}" class="form-label">
-            <i class="bi bi-calendar-date me-2"></i>{{ form.note_date.label.text }} {% if form.note_date.flags.required %}<span class="text-danger">*</span>{% endif %}
+            <i class="bi bi-calendar-date me-2"></i>{{ form.note_date.label.text }} {% if form.note_date.flags.required
+            %}<span class="text-danger">*</span>{% endif %}
         </label>
         {{ form.note_date(class="form-control" + (" is-invalid" if form.note_date.errors else "")) }}
         {% if form.note_date.errors %}
-            <div class="invalid-feedback">
-                {% for error in form.note_date.errors %}<span>{{ error }}</span><br>{% endfor %}
-            </div>
+        <div class="invalid-feedback">
+            {% for error in form.note_date.errors %}<span>{{ error }}</span><br>{% endfor %}
+        </div>
         {% endif %}
     </div>
 
     {# カテゴリー選択 #}
     <div class="mb-3">
-        <label class="form-label"><i class="bi bi-tags me-2"></i>{{ form.category.label.text }} {% if form.category.flags.required %}<span class="text-danger">*</span>{% endif %}</label>
+        <label class="form-label"><i class="bi bi-tags me-2"></i>{{ form.category.label.text }} {% if
+            form.category.flags.required %}<span class="text-danger">*</span>{% endif %}</label>
         <div>
             {% for subfield in form.category %} {# RadioFieldの各選択肢をループ #}
             <div class="form-check form-check-inline">
-                {{ subfield(class="form-check-input" + (" is-invalid" if form.category.errors else ""), id="category-" + subfield.data) }} {# idをユニークに #}
+                {{ subfield(class="form-check-input" + (" is-invalid" if form.category.errors else ""), id="category-" +
+                subfield.data) }} {# idをユニークに #}
                 <label class="form-check-label" for="{{ subfield.id }}"> {# idを参照 #}
-                    {% if subfield.data == 'note' %}<i class="bi bi-sticky me-1"></i>{% elif subfield.data == 'task' %}<i class="bi bi-check2-square me-1"></i>{% endif %}
+                    {% if subfield.data == 'note' %}<i class="bi bi-sticky me-1"></i>{% elif subfield.data == 'task'
+                    %}<i class="bi bi-check2-square me-1"></i>{% endif %}
                     {{ subfield.label.text }}
                 </label>
             </div>
             {% endfor %}
         </div>
         {% if form.category.errors %}
-            <div class="invalid-feedback d-block"> {# d-block を追加 #}
-                {% for error in form.category.errors %}<span>{{ error }}</span><br>{% endfor %}
-            </div>
+        <div class="invalid-feedback d-block"> {# d-block を追加 #}
+            {% for error in form.category.errors %}<span>{{ error }}</span><br>{% endfor %}
+        </div>
         {% endif %}
     </div>
 
@@ -87,66 +92,90 @@
         <label for="{{ form.title.id }}" class="form-label">
             <i class="bi bi-card-heading me-2"></i>{{ form.title.label.text }}
         </label>
-        {{ form.title(class="form-control" + (" is-invalid" if form.title.errors else ""), maxlength="150", placeholder=(form.title.render_kw.get("placeholder", "") if form.title.render_kw else "")) }}
+        {{ form.title(class="form-control" + (" is-invalid" if form.title.errors else ""), maxlength="150",
+        placeholder=(form.title.render_kw.get("placeholder", "") if form.title.render_kw else "")) }}
         {% if form.title.errors %}
-            <div class="invalid-feedback">
-                {% for error in form.title.errors %}<span>{{ error }}</span><br>{% endfor %}
-            </div>
+        <div class="invalid-feedback">
+            {% for error in form.title.errors %}<span>{{ error }}</span><br>{% endfor %}
+        </div>
+        {% endif %}
+    </div>
+
+    {# ピン留め #}
+    <div class="mb-3 form-check">
+        {{ form.is_pinned(class="form-check-input" + (" is-invalid" if form.is_pinned.errors else "")) }}
+        <label class="form-check-label" for="{{ form.is_pinned.id }}">
+            <i class="fas fa-thumbtack me-2"></i>{{ form.is_pinned.label.text }}
+        </label>
+        {% if form.is_pinned.errors %}
+        <div class="invalid-feedback">
+            {% for error in form.is_pinned.errors %}<span>{{ error }}</span><br>{% endfor %}
+        </div>
         {% endif %}
     </div>
 
     {# 内容欄 (カテゴリが'note'の時のみ表示) #}
-    <div class="mb-3" id="content-section" {% if form.category.data != 'note' %}style="display: none;"{% endif %}>
+    <div class="mb-3" id="content-section" {% if form.category.data !='note' %}style="display: none;" {% endif %}>
         <label for="{{ form.content.id }}" class="form-label">
-            <i class="bi bi-textarea-t me-2"></i>{{ form.content.label.text }} <span class="text-danger" id="content-required-indicator" {% if form.category.data != 'note' %}style="display: none;"{% endif %}>*</span>
+            <i class="bi bi-textarea-t me-2"></i>{{ form.content.label.text }} <span class="text-danger"
+                id="content-required-indicator" {% if form.category.data !='note' %}style="display: none;" {% endif
+                %}>*</span>
         </label>
-        {{ form.content(class="form-control" + (" is-invalid" if form.content.errors else ""), rows=(form.content.render_kw.get("rows", 8) if form.content.render_kw else 8), maxlength="2000", placeholder=(form.content.render_kw.get("placeholder", "") if form.content.render_kw else "")) }}
+        {{ form.content(class="form-control" + (" is-invalid" if form.content.errors else ""),
+        rows=(form.content.render_kw.get("rows", 8) if form.content.render_kw else 8), maxlength="2000",
+        placeholder=(form.content.render_kw.get("placeholder", "") if form.content.render_kw else "")) }}
         {% if form.content.errors %}
-            <div class="invalid-feedback">
-                {% for error in form.content.errors %}<span>{{ error }}</span><br>{% endfor %}
-            </div>
+        <div class="invalid-feedback">
+            {% for error in form.content.errors %}<span>{{ error }}</span><br>{% endfor %}
+        </div>
         {% else %}
-            <div class="form-text">ノートの内容を入力します (最大2000文字)。</div>
+        <div class="form-text">ノートの内容を入力します (最大2000文字)。</div>
         {% endif %}
     </div>
 
     {# TODOリスト入力欄 (カテゴリが'task'の時のみ表示) #}
-    <div id="todo-list-section" class="mb-3 border p-3 rounded" {% if form.category.data != 'task' %}style="display: none;"{% endif %}>
-        <h5><i class="fas fa-list-check me-1"></i> TODOリスト {% if form.todos.errors %}<span class="text-danger small ms-2">入力エラーがあります</span>{% endif %}</h5>
+    <div id="todo-list-section" class="mb-3 border p-3 rounded" {% if form.category.data !='task'
+        %}style="display: none;" {% endif %}>
+        <h5><i class="fas fa-list-check me-1"></i> TODOリスト {% if form.todos.errors %}<span
+                class="text-danger small ms-2">入力エラーがあります</span>{% endif %}</h5>
         {% if form.todos.errors %}
-            <div class="alert alert-danger py-1 px-2 small">
+        <div class="alert alert-danger py-1 px-2 small">
             {% for error in form.todos.errors %}
-                <span>{{ error }}</span><br>
+            <span>{{ error }}</span><br>
             {% endfor %}
-            </div>
+        </div>
         {% endif %}
 
         <div id="todo-items-container"> {# SortableJSの対象コンテナ #}
             {% for todo_item_form in form.todos %}
-                <div class="input-group mb-2 todo-item">
-                    <div class="input-group-text p-2 handle" style="cursor: move;" title="ドラッグして並び替え">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-grip-vertical" viewBox="0 0 16 16">
-                            <path d="M7 2a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 8a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
-                        </svg>
-                    </div>
-                    <div class="input-group-text">
-                        {{ todo_item_form.checked(class="form-check-input mt-0 todo-item-check" + (" is-invalid" if todo_item_form.checked.errors else "")) }}
-                    </div>
-                    {{ todo_item_form.text(class="form-control todo-item-text" + (" is-invalid" if todo_item_form.text.errors else ""), placeholder="タスク内容 (必須)", maxlength="100") }}
-                    <button type="button" class="btn btn-outline-danger remove-todo-item" title="このアイテムを削除">
-                        <i class="fas fa-trash-alt"></i>
-                    </button>
-                    {% if todo_item_form.text.errors %}
-                        <div class="invalid-feedback w-100 ps-3">
-                            {% for error in todo_item_form.text.errors %}<span>{{ error }}</span><br>{% endfor %}
-                        </div>
-                    {% endif %}
-                    {% if todo_item_form.checked.errors %}
-                        <div class="invalid-feedback w-100 ps-3">
-                            {% for error in todo_item_form.checked.errors %}<span>{{ error }}</span><br>{% endfor %}
-                        </div>
-                    {% endif %}
+            <div class="input-group mb-2 todo-item">
+                <div class="input-group-text p-2 handle" style="cursor: move;" title="ドラッグして並び替え">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
+                        class="bi bi-grip-vertical" viewBox="0 0 16 16">
+                        <path
+                            d="M7 2a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 8a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0z" />
+                    </svg>
                 </div>
+                <div class="input-group-text">
+                    {{ todo_item_form.checked(class="form-check-input mt-0 todo-item-check" + (" is-invalid" if
+                    todo_item_form.checked.errors else "")) }}
+                </div>
+                {{ todo_item_form.text(class="form-control todo-item-text" + (" is-invalid" if
+                todo_item_form.text.errors else ""), placeholder="タスク内容 (必須)", maxlength="100") }}
+                <button type="button" class="btn btn-outline-danger remove-todo-item" title="このアイテムを削除">
+                    <i class="fas fa-trash-alt"></i>
+                </button>
+                {% if todo_item_form.text.errors %}
+                <div class="invalid-feedback w-100 ps-3">
+                    {% for error in todo_item_form.text.errors %}<span>{{ error }}</span><br>{% endfor %}
+                </div>
+                {% endif %}
+                {% if todo_item_form.checked.errors %}
+                <div class="invalid-feedback w-100 ps-3">
+                    {% for error in todo_item_form.checked.errors %}<span>{{ error }}</span><br>{% endfor %}
+                </div>
+                {% endif %}
+            </div>
             {% endfor %}
         </div>
         <button type="button" id="add-todo-item" class="btn btn-sm btn-outline-success mt-2">
@@ -156,13 +185,13 @@
     </div>
 
     {% if form.errors %}
-        {% for field_name, error_list in form.errors.items() %}
-            {% if field_name not in form._fields or field_name == '__all__' %}
-                {% for error in error_list %}
-                    <div class="alert alert-danger mt-2 py-1 px-2 small" role="alert">{{ error }}</div>
-                {% endfor %}
-            {% endif %}
-        {% endfor %}
+    {% for field_name, error_list in form.errors.items() %}
+    {% if field_name not in form._fields or field_name == '__all__' %}
+    {% for error in error_list %}
+    <div class="alert alert-danger mt-2 py-1 px-2 small" role="alert">{{ error }}</div>
+    {% endfor %}
+    {% endif %}
+    {% endfor %}
     {% endif %}
 
     <div class="mt-4">
@@ -176,8 +205,10 @@
 <template id="todo-item-template">
     <div class="input-group mb-2 todo-item">
         <div class="input-group-text p-2 handle" style="cursor: move;" title="ドラッグして並び替え">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-grip-vertical" viewBox="0 0 16 16">
-                <path d="M7 2a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 8a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
+                class="bi bi-grip-vertical" viewBox="0 0 16 16">
+                <path
+                    d="M7 2a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 8a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0z" />
             </svg>
         </div>
         <div class="input-group-text">
@@ -194,19 +225,20 @@
 {% block scripts %}
 {{ super() }}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const categoryRadios = document.querySelectorAll('input[name="category"]');
-    const todoListSection = document.getElementById('todo-list-section');
-    const todoItemsContainer = document.getElementById('todo-items-container');
-    const addTodoItemButton = document.getElementById('add-todo-item');
-    const todoItemTemplate = document.getElementById('todo-item-template');
-    const contentSection = document.getElementById('content-section');
-    const contentTextarea = document.getElementById('content');
-    const contentRequiredIndicator = document.getElementById('content-required-indicator');
-    const MAX_TODO_ITEMS = {{ MAX_TODO_ITEMS | int }};
+    document.addEventListener('DOMContentLoaded', function () {
+        const categoryRadios = document.querySelectorAll('input[name="category"]');
+        const todoListSection = document.getElementById('todo-list-section');
+        const todoItemsContainer = document.getElementById('todo-items-container');
+        const addTodoItemButton = document.getElementById('add-todo-item');
+        const todoItemTemplate = document.getElementById('todo-item-template');
+        const contentSection = document.getElementById('content-section');
+        const contentTextarea = document.getElementById('content');
+        const contentRequiredIndicator = document.getElementById('content-required-indicator');
+        const MAX_TODO_ITEMS = {{ MAX_TODO_ITEMS | int
+    }};
     // const noteForm = document.getElementById('note-form'); // noteForm変数は現在使用されていません
 
-    let sortableInstance = null; 
+    let sortableInstance = null;
 
     // Ajax通信関連の変数は削除しました (reorderTasksUrl, currentNoteId, csrfToken)
 
@@ -220,7 +252,7 @@ document.addEventListener('DOMContentLoaded', function() {
             contentSection.style.display = 'none';
             if (contentTextarea) contentTextarea.required = false;
             if (contentRequiredIndicator) contentRequiredIndicator.style.display = 'none';
-            if (sortableInstance) { 
+            if (sortableInstance) {
                 sortableInstance.option("disabled", false);
             }
         } else {
@@ -228,7 +260,7 @@ document.addEventListener('DOMContentLoaded', function() {
             contentSection.style.display = 'block';
             if (contentTextarea) contentTextarea.required = true;
             if (contentRequiredIndicator) contentRequiredIndicator.style.display = 'inline';
-            if (sortableInstance) { 
+            if (sortableInstance) {
                 sortableInstance.option("disabled", true);
             }
         }
@@ -240,7 +272,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     function attachRemoveListener(buttonElement) {
-        buttonElement.addEventListener('click', function() {
+        buttonElement.addEventListener('click', function () {
             this.closest('.todo-item').remove();
             updateTodoItemNamesAndIndices();
             updateAddButtonState();
@@ -258,26 +290,26 @@ document.addEventListener('DOMContentLoaded', function() {
         const checkbox = newItem.querySelector('.todo-item-check');
         const textInput = newItem.querySelector('.todo-item-text');
         const removeButton = newItem.querySelector('.remove-todo-item');
-        
+
         textInput.value = textValue;
         checkbox.checked = checkedValue;
 
         function applyDoneStyle() {
-             if (checkbox.checked) {
-                 textInput.classList.add('text-decoration-line-through', 'text-muted');
-             } else {
-                 textInput.classList.remove('text-decoration-line-through', 'text-muted');
-             }
+            if (checkbox.checked) {
+                textInput.classList.add('text-decoration-line-through', 'text-muted');
+            } else {
+                textInput.classList.remove('text-decoration-line-through', 'text-muted');
+            }
         }
         checkbox.addEventListener('change', applyDoneStyle);
-        applyDoneStyle(); 
+        applyDoneStyle();
 
         attachRemoveListener(removeButton);
         todoItemsContainer.appendChild(newItem);
         updateTodoItemNamesAndIndices();
         updateAddButtonState();
     }
-    
+
     function updateTodoItemNamesAndIndices() {
         const items = todoItemsContainer.querySelectorAll('.todo-item');
         items.forEach((item, idx) => {
@@ -286,7 +318,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    addTodoItemButton.addEventListener('click', function() {
+    addTodoItemButton.addEventListener('click', function () {
         addTodoItem();
     });
 
@@ -305,12 +337,12 @@ document.addEventListener('DOMContentLoaded', function() {
             addTodoItemButton.title = '';
         }
     }
-    
+
     if (todoItemsContainer && typeof Sortable !== 'undefined') {
         sortableInstance = new Sortable(todoItemsContainer, {
             animation: 150,
-            handle: '.handle', 
-            ghostClass: 'bg-light', 
+            handle: '.handle',
+            ghostClass: 'bg-light',
             onEnd: function (evt) {
                 // DOM要素のname属性のインデックスを更新 (フォーム送信時に正しい順序を反映するため)
                 updateTodoItemNamesAndIndices();
@@ -319,8 +351,8 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    toggleSections(); 
-    
+    toggleSections();
+
     todoItemsContainer.querySelectorAll('.remove-todo-item').forEach(button => {
         attachRemoveListener(button);
     });
@@ -328,11 +360,11 @@ document.addEventListener('DOMContentLoaded', function() {
         const checkbox = item.querySelector('.todo-item-check');
         const textInput = item.querySelector('.todo-item-text');
         function applyDoneStyle() {
-             if (checkbox.checked) {
-                 textInput.classList.add('text-decoration-line-through', 'text-muted');
-             } else {
-                 textInput.classList.remove('text-decoration-line-through', 'text-muted');
-             }
+            if (checkbox.checked) {
+                textInput.classList.add('text-decoration-line-through', 'text-muted');
+            } else {
+                textInput.classList.remove('text-decoration-line-through', 'text-muted');
+            }
         }
         checkbox.addEventListener('change', applyDoneStyle);
         applyDoneStyle();

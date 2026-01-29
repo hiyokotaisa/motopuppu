@@ -11,25 +11,30 @@
     .hover-lift {
         transition: transform 0.2s ease, box-shadow 0.2s ease;
     }
+
     .hover-lift:hover {
         transform: translateY(-3px);
-        box-shadow: 0 .5rem 1rem rgba(0,0,0,.15)!important;
+        box-shadow: 0 .5rem 1rem rgba(0, 0, 0, .15) !important;
     }
-    
+
     /* カードの種別によるアクセント */
     .note-card.type-task {
-        border-top: 4px solid #0d6efd; /* Primary Blue */
+        border-top: 4px solid #0d6efd;
+        /* Primary Blue */
     }
+
     .note-card.type-note {
-        border-top: 4px solid #6c757d; /* Secondary Gray */
+        border-top: 4px solid #6c757d;
+        /* Secondary Gray */
     }
-    
+
     /* TODOリストのスタイル */
     .todo-preview-list li {
         position: relative;
         padding-left: 1.5rem;
         margin-bottom: 0.25rem;
     }
+
     .todo-preview-list li i {
         position: absolute;
         left: 0;
@@ -43,20 +48,20 @@
         <h2 class="fw-bold mb-0 text-dark"><i class="fas fa-sticky-note me-2 text-warning"></i>ノート</h2>
         <p class="text-muted mb-0 small">車両に関するメモやTODOリストを管理</p>
     </div>
-    
+
     {# --- アクションボタン群 --- #}
     <div class="d-flex gap-2">
         <a href="{{ url_for('notes.add_note') }}" class="btn btn-success shadow-sm">
             <i class="fas fa-plus me-1"></i> ノート追加
         </a>
-        
+
         {# --- 表示モード切替トグル --- #}
         <div class="btn-group" role="group" aria-label="View Mode Toggle">
             <input type="radio" class="btn-check" name="viewMode" id="viewModeDashboard" autocomplete="off">
             <label class="btn btn-outline-secondary" for="viewModeDashboard" title="カード表示">
-                <i class="bi bi-grid-fill"></i> 
+                <i class="bi bi-grid-fill"></i>
             </label>
-        
+
             <input type="radio" class="btn-check" name="viewMode" id="viewModeTable" autocomplete="off">
             <label class="btn btn-outline-secondary" for="viewModeTable" title="リスト表示">
                 <i class="fas fa-list"></i>
@@ -67,29 +72,36 @@
 
 {# --- フィルターエリア --- #}
 <div class="mb-3">
-    <button class="btn btn-sm btn-outline-secondary rounded-pill" type="button" data-bs-toggle="collapse" data-bs-target="#filterCollapse" aria-expanded="{{ 'true' if is_filter_active else 'false' }}">
-        <i class="fas fa-filter me-1"></i> 絞り込み検索 {% if is_filter_active %}<span class="badge bg-primary rounded-pill">ON</span>{% endif %}
+    <button class="btn btn-sm btn-outline-secondary rounded-pill" type="button" data-bs-toggle="collapse"
+        data-bs-target="#filterCollapse" aria-expanded="{{ 'true' if is_filter_active else 'false' }}">
+        <i class="fas fa-filter me-1"></i> 絞り込み検索 {% if is_filter_active %}<span
+            class="badge bg-primary rounded-pill">ON</span>{% endif %}
     </button>
 </div>
 
 <div class="collapse {% if is_filter_active %}show{% endif %} mb-4" id="filterCollapse">
     <div class="card card-body bg-light border-0 shadow-sm">
-        <form method="GET" action="{{ url_for('notes.notes_log') }}" class="row g-2 align-items-end" id="notes-filter-form">
+        <form method="GET" action="{{ url_for('notes.notes_log') }}" class="row g-2 align-items-end"
+            id="notes-filter-form">
             <div class="col-md-2">
                 <label for="start_date" class="form-label small text-muted">開始日</label>
-                <input type="date" class="form-control form-control-sm" id="start_date" name="start_date" value="{{ request_args.get('start_date', '') }}">
+                <input type="date" class="form-control form-control-sm" id="start_date" name="start_date"
+                    value="{{ request_args.get('start_date', '') }}">
             </div>
             <div class="col-md-2">
                 <label for="end_date" class="form-label small text-muted">終了日</label>
-                <input type="date" class="form-control form-control-sm" id="end_date" name="end_date" value="{{ request_args.get('end_date', '') }}">
+                <input type="date" class="form-control form-control-sm" id="end_date" name="end_date"
+                    value="{{ request_args.get('end_date', '') }}">
             </div>
             <div class="col-md-3">
                 <label for="vehicle_id" class="form-label small text-muted">関連車両</label>
                 <select class="form-select form-select-sm" id="vehicle_id" name="vehicle_id">
                     <option value="" {% if not request_args.get('vehicle_id') %}selected{% endif %}>すべて</option>
-                    <option value="0" {% if request_args.get('vehicle_id') == '0' %}selected{% endif %}>-- 車両未指定 --</option>
+                    <option value="0" {% if request_args.get('vehicle_id')=='0' %}selected{% endif %}>-- 車両未指定 --
+                    </option>
                     {% for motorcycle in motorcycles %}
-                    <option value="{{ motorcycle.id }}" {% if request_args.get('vehicle_id')|string == motorcycle.id|string %}selected{% endif %}>
+                    <option value="{{ motorcycle.id }}" {% if
+                        request_args.get('vehicle_id')|string==motorcycle.id|string %}selected{% endif %}>
                         {{ motorcycle.name }}
                     </option>
                     {% endfor %}
@@ -100,19 +112,20 @@
                 <select class="form-select form-select-sm" id="category" name="category">
                     <option value="" {% if not selected_category %}selected{% endif %}>すべて</option>
                     {% for cat_opt in allowed_categories_for_template %}
-                    <option value="{{ cat_opt.value }}" {% if selected_category == cat_opt.value %}selected{% endif %}>
+                    <option value="{{ cat_opt.value }}" {% if selected_category==cat_opt.value %}selected{% endif %}>
                         {{ cat_opt.display }}
                     </option>
                     {% endfor %}
                 </select>
             </div>
-             <div class="col-md-3">
-                 <label for="q" class="form-label small text-muted">キーワード</label>
-                <input type="text" class="form-control form-control-sm" id="q" name="q" value="{{ request_args.get('q', '') }}" placeholder="タイトル, 内容">
-             </div>
+            <div class="col-md-3">
+                <label for="q" class="form-label small text-muted">キーワード</label>
+                <input type="text" class="form-control form-control-sm" id="q" name="q"
+                    value="{{ request_args.get('q', '') }}" placeholder="タイトル, 内容">
+            </div>
             <div class="col-md-12 mt-2 text-end">
-                 <a href="{{ url_for('notes.notes_log') }}" class="btn btn-outline-secondary btn-sm me-2">リセット</a>
-                 <button type="submit" class="btn btn-primary btn-sm">
+                <a href="{{ url_for('notes.notes_log') }}" class="btn btn-outline-secondary btn-sm me-2">リセット</a>
+                <button type="submit" class="btn btn-primary btn-sm">
                     <i class="fas fa-filter me-1"></i> 絞り込む
                 </button>
             </div>
@@ -122,13 +135,13 @@
 
 {# --- フラッシュメッセージ表示 --- #}
 {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-        {% for category, message in messages %}
-            <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show shadow-sm" role="alert">
-                {{ message | safe }} <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-        {% endfor %}
-    {% endif %}
+{% if messages %}
+{% for category, message in messages %}
+<div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show shadow-sm" role="alert">
+    {{ message | safe }} <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+{% endfor %}
+{% endif %}
 {% endwith %}
 
 
@@ -140,27 +153,33 @@
     {# 1. 統計カード #}
     <div class="row g-3 mb-4">
         <div class="col-md-6">
-            <div class="card border-0 shadow-sm h-100" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
+            <div class="card border-0 shadow-sm h-100"
+                style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
                 <div class="card-body d-flex align-items-center p-3">
-                    <div class="bg-white text-secondary shadow-sm me-3 rounded-3 d-flex align-items-center justify-content-center" style="width:48px; height:48px; font-size:1.5rem;">
+                    <div class="bg-white text-secondary shadow-sm me-3 rounded-3 d-flex align-items-center justify-content-center"
+                        style="width:48px; height:48px; font-size:1.5rem;">
                         <i class="fas fa-sticky-note"></i>
                     </div>
                     <div>
                         <h6 class="text-uppercase text-muted fw-bold mb-0" style="font-size: 0.7rem;">メモ数 (表示中)</h6>
-                        <h3 class="mb-0 fw-bold">{{ "{:,}".format(summary_stats.note_count) }}<span class="fs-6 text-muted ms-1">件</span></h3>
+                        <h3 class="mb-0 fw-bold">{{ "{:,}".format(summary_stats.note_count) }}<span
+                                class="fs-6 text-muted ms-1">件</span></h3>
                     </div>
                 </div>
             </div>
         </div>
         <div class="col-md-6">
-            <div class="card border-0 shadow-sm h-100" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
+            <div class="card border-0 shadow-sm h-100"
+                style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
                 <div class="card-body d-flex align-items-center p-3">
-                    <div class="bg-white text-primary shadow-sm me-3 rounded-3 d-flex align-items-center justify-content-center" style="width:48px; height:48px; font-size:1.5rem;">
+                    <div class="bg-white text-primary shadow-sm me-3 rounded-3 d-flex align-items-center justify-content-center"
+                        style="width:48px; height:48px; font-size:1.5rem;">
                         <i class="fas fa-tasks"></i>
                     </div>
                     <div>
                         <h6 class="text-uppercase text-muted fw-bold mb-0" style="font-size: 0.7rem;">タスク数 (表示中)</h6>
-                        <h3 class="mb-0 fw-bold">{{ "{:,}".format(summary_stats.task_count) }}<span class="fs-6 text-muted ms-1">件</span></h3>
+                        <h3 class="mb-0 fw-bold">{{ "{:,}".format(summary_stats.task_count) }}<span
+                                class="fs-6 text-muted ms-1">件</span></h3>
                     </div>
                 </div>
             </div>
@@ -173,56 +192,70 @@
         {% for note in entries %}
         <div class="col">
             <div class="card h-100 border-0 shadow-sm hover-lift note-card type-{{ note.category }}">
-                
+
                 {# カードヘッダー: タイトルとバッジ #}
                 <div class="card-header bg-white border-0 pt-3 pb-0 d-flex justify-content-between align-items-start">
                     <div class="flex-grow-1 me-2">
                         <div class="mb-1">
                             {% if note.category == 'task' %}
-                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill" style="font-size: 0.7rem;">TASK</span>
+                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill"
+                                style="font-size: 0.7rem;">TASK</span>
                             {% else %}
-                                <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle rounded-pill" style="font-size: 0.7rem;">NOTE</span>
+                            <span
+                                class="badge bg-secondary-subtle text-secondary border border-secondary-subtle rounded-pill"
+                                style="font-size: 0.7rem;">NOTE</span>
                             {% endif %}
-                            <small class="text-muted ms-1" style="font-size: 0.75rem;">{{ note.note_date.strftime('%Y/%m/%d') }}</small>
+                            <small class="text-muted ms-1" style="font-size: 0.75rem;">{{
+                                note.note_date.strftime('%Y/%m/%d') }}</small>
                         </div>
                         <h5 class="card-title fw-bold mb-0 text-dark fs-6 text-truncate" title="{{ note.title }}">
                             {{ note.title if note.title else '(タイトルなし)' }}
                         </h5>
                     </div>
-                    
+
                     {# 関連車両バッジ (右上に配置) #}
                     {% if note.motorcycle %}
-                        <span class="badge bg-light text-dark border" style="font-size: 0.7rem; max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                            {{ note.motorcycle.name }}
-                        </span>
+                    <span class="badge bg-light text-dark border"
+                        style="font-size: 0.7rem; max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                        {{ note.motorcycle.name }}
+                    </span>
+                    {% endif %}
+
+                    {# ピン留めアイコン (右上に配置) #}
+                    {% if note.is_pinned %}
+                    <span class="badge bg-warning text-dark border ms-1" style="font-size: 0.7rem;">
+                        <i class="fas fa-thumbtack"></i>
+                    </span>
                     {% endif %}
                 </div>
 
                 {# カードボディ: 内容プレビュー #}
                 <div class="card-body pt-2 pb-0">
                     <hr class="my-2 opacity-25">
-                    
+
                     <div style="min-height: 80px;">
                         {% if note.category == 'task' and note.todos %}
-                            <ul class="list-unstyled mb-0 todo-preview-list small text-secondary">
-                                {% for item in note.todos[:4] %}
-                                    <li class="text-truncate {% if item.checked %}text-muted text-decoration-line-through{% endif %}">
-                                        <i class="far {{ 'fa-check-square' if item.checked else 'fa-square' }} me-2"></i>
-                                        {{ item.text | escape }}
-                                    </li>
-                                {% endfor %}
-                                {% if note.todos|length > 4 %}
-                                    <li class="text-muted fst-italic ps-4">...他 {{ note.todos|length - 4 }} 件</li>
-                                {% endif %}
-                            </ul>
+                        <ul class="list-unstyled mb-0 todo-preview-list small text-secondary">
+                            {% for item in note.todos[:4] %}
+                            <li
+                                class="text-truncate {% if item.checked %}text-muted text-decoration-line-through{% endif %}">
+                                <i class="far {{ 'fa-check-square' if item.checked else 'fa-square' }} me-2"></i>
+                                {{ item.text | escape }}
+                            </li>
+                            {% endfor %}
+                            {% if note.todos|length > 4 %}
+                            <li class="text-muted fst-italic ps-4">...他 {{ note.todos|length - 4 }} 件</li>
+                            {% endif %}
+                        </ul>
                         {% elif note.category == 'task' %}
-                            <p class="text-muted small fst-italic">TODOアイテムなし</p>
+                        <p class="text-muted small fst-italic">TODOアイテムなし</p>
                         {% elif note.content %}
-                             <p class="card-text text-secondary small" style="display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden;">
-                                {{ note.content | striptags }}
-                             </p>
+                        <p class="card-text text-secondary small"
+                            style="display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden;">
+                            {{ note.content | striptags }}
+                        </p>
                         {% else %}
-                            <p class="text-muted small fst-italic">本文なし</p>
+                        <p class="text-muted small fst-italic">本文なし</p>
                         {% endif %}
                     </div>
                 </div>
@@ -230,24 +263,28 @@
                 {# カードフッター: アクション #}
                 <div class="card-footer bg-white border-0 pt-0 pb-3 mt-2">
                     <div class="d-flex justify-content-end align-items-center">
-                         <a href="{{ url_for('notes.edit_note', note_id=note.id) }}" class="btn btn-sm btn-outline-secondary border-0 rounded-circle p-2" title="編集" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
+                        <a href="{{ url_for('notes.edit_note', note_id=note.id) }}"
+                            class="btn btn-sm btn-outline-secondary border-0 rounded-circle p-2" title="編集"
+                            style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
                             <i class="fas fa-pen fa-xs"></i>
                         </a>
-                        <form action="{{ url_for('notes.delete_note', note_id=note.id) }}" method="POST" class="d-inline ms-1" onsubmit="return confirm('このノートを削除してもよろしいですか？');">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                            <button type="submit" class="btn btn-sm btn-outline-danger border-0 rounded-circle p-2" title="削除" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
+                        <form action="{{ url_for('notes.delete_note', note_id=note.id) }}" method="POST"
+                            class="d-inline ms-1" onsubmit="return confirm('このノートを削除してもよろしいですか？');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                            <button type="submit" class="btn btn-sm btn-outline-danger border-0 rounded-circle p-2"
+                                title="削除"
+                                style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
                                 <i class="fas fa-trash fa-xs"></i>
                             </button>
                         </form>
                         <button class="btn btn-sm btn-outline-info border-0 rounded-circle p-2 ms-1 btn-share-misskey"
-                                data-type="note"
-                                data-category="{{ note.category }}"
-                                data-date="{{ note.note_date.isoformat() }}"
-                                data-title="{{ note.title or '' }}"
-                                data-vehicle-name="{{ note.motorcycle.name if note.motorcycle else '' }}"
-                                data-content="{{ (note.content[:100] + '...') if note.category == 'note' and note.content and note.content|length > 100 else (note.content or '') if note.category == 'note' else '' }}"
-                                data-todos='{{ note.todos | tojson | safe if note.category == "task" and note.todos else "" }}'
-                                title="Misskeyで共有" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
+                            data-type="note" data-category="{{ note.category }}"
+                            data-date="{{ note.note_date.isoformat() }}" data-title="{{ note.title or '' }}"
+                            data-vehicle-name="{{ note.motorcycle.name if note.motorcycle else '' }}"
+                            data-content="{{ (note.content[:100] + '...') if note.category == 'note' and note.content and note.content|length > 100 else (note.content or '') if note.category == 'note' else '' }}"
+                            data-todos='{{ note.todos | tojson | safe if note.category == "task" and note.todos else "" }}'
+                            title="Misskeyで共有"
+                            style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
                             <i class="fas fa-share-alt fa-xs"></i>
                         </button>
                     </div>
@@ -286,56 +323,64 @@
                     <td class="ps-3">{{ note.note_date.strftime('%Y-%m-%d') }}</td>
                     <td>
                         {% if note.motorcycle %}
-                        <a href="{{ url_for('notes.edit_note', note_id=note.id) }}" class="text-decoration-none text-dark" title="車両: {{note.motorcycle.name}}">{{ note.motorcycle.name }}</a>
+                        <a href="{{ url_for('notes.edit_note', note_id=note.id) }}"
+                            class="text-decoration-none text-dark" title="車両: {{note.motorcycle.name}}">{{
+                            note.motorcycle.name }}</a>
                         {% else %}
                         <span class="text-muted small">--</span>
                         {% endif %}
                     </td>
                     <td>
-                         <span class="me-1" title="カテゴリー: {{ 'タスク' if note.category == 'task' else 'ノート' }}">
-                             {% if note.category == 'task' %} <i class="fas fa-check-square text-primary"></i>
-                             {% else %} <i class="fas fa-sticky-note text-secondary"></i> {% endif %}
-                         </span>
-                        <a href="{{ url_for('notes.edit_note', note_id=note.id) }}" class="fw-bold text-dark text-decoration-none">
+                        <span class="me-1" title="カテゴリー: {{ 'タスク' if note.category == 'task' else 'ノート' }}">
+                            {% if note.category == 'task' %} <i class="fas fa-check-square text-primary"></i>
+                            {% else %} <i class="fas fa-sticky-note text-secondary"></i> {% endif %}
+                        </span>
+                        <a href="{{ url_for('notes.edit_note', note_id=note.id) }}"
+                            class="fw-bold text-dark text-decoration-none">
+                            {% if note.is_pinned %}
+                            <i class="fas fa-thumbtack text-warning me-1"></i>
+                            {% endif %}
                             {{ note.title if note.title else '(タイトルなし)' }}
                         </a>
-                      </td>
+                    </td>
                     <td>
                         {% if note.category == 'task' and note.todos %}
-                            <ul class="list-unstyled mb-0 small" style="max-height: 80px; overflow-y: hidden;">
-                                {% for item in note.todos[:2] %}
-                                    <li class="text-truncate {% if item.checked %}text-muted text-decoration-line-through{% endif %}">
-                                        <i class="far {{ 'fa-check-square' if item.checked else 'fa-square' }} me-1"></i>
-                                        {{ item.text | escape }}
-                                    </li>
-                                {% endfor %}
-                                {% if note.todos|length > 2 %}
-                                    <li class="text-muted fst-italic">他 {{ note.todos|length - 2 }} 件...</li>
-                                {% endif %}
-                            </ul>
+                        <ul class="list-unstyled mb-0 small" style="max-height: 80px; overflow-y: hidden;">
+                            {% for item in note.todos[:2] %}
+                            <li
+                                class="text-truncate {% if item.checked %}text-muted text-decoration-line-through{% endif %}">
+                                <i class="far {{ 'fa-check-square' if item.checked else 'fa-square' }} me-1"></i>
+                                {{ item.text | escape }}
+                            </li>
+                            {% endfor %}
+                            {% if note.todos|length > 2 %}
+                            <li class="text-muted fst-italic">他 {{ note.todos|length - 2 }} 件...</li>
+                            {% endif %}
+                        </ul>
                         {% elif note.category == 'task' %}
-                             <span class="text-muted small">（TODOアイテムなし）</span>
+                        <span class="text-muted small">（TODOアイテムなし）</span>
                         {% else %}
-                            <span class="text-muted small text-truncate d-inline-block" style="max-width: 300px;">
-                                {{ note.content | striptags | truncate(60) if note.content else '-' }}
-                            </span>
+                        <span class="text-muted small text-truncate d-inline-block" style="max-width: 300px;">
+                            {{ note.content | striptags | truncate(60) if note.content else '-' }}
+                        </span>
                         {% endif %}
                     </td>
                     <td class="text-center text-nowrap">
-                        <a href="{{ url_for('notes.edit_note', note_id=note.id) }}" class="btn btn-sm btn-outline-secondary border-0"><i class="fas fa-edit"></i></a>
-                        <form action="{{ url_for('notes.delete_note', note_id=note.id) }}" method="POST" class="d-inline" onsubmit="return confirm('このノートを削除してもよろしいですか？');">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                            <button type="submit" class="btn btn-sm btn-outline-danger border-0"><i class="fas fa-trash"></i></button>
+                        <a href="{{ url_for('notes.edit_note', note_id=note.id) }}"
+                            class="btn btn-sm btn-outline-secondary border-0"><i class="fas fa-edit"></i></a>
+                        <form action="{{ url_for('notes.delete_note', note_id=note.id) }}" method="POST"
+                            class="d-inline" onsubmit="return confirm('このノートを削除してもよろしいですか？');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                            <button type="submit" class="btn btn-sm btn-outline-danger border-0"><i
+                                    class="fas fa-trash"></i></button>
                         </form>
-                        <button class="btn btn-sm btn-info btn-share-misskey ms-1"
-                                data-type="note"
-                                data-category="{{ note.category }}"
-                                data-date="{{ note.note_date.isoformat() }}"
-                                data-title="{{ note.title or '' }}"
-                                data-vehicle-name="{{ note.motorcycle.name if note.motorcycle else '' }}"
-                                data-content="{{ (note.content[:100] + '...') if note.category == 'note' and note.content and note.content|length > 100 else (note.content or '') if note.category == 'note' else '' }}"
-                                data-todos='{{ note.todos | tojson | safe if note.category == "task" and note.todos else "" }}'
-                                title="Misskeyで共有">
+                        <button class="btn btn-sm btn-info btn-share-misskey ms-1" data-type="note"
+                            data-category="{{ note.category }}" data-date="{{ note.note_date.isoformat() }}"
+                            data-title="{{ note.title or '' }}"
+                            data-vehicle-name="{{ note.motorcycle.name if note.motorcycle else '' }}"
+                            data-content="{{ (note.content[:100] + '...') if note.category == 'note' and note.content and note.content|length > 100 else (note.content or '') if note.category == 'note' else '' }}"
+                            data-todos='{{ note.todos | tojson | safe if note.category == "task" and note.todos else "" }}'
+                            title="Misskeyで共有">
                             <i class="fa-solid fa-share-nodes fa-fw"></i>
                         </button>
                     </td>
@@ -354,12 +399,16 @@
 {% if pagination and pagination.pages > 1 %}
 <nav aria-label="Page navigation" class="mt-4">
     <ul class="pagination justify-content-center">
-        <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}"> <a class="page-link" href="{{ url_for('notes.notes_log', page=pagination.prev_num, **request_args) }}">&laquo;</a> </li>
+        <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}"> <a class="page-link"
+                href="{{ url_for('notes.notes_log', page=pagination.prev_num, **request_args) }}">&laquo;</a> </li>
         {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
-            {% if page_num %} <li class="page-item {% if page_num == pagination.page %}active{% endif %}"> <a class="page-link" href="{{ url_for('notes.notes_log', page=page_num, **request_args) }}">{{ page_num }}</a> </li>
-            {% else %} <li class="page-item disabled"><span class="page-link">...</span></li> {% endif %}
+        {% if page_num %} <li class="page-item {% if page_num == pagination.page %}active{% endif %}"> <a
+                class="page-link" href="{{ url_for('notes.notes_log', page=page_num, **request_args) }}">{{ page_num
+                }}</a> </li>
+        {% else %} <li class="page-item disabled"><span class="page-link">...</span></li> {% endif %}
         {% endfor %}
-        <li class="page-item {% if not pagination.has_next %}disabled{% endif %}"> <a class="page-link" href="{{ url_for('notes.notes_log', page=pagination.next_num, **request_args) }}">&raquo;</a> </li>
+        <li class="page-item {% if not pagination.has_next %}disabled{% endif %}"> <a class="page-link"
+                href="{{ url_for('notes.notes_log', page=pagination.next_num, **request_args) }}">&raquo;</a> </li>
     </ul>
 </nav>
 {% endif %}
@@ -369,44 +418,44 @@
 {% block scripts %}
 {{ super() }} {# base.html のスクリプトを継承 #}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Bootstrap Tooltipの初期化
-    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
-    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-      return new bootstrap.Tooltip(tooltipTriggerEl)
-    })
-    
-    // --- View Mode Toggle Logic (共通ロジック) ---
-    const dashboardRadio = document.getElementById('viewModeDashboard');
-    const tableRadio = document.getElementById('viewModeTable');
-    const dashboardContainer = document.getElementById('view-dashboard-container');
-    const tableContainer = document.getElementById('view-table-container');
-    
-    // localStorage key
-    const STORAGE_KEY = 'motopuppu_notes_view_pref';
+    document.addEventListener('DOMContentLoaded', function () {
+        // Bootstrap Tooltipの初期化
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl)
+        })
 
-    function setViewMode(mode) {
-        if (mode === 'dashboard') {
-            dashboardContainer.classList.remove('d-none');
-            tableContainer.classList.add('d-none');
-            dashboardRadio.checked = true;
-            localStorage.setItem(STORAGE_KEY, 'dashboard');
-        } else {
-            dashboardContainer.classList.add('d-none');
-            tableContainer.classList.remove('d-none');
-            tableRadio.checked = true;
-            localStorage.setItem(STORAGE_KEY, 'table');
+        // --- View Mode Toggle Logic (共通ロジック) ---
+        const dashboardRadio = document.getElementById('viewModeDashboard');
+        const tableRadio = document.getElementById('viewModeTable');
+        const dashboardContainer = document.getElementById('view-dashboard-container');
+        const tableContainer = document.getElementById('view-table-container');
+
+        // localStorage key
+        const STORAGE_KEY = 'motopuppu_notes_view_pref';
+
+        function setViewMode(mode) {
+            if (mode === 'dashboard') {
+                dashboardContainer.classList.remove('d-none');
+                tableContainer.classList.add('d-none');
+                dashboardRadio.checked = true;
+                localStorage.setItem(STORAGE_KEY, 'dashboard');
+            } else {
+                dashboardContainer.classList.add('d-none');
+                tableContainer.classList.remove('d-none');
+                tableRadio.checked = true;
+                localStorage.setItem(STORAGE_KEY, 'table');
+            }
         }
-    }
 
-    // Initial Load
-    const savedMode = localStorage.getItem(STORAGE_KEY) || 'dashboard'; // Default to dashboard
-    setViewMode(savedMode);
+        // Initial Load
+        const savedMode = localStorage.getItem(STORAGE_KEY) || 'dashboard'; // Default to dashboard
+        setViewMode(savedMode);
 
-    // Event Listeners
-    if (dashboardRadio) dashboardRadio.addEventListener('change', () => setViewMode('dashboard'));
-    if (tableRadio) tableRadio.addEventListener('change', () => setViewMode('table'));
-});
+        // Event Listeners
+        if (dashboardRadio) dashboardRadio.addEventListener('change', () => setViewMode('dashboard'));
+        if (tableRadio) tableRadio.addEventListener('change', () => setViewMode('table'));
+    });
 </script>
 {# ▼▼▼ 作成した filter_persistence.js を読み込む ▼▼▼ #}
 <script src="{{ url_for('static', filename='js/filter_persistence.js') }}"></script>

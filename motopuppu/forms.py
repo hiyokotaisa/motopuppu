@@ -400,6 +400,10 @@ class NoteForm(FlaskForm):
         validators=[Optional(), Length(max=150, message='タイトルは150文字以内で入力してください。')],
         render_kw={"placeholder": "例: 次回ツーリング計画"}
     )
+    is_pinned = BooleanField(
+        'このノートをピン留めする',
+        default=False
+    )
     content = TextAreaField(
         'ノート内容',
         validators=[Optional(), Length(max=2000, message='ノート内容は2000文字以内で入力してください。')],
