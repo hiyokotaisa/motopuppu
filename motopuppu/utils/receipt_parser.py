@@ -40,19 +40,23 @@ def parse_receipt_image(image_bytes, mime_type='image/jpeg'):
         model = genai.GenerativeModel('gemini-2.5-flash')
 
         prompt = """
-        You are an OCR assistant for gas station receipts.
-        Analyze the image and extract the following information into a JSON format:
-        
-        - date: The date of the transaction in YYYY-MM-DD format.
-        - time: The time of the transaction in HH:MM format (24-hour).
-        - volume: The fuel volume in liters (float).
-        - price_per_unit: The price per liter (float).
-        - total_cost: The total cost (integer).
-        - station: The name of the gas station (string).
-        - fuel_type: The type of fuel (e.g., "Regular", "High Octane", "Diesel") if available.
+        あなたはガソリンスタンドのレシートを読み取るOCRアシスタントです。
+        画像を解析し、以下の情報を正確に抽出してJSON形式で返してください。
 
-        If any field is missing or illegible, set it to null.
-        Return ONLY the JSON object, no code blocks or markdown.
+        【抽出ルール】
+        - date (文字列): "YYYY-MM-DD"形式。和暦（例: R6.01.01）の場合は西暦（例: 2024-01-01）に変換してください。
+        - time (文字列): "HH:MM"形式（24時間表記）。
+        - volume (数値): 給油量（リッター数）。"数量"などの列にあることが多いです。
+        - price_per_unit (数値): リッター単価。
+        - total_cost (数値): 合計金額（支払金額）。
+        - station (文字列): ガソリンスタンドのブランド名や店名（例: ENEOS, シェル, 出光など）。
+        - fuel_type (文字列): 油種。以下のいずれかの文字列に正規化してください。
+            - "ハイオク" (または "High Octane", "Premium") -> "ハイオク"
+            - "レギュラー" (または "Regular") -> "レギュラー"
+            - "軽油" (または "Diesel") -> "軽油"
+
+        もし項目が見つからない、または判読不能な場合は null をセットしてください。
+        JSONオブジェクトのみを返してください（Markdownのコードブロックは不要です）。
         """
 
         # Create the content part for the image
