@@ -8,7 +8,8 @@
 {% include '_breadcrumbs.html' %}
 <div class="d-flex align-items-center mb-3">
     <h2 class="mb-0 me-2">{{ page_title }}</h2>
-    <button type="button" id="restart-tutorial-btn" class="btn btn-sm btn-outline-secondary rounded-circle" style="width: 2rem; height: 2rem;" title="このページのチュートリアルを表示">
+    <button type="button" id="restart-tutorial-btn" class="btn btn-sm btn-outline-secondary rounded-circle"
+        style="width: 2rem; height: 2rem;" title="このページのチュートリアルを表示">
         <i class="fas fa-question"></i>
     </button>
 </div>
@@ -16,42 +17,63 @@
 
 {# Flash Messages (Flask-WTFのフォームエラーはフィールドごとに出るので、ここでは一般的なメッセージ用) #}
 {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-        {% for category, message in messages %}
-            <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show" role="alert">
-                {{ message }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-        {% endfor %}
-    {% endif %}
+{% if messages %}
+{% for category, message in messages %}
+<div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show" role="alert">
+    {{ message }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+{% endfor %}
+{% endif %}
 {% endwith %}
 
-<form method="POST" action="{{ url_for('fuel.add_fuel') if form_action == 'add' else url_for('fuel.edit_fuel', entry_id=entry_id) }}">
+<form method="POST"
+    action="{{ url_for('fuel.add_fuel') if form_action == 'add' else url_for('fuel.edit_fuel', entry_id=entry_id) }}">
     {{ form.hidden_tag() }} {# CSRFトークンと他の隠しフィールドをレンダリング #}
+
+    {# レシート読取機能 (コンパクト版) #}
+    <div
+        class="mb-4 p-2 border border-info border-opacity-50 rounded bg-info-subtle bg-opacity-10 d-flex align-items-center justify-content-between">
+        <div class="d-flex align-items-center">
+            <button type="button" id="btn-scan-receipt" class="btn btn-sm btn-outline-info me-2 text-nowrap">
+                <i class="bi bi-camera me-1"></i>レシート読取
+            </button>
+            <span class="small text-muted" id="receipt-status-text">画像から自動入力 (1日10回まで)</span>
+        </div>
+        <div id="receipt-loading" class="spinner-border spinner-border-sm text-info ms-2" role="status"
+            style="display: none;">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <input type="file" id="receipt-upload-input" accept="image/*" capture="environment" style="display: none;">
+    </div>
+    <div id="receipt-error-msg" class="alert alert-danger mt-2 py-1 px-2 small" style="display: none;"></div>
 
     {# 車両選択 #}
     <div class="mb-3">
         <label for="{{ form.motorcycle_id.id }}" class="form-label">
-            <i class="bi bi-bicycle me-2"></i>{{ form.motorcycle_id.label.text }} {% if form.motorcycle_id.flags.required %}<span class="text-danger">*</span>{% endif %}
+            <i class="bi bi-bicycle me-2"></i>{{ form.motorcycle_id.label.text }} {% if
+            form.motorcycle_id.flags.required %}<span class="text-danger">*</span>{% endif %}
         </label>
         {{ form.motorcycle_id(class="form-select" + (" is-invalid" if form.motorcycle_id.errors else "")) }}
         {% if form.motorcycle_id.errors %}
-            <div class="invalid-feedback">
-                {% for error in form.motorcycle_id.errors %}<span>{{ error }}</span><br>{% endfor %}
-            </div>
+        <div class="invalid-feedback">
+            {% for error in form.motorcycle_id.errors %}<span>{{ error }}</span><br>{% endfor %}
+        </div>
         {% endif %}
     </div>
 
     {# 給油日 #}
     <div class="mb-3">
         <label for="{{ form.entry_date.id }}" class="form-label">
-            <i class="bi bi-calendar-date me-2"></i>{{ form.entry_date.label.text }} {% if form.entry_date.flags.required %}<span class="text-danger">*</span>{% endif %}
+            <i class="bi bi-calendar-date me-2"></i>{{ form.entry_date.label.text }} {% if
+            form.entry_date.flags.required %}<span class="text-danger">*</span>{% endif %}
         </label>
-        {{ form.entry_date(id="tutorial-entry-date", class="form-control" + (" is-invalid" if form.entry_date.errors else "")) }}
+        {{ form.entry_date(id="tutorial-entry-date", class="form-control" + (" is-invalid" if form.entry_date.errors
+        else "")) }}
         {% if form.entry_date.errors %}
-            <div class="invalid-feedback">
-                {% for error in form.entry_date.errors %}<span>{{ error }}</span><br>{% endfor %}
-            </div>
+        <div class="invalid-feedback">
+            {% for error in form.entry_date.errors %}<span>{{ error }}</span><br>{% endfor %}
+        </div>
         {% endif %}
     </div>
 
@@ -67,55 +89,66 @@
             <i class="bi bi-toggle-on me-2"></i>{{ form.input_mode.label.text }}
         </label>
         {% if form.input_mode.errors %}
-            <div class="invalid-feedback d-block">
-                {% for error in form.input_mode.errors %}<span>{{ error }}</span><br>{% endfor %}
-            </div>
+        <div class="invalid-feedback d-block">
+            {% for error in form.input_mode.errors %}<span>{{ error }}</span><br>{% endfor %}
+        </div>
         {% endif %}
     </div>
 
     {# ODOメーター入力グループ #}
     <div id="odo-input-group" class="mb-3">
         <label for="{{ form.odometer_reading.id }}" class="form-label">
-            <i class="bi bi-speedometer2 me-2"></i>{{ form.odometer_reading.label.text }} <span class="text-danger">*</span>
+            <i class="bi bi-speedometer2 me-2"></i>{{ form.odometer_reading.label.text }} <span
+                class="text-danger">*</span>
         </label>
-        {{ form.odometer_reading(id="tutorial-odo-input", class="form-control" + (" is-invalid" if form.odometer_reading.errors else ""), min="0", step="1", placeholder=(form.odometer_reading.render_kw.get("placeholder", "") if form.odometer_reading.render_kw else "")) }}
+        {{ form.odometer_reading(id="tutorial-odo-input", class="form-control" + (" is-invalid" if
+        form.odometer_reading.errors else ""), min="0", step="1",
+        placeholder=(form.odometer_reading.render_kw.get("placeholder", "") if form.odometer_reading.render_kw else ""))
+        }}
         {% if form.odometer_reading.errors %}
-            <div class="invalid-feedback">
-                {% for error in form.odometer_reading.errors %}<span>{{ error }}</span><br>{% endfor %}
-            </div>
+        <div class="invalid-feedback">
+            {% for error in form.odometer_reading.errors %}<span>{{ error }}</span><br>{% endfor %}
+        </div>
         {% else %}
-            <div class="form-text">給油時のメーター表示値 (整数) を入力してください。</div>
+        <div class="form-text">給油時のメーター表示値 (整数) を入力してください。</div>
         {% endif %}
     </div>
 
     {# トリップメーター入力グループ #}
     <div id="trip-input-group" class="mb-3" style="display: none;">
         <label for="{{ form.trip_distance.id }}" class="form-label">
-            <i class="bi bi-signpost-split me-2"></i>{{ form.trip_distance.label.text }} <span class="text-danger">*</span>
+            <i class="bi bi-signpost-split me-2"></i>{{ form.trip_distance.label.text }} <span
+                class="text-danger">*</span>
         </label>
-        {{ form.trip_distance(class="form-control" + (" is-invalid" if form.trip_distance.errors else ""), min="0", step="1", placeholder=(form.trip_distance.render_kw.get("placeholder", "") if form.trip_distance.render_kw else "")) }}
+        {{ form.trip_distance(class="form-control" + (" is-invalid" if form.trip_distance.errors else ""), min="0",
+        step="1", placeholder=(form.trip_distance.render_kw.get("placeholder", "") if form.trip_distance.render_kw else
+        "")) }}
         {% if form.trip_distance.errors %}
-            <div class="invalid-feedback">
-                {% for error in form.trip_distance.errors %}<span>{{ error }}</span><br>{% endfor %}
-            </div>
+        <div class="invalid-feedback">
+            {% for error in form.trip_distance.errors %}<span>{{ error }}</span><br>{% endfor %}
+        </div>
         {% else %}
-            <div class="form-text">
-                前回給油時からの走行距離 (整数) を入力してください。
-            </div>
+        <div class="form-text">
+            前回給油時からの走行距離 (整数) を入力してください。
+        </div>
         {% endif %}
     </div>
 
 
     {# 給油量 #}
-     <div class="mb-3">
+    <div class="mb-3">
         <label for="{{ form.fuel_volume.id }}" class="form-label">
-            <i class="bi bi-fuel-pump me-2"></i>{{ form.fuel_volume.label.text }} {% if form.fuel_volume.flags.required %}<span class="text-danger">*</span>{% endif %}
+            <i class="bi bi-fuel-pump me-2"></i>{{ form.fuel_volume.label.text }} {% if form.fuel_volume.flags.required
+            %}<span class="text-danger">*</span>{% endif %}
         </label>
-        {{ form.fuel_volume(id="tutorial-volume-input", class="form-control" + (" is-invalid" if form.fuel_volume.errors else ""), min="0.01", step=(form.fuel_volume.render_kw.get("step", "0.01") if form.fuel_volume.render_kw else "0.01"), placeholder=(form.fuel_volume.render_kw.get("placeholder", "") if form.fuel_volume.render_kw else "")) }}
+        {{ form.fuel_volume(id="tutorial-volume-input", class="form-control" + (" is-invalid" if form.fuel_volume.errors
+        else ""), min="0.01", step=(form.fuel_volume.render_kw.get("step", "0.01") if form.fuel_volume.render_kw else
+        "0.01"), placeholder=(form.fuel_volume.render_kw.get("placeholder", "") if form.fuel_volume.render_kw else ""))
+        }}
         {% if form.fuel_volume.errors %}
-            <div class="invalid-feedback">
-                {% for error in form.fuel_volume.errors %}<span>{{ error }}</span><br>{% endfor %}
-            </div>
+        <div class="invalid-feedback">
+            {% for error in form.fuel_volume.errors %}<span>{{ error }}</span><br>{% endfor %}
+        </div>
         {% endif %}
     </div>
 
@@ -125,24 +158,27 @@
             <label for="{{ form.price_per_liter.id }}" class="form-label">
                 <i class="bi bi-tag me-2"></i>{{ form.price_per_liter.label.text }}
             </label>
-            {{ form.price_per_liter(class="form-control" + (" is-invalid" if form.price_per_liter.errors else ""), min="0", placeholder=(form.price_per_liter.render_kw.get("placeholder", "") if form.price_per_liter.render_kw else "")) }}
+            {{ form.price_per_liter(class="form-control" + (" is-invalid" if form.price_per_liter.errors else ""),
+            min="0", placeholder=(form.price_per_liter.render_kw.get("placeholder", "") if
+            form.price_per_liter.render_kw else "")) }}
             {% if form.price_per_liter.errors %}
-                <div class="invalid-feedback">
-                    {% for error in form.price_per_liter.errors %}<span>{{ error }}</span><br>{% endfor %}
-                </div>
+            <div class="invalid-feedback">
+                {% for error in form.price_per_liter.errors %}<span>{{ error }}</span><br>{% endfor %}
+            </div>
             {% endif %}
         </div>
         <div class="col-md-6 mb-3">
             <label for="{{ form.total_cost.id }}" class="form-label">
                 <i class="bi bi-currency-yen me-2"></i>{{ form.total_cost.label.text }}
             </label>
-            {{ form.total_cost(class="form-control" + (" is-invalid" if form.total_cost.errors else ""), min="0", placeholder=(form.total_cost.render_kw.get("placeholder", "") if form.total_cost.render_kw else "")) }}
+            {{ form.total_cost(class="form-control" + (" is-invalid" if form.total_cost.errors else ""), min="0",
+            placeholder=(form.total_cost.render_kw.get("placeholder", "") if form.total_cost.render_kw else "")) }}
             {% if form.total_cost.errors %}
-                <div class="invalid-feedback">
-                    {% for error in form.total_cost.errors %}<span>{{ error }}</span><br>{% endfor %}
-                </div>
+            <div class="invalid-feedback">
+                {% for error in form.total_cost.errors %}<span>{{ error }}</span><br>{% endfor %}
+            </div>
             {% else %}
-                 <div class="form-text">単価と給油量を入力した場合、自動計算されます (常に再計算されます)。</div>
+            <div class="form-text">単価と給油量を入力した場合、自動計算されます (常に再計算されます)。</div>
             {% endif %}
         </div>
     </div>
@@ -152,9 +188,11 @@
         <label for="{{ form.station_name.id }}" class="form-label">
             <i class="bi bi-building me-2"></i>{{ form.station_name.label.text }}
         </label>
-        
+
         <div class="input-group">
-            {{ form.station_name(class="form-control" + (" is-invalid" if form.station_name.errors else ""), list="station-brands-list", placeholder=(form.station_name.render_kw.get("placeholder", "") if form.station_name.render_kw else "")) }}
+            {{ form.station_name(class="form-control" + (" is-invalid" if form.station_name.errors else ""),
+            list="station-brands-list", placeholder=(form.station_name.render_kw.get("placeholder", "") if
+            form.station_name.render_kw else "")) }}
             <button class="btn btn-outline-secondary" type="button" id="search-gas-station-btn">
                 <i class="bi bi-search"></i> 検索
             </button>
@@ -163,14 +201,14 @@
         <datalist id="station-brands-list">
             {% for brand in gas_station_brands %}
             <option value="{{ brand }}">
-            {% endfor %}
+                {% endfor %}
         </datalist>
         {% if form.station_name.errors %}
-            <div class="invalid-feedback">
-                {% for error in form.station_name.errors %}<span>{{ error }}</span><br>{% endfor %}
-            </div>
+        <div class="invalid-feedback">
+            {% for error in form.station_name.errors %}<span>{{ error }}</span><br>{% endfor %}
+        </div>
         {% endif %}
-        
+
         <div id="gas-station-results" class="list-group mt-2"></div>
     </div>
 
@@ -181,39 +219,41 @@
         </label>
         {{ form.fuel_type(class="form-select" + (" is-invalid" if form.fuel_type.errors else "")) }}
         {% if form.fuel_type.errors %}
-            <div class="invalid-feedback">
-                {% for error in form.fuel_type.errors %}<span>{{ error }}</span><br>{% endfor %}
-            </div>
+        <div class="invalid-feedback">
+            {% for error in form.fuel_type.errors %}<span>{{ error }}</span><br>{% endfor %}
+        </div>
         {% endif %}
     </div>
 
     {# 満タンチェック #}
     <div class="mb-3 form-check">
-        {{ form.is_full_tank(id="tutorial-full-tank-check", class="form-check-input" + (" is-invalid" if form.is_full_tank.errors else "")) }}
+        {{ form.is_full_tank(id="tutorial-full-tank-check", class="form-check-input" + (" is-invalid" if
+        form.is_full_tank.errors else "")) }}
         <label for="{{ form.is_full_tank.id }}" class="form-check-label">
             <i class="bi bi-check2-square me-2"></i>{{ form.is_full_tank.label.text }}
         </label>
         {% if form.is_full_tank.errors %}
-            <div class="invalid-feedback d-block">
-                {% for error in form.is_full_tank.errors %}<span>{{ error }}</span><br>{% endfor %}
-            </div>
+        <div class="invalid-feedback d-block">
+            {% for error in form.is_full_tank.errors %}<span>{{ error }}</span><br>{% endfor %}
+        </div>
         {% endif %}
     </div>
 
     {# 計算除外チェック #}
     <div class="mb-3 form-check">
         {# ▼▼▼【ここから変更】inputにidを追加 ▼▼▼ #}
-        {{ form.exclude_from_average(id="tutorial-exclude-check", class="form-check-input" + (" is-invalid" if form.exclude_from_average.errors else "")) }}
+        {{ form.exclude_from_average(id="tutorial-exclude-check", class="form-check-input" + (" is-invalid" if
+        form.exclude_from_average.errors else "")) }}
         {# ▲▲▲【変更はここまで】▲▲▲ #}
         <label for="{{ form.exclude_from_average.id }}" class="form-check-label">
             <i class="bi bi-calculator me-2"></i>{{ form.exclude_from_average.label.text }}
         </label>
         {% if form.exclude_from_average.errors %}
-            <div class="invalid-feedback d-block">
-                {% for error in form.exclude_from_average.errors %}<span>{{ error }}</span><br>{% endfor %}
-            </div>
+        <div class="invalid-feedback d-block">
+            {% for error in form.exclude_from_average.errors %}<span>{{ error }}</span><br>{% endfor %}
+        </div>
         {% else %}
-            <div class="form-text">記録忘れなどで異常な燃費が算出される場合にチェックしてください。</div>
+        <div class="form-text">記録忘れなどで異常な燃費が算出される場合にチェックしてください。</div>
         {% endif %}
     </div>
 
@@ -222,11 +262,13 @@
         <label for="{{ form.notes.id }}" class="form-label">
             <i class="bi bi-card-text me-2"></i>{{ form.notes.label.text }}
         </label>
-        {{ form.notes(class="form-control" + (" is-invalid" if form.notes.errors else ""), rows=(form.notes.render_kw.get("rows", 3) if form.notes.render_kw else 3), placeholder=(form.notes.render_kw.get("placeholder", "") if form.notes.render_kw else "")) }}
+        {{ form.notes(class="form-control" + (" is-invalid" if form.notes.errors else ""),
+        rows=(form.notes.render_kw.get("rows", 3) if form.notes.render_kw else 3),
+        placeholder=(form.notes.render_kw.get("placeholder", "") if form.notes.render_kw else "")) }}
         {% if form.notes.errors %}
-            <div class="invalid-feedback">
-                {% for error in form.notes.errors %}<span>{{ error }}</span><br>{% endfor %}
-            </div>
+        <div class="invalid-feedback">
+            {% for error in form.notes.errors %}<span>{{ error }}</span><br>{% endfor %}
+        </div>
         {% endif %}
     </div>
 
@@ -247,14 +289,137 @@
 <script src="{{ url_for('static', filename='js/tutorial.js') }}"></script>
 
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
+        // --- レシート解析機能 ---
+        const btnScan = document.getElementById('btn-scan-receipt');
+        const fileInput = document.getElementById('receipt-upload-input');
+        const loadingDiv = document.getElementById('receipt-loading');
+        const errorDiv = document.getElementById('receipt-error-msg');
+
+        if (btnScan && fileInput) {
+            btnScan.addEventListener('click', () => {
+                fileInput.click();
+            });
+
+            fileInput.addEventListener('change', async (e) => {
+                if (fileInput.files.length === 0) return;
+
+                const file = fileInput.files[0];
+                const formData = new FormData();
+                formData.append('receipt_image', file);
+
+                // UI状態更新
+                btnScan.disabled = true;
+                const statusText = document.getElementById('receipt-status-text');
+                const originalText = statusText.textContent;
+                statusText.textContent = '解析中...';
+                loadingDiv.style.display = 'block';
+                errorDiv.style.display = 'none';
+                errorDiv.textContent = '';
+
+                try {
+                    const response = await fetch('/fuel/parse_receipt', {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': "{{ csrf_token() }}" // Flask-WTFのCSRFトークン
+                        },
+                        body: formData
+                    });
+
+                    const data = await response.json();
+
+                    if (!response.ok) {
+                        throw new Error(data.error || '解析に失敗しました');
+                    }
+
+                    // --- ハイライト処理用関数 ---
+                    const highlightField = (elementId) => {
+                        const field = document.getElementById(elementId);
+                        if (field) {
+                            field.classList.add('bg-info-subtle', 'border-info');
+                            // ユーザーが編集したらハイライトを消す
+                            const removeHighlight = () => {
+                                field.classList.remove('bg-info-subtle', 'border-info');
+                                field.removeEventListener('input', removeHighlight);
+                            };
+                            field.addEventListener('input', removeHighlight);
+                            // または一定時間後に消す(任意) -> 今回は入力するまで残す方針で
+                        }
+                        return field;
+                    };
+
+                    // 成功時: フォームに入力 & ハイライト
+                    // 日付
+                    if (data.date) {
+                        const dateField = highlightField('{{ form.entry_date.id }}');
+                        if (dateField) dateField.value = data.date;
+                    }
+                    // 給油量
+                    if (data.volume) {
+                        const volumeField = highlightField('{{ form.fuel_volume.id }}');
+                        if (volumeField) volumeField.value = data.volume;
+                    }
+                    // 単価
+                    if (data.price_per_unit) {
+                        const priceField = highlightField('{{ form.price_per_liter.id }}');
+                        if (priceField) priceField.value = data.price_per_unit;
+                    }
+                    // 合計
+                    if (data.total_cost) {
+                        const costField = highlightField('{{ form.total_cost.id }}');
+                        if (costField) costField.value = data.total_cost;
+                    }
+                    // スタンド名
+                    if (data.station) {
+                        const stationField = highlightField('{{ form.station_name.id }}');
+                        if (stationField) stationField.value = data.station;
+                    }
+
+                    // 油種（もし選択肢にあれば）
+                    if (data.fuel_type) {
+                        const fuelTypeField = document.getElementById('{{ form.fuel_type.id }}');
+                        // 部分一致などを試みる簡易ロジック
+                        if (fuelTypeField) {
+                            for (let i = 0; i < fuelTypeField.options.length; i++) {
+                                if (fuelTypeField.options[i].text.includes(data.fuel_type) || data.fuel_type.includes(fuelTypeField.options[i].text)) {
+                                    fuelTypeField.selectedIndex = i;
+                                    highlightField('{{ form.fuel_type.id }}');
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    // 完了メッセージなど出してもいいが、フォームが埋まるのでそれでわかる
+                    // 最後にトリガーイベントを発火させて、既存の計算ロジック(JS)を動かす
+                    if (document.getElementById('{{ form.fuel_volume.id }}')) {
+                        document.getElementById('{{ form.fuel_volume.id }}').dispatchEvent(new Event('input'));
+                    }
+
+
+                } catch (err) {
+                    console.error('Receipt parsing error:', err);
+                    errorDiv.textContent = `エラー: ${err.message}`;
+                    errorDiv.style.display = 'block';
+                } finally {
+                    btnScan.disabled = false;
+                    const statusText = document.getElementById('receipt-status-text');
+                    statusText.textContent = '画像から自動入力 (1日10回まで)';
+                    loadingDiv.style.display = 'none';
+                    // 入力欄をクリアして次回もchangeイベントが発火するようにする
+                    fileInput.value = '';
+                }
+            });
+        }
+        // --- レシート解析機能 ここまで ---
+
         const volumeInput = document.getElementById('tutorial-volume-input');
         const priceInput = document.getElementById('price_per_liter');
         const costInput = document.getElementById('total_cost');
 
         function calculateTotalCost() {
             const volume = parseFloat(volumeInput.value);
-            const price = parseFloat(priceInput.value); 
+            const price = parseFloat(priceInput.value);
 
             if (!isNaN(volume) && volume > 0 && !isNaN(price) && price >= 0) {
                 const totalCost = Math.round(volume * price);
@@ -284,7 +449,7 @@
             inputModeToggle.addEventListener('change', toggleInputFields);
             toggleInputFields();
         }
-        
+
         const motorcycleSelect = document.getElementById('motorcycle_id');
         const entryDateInput = document.getElementById('tutorial-entry-date');
         const previousInfoContainer = document.getElementById('previous-entry-container');
@@ -327,20 +492,21 @@
 
         // --- ▼▼▼【ここから追記】チュートリアル関連のスクリプト ▼▼▼ ---
         const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
-        const shouldStartTutorial = {{ start_fuel_tutorial | tojson }};
-        const restartBtn = document.getElementById('restart-tutorial-btn');
+        const shouldStartTutorial = {{ start_fuel_tutorial | tojson
+    }};
+    const restartBtn = document.getElementById('restart-tutorial-btn');
 
-        // 1. 新規ユーザー向けに自動開始
-        if (shouldStartTutorial) {
+    // 1. 新規ユーザー向けに自動開始
+    if (shouldStartTutorial) {
+        startFuelFormTutorial(csrfToken);
+    }
+
+    // 2. 「？」ボタンクリックで手動開始
+    if (restartBtn) {
+        restartBtn.addEventListener('click', function () {
             startFuelFormTutorial(csrfToken);
-        }
-
-        // 2. 「？」ボタンクリックで手動開始
-        if (restartBtn) {
-            restartBtn.addEventListener('click', function() {
-                startFuelFormTutorial(csrfToken);
-            });
-        }
+        });
+    }
         // --- ▲▲▲【追記はここまで】▲▲▲
     });
 </script>

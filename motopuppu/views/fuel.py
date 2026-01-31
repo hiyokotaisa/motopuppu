@@ -2,6 +2,7 @@
 import csv
 import io
 from datetime import date, datetime
+import os
 import requests
 
 from flask import (
@@ -16,6 +17,7 @@ from ..forms import FuelForm, FuelCsvUploadForm
 from ..constants import GAS_STATION_BRANDS
 from ..achievement_evaluator import check_achievements_for_event, EVENT_ADD_FUEL_LOG
 from .. import limiter
+from ..utils.receipt_parser import parse_receipt_image
 
 
 fuel_bp = Blueprint('fuel', __name__, url_prefix='/fuel')
@@ -207,6 +209,42 @@ def search_gas_station():
     except Exception as e:
         current_app.logger.error(f"An unexpected error occurred during gas station search: {e}")
         return jsonify({'error': 'An internal server error occurred.'}), 500
+
+
+@fuel_bp.route('/parse_receipt', methods=['POST'])
+@limiter.limit("10 per day")
+@login_required
+def parse_receipt():
+    """レシート画像をアップロードして解析結果を返すAPI"""
+    if 'receipt_image' not in request.files:
+        return jsonify({'error': 'No file part'}), 400
+    
+    file = request.files['receipt_image']
+    if file.filename == '':
+        return jsonify({'error': 'No selected file'}), 400
+
+    if not file or not file.content_type.startswith('image/'):
+        return jsonify({'error': 'Invalid file type. Please upload an image.'}), 400
+
+    # ファイルサイズチェック (例: 10MB以下)
+    file.seek(0, os.SEEK_END)
+    file_length = file.tell()
+    if file_length > 10 * 1024 * 1024:
+        return jsonify({'error': 'File size too large. Max 10MB.'}), 400
+    file.seek(0)
+
+    try:
+        image_bytes = file.read()
+        result = parse_receipt_image(image_bytes, mime_type=file.content_type)
+        
+        if result['success']:
+            return jsonify(result['data'])
+        else:
+            return jsonify({'error': result.get('error', 'Unknown error occurred')}), 500
+            
+    except Exception as e:
+        current_app.logger.error(f"Error in parse_receipt route: {e}")
+        return jsonify({'error': 'Internal server error processing receipt'}), 500
 
 
 @fuel_bp.route('/')
