@@ -592,9 +592,7 @@
         // --- Chart.js Initialization ---
         const ctx = document.getElementById('fuelTrendChart');
         if (ctx) {
-            const chartData = {{ chart_data| tojson
-        }
-    };
+            const chartData = {{ chart_data| tojson }};
     const avgEfficiency = {{ summary_stats.average_efficiency|default (0) | tojson }};
 
     // 平均燃費の線を引くためのデータ配列
