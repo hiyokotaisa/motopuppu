@@ -13,42 +13,54 @@
         padding-left: 2rem;
         margin-left: 0.5rem;
     }
+
     /* 縦線 */
     .fuel-timeline::before {
         content: '';
         position: absolute;
         top: 0;
         bottom: 0;
-        left: 6px; /* マーカーの中心に合わせる */
+        left: 6px;
+        /* マーカーの中心に合わせる */
         width: 2px;
         background-color: #dee2e6;
     }
+
     .timeline-item {
         position: relative;
         padding-bottom: 2.5rem;
     }
+
     .timeline-item:last-child {
         padding-bottom: 0;
     }
+
     /* マーカー（点） */
     .timeline-marker {
         position: absolute;
-        left: -2rem; /* 親のpadding分戻す */
-        top: 1rem; /* カードの上部に合わせる */
+        left: -2rem;
+        /* 親のpadding分戻す */
+        top: 1rem;
+        /* カードの上部に合わせる */
         width: 16px;
         height: 16px;
         border-radius: 50%;
         background-color: #fff;
-        border: 3px solid #adb5bd; /* デフォルトはグレー */
+        border: 3px solid #adb5bd;
+        /* デフォルトはグレー */
         z-index: 1;
-        margin-left: -1px; /* 線との微調整 */
+        margin-left: -1px;
+        /* 線との微調整 */
     }
+
     /* 最新の記録（最初の要素）を目立たせる */
     .timeline-item:first-child .timeline-marker {
-        border-color: #0d6efd; /* Primary Color */
+        border-color: #0d6efd;
+        /* Primary Color */
         background-color: #0d6efd;
         box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.2);
     }
+
     /* 最新のカード */
     .timeline-item:first-child .card {
         border-left: 4px solid #0d6efd;
@@ -61,20 +73,21 @@
         <h2 class="fw-bold mb-0 text-dark"><i class="fas fa-gas-pump me-2 text-primary"></i>給油記録</h2>
         <p class="text-muted mb-0 small">愛車の燃費とコストを管理</p>
     </div>
-    
+
     {# --- アクションボタン群 --- #}
     <div class="d-flex gap-2">
-        <a href="{{ url_for('fuel.add_fuel', vehicle_id=request_args.get('vehicle_id') if request_args.get('vehicle_id') else '') }}" class="btn btn-success shadow-sm">
+        <a href="{{ url_for('fuel.add_fuel', vehicle_id=request_args.get('vehicle_id') if request_args.get('vehicle_id') else '') }}"
+            class="btn btn-success shadow-sm">
             <i class="fas fa-plus me-1"></i> 記録追加
         </a>
-        
+
         {# --- 表示モード切替トグル --- #}
         <div class="btn-group" role="group" aria-label="View Mode Toggle">
             <input type="radio" class="btn-check" name="viewMode" id="viewModeDashboard" autocomplete="off">
             <label class="btn btn-outline-secondary" for="viewModeDashboard" title="ダッシュボード表示">
-                <i class="fas fa-stream"></i> 
+                <i class="fas fa-stream"></i>
             </label>
-        
+
             <input type="radio" class="btn-check" name="viewMode" id="viewModeTable" autocomplete="off">
             <label class="btn btn-outline-secondary" for="viewModeTable" title="テーブル表示">
                 <i class="fas fa-table"></i>
@@ -85,8 +98,10 @@
 
 {# --- フィルターエリア --- #}
 <div class="mb-3">
-    <button class="btn btn-sm btn-outline-secondary rounded-pill" type="button" data-bs-toggle="collapse" data-bs-target="#filterCollapse" aria-expanded="{{ 'true' if is_filter_active else 'false' }}">
-        <i class="fas fa-filter me-1"></i> 絞り込み検索 {% if is_filter_active %}<span class="badge bg-primary rounded-pill">ON</span>{% endif %}
+    <button class="btn btn-sm btn-outline-secondary rounded-pill" type="button" data-bs-toggle="collapse"
+        data-bs-target="#filterCollapse" aria-expanded="{{ 'true' if is_filter_active else 'false' }}">
+        <i class="fas fa-filter me-1"></i> 絞り込み検索 {% if is_filter_active %}<span
+            class="badge bg-primary rounded-pill">ON</span>{% endif %}
     </button>
 </div>
 
@@ -95,18 +110,21 @@
         <form method="GET" action="{{ url_for('fuel.fuel_log') }}" class="row g-2 align-items-end">
             <div class="col-md-3">
                 <label class="form-label small text-muted">開始日</label>
-                <input type="date" class="form-control form-control-sm" name="start_date" value="{{ request_args.get('start_date', '') }}">
+                <input type="date" class="form-control form-control-sm" name="start_date"
+                    value="{{ request_args.get('start_date', '') }}">
             </div>
             <div class="col-md-3">
                 <label class="form-label small text-muted">終了日</label>
-                <input type="date" class="form-control form-control-sm" name="end_date" value="{{ request_args.get('end_date', '') }}">
+                <input type="date" class="form-control form-control-sm" name="end_date"
+                    value="{{ request_args.get('end_date', '') }}">
             </div>
             <div class="col-md-3">
                 <label class="form-label small text-muted">車両</label>
                 <select class="form-select form-select-sm" name="vehicle_id">
                     <option value="">すべての車両</option>
                     {% for motorcycle in motorcycles %}
-                    <option value="{{ motorcycle.id }}" {% if request_args.get('vehicle_id')|string == motorcycle.id|string %}selected{% endif %}>
+                    <option value="{{ motorcycle.id }}" {% if
+                        request_args.get('vehicle_id')|string==motorcycle.id|string %}selected{% endif %}>
                         {{ motorcycle.name }}
                     </option>
                     {% endfor %}
@@ -114,7 +132,8 @@
             </div>
             <div class="col-md-3">
                 <label for="q" class="form-label small text-muted">キーワード</label>
-                <input type="text" class="form-control form-control-sm" id="q" name="q" value="{{ request_args.get('q', '') }}" placeholder="メモ, スタンド名">
+                <input type="text" class="form-control form-control-sm" id="q" name="q"
+                    value="{{ request_args.get('q', '') }}" placeholder="メモ, スタンド名">
             </div>
             <div class="col-md-12 text-end mt-2">
                 <button type="submit" class="btn btn-primary btn-sm">適用</button>
@@ -126,14 +145,14 @@
 
 {# フラッシュメッセージ #}
 {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-        {% for category, message in messages %}
-            <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show shadow-sm" role="alert">
-                {{ message | safe }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-        {% endfor %}
-    {% endif %}
+{% if messages %}
+{% for category, message in messages %}
+<div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show shadow-sm" role="alert">
+    {{ message | safe }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+{% endfor %}
+{% endif %}
 {% endwith %}
 
 
@@ -141,44 +160,53 @@
 {# ▼▼▼ VIEW MODE 1: DASHBOARD (タイムラインUI) ▼▼▼ #}
 {# ================================================================= #}
 <div id="view-dashboard-container" class="d-none">
-    
+
     {# 1. ヒーロー統計 #}
     <div class="row g-3 mb-4">
         <div class="col-md-4">
-            <div class="card border-0 shadow-sm h-100" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
+            <div class="card border-0 shadow-sm h-100"
+                style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
                 <div class="card-body d-flex align-items-center p-3">
-                    <div class="bg-white text-primary shadow-sm me-3 rounded-3 d-flex align-items-center justify-content-center" style="width:48px; height:48px; font-size:1.5rem;">
+                    <div class="bg-white text-primary shadow-sm me-3 rounded-3 d-flex align-items-center justify-content-center"
+                        style="width:48px; height:48px; font-size:1.5rem;">
                         <i class="fas fa-tachometer-alt"></i>
                     </div>
                     <div>
                         <h6 class="text-uppercase text-muted fw-bold mb-0" style="font-size: 0.7rem;">平均燃費</h6>
-                        <h3 class="mb-0 fw-bold">{{ "%.2f"|format(summary_stats.average_efficiency) }}<span class="fs-6 text-muted ms-1">km/L</span></h3>
+                        <h3 class="mb-0 fw-bold">{{ "%.2f"|format(summary_stats.average_efficiency) }}<span
+                                class="fs-6 text-muted ms-1">km/L</span></h3>
                     </div>
                 </div>
             </div>
         </div>
         <div class="col-md-4">
-            <div class="card border-0 shadow-sm h-100" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
+            <div class="card border-0 shadow-sm h-100"
+                style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
                 <div class="card-body d-flex align-items-center p-3">
-                    <div class="bg-white text-warning shadow-sm me-3 rounded-3 d-flex align-items-center justify-content-center" style="width:48px; height:48px; font-size:1.5rem;">
+                    <div class="bg-white text-warning shadow-sm me-3 rounded-3 d-flex align-items-center justify-content-center"
+                        style="width:48px; height:48px; font-size:1.5rem;">
                         <i class="fas fa-road"></i>
                     </div>
                     <div>
                         <h6 class="text-uppercase text-muted fw-bold mb-0" style="font-size: 0.7rem;">総走行距離 (期間)</h6>
-                        <h3 class="mb-0 fw-bold">{{ "{:,}".format(summary_stats.total_distance) }}<span class="fs-6 text-muted ms-1">km</span></h3>
+                        <h3 class="mb-0 fw-bold">{{ "{:,}".format(summary_stats.total_distance) }}<span
+                                class="fs-6 text-muted ms-1">km</span></h3>
                     </div>
                 </div>
             </div>
         </div>
         <div class="col-md-4">
-            <div class="card border-0 shadow-sm h-100" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
+            <div class="card border-0 shadow-sm h-100"
+                style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
                 <div class="card-body d-flex align-items-center p-3">
-                    <div class="bg-white text-success shadow-sm me-3 rounded-3 d-flex align-items-center justify-content-center" style="width:48px; height:48px; font-size:1.5rem;">
+                    <div class="bg-white text-success shadow-sm me-3 rounded-3 d-flex align-items-center justify-content-center"
+                        style="width:48px; height:48px; font-size:1.5rem;">
                         <i class="fas fa-yen-sign"></i>
                     </div>
                     <div>
                         <h6 class="text-uppercase text-muted fw-bold mb-0" style="font-size: 0.7rem;">合計燃料費</h6>
-                        <h3 class="mb-0 fw-bold">{{ "{:,}".format(summary_stats.total_cost|int) }}<span class="fs-6 text-muted ms-1">円</span></h3>
+                        <h3 class="mb-0 fw-bold">{{ "{:,}".format(summary_stats.total_cost|int) }}<span
+                                class="fs-6 text-muted ms-1">円</span></h3>
                     </div>
                 </div>
             </div>
@@ -202,7 +230,7 @@
         {% for entry in entries %}
         <div class="timeline-item">
             <div class="timeline-marker"></div>
-            
+
             <div class="card border-0 shadow-sm hover-lift">
                 <div class="card-body">
                     {# ヘッダー行: 日付、車両名、燃費 #}
@@ -210,15 +238,17 @@
                         <div>
                             <h5 class="fw-bold mb-0 d-flex align-items-center gap-2">
                                 {{ entry.entry_date.strftime('%Y/%m/%d') }}
-                                <span class="badge bg-light text-dark border fw-normal" style="font-size: 0.75rem;">{{ entry.motorcycle.name }}</span>
+                                <span class="badge bg-light text-dark border fw-normal" style="font-size: 0.75rem;">{{
+                                    entry.motorcycle.name }}</span>
                             </h5>
                         </div>
                         <div class="text-end">
                             <span class="fw-bold font-monospace fs-4 text-dark">
-                                {% if entry.km_per_liter %}
-                                    {{ "%.2f"|format(entry.km_per_liter) }}
+                                {% set kpl = kpl_map.get(entry.id) if kpl_map is defined else entry.km_per_liter %}
+                                {% if kpl %}
+                                {{ "%.2f"|format(kpl) }}
                                 {% else %}
-                                    --.--
+                                --.--
                                 {% endif %}
                             </span>
                             <span class="text-muted small">km/L</span>
@@ -239,11 +269,13 @@
                         </div>
                         <div class="col-6 col-sm-3">
                             <div class="small text-muted mb-1"><i class="fas fa-yen-sign me-1"></i>金額</div>
-                            <div class="fw-bold">{{ "{:,}".format(entry.total_cost|int) if entry.total_cost else '-' }}</div>
+                            <div class="fw-bold">{{ "{:,}".format(entry.total_cost|int) if entry.total_cost else '-' }}
+                            </div>
                         </div>
-                         <div class="col-6 col-sm-3">
+                        <div class="col-6 col-sm-3">
                             <div class="small text-muted mb-1"><i class="fas fa-map-marker-alt me-1"></i>場所</div>
-                            <div class="text-truncate" title="{{ entry.station_name }}">{{ entry.station_name or '-' }}</div>
+                            <div class="text-truncate" title="{{ entry.station_name }}">{{ entry.station_name or '-' }}
+                            </div>
                         </div>
                     </div>
 
@@ -257,27 +289,27 @@
                     <div class="d-flex justify-content-between align-items-center mt-3 pt-2 border-top">
                         <div class="small">
                             {% if entry.is_full_tank %}
-                                <span class="badge bg-success-subtle text-success border border-success-subtle"><i class="fas fa-check me-1"></i>満タン</span>
+                            <span class="badge bg-success-subtle text-success border border-success-subtle"><i
+                                    class="fas fa-check me-1"></i>満タン</span>
                             {% else %}
-                                <span class="badge bg-warning-subtle text-warning border border-warning-subtle">途中給油</span>
+                            <span class="badge bg-warning-subtle text-warning border border-warning-subtle">途中給油</span>
                             {% endif %}
-                            
+
                             {% if entry.exclude_from_average %}
-                                <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle ms-1" title="平均燃費計算から除外"><i class="fas fa-ban me-1"></i>除外</span>
+                            <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle ms-1"
+                                title="平均燃費計算から除外"><i class="fas fa-ban me-1"></i>除外</span>
                             {% endif %}
                         </div>
 
                         <div>
-                            <a href="{{ url_for('fuel.edit_fuel', entry_id=entry.id) }}" class="btn btn-sm btn-link text-decoration-none text-secondary p-0 me-3">編集</a>
-                            <button class="btn btn-sm btn-link text-decoration-none text-info p-0 btn-share-misskey" 
-                                    data-type="fuel" 
-                                    data-vehicle-name="{{ entry.motorcycle.name }}"
-                                    data-date="{{ entry.entry_date.isoformat() }}" 
-                                    data-odo="{{ entry.odometer_reading }}"
-                                    data-volume="{{ entry.fuel_volume }}"
-                                    data-kpl="{{ entry.km_per_liter if entry.km_per_liter is not none else '' }}"
-                                    data-cost="{{ entry.total_cost|round|int if entry.total_cost is not none else '' }}"
-                                    data-station="{{ entry.station_name or '' }}">
+                            <a href="{{ url_for('fuel.edit_fuel', entry_id=entry.id) }}"
+                                class="btn btn-sm btn-link text-decoration-none text-secondary p-0 me-3">編集</a>
+                            <button class="btn btn-sm btn-link text-decoration-none text-info p-0 btn-share-misskey"
+                                data-type="fuel" data-vehicle-name="{{ entry.motorcycle.name }}"
+                                data-date="{{ entry.entry_date.isoformat() }}" data-odo="{{ entry.odometer_reading }}"
+                                data-volume="{{ entry.fuel_volume }}" data-kpl="{{ kpl if kpl is not none else '' }}"
+                                data-cost="{{ entry.total_cost|round|int if entry.total_cost is not none else '' }}"
+                                data-station="{{ entry.station_name or '' }}">
                                 <i class="fas fa-share-alt"></i>
                             </button>
                         </div>
@@ -299,82 +331,94 @@
 {# ▼▼▼ VIEW MODE 2: TABLE (既存UI) ▼▼▼ #}
 {# ================================================================= #}
 <div id="view-table-container" class="d-none">
-    
+
     <div class="table-responsive bg-white shadow-sm rounded">
         <table class="table table-hover table-sm mb-0 align-middle">
             <thead class="table-light">
                 <tr>
-                    {% macro sortable_th(sort_key, display_text, current_sort, current_order, request_args, th_class="", th_id="") %}
-                        {% set current_request_args = request_args.copy() %}
-                        {% set sort_order = 'asc' %}
-                        {% set sort_icon_html = '<i class="fas fa-sort fa-fw text-muted ms-1"></i>' %}
-                        {% if current_sort == sort_key %}
-                            {% if current_order == 'asc' %}
-                                {% set sort_order = 'desc' %}
-                                {% set sort_icon_html = '<i class="fas fa-sort-up fa-fw ms-1"></i>' %}
-                            {% else %}
-                                {% set sort_icon_html = '<i class="fas fa-sort-down fa-fw ms-1"></i>' %}
-                            {% endif %}
-                        {% endif %}
-                        {% set _ = current_request_args.update({'sort_by': sort_key, 'order': sort_order, 'page': 1}) %}
-                        <th class="{{ th_class }}" {% if th_id %}id="{{ th_id }}"{% endif %}>
-                            <a href="{{ url_for('fuel.fuel_log', **current_request_args) }}" class="text-decoration-none text-dark">
-                                <span class="header-text">{{ display_text|safe }}</span>
-                                <span class="sort-icon">{{ sort_icon_html|safe }}</span>
-                            </a>
-                        </th>
+                    {% macro sortable_th(sort_key, display_text, current_sort, current_order, request_args, th_class="",
+                    th_id="") %}
+                    {% set current_request_args = request_args.copy() %}
+                    {% set sort_order = 'asc' %}
+                    {% set sort_icon_html = '<i class="fas fa-sort fa-fw text-muted ms-1"></i>' %}
+                    {% if current_sort == sort_key %}
+                    {% if current_order == 'asc' %}
+                    {% set sort_order = 'desc' %}
+                    {% set sort_icon_html = '<i class="fas fa-sort-up fa-fw ms-1"></i>' %}
+                    {% else %}
+                    {% set sort_icon_html = '<i class="fas fa-sort-down fa-fw ms-1"></i>' %}
+                    {% endif %}
+                    {% endif %}
+                    {% set _ = current_request_args.update({'sort_by': sort_key, 'order': sort_order, 'page': 1}) %}
+                    <th class="{{ th_class }}" {% if th_id %}id="{{ th_id }}" {% endif %}>
+                        <a href="{{ url_for('fuel.fuel_log', **current_request_args) }}"
+                            class="text-decoration-none text-dark">
+                            <span class="header-text">{{ display_text|safe }}</span>
+                            <span class="sort-icon">{{ sort_icon_html|safe }}</span>
+                        </a>
+                    </th>
                     {% endmacro %}
 
-                    {{ sortable_th('date', '<i class="bi bi-calendar-event me-2"></i>日付', current_sort_by, current_order, request_args, "ps-3") }}
-                    {{ sortable_th('vehicle', '<i class="bi bi-bicycle me-2"></i>車両', current_sort_by, current_order, request_args) }}
-                    {{ sortable_th('odo_reading', '<i class="bi bi-speedometer2 me-2"></i>ODO', current_sort_by, current_order, request_args, "text-end") }}
-                    {{ sortable_th('volume', '<i class="bi bi-fuel-pump me-2"></i>給油量', current_sort_by, current_order, request_args, "text-end") }}
-                    {{ sortable_th('price', '<i class="bi bi-tag me-2"></i>単価', current_sort_by, current_order, request_args, "text-end") }}
-                    {{ sortable_th('cost', '<i class="bi bi-currency-yen me-2"></i>金額', current_sort_by, current_order, request_args, "text-end") }}
+                    {{ sortable_th('date', '<i class="bi bi-calendar-event me-2"></i>日付', current_sort_by,
+                    current_order, request_args, "ps-3") }}
+                    {{ sortable_th('vehicle', '<i class="bi bi-bicycle me-2"></i>車両', current_sort_by, current_order,
+                    request_args) }}
+                    {{ sortable_th('odo_reading', '<i class="bi bi-speedometer2 me-2"></i>ODO', current_sort_by,
+                    current_order, request_args, "text-end") }}
+                    {{ sortable_th('volume', '<i class="bi bi-fuel-pump me-2"></i>給油量', current_sort_by, current_order,
+                    request_args, "text-end") }}
+                    {{ sortable_th('price', '<i class="bi bi-tag me-2"></i>単価', current_sort_by, current_order,
+                    request_args, "text-end") }}
+                    {{ sortable_th('cost', '<i class="bi bi-currency-yen me-2"></i>金額', current_sort_by, current_order,
+                    request_args, "text-end") }}
                     <th class="text-end"><i class="bi bi-graph-up me-2"></i>燃費</th>
                     <th class="text-center">操作</th>
                 </tr>
             </thead>
             <tbody>
                 {% for entry in entries %}
-                <tr {% if entry.exclude_from_average %}class="table-secondary"{% endif %}>
+                <tr {% if entry.exclude_from_average %}class="table-secondary" {% endif %}>
                     <td class="ps-3">{{ entry.entry_date.strftime('%Y-%m-%d') }}</td>
                     <td>
-                         <a href="{{ url_for('fuel.edit_fuel', entry_id=entry.id) }}" title="編集" class="text-decoration-none text-dark">
+                        <a href="{{ url_for('fuel.edit_fuel', entry_id=entry.id) }}" title="編集"
+                            class="text-decoration-none text-dark">
                             {{ entry.motorcycle.name }}
                         </a>
                     </td>
                     <td class="text-end font-monospace">{{ "{:,}".format(entry.odometer_reading) }}</td>
                     <td class="text-end font-monospace">{{ "%.2f"|format(entry.fuel_volume) }}</td>
-                    <td class="text-end font-monospace">{{ entry.price_per_liter|round|int if entry.price_per_liter else '-' }}</td>
-                    <td class="text-end font-monospace">{{ entry.total_cost|round|int if entry.total_cost else '-' }}</td>
+                    <td class="text-end font-monospace">{{ entry.price_per_liter|round|int if entry.price_per_liter else
+                        '-' }}</td>
+                    <td class="text-end font-monospace">{{ entry.total_cost|round|int if entry.total_cost else '-' }}
+                    </td>
                     <td class="text-end fw-bold font-monospace">
-                        {% if entry.km_per_liter %}
-                            {{ "%.2f"|format(entry.km_per_liter) }}
-                             {% if entry.exclude_from_average %}
-                                <i class="bi bi-calculator ms-1 text-muted" data-bs-toggle="tooltip" title="平均燃費の計算から除外されています"></i>
-                            {% endif %}
+                        {% set kpl = kpl_map.get(entry.id) if kpl_map is defined else entry.km_per_liter %}
+                        {% if kpl %}
+                        {{ "%.2f"|format(kpl) }}
+                        {% if entry.exclude_from_average %}
+                        <i class="bi bi-calculator ms-1 text-muted" data-bs-toggle="tooltip"
+                            title="平均燃費の計算から除外されています"></i>
+                        {% endif %}
                         {% else %}
-                            -
+                        -
                         {% endif %}
                     </td>
                     <td class="text-center text-nowrap">
-                        <a href="{{ url_for('fuel.edit_fuel', entry_id=entry.id) }}" class="btn btn-sm btn-outline-secondary border-0"><i class="fas fa-edit"></i></a>
-                        <form action="{{ url_for('fuel.delete_fuel', entry_id=entry.id) }}" method="POST" class="d-inline" onsubmit="return confirm('削除しますか？');">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                            <button type="submit" class="btn btn-sm btn-outline-danger border-0"><i class="fas fa-trash"></i></button>
+                        <a href="{{ url_for('fuel.edit_fuel', entry_id=entry.id) }}"
+                            class="btn btn-sm btn-outline-secondary border-0"><i class="fas fa-edit"></i></a>
+                        <form action="{{ url_for('fuel.delete_fuel', entry_id=entry.id) }}" method="POST"
+                            class="d-inline" onsubmit="return confirm('削除しますか？');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                            <button type="submit" class="btn btn-sm btn-outline-danger border-0"><i
+                                    class="fas fa-trash"></i></button>
                         </form>
-                         <button class="btn btn-sm btn-info btn-share-misskey ms-1"
-                                data-type="fuel"
-                                data-vehicle-name="{{ entry.motorcycle.name }}"
-                                data-date="{{ entry.entry_date.isoformat() }}"
-                                data-odo="{{ entry.odometer_reading }}"
-                                data-total-distance="{{ entry.total_distance if entry.total_distance is not none else '' }}"
-                                data-volume="{{ entry.fuel_volume }}"
-                                data-kpl="{{ entry.km_per_liter if entry.km_per_liter is not none else '' }}"
-                                data-cost="{{ entry.total_cost|round|int if entry.total_cost is not none else '' }}"
-                                data-station="{{ entry.station_name or '' }}"
-                                title="Misskeyで共有">
+                        <button class="btn btn-sm btn-info btn-share-misskey ms-1" data-type="fuel"
+                            data-vehicle-name="{{ entry.motorcycle.name }}"
+                            data-date="{{ entry.entry_date.isoformat() }}" data-odo="{{ entry.odometer_reading }}"
+                            data-total-distance="{{ entry.total_distance if entry.total_distance is not none else '' }}"
+                            data-volume="{{ entry.fuel_volume }}" data-kpl="{{ kpl if kpl is not none else '' }}"
+                            data-cost="{{ entry.total_cost|round|int if entry.total_cost is not none else '' }}"
+                            data-station="{{ entry.station_name or '' }}" title="Misskeyで共有">
                             <i class="fa-solid fa-share-nodes fa-fw"></i>
                         </button>
                     </td>
@@ -391,10 +435,12 @@
     {# CSVエクスポートボタンなど、テーブルモード向けのユーティリティ #}
     <div class="mt-3 text-end">
         {% if request_args.get('vehicle_id') %}
-        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#csvImportModal">
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal"
+            data-bs-target="#csvImportModal">
             <i class="fas fa-file-import me-1"></i> CSVインポート
         </button>
-        <a href="{{ url_for('fuel.export_fuel_records_csv', motorcycle_id=request_args.get('vehicle_id')) }}" class="btn btn-sm btn-outline-secondary">
+        <a href="{{ url_for('fuel.export_fuel_records_csv', motorcycle_id=request_args.get('vehicle_id')) }}"
+            class="btn btn-sm btn-outline-secondary">
             <i class="fas fa-download me-1"></i> CSVエクスポート
         </a>
         {% endif %}
@@ -407,19 +453,21 @@
 <nav aria-label="Page navigation" class="mt-4">
     <ul class="pagination justify-content-center">
         <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
-            <a class="page-link" href="{{ url_for('fuel.fuel_log', page=pagination.prev_num, **request_args) }}">&laquo;</a>
+            <a class="page-link"
+                href="{{ url_for('fuel.fuel_log', page=pagination.prev_num, **request_args) }}">&laquo;</a>
         </li>
         {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=1) %}
-            {% if page_num %}
-                <li class="page-item {% if page_num == pagination.page %}active{% endif %}">
-                    <a class="page-link" href="{{ url_for('fuel.fuel_log', page=page_num, **request_args) }}">{{ page_num }}</a>
-                </li>
-            {% else %}
-                <li class="page-item disabled"><span class="page-link">...</span></li>
-            {% endif %}
+        {% if page_num %}
+        <li class="page-item {% if page_num == pagination.page %}active{% endif %}">
+            <a class="page-link" href="{{ url_for('fuel.fuel_log', page=page_num, **request_args) }}">{{ page_num }}</a>
+        </li>
+        {% else %}
+        <li class="page-item disabled"><span class="page-link">...</span></li>
+        {% endif %}
         {% endfor %}
         <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
-            <a class="page-link" href="{{ url_for('fuel.fuel_log', page=pagination.next_num, **request_args) }}">&raquo;</a>
+            <a class="page-link"
+                href="{{ url_for('fuel.fuel_log', page=pagination.next_num, **request_args) }}">&raquo;</a>
         </li>
     </ul>
 </nav>
@@ -432,58 +480,62 @@
 {{ super() }}
 {# --- CSVインポート用モーダル --- #}
 {% if request_args.get('vehicle_id') %}
-    {% set selected_vehicle_id = request_args.get('vehicle_id')|int %}
-    {% set selected_vehicle = motorcycles|selectattr('id', 'equalto', selected_vehicle_id)|first %}
-    {% if selected_vehicle %}
-    <div class="modal fade" id="csvImportModal" tabindex="-1" aria-labelledby="csvImportModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <form method="POST" action="{{ url_for('fuel.import_fuel_records_csv', vehicle_id=selected_vehicle_id) }}" enctype="multipart/form-data" novalidate>
-                    {{ upload_form.hidden_tag() }}
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="csvImportModalLabel">
-                            <i class="fas fa-file-import me-2"></i>給油記録のCSVインポート ({{ selected_vehicle.name }})
-                        </h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+{% set selected_vehicle_id = request_args.get('vehicle_id')|int %}
+{% set selected_vehicle = motorcycles|selectattr('id', 'equalto', selected_vehicle_id)|first %}
+{% if selected_vehicle %}
+<div class="modal fade" id="csvImportModal" tabindex="-1" aria-labelledby="csvImportModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('fuel.import_fuel_records_csv', vehicle_id=selected_vehicle_id) }}"
+                enctype="multipart/form-data" novalidate>
+                {{ upload_form.hidden_tag() }}
+                <div class="modal-header">
+                    <h5 class="modal-title" id="csvImportModalLabel">
+                        <i class="fas fa-file-import me-2"></i>給油記録のCSVインポート ({{ selected_vehicle.name }})
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>指定された形式のCSVファイルをアップロードすることで、給油記録を一括登録できます。</p>
+                    <ol>
+                        <li>下のボタンからテンプレートファイルをダウンロードします。</li>
+                        <li>テンプレートに従って給油記録を入力します。（文字コードはUTF-8）</li>
+                        <li>完成したCSVファイルを選択し、インポートボタンを押してください。</li>
+                    </ol>
+                    <p class="small text-muted">
+                        <strong>必須項目:</strong> <code>entry_date</code>, <code>odometer_reading</code>,
+                        <code>fuel_volume</code><br>
+                        <strong>日付形式:</strong> <code>YYYY-MM-DD</code> (例: 2025-08-06)
+                    </p>
+                    <div class="mb-3">
+                        <a href="{{ url_for('fuel.download_fuel_import_template') }}"
+                            class="btn btn-sm btn-outline-secondary">
+                            <i class="fas fa-download me-1"></i> テンプレートをダウンロード
+                        </a>
                     </div>
-                    <div class="modal-body">
-                        <p>指定された形式のCSVファイルをアップロードすることで、給油記録を一括登録できます。</p>
-                        <ol>
-                            <li>下のボタンからテンプレートファイルをダウンロードします。</li>
-                            <li>テンプレートに従って給油記録を入力します。（文字コードはUTF-8）</li>
-                            <li>完成したCSVファイルを選択し、インポートボタンを押してください。</li>
-                        </ol>
-                        <p class="small text-muted">
-                            <strong>必須項目:</strong> <code>entry_date</code>, <code>odometer_reading</code>, <code>fuel_volume</code><br>
-                            <strong>日付形式:</strong> <code>YYYY-MM-DD</code> (例: 2025-08-06)
-                        </p>
-                        <div class="mb-3">
-                            <a href="{{ url_for('fuel.download_fuel_import_template') }}" class="btn btn-sm btn-outline-secondary">
-                                <i class="fas fa-download me-1"></i> テンプレートをダウンロード
-                            </a>
+                    <hr>
+                    <div class="mb-3">
+                        {{ upload_form.csv_file.label(class="form-label") }}
+                        {{ upload_form.csv_file(class="form-control" + (" is-invalid" if upload_form.csv_file.errors
+                        else "")) }}
+                        {% if upload_form.csv_file.errors %}
+                        <div class="invalid-feedback">
+                            {% for error in upload_form.csv_file.errors %}
+                            <span>{{ error }}</span><br>
+                            {% endfor %}
                         </div>
-                        <hr>
-                        <div class="mb-3">
-                            {{ upload_form.csv_file.label(class="form-label") }}
-                            {{ upload_form.csv_file(class="form-control" + (" is-invalid" if upload_form.csv_file.errors else "")) }}
-                            {% if upload_form.csv_file.errors %}
-                                <div class="invalid-feedback">
-                                    {% for error in upload_form.csv_file.errors %}
-                                        <span>{{ error }}</span><br>
-                                    {% endfor %}
-                                </div>
-                            {% endif %}
-                        </div>
+                        {% endif %}
                     </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">閉じる</button>
-                        {{ upload_form.submit_upload(class="btn btn-primary") }}
-                    </div>
-                </form>
-            </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">閉じる</button>
+                    {{ upload_form.submit_upload(class="btn btn-primary") }}
+                </div>
+            </form>
         </div>
     </div>
-    {% endif %}
+</div>
+{% endif %}
 {% endif %}
 {% endblock %}
 
@@ -493,108 +545,110 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
 <script>
-document.addEventListener('DOMContentLoaded', () => {
-    // Bootstrap 5 のツールチップを有効化
-    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
-    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-      return new bootstrap.Tooltip(tooltipTriggerEl)
-    });
+    document.addEventListener('DOMContentLoaded', () => {
+        // Bootstrap 5 のツールチップを有効化
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl)
+        });
 
-    // --- View Mode Toggle Logic ---
-    const dashboardRadio = document.getElementById('viewModeDashboard');
-    const tableRadio = document.getElementById('viewModeTable');
-    const dashboardContainer = document.getElementById('view-dashboard-container');
-    const tableContainer = document.getElementById('view-table-container');
-    
-    // localStorage key
-    const STORAGE_KEY = 'motopuppu_fuel_view_pref';
+        // --- View Mode Toggle Logic ---
+        const dashboardRadio = document.getElementById('viewModeDashboard');
+        const tableRadio = document.getElementById('viewModeTable');
+        const dashboardContainer = document.getElementById('view-dashboard-container');
+        const tableContainer = document.getElementById('view-table-container');
 
-    function setViewMode(mode) {
-        if (mode === 'dashboard') {
-            dashboardContainer.classList.remove('d-none');
-            tableContainer.classList.add('d-none');
-            dashboardRadio.checked = true;
-            localStorage.setItem(STORAGE_KEY, 'dashboard');
-            
-            // Re-render chart if needed (sometimes required when un-hiding canvas)
-            if (window.fuelChart) {
-                window.fuelChart.resize();
+        // localStorage key
+        const STORAGE_KEY = 'motopuppu_fuel_view_pref';
+
+        function setViewMode(mode) {
+            if (mode === 'dashboard') {
+                dashboardContainer.classList.remove('d-none');
+                tableContainer.classList.add('d-none');
+                dashboardRadio.checked = true;
+                localStorage.setItem(STORAGE_KEY, 'dashboard');
+
+                // Re-render chart if needed (sometimes required when un-hiding canvas)
+                if (window.fuelChart) {
+                    window.fuelChart.resize();
+                }
+            } else {
+                dashboardContainer.classList.add('d-none');
+                tableContainer.classList.remove('d-none');
+                tableRadio.checked = true;
+                localStorage.setItem(STORAGE_KEY, 'table');
             }
-        } else {
-            dashboardContainer.classList.add('d-none');
-            tableContainer.classList.remove('d-none');
-            tableRadio.checked = true;
-            localStorage.setItem(STORAGE_KEY, 'table');
         }
-    }
 
-    // Initial Load
-    const savedMode = localStorage.getItem(STORAGE_KEY) || 'dashboard'; // Default to dashboard
-    setViewMode(savedMode);
+        // Initial Load
+        const savedMode = localStorage.getItem(STORAGE_KEY) || 'dashboard'; // Default to dashboard
+        setViewMode(savedMode);
 
-    // Event Listeners
-    dashboardRadio.addEventListener('change', () => setViewMode('dashboard'));
-    tableRadio.addEventListener('change', () => setViewMode('table'));
+        // Event Listeners
+        dashboardRadio.addEventListener('change', () => setViewMode('dashboard'));
+        tableRadio.addEventListener('change', () => setViewMode('table'));
 
 
-    // --- Chart.js Initialization ---
-    const ctx = document.getElementById('fuelTrendChart');
-    if (ctx) {
-        const chartData = {{ chart_data|tojson }};
-        const avgEfficiency = {{ summary_stats.average_efficiency|default(0)|tojson }};
-        
-        // 平均燃費の線を引くためのデータ配列
-        const avgData = new Array(chartData.labels.length).fill(avgEfficiency);
+        // --- Chart.js Initialization ---
+        const ctx = document.getElementById('fuelTrendChart');
+        if (ctx) {
+            const chartData = {{ chart_data| tojson
+        }
+    };
+    const avgEfficiency = {{ summary_stats.average_efficiency|default (0) | tojson }};
 
-        window.fuelChart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: chartData.labels,
-                datasets: [{
-                    label: '燃費 (km/L)',
-                    data: chartData.data,
-                    borderColor: 'rgba(13, 202, 240, 1)',
-                    backgroundColor: 'rgba(13, 202, 240, 0.1)',
-                    borderWidth: 2,
-                    fill: true,
-                    tension: 0.3,
-                    pointRadius: 3,
-                    pointHoverRadius: 5,
-                    order: 1
-                },
-                {
-                    label: '平均燃費',
-                    data: avgData,
-                    borderColor: 'rgba(255, 99, 132, 0.8)',
-                    borderWidth: 2,
-                    borderDash: [5, 5],
-                    pointRadius: 0,
-                    fill: false,
-                    tension: 0,
-                    order: 0
-                }]
+    // 平均燃費の線を引くためのデータ配列
+    const avgData = new Array(chartData.labels.length).fill(avgEfficiency);
+
+    window.fuelChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: chartData.labels,
+            datasets: [{
+                label: '燃費 (km/L)',
+                data: chartData.data,
+                borderColor: 'rgba(13, 202, 240, 1)',
+                backgroundColor: 'rgba(13, 202, 240, 0.1)',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.3,
+                pointRadius: 3,
+                pointHoverRadius: 5,
+                order: 1
             },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        mode: 'index',
-                        intersect: false
-                    }
+            {
+                label: '平均燃費',
+                data: avgData,
+                borderColor: 'rgba(255, 99, 132, 0.8)',
+                borderWidth: 2,
+                borderDash: [5, 5],
+                pointRadius: 0,
+                fill: false,
+                tension: 0,
+                order: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    grid: { borderDash: [2, 4] }
                 },
-                scales: {
-                    y: {
-                        beginAtZero: false,
-                        grid: { borderDash: [2, 4] }
-                    },
-                    x: {
-                        grid: { display: false }
-                    }
+                x: {
+                    grid: { display: false }
                 }
             }
-        });
+        }
+    });
     }
 });
 </script>

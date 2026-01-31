@@ -162,6 +162,60 @@ def get_previous_fuel_entry(motorcycle_id, current_entry_date, current_entry_id=
     return previous_entry
 
 
+def _calculate_kpl_bulk(entries):
+    """
+    FuelEntryのリスト(辞書またはオブジェクト)を受け取り、IDをキーとした燃費の辞書を返す。
+    entriesは (id, motorcycle_id, total_distance, fuel_volume, is_full_tank) を持つ必要がある。
+    entriesは motorcycle_id, total_distance でソートされていることを前提とする。
+    """
+    kpl_map = {}
+    
+    # 車両ごとに処理
+    # motorcycle_id -> { 'last_full_entry': entry, 'accumulated_fuel': 0.0 }
+    state_map = {}
+
+    for entry in entries:
+        # entry can be a Row object from SQLAlchemy query
+        e_id = entry.id
+        m_id = entry.motorcycle_id
+        dist = entry.total_distance
+        vol = entry.fuel_volume
+        is_full = entry.is_full_tank
+
+        if m_id not in state_map:
+            state_map[m_id] = {'last_full_entry': None, 'accumulated_fuel': 0.0}
+        
+        state = state_map[m_id]
+        
+        # 燃料を加算
+        if vol is not None:
+             state['accumulated_fuel'] = state.get('accumulated_fuel', 0.0) + float(vol)
+
+        if is_full:
+            last_full = state['last_full_entry']
+            if last_full:
+                distance_diff = dist - last_full.total_distance
+                fuel_consumed = state['accumulated_fuel']
+                
+                if fuel_consumed > 0 and distance_diff > 0:
+                    try:
+                        kpl = round(float(distance_diff) / float(fuel_consumed), 2)
+                        kpl_map[e_id] = kpl
+                    except (ZeroDivisionError, TypeError):
+                         kpl_map[e_id] = None
+                else:
+                    kpl_map[e_id] = None
+
+            # 次の区間のためにリセット
+            state['last_full_entry'] = entry
+            state['accumulated_fuel'] = 0.0
+        else:
+             # 満タンでない場合、燃費確定しない
+             kpl_map[e_id] = None
+             
+    return kpl_map
+
+
 @fuel_bp.route('/search_gas_station')
 @limiter.limit("30 per minute")
 @login_required
@@ -232,6 +286,18 @@ def fuel_log():
     # --- 1. ベースクエリの構築 (N+1対策済み) ---
     base_query = db.session.query(FuelEntry).options(joinedload(FuelEntry.motorcycle)).join(Motorcycle).filter(FuelEntry.motorcycle_id.in_(user_motorcycle_ids_for_fuel))
 
+    # --- 燃費の一括計算 (N+1対策) ---
+    # フィルタリングに関わらず、対象車両の全記録を取得して燃費を計算しておく
+    # これにより、FuelEntry.km_per_liter プロパティへのアクセス(個別クエリ)を回避する
+    all_entries_for_calc = db.session.query(
+        FuelEntry.id, FuelEntry.motorcycle_id, FuelEntry.total_distance, 
+        FuelEntry.fuel_volume, FuelEntry.is_full_tank
+    ).filter(
+        FuelEntry.motorcycle_id.in_(user_motorcycle_ids_for_fuel)
+    ).order_by(FuelEntry.motorcycle_id, FuelEntry.total_distance).all()
+
+    kpl_map = _calculate_kpl_bulk(all_entries_for_calc)
+
     active_filters = {k: v for k, v in request.args.items() if k not in ['page', 'sort_by', 'order']}
 
     # --- 2. フィルタリングの適用 ---
@@ -285,8 +351,8 @@ def fuel_log():
     valid_efficiency_count = 0
 
     for e in all_filtered_entries:
-        # km_per_literはモデル内のPythonプロパティで計算される
-        kpl = e.km_per_liter
+        # km_per_literはモデルプロパティではなく、一括計算結果を使用
+        kpl = kpl_map.get(e.id)
         if kpl is not None:
             chart_labels.append(e.entry_date.strftime('%Y/%m/%d'))
             chart_values.append(round(kpl, 2))
@@ -353,7 +419,8 @@ def fuel_log():
                            is_filter_active=is_filter_active,
                            upload_form=upload_form,
                            summary_stats=summary_stats,
-                           chart_data=chart_data)
+                           chart_data=chart_data,
+                           kpl_map=kpl_map)
 
 
 @fuel_bp.route('/add', methods=['GET', 'POST'])
