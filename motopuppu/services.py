@@ -11,6 +11,7 @@ from zoneinfo import ZoneInfo
 from cryptography.fernet import Fernet
 
 from .nyanpuppu import get_advice
+from .utils.fuel_calculator import calculate_kpl_bulk
 from .models import db, Motorcycle, FuelEntry, MaintenanceEntry, MaintenanceReminder, ActivityLog, GeneralNote, UserAchievement, AchievementDefinition, SessionLog, User
 from .utils.lap_time_utils import format_seconds_to_time
 
@@ -18,7 +19,7 @@ from .utils.lap_time_utils import format_seconds_to_time
 # --- データ取得・計算ヘルパー ---
 
 def get_latest_total_distance(motorcycle_id, offset_val):
-    """指定された車両の最新の総走行距離を取得する"""
+    # ... (unchanged) ...
     latest_fuel_dist = db.session.query(db.func.max(FuelEntry.total_distance)).filter(
         FuelEntry.motorcycle_id == motorcycle_id).scalar() or 0
     latest_maint_dist = db.session.query(db.func.max(MaintenanceEntry.total_distance_at_maintenance)).filter(
@@ -31,69 +32,65 @@ def calculate_average_kpl(motorcycle: Motorcycle, start_date=None, end_date=None
     if motorcycle.is_racer:
         return None
 
-    all_full_tank_entries = []
+    # 全エントリを一度に取得 (N+1対策)
+    # 期間指定がある場合でも、前回の満タン給油からの消費量を計算するために
+    # 少し前のデータが必要になるため、単純化して(あるいは安全策として)
+    # ある程度広めに取るか、全件取得する。
+    # ここでは既存ロジックの安全性と整合性を保つため、全件取得してPython側でフィルタリングする方式をとる。
+    # レコード数が数千件レベルなら問題ない。
     
-    # 期間指定がある場合のロジック
-    if start_date and end_date:
-        # 計算の起点とするため、期間の開始日より前の最後の満タン記録を取得
-        first_entry = FuelEntry.query.filter(
-            FuelEntry.motorcycle_id == motorcycle.id,
-            FuelEntry.is_full_tank == True,
-            FuelEntry.entry_date < start_date
-        ).order_by(FuelEntry.entry_date.desc()).first()
-        
-        # 期間内の満タン記録をすべて取得
-        period_entries = FuelEntry.query.filter(
-            FuelEntry.motorcycle_id == motorcycle.id,
-            FuelEntry.is_full_tank == True,
-            FuelEntry.entry_date.between(start_date, end_date)
-        ).order_by(FuelEntry.entry_date.asc()).all()
-        
-        if first_entry:
-            all_full_tank_entries.append(first_entry)
-        all_full_tank_entries.extend(period_entries)
+    query = FuelEntry.query.filter(
+        FuelEntry.motorcycle_id == motorcycle.id
+    ).order_by(FuelEntry.total_distance.asc())
     
-    # 期間指定がない場合は、これまで通り全期間を対象とする
-    else:
-        all_full_tank_entries = FuelEntry.query.filter(
-            FuelEntry.motorcycle_id == motorcycle.id,
-            FuelEntry.is_full_tank == True
-        ).order_by(FuelEntry.total_distance.asc()).all()
-
-
-    if len(all_full_tank_entries) < 2:
+    entries = query.all()
+    
+    if not entries:
         return None
 
-    total_distance = 0.0
-    total_fuel = 0.0
+    total_distance_sum = 0.0
+    total_fuel_sum = 0.0
+    
+    last_full_entry = None
+    accumulated_fuel = 0.0
+    
+    # 最初の有効な満タン給油を見つけるまでは、燃料を加算しても燃費計算には使えない
+    # ただし、ロジックとしては「満タン〜満タン」の区間ごとに
+    # 「走行距離」と「その間に給油した燃料の合計」を足し合わせる。
+    
+    for entry in entries:
+        # 燃料を加算 (除外フラグがない場合)
+        if not entry.exclude_from_average:
+             accumulated_fuel += entry.fuel_volume
+             
+        if entry.is_full_tank:
+            if last_full_entry:
+                # 満タン〜満タンの区間が確定
+                # 期間判定: 区間の終了日(entry.entry_date)が期間内かチェック
+                is_within_period = True
+                if start_date and entry.entry_date < start_date:
+                    is_within_period = False
+                if end_date and entry.entry_date > end_date:
+                    is_within_period = False
+                
+                # 前回の満タンが除外対象でないかもチェック(既存ロジック準拠)
+                if not last_full_entry.exclude_from_average and not entry.exclude_from_average:
+                    if is_within_period:
+                        dist_diff = entry.total_distance - last_full_entry.total_distance
+                        if dist_diff > 0 and accumulated_fuel > 0:
+                            total_distance_sum += dist_diff
+                            total_fuel_sum += accumulated_fuel
 
-    for i in range(len(all_full_tank_entries) - 1):
-        start_entry = all_full_tank_entries[i]
-        end_entry = all_full_tank_entries[i+1]
+            # 次の区間の開始点としてセット
+            last_full_entry = entry
+            accumulated_fuel = 0.0
+        else:
+            # 満タンでない場合、accumulated_fuelは維持して次へ
+            pass
 
-        # 期間指定がある場合、計算区間の終了日が期間内でなければスキップ
-        if end_date and end_entry.entry_date > end_date:
-            continue
-            
-        if start_entry.exclude_from_average or end_entry.exclude_from_average:
-            continue
-
-        distance_diff = end_entry.total_distance - start_entry.total_distance
-
-        fuel_in_interval = db.session.query(func.sum(FuelEntry.fuel_volume)).filter(
-            FuelEntry.motorcycle_id == motorcycle.id,
-            FuelEntry.total_distance > start_entry.total_distance,
-            FuelEntry.total_distance <= end_entry.total_distance,
-            FuelEntry.exclude_from_average == False
-        ).scalar() or 0.0
-
-        if distance_diff > 0 and fuel_in_interval > 0:
-            total_distance += distance_diff
-            total_fuel += fuel_in_interval
-
-    if total_fuel > 0 and total_distance > 0:
+    if total_fuel_sum > 0 and total_distance_sum > 0:
         try:
-            return round(total_distance / total_fuel, 2)
+            return round(total_distance_sum / total_fuel_sum, 2)
         except ZeroDivisionError:
             return None
     return None
@@ -108,6 +105,19 @@ def get_timeline_events(motorcycle_ids, start_date=None, end_date=None):
 
     timeline_events = []
     is_multiple_vehicles = len(motorcycle_ids) > 1
+    
+    # --- 燃費の一括計算 ---
+    # タイムラインに表示する対象車両のIDについて、全期間の給油記録を取得して燃費を計算する
+    # ※期間フィルタがあっても、正確な燃費計算には過去の記録が必要なため全期間取得する
+    # データ量が多くても、ID/Distance/Volume/IsFull だけなら軽量
+    all_fuel_entries = db.session.query(
+        FuelEntry.id, FuelEntry.motorcycle_id, FuelEntry.total_distance, 
+        FuelEntry.fuel_volume, FuelEntry.is_full_tank
+    ).filter(
+        FuelEntry.motorcycle_id.in_(motorcycle_ids)
+    ).order_by(FuelEntry.motorcycle_id, FuelEntry.total_distance).all()
+    
+    kpl_map = calculate_kpl_bulk(all_fuel_entries)
 
     # 1. 給油記録を取得 (N+1対策: joinedloadを追加)
     fuel_query = FuelEntry.query.options(db.joinedload(FuelEntry.motorcycle)).filter(FuelEntry.motorcycle_id.in_(motorcycle_ids))
@@ -118,6 +128,10 @@ def get_timeline_events(motorcycle_ids, start_date=None, end_date=None):
         title = f"給油 ({entry.fuel_volume:.2f}L)"
         if is_multiple_vehicles:
             title = f"[{entry.motorcycle.name}] {title}"
+        
+        # プロパティアクセスを回避
+        kpl = kpl_map.get(entry.id)
+        kpl_str = f"{kpl:.2f}" if kpl is not None else "---"
 
         timeline_events.append({
             'type': 'fuel',
@@ -126,11 +140,11 @@ def get_timeline_events(motorcycle_ids, start_date=None, end_date=None):
             'odo': entry.odometer_reading,
             'total_dist': entry.total_distance,
             'title': title,
-            'description': f"燃費: {entry.km_per_liter if entry.km_per_liter is not None else '---'} km/L",
+            'description': f"燃費: {kpl_str} km/L",
             'cost': entry.total_cost,
             'details': {
                 '車両名': entry.motorcycle.name,
-                '燃費': f"{entry.km_per_liter:.2f} km/L" if entry.km_per_liter is not None else '---',
+                '燃費': f"{kpl_str} km/L",
                 '給油量': f"{entry.fuel_volume:.2f} L",
                 '単価': f"{entry.price_per_liter} 円/L" if entry.price_per_liter else '---',
                 '合計金額': f"{entry.total_cost:,.0f} 円" if entry.total_cost is not None else '---',
@@ -624,13 +638,29 @@ def get_calendar_events_for_user(user):
     # 公道車のみのIDリスト
     user_motorcycle_ids_public = [m.id for m in user_motorcycles_all if not m.is_racer]
 
+
     # 給油記録 (公道車のみ)
     if user_motorcycle_ids_public:
+        # --- 燃費の一括計算 ---
+        # カレンダー表示用にはフィルタリングがない(全件表示)ため、
+        # そのまま全公道車の全記録を取得して計算する
+        all_fuel_entries_for_calc = db.session.query(
+            FuelEntry.id, FuelEntry.motorcycle_id, FuelEntry.total_distance, 
+            FuelEntry.fuel_volume, FuelEntry.is_full_tank
+        ).filter(
+            FuelEntry.motorcycle_id.in_(user_motorcycle_ids_public)
+        ).order_by(FuelEntry.motorcycle_id, FuelEntry.total_distance).all()
+        
+        kpl_map = calculate_kpl_bulk(all_fuel_entries_for_calc)
+
         fuel_entries = FuelEntry.query.options(db.joinedload(FuelEntry.motorcycle)).filter(
             FuelEntry.motorcycle_id.in_(user_motorcycle_ids_public)).all()
+            
         for entry in fuel_entries:
-            kpl = entry.km_per_liter
+            # プロパティアクセスを回避
+            kpl = kpl_map.get(entry.id)
             kpl_display = f"{kpl:.2f} km/L" if kpl is not None else None
+            
             edit_url = url_for('fuel.edit_fuel', entry_id=entry.id)
             events.append({
                 'id': f'fuel-{entry.id}', 'title': f"⛽ 給油: {entry.motorcycle.name}",
@@ -643,6 +673,7 @@ def get_calendar_events_for_user(user):
                     'stationName': entry.station_name, 'notes': entry.notes, 'editUrl': edit_url
                 }
             })
+
 
     # 整備記録 (公道車のみ)
     if user_motorcycle_ids_public:
