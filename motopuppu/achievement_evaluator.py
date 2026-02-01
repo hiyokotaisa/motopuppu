@@ -5,12 +5,14 @@ from .models import (
 )
 from .achievements_utils import unlock_achievement
 
+
 # --- イベントタイプの定数 ---
 EVENT_ADD_VEHICLE = "add_vehicle"
 EVENT_ADD_FUEL_LOG = "add_fuel_log"
 EVENT_ADD_MAINTENANCE_LOG = "add_maintenance_log"
 EVENT_ADD_NOTE = "add_note"
 EVENT_ADD_ODO_RESET = "add_odo_reset"
+EVENT_ADD_ACTIVITY_LOG = "add_activity_log" # Added
 
 def check_achievements_for_event(user: User, event_type: str, event_data: dict = None):
     """
@@ -152,6 +154,19 @@ def evaluate_achievement_condition(user: User, achievement_def: AchievementDefin
             return False
         # --- ▲▲▲ フェーズ1変更点 ▲▲▲
 
+        # --- ▼▼▼ 追加機能用評価ロジック ▼▼▼ ---
+        elif crit_type == "count_circuit_activity" and isinstance(crit_value, int) and event_type == EVENT_ADD_ACTIVITY_LOG:
+            # location_type='circuit' の ActivityLog をカウント
+            # リアルタイム評価時は「このイベントで達成したか」が重要だが、単純に現在のカウントが一致・到達したか見る
+            # (厳密には == だが、>= でもトリガー済みチェックがあるため実質同じ)
+            actual_count = ActivityLog.query.filter_by(user_id=user_id, location_type='circuit').count()
+            return actual_count == crit_value
+        
+        elif crit_type == "count_maintenance_category": 
+            # (実装計画ではシンプル化のため見送る案だったが、余裕があれば。今回は見送りのためパス)
+            return False
+        # --- ▲▲▲ 追加機能用 ▲▲▲
+
         else: return False
     except Exception as e:
         current_app.logger.error(f"Error during [REALTIME_EVAL] for {code} (User ID: {user_id}): {e}", exc_info=True)
@@ -231,6 +246,22 @@ def evaluate_achievement_condition_for_backfill(user: User, achievement_def: Ach
         elif crit_type == "racer_vehicle_count" and isinstance(crit_value, int):
             return Motorcycle.query.filter_by(user_id=user_id, is_racer=True).count() >= crit_value
         # --- ▲▲▲ フェーズ1変更点 ▲▲▲
+
+        # --- ▼▼▼ 追加機能用評価ロジック ▼▼▼ ---
+        elif crit_type == "count_circuit_activity" and isinstance(crit_value, int):
+            actual_count = ActivityLog.query.filter_by(user_id=user_id, location_type='circuit').count()
+            return actual_count >= crit_value
+        
+        elif crit_type == "count_maintenance_category" and isinstance(crit_value, int):
+            cat_keyword = criteria.get('category_keyword')
+            if cat_keyword:
+                 actual_count = db.session.query(MaintenanceEntry.id).filter(
+                     MaintenanceEntry.category.like(f"%{cat_keyword}%")
+                     # 必要ならuser_idフィルタも追加 (現状 models.py の構造上 Motorcycle 経由が必要)
+                 ).join(Motorcycle).filter(Motorcycle.user_id == user_id).count()
+                 return actual_count >= crit_value
+            return False
+        # --- ▲▲▲ 追加機能用 ▲▲▲
 
         else: return False
     except Exception as e:

@@ -349,6 +349,12 @@ def add_activity(vehicle_id):
             try:
                 db.session.add(new_activity)
                 db.session.commit()
+
+                # ▼▼▼ 実績評価トリガー ▼▼▼
+                from ...achievement_evaluator import check_achievements_for_event, EVENT_ADD_ACTIVITY_LOG
+                check_achievements_for_event(current_user, EVENT_ADD_ACTIVITY_LOG, {'motorcycle_id': vehicle_id})
+                # ▲▲▲ トリガーここまで ▲▲▲
+
                 flash('新しい活動記録を作成しました。走行セッションを記録してください。', 'success')
                 return redirect(url_for('activity.detail_activity', activity_id=new_activity.id))
             except Exception as e:

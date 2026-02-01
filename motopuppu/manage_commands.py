@@ -436,6 +436,186 @@ def dump_user_fuel_data_command(user_id):
     click.echo("=" * 60)
 # ▲▲▲▲▲ 追加ここまで ▲▲▲▲▲
 
+@click.command('seed-achievements')
+@with_appcontext
+def seed_achievements_command():
+    """新しい実績定義をデータベースに追加（シード）します。"""
+    click.echo("Seeding achievement definitions...")
+
+    definitions = [
+        # --- 1. マイレージ (Mileage) ---
+        {
+            "code": "MILEAGE_1000KM",
+            "name": "週末ライダー",
+            "description": "公道車で累計 1,000 km 走行。バイクとの旅はまだ始まったばかり。",
+            "icon_class": "bi-speedometer",
+            "category_code": "mileage",
+            "category_name": "マイレージ",
+            "share_text_template": "公道車で1,000km走行し、実績「週末ライダー」を解除しました！ #もとぷっぷー",
+            "trigger_event_type": "add_fuel_log", # or add_maintenance_log
+            "criteria": {"type": "mileage_vehicle", "value_km": 1000}
+        },
+        {
+            "code": "MILEAGE_5000KM",
+            "name": "旅のベテラン",
+            "description": "公道車で累計 5,000 km 走行。日本列島縦断くらいの距離。",
+            "icon_class": "bi-speedometer2",
+            "category_code": "mileage",
+            "category_name": "マイレージ",
+            "share_text_template": "公道車で5,000km走行し、実績「旅のベテラン」を解除しました！ #もとぷっぷー",
+            "trigger_event_type": "add_fuel_log",
+            "criteria": {"type": "mileage_vehicle", "value_km": 5000}
+        },
+        {
+            "code": "MILEAGE_10000KM",
+            "name": "地球への第一歩",
+            "description": "公道車で累計 10,000 km 走行。地球一周の1/4に到達。",
+            "icon_class": "bi-globe-asia-australia",
+            "category_code": "mileage",
+            "category_name": "マイレージ",
+            "share_text_template": "公道車で10,000km走行し、実績「地球への第一歩」を解除しました！ #もとぷっぷー",
+            "trigger_event_type": "add_fuel_log",
+            "criteria": {"type": "mileage_vehicle", "value_km": 10000}
+        },
+
+        # --- 2. メンテナンス (Maintenance) ---
+        {
+            "code": "MAINT_COUNT_10",
+            "name": "アマチュア整備士",
+            "description": "整備記録を10回記録。工具の扱いに慣れてきましたね。",
+            "icon_class": "bi-wrench",
+            "category_code": "maintenance",
+            "category_name": "メンテナンス",
+            "share_text_template": "整備記録10回達成！実績「アマチュア整備士」を解除しました。 #もとぷっぷー",
+            "trigger_event_type": "add_maintenance_log",
+            "criteria": {"type": "count", "target_model": "MaintenanceEntry", "value": 10}
+        },
+        {
+            "code": "MAINT_COUNT_50",
+            "name": "ガレージの主",
+            "description": "整備記録を50回記録。手の油汚れは勲章です。",
+            "icon_class": "bi-tools",
+            "category_code": "maintenance",
+            "category_name": "メンテナンス",
+            "share_text_template": "整備記録50回達成！実績「ガレージの主」を解除しました。 #もとぷっぷー",
+            "trigger_event_type": "add_maintenance_log",
+            "criteria": {"type": "count", "target_model": "MaintenanceEntry", "value": 50}
+        },
+        {
+            "code": "MAINT_OIL_5",
+            "name": "オイル交換マニア",
+            "description": "オイル交換を5回記録。エンジンも喜んでいます。",
+            "icon_class": "bi-droplet-half",
+            "category_code": "maintenance",
+            "category_name": "メンテナンス",
+            "share_text_template": "オイル交換5回達成！実績「オイル交換マニア」を解除しました。 #もとぷっぷー",
+            "trigger_event_type": "add_maintenance_log",
+            # 注意: achievement_evaluator で criteria['type'] == 'count_by_category' などの対応が必要
+            # 今回は簡易的に通常の整備回数ロジックを使用せず、evaluatorを拡張する必要があるが、
+            # Planに基づきシンプルに「回数」として実装し、evaluator側でcategory判定を追加する。
+            "criteria": {"type": "count_maintenance_category", "category_keyword": "オイル", "value": 5}
+        },
+
+        # --- 3. アクティビティ/サーキット (Activity) ---
+        {
+            "code": "CIRCUIT_COUNT_5",
+            "name": "サーキットの狼",
+            "description": "サーキット走行を5回記録。レコードラインが見えてきた？",
+            "icon_class": "bi-flag",
+            "category_code": "activity",
+            "category_name": "アクティビティ",
+            "share_text_template": "サーキット走行5回達成！実績「サーキットの狼」を解除しました。 #もとぷっぷー",
+            "trigger_event_type": "add_activity_log",
+            "criteria": {"type": "count_circuit_activity", "value": 5}
+        },
+        {
+            "code": "CIRCUIT_COUNT_20",
+            "name": "トラックマスター",
+            "description": "サーキット走行を20回記録。サーキットが実家のような安心感。",
+            "icon_class": "bi-trophy",
+            "category_code": "activity",
+            "category_name": "アクティビティ",
+            "share_text_template": "サーキット走行20回達成！実績「トラックマスター」を解除しました。 #もとぷっぷー",
+            "trigger_event_type": "add_activity_log",
+            "criteria": {"type": "count_circuit_activity", "value": 20}
+        },
+
+        # --- 4. ユーモア/ファン (Fun) ---
+        {
+            "code": "FUEL_COUNT_50",
+            "name": "ガソスタの常連",
+            "description": "給油記録を50回記録。店員さんに顔を覚えられているかも。",
+            "icon_class": "bi-fuel-pump",
+            "category_code": "fun",
+            "category_name": "ユーモア",
+            "share_text_template": "給油記録50回達成！実績「ガソスタの常連」を解除しました。 #もとぷっぷー",
+            "trigger_event_type": "add_fuel_log",
+            "criteria": {"type": "count", "target_model": "FuelEntry", "value": 50}
+        },
+        {
+            "code": "NOTE_COUNT_10",
+            "name": "メモ魔",
+            "description": "ノート/タスクを10回記録。忘却とは無縁のライダー。",
+            "icon_class": "bi-journal-text",
+            "category_code": "fun",
+            "category_name": "ユーモア",
+            "share_text_template": "ノート記録10回達成！実績「メモ魔」を解除しました。 #もとぷっぷー",
+            "trigger_event_type": "add_note",
+            "criteria": {"type": "count", "target_model": "GeneralNote", "value": 10}
+        },
+        {
+            "code": "VEHICLE_COUNT_3",
+            "name": "コレクター",
+            "description": "車両を3台登録。体は一つしかありませんよ？",
+            "icon_class": "bi-collection",
+            "category_code": "fun",
+            "category_name": "ユーモア",
+            "share_text_template": "3台目の所有バイク登録！実績「コレクター」を解除しました。 #もとぷっぷー",
+            "trigger_event_type": "add_vehicle",
+            "criteria": {"type": "vehicle_count", "value": 3}
+        }
+    ]
+
+    added_count = 0
+    updated_count = 0
+
+    for data in definitions:
+        achievement = AchievementDefinition.query.filter_by(code=data['code']).first()
+        if not achievement:
+            achievement = AchievementDefinition(
+                code=data['code'],
+                name=data['name'],
+                description=data['description'],
+                icon_class=data['icon_class'],
+                category_code=data['category_code'],
+                category_name=data['category_name'],
+                share_text_template=data['share_text_template'],
+                trigger_event_type=data['trigger_event_type'],
+                criteria=data['criteria']
+            )
+            db.session.add(achievement)
+            added_count += 1
+            click.echo(f"  [NEW] Added: {data['name']} ({data['code']})")
+        else:
+            # 既存項目の更新 (説明や条件のアップデート)
+            achievement.name = data['name']
+            achievement.description = data['description']
+            achievement.icon_class = data['icon_class']
+            achievement.category_code = data['category_code']
+            achievement.category_name = data['category_name']
+            achievement.share_text_template = data['share_text_template']
+            achievement.trigger_event_type = data['trigger_event_type']
+            achievement.criteria = data['criteria']
+            updated_count += 1
+            click.echo(f"  [UPD] Updated: {data['name']} ({data['code']})")
+
+    try:
+        db.session.commit()
+        click.echo(f"Finished. Added: {added_count}, Updated: {updated_count}")
+    except Exception as e:
+        db.session.rollback()
+        click.echo(f"Error seeding achievements: {e}")
+
 # --- アプリケーションへのコマンド登録 ---
 def register_commands(app):
     """FlaskアプリケーションインスタンスにCLIコマンドを登録する"""
@@ -445,4 +625,5 @@ def register_commands(app):
     app.cli.add_command(check_abnormal_mileage_command)
     # ▼▼▼ 新しいコマンドを登録 ▼▼▼
     app.cli.add_command(dump_user_fuel_data_command)
+    app.cli.add_command(seed_achievements_command)
     # ▲▲▲ 登録ここまで ▲▲▲
