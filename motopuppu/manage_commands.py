@@ -627,8 +627,78 @@ def list_achievements_command():
 
 @click.command('merge-duplicate-achievements')
 @with_appcontext
-def merge_duplicate_achievements_command(): # これは次のステップで実装するが、枠だけ作っておくか、または次のステップで追加する
-    pass
+@click.option('--dry-run', is_flag=True, help='実際にはDBを更新せず、実行結果のプレビューのみ表示します。')
+def merge_duplicate_achievements_command(dry_run):
+    """
+    重複または類似した古い実績定義を新しい実績定義に統合します。
+    古い実績を解除済みのユーザーは、新しい実績を解除済みに移行され、古いデータは削除されます。
+    """
+    click.echo("Starting achievement merge process...")
+
+    # 旧コード -> 新コード のマッピング
+    merge_map = {
+        # メンテナンス
+        'MAINT_LOG_COUNT_10': 'MAINT_COUNT_10',
+        'MAINT_LOG_COUNT_50': 'MAINT_COUNT_50',
+        # 給油
+        'FUEL_LOG_COUNT_50': 'FUEL_COUNT_50',
+        # マイレージ
+        'MILEAGE_VEHICLE_1000KM': 'MILEAGE_1000KM',
+        'MILEAGE_VEHICLE_10000KM': 'MILEAGE_10000KM',
+    }
+    
+    # 完全に削除するだけのコードがあればここに追加 (今回は統合メインなのでなし)
+    # delete_codes = []
+
+    for old_code, new_code in merge_map.items():
+        click.echo(f"\nProcessing merge: {old_code} -> {new_code}")
+        
+        old_def = AchievementDefinition.query.filter_by(code=old_code).first()
+        new_def = AchievementDefinition.query.filter_by(code=new_code).first()
+        
+        if not old_def:
+            click.echo(f"  Old definition '{old_code}' not found. Skipping.")
+            continue
+        if not new_def:
+            click.echo(f"  New definition '{new_code}' not found. Skipping. (Please run seed-achievements first)")
+            continue
+
+        # この古い実績を解除している全ユーザー実績を取得
+        old_unlocks = UserAchievement.query.filter_by(achievement_code=old_code).all()
+        
+        click.echo(f"  Found {len(old_unlocks)} user unlocks for '{old_code}'.")
+
+        for ua in old_unlocks:
+            user_id = ua.user_id
+            
+            # すでに新しい実績を持っているか確認
+            existing_new_unlock = UserAchievement.query.filter_by(user_id=user_id, achievement_code=new_code).first()
+            
+            if existing_new_unlock:
+                # 両方持っている -> 古い方を削除するだけでOK
+                if not dry_run:
+                    db.session.delete(ua)
+                click.echo(f"    User {user_id}: Already has new achievement. Marking old one for deletion.")
+            else:
+                # 新しい方を持っていない -> 古い方を新しいコードに書き換える (解除日時は維持)
+                if not dry_run:
+                    ua.achievement_code = new_code
+                click.echo(f"    User {user_id}: Migrating unlock record to '{new_code}'.")
+
+        # 定義自体の削除
+        if not dry_run:
+            db.session.delete(old_def)
+        click.echo(f"  Marking definition '{old_code}' for deletion.")
+
+    if dry_run:
+        click.echo(click.style("\n--- Dry run finished. No changes made. ---", fg='yellow'))
+    else:
+        try:
+            db.session.commit()
+            click.echo(click.style("\n--- Merge completed successfully. ---", fg='green', bold=True))
+        except Exception as e:
+            db.session.rollback()
+            click.echo(click.style(f"\nError during commit: {e}", fg='red'))
 
 # --- アプリケーションへのコマンド登録 ---
 def register_commands(app):
@@ -641,4 +711,5 @@ def register_commands(app):
     app.cli.add_command(dump_user_fuel_data_command)
     app.cli.add_command(seed_achievements_command)
     app.cli.add_command(list_achievements_command)
+    app.cli.add_command(merge_duplicate_achievements_command)
     # ▲▲▲ 登録ここまで ▲▲▲
