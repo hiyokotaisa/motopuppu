@@ -338,7 +338,8 @@
                         if (field) {
                             field.classList.add('bg-info-subtle', 'border-info');
                             // ユーザーが編集したらハイライトを消す
-                            const removeHighlight = () => {
+                            const removeHighlight = (e) => {
+                                if (e && !e.isTrusted) return;
                                 field.classList.remove('bg-info-subtle', 'border-info');
                                 field.removeEventListener('input', removeHighlight);
                             };

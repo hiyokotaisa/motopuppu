@@ -80,6 +80,9 @@ def parse_receipt_image(image_bytes, mime_type='image/jpeg'):
             
         parsed_data = json.loads(response_text.strip())
         
+        # Log the parsed data for troubleshooting
+        current_app.logger.info(f"Receipt Parsed Data: {json.dumps(parsed_data, ensure_ascii=False)}")
+        
         return {'success': True, 'data': parsed_data}
 
     except Exception as e:
