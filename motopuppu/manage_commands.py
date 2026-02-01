@@ -616,6 +616,20 @@ def seed_achievements_command():
         db.session.rollback()
         click.echo(f"Error seeding achievements: {e}")
 
+@click.command('list-achievements')
+@with_appcontext
+def list_achievements_command():
+    """現在DBに登録されている全ての実績定義をリスト表示します。"""
+    defs = AchievementDefinition.query.order_by(AchievementDefinition.code).all()
+    click.echo(f"Found {len(defs)} achievement definitions:")
+    for d in defs:
+        click.echo(f"Code: {d.code:<30} Name: {d.name}")
+
+@click.command('merge-duplicate-achievements')
+@with_appcontext
+def merge_duplicate_achievements_command(): # これは次のステップで実装するが、枠だけ作っておくか、または次のステップで追加する
+    pass
+
 # --- アプリケーションへのコマンド登録 ---
 def register_commands(app):
     """FlaskアプリケーションインスタンスにCLIコマンドを登録する"""
@@ -626,4 +640,5 @@ def register_commands(app):
     # ▼▼▼ 新しいコマンドを登録 ▼▼▼
     app.cli.add_command(dump_user_fuel_data_command)
     app.cli.add_command(seed_achievements_command)
+    app.cli.add_command(list_achievements_command)
     # ▲▲▲ 登録ここまで ▲▲▲
