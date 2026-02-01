@@ -627,6 +627,8 @@ def list_achievements_command():
 
 @click.command('merge-duplicate-achievements')
 @with_appcontext
+@click.command('merge-duplicate-achievements')
+@with_appcontext
 @click.option('--dry-run', is_flag=True, help='実際にはDBを更新せず、実行結果のプレビューのみ表示します。')
 def merge_duplicate_achievements_command(dry_run):
     """
@@ -640,14 +642,17 @@ def merge_duplicate_achievements_command(dry_run):
         # メンテナンス
         'MAINT_LOG_COUNT_10': 'MAINT_COUNT_10',
         'MAINT_LOG_COUNT_50': 'MAINT_COUNT_50',
+        'MAINT_LOG_COUNT_100': 'MAINT_COUNT_50', # 100回は50回に丸める（新しい定義に100がないため）
         # 給油
         'FUEL_LOG_COUNT_50': 'FUEL_COUNT_50',
+        'FUEL_LOG_COUNT_100': 'FUEL_COUNT_50', # 100回は50回に丸める
         # マイレージ
         'MILEAGE_VEHICLE_1000KM': 'MILEAGE_1000KM',
         'MILEAGE_VEHICLE_10000KM': 'MILEAGE_10000KM',
+        # 'MILEAGE_VEHICLE_100000KM' # 10万キロは該当なし、残す
     }
     
-    # 完全に削除するだけのコードがあればここに追加 (今回は統合メインなのでなし)
+    # マッピングにはないが、削除したい古い実績があればここに追加
     # delete_codes = []
 
     for old_code, new_code in merge_map.items():
@@ -683,10 +688,18 @@ def merge_duplicate_achievements_command(dry_run):
                 # 新しい方を持っていない -> 古い方を新しいコードに書き換える (解除日時は維持)
                 if not dry_run:
                     ua.achievement_code = new_code
+                    # セッション上のリレーション整合性を保つため、フラッシュしてDB反映を確実にする
+                    db.session.add(ua) 
                 click.echo(f"    User {user_id}: Migrating unlock record to '{new_code}'.")
 
-        # 定義自体の削除
+        # 変更を一旦フラッシュして、uaが古い定義を参照しなくなったことをDBに伝える
         if not dry_run:
+            db.session.flush()
+
+        # 旧定義自体の削除
+        if not dry_run:
+            # リレーションのリロードを防ぐため、クエリで直接削除を試みるか、
+            # あるいは flush 後なので delete(old_def) でも通るはずだが、念の為
             db.session.delete(old_def)
         click.echo(f"  Marking definition '{old_code}' for deletion.")
 
