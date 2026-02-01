@@ -351,12 +351,12 @@
                     // 成功時: フォームに入力 & ハイライト
                     // 日付
                     if (data.date) {
-                        const dateField = highlightField('{{ form.entry_date.id }}');
+                        const dateField = highlightField('tutorial-entry-date');
                         if (dateField) dateField.value = data.date;
                     }
                     // 給油量
                     if (data.volume) {
-                        const volumeField = highlightField('{{ form.fuel_volume.id }}');
+                        const volumeField = highlightField('tutorial-volume-input');
                         if (volumeField) volumeField.value = data.volume;
                     }
                     // 単価
@@ -392,8 +392,8 @@
 
                     // 完了メッセージなど出してもいいが、フォームが埋まるのでそれでわかる
                     // 最後にトリガーイベントを発火させて、既存の計算ロジック(JS)を動かす
-                    if (document.getElementById('{{ form.fuel_volume.id }}')) {
-                        document.getElementById('{{ form.fuel_volume.id }}').dispatchEvent(new Event('input'));
+                    if (document.getElementById('tutorial-volume-input')) {
+                        document.getElementById('tutorial-volume-input').dispatchEvent(new Event('input'));
                     }
 
 

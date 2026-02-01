@@ -37,7 +37,7 @@ def parse_receipt_image(image_bytes, mime_type='image/jpeg'):
         genai.configure(api_key=api_key)
         
         # Use a model that supports vision, e.g., gemini-2.5-flash
-        model = genai.GenerativeModel('gemini-3-flash-preview')
+        model = genai.GenerativeModel('gemini-2.5-flash')
 
         prompt = """
         あなたはガソリンスタンドのレシートを読み取るOCRアシスタントです。
