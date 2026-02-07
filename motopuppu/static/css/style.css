@@ -7,44 +7,139 @@
 
 /* ヘルプページのサイドバーの位置と重なり順を調整 */
 .help-sidebar .sticky-top {
-    top: 80px; /* ナビゲーションバーの高さ分だけ下げる */
-    z-index: 1020; /* Bootstrapのデフォルト値ですが、明示的に指定 */
+    top: 80px;
+    /* ナビゲーションバーの高さ分だけ下げる */
+    z-index: 1020;
+    /* Bootstrapのデフォルト値ですが、明示的に指定 */
 }
 
 /* --- 固定ナビゲーションバーの下にコンテンツが隠れるのを防ぐ --- */
 #main-content {
-    padding-top: 80px; /* ナビゲーションバーの高さに合わせて調整 */
+    padding-top: 80px;
+    /* ナビゲーションバーの高さに合わせて調整 */
 }
 
 
 /* --- FullCalendar カスタマイズ --- */
-.fc .fc-daygrid-day-top { display: flex; justify-content: space-between; align-items: flex-start; padding: 1px 2px; margin-bottom: 2px; min-height: 1.4em; position: relative; }
-.fc .fc-daygrid-day-number { order: 1; text-decoration: none !important; color: inherit; padding: 0; text-align: left; flex-shrink: 0; line-height: 1.2; font-weight: normal; }
-.fc-holiday-name { order: 2; font-size: 0.7em; line-height: 1.2; color: #dc3545; margin-left: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 1; text-align: right; cursor: default; }
-.fc-day-holiday .fc-daygrid-day-number, .fc .fc-daygrid-day-number.is-holiday { color: #dc3545 !important; font-weight: bold; }
-.fc-day-sun:not(.fc-day-holiday) .fc-daygrid-day-number, .fc .fc-daygrid-day-number.is-sun:not(.is-holiday) { color: #dc3545 !important; }
-.fc-day-sat:not(.fc-day-holiday):not(.fc-day-sun) .fc-daygrid-day-number, .fc .fc-daygrid-day-number.is-sat:not(.is-holiday):not(.is-sun) { color: #0d6efd !important; }
-.fc .fc-daygrid-day-frame { padding: 2px; min-height: 4.5em; position: relative; }
-.fc .fc-col-header-cell-cushion { text-decoration: none !important; color: inherit; display: block; padding: 4px; }
-.fc .fc-col-header-cell > a { text-decoration: none !important; color: inherit; }
-.fc-list-event-title a { text-decoration: none; color: inherit; }
-.fc-list-day-text, .fc-list-day-side-text { text-decoration: none; color: inherit; }
+.fc .fc-daygrid-day-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 1px 2px;
+    margin-bottom: 2px;
+    min-height: 1.4em;
+    position: relative;
+}
+
+.fc .fc-daygrid-day-number {
+    order: 1;
+    text-decoration: none !important;
+    color: inherit;
+    padding: 0;
+    text-align: left;
+    flex-shrink: 0;
+    line-height: 1.2;
+    font-weight: normal;
+}
+
+.fc-holiday-name {
+    order: 2;
+    font-size: 0.7em;
+    line-height: 1.2;
+    color: #dc3545;
+    margin-left: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex-shrink: 1;
+    text-align: right;
+    cursor: default;
+}
+
+.fc-day-holiday .fc-daygrid-day-number,
+.fc .fc-daygrid-day-number.is-holiday {
+    color: #dc3545 !important;
+    font-weight: bold;
+}
+
+.fc-day-sun:not(.fc-day-holiday) .fc-daygrid-day-number,
+.fc .fc-daygrid-day-number.is-sun:not(.is-holiday) {
+    color: #dc3545 !important;
+}
+
+.fc-day-sat:not(.fc-day-holiday):not(.fc-day-sun) .fc-daygrid-day-number,
+.fc .fc-daygrid-day-number.is-sat:not(.is-holiday):not(.is-sun) {
+    color: #0d6efd !important;
+}
+
+.fc .fc-daygrid-day-frame {
+    padding: 2px;
+    min-height: 4.5em;
+    position: relative;
+}
+
+.fc .fc-col-header-cell-cushion {
+    text-decoration: none !important;
+    color: inherit;
+    display: block;
+    padding: 4px;
+}
+
+.fc .fc-col-header-cell>a {
+    text-decoration: none !important;
+    color: inherit;
+}
+
+.fc-list-event-title a {
+    text-decoration: none;
+    color: inherit;
+}
+
+.fc-list-day-text,
+.fc-list-day-side-text {
+    text-decoration: none;
+    color: inherit;
+}
 
 /* --- ポップオーバーのスタイル調整 --- */
-.motopuppu-popover { max-width: 350px; font-size: 0.875rem; }
-.motopuppu-popover .popover-body dl { margin-bottom: 0; }
-.motopuppu-popover .popover-body dt { font-weight: bold; color: #6c757d; margin-top: 0.3rem; }
-.motopuppu-popover .popover-body dd { margin-left: 0.5rem; word-wrap: break-word; overflow-wrap: break-word; white-space: pre-wrap; }
-.motopuppu-popover .popover-body dd:first-of-type { margin-top: 0; }
+.motopuppu-popover {
+    max-width: 350px;
+    font-size: 0.875rem;
+}
+
+.motopuppu-popover .popover-body dl {
+    margin-bottom: 0;
+}
+
+.motopuppu-popover .popover-body dt {
+    font-weight: bold;
+    color: #6c757d;
+    margin-top: 0.3rem;
+}
+
+.motopuppu-popover .popover-body dd {
+    margin-left: 0.5rem;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: pre-wrap;
+}
+
+.motopuppu-popover .popover-body dd:first-of-type {
+    margin-top: 0;
+}
 
 /* --- お知らせモーダル用スタイル (共通) --- */
 #announcementsModal .modal-body .mb-3 h6 {
-    font-weight: bold; /* Poppins/Ralewayのboldは600想定 */
+    font-weight: bold;
+    /* Poppins/Ralewayのboldは600想定 */
 }
+
 #announcementsModal .modal-body .mb-3 .small {
     line-height: 1.6;
-    /* color: #2c3e50; */ /* .page-landing で指定されるのでここではコメントアウト */
+    /* color: #2c3e50; */
+    /* .page-landing で指定されるのでここではコメントアウト */
 }
+
 /* トップページの場合のフォント色を明示的に指定 (Poppinsに合わせる) */
 .page-landing #announcementsModal .modal-body .mb-3 .small {
     color: #2c3e50;
@@ -54,24 +149,35 @@
 /* --- デザイン案B: モダンフラット (トップページ専用) --- */
 /* Poppins フォントは index.html の page_specific_head ブロックで読み込まれる前提 */
 
-.page-landing { /* body.page-landing でトップページ全体の基本スタイルを設定 */
+.page-landing {
+    /* body.page-landing でトップページ全体の基本スタイルを設定 */
     font-family: 'Poppins', sans-serif;
-    background-color: #eef2f5; /* 例: 薄いクールグレー背景 */
-    color: #2c3e50; /* ダークブルーグレー */
+    background-color: #eef2f5;
+    /* 例: 薄いクールグレー背景 */
+    color: #2c3e50;
+    /* ダークブルーグレー */
     line-height: 1.7;
 }
 
-.page-landing h1, .page-landing h2, .page-landing h3,
-.page-landing h4, .page-landing h5, .page-landing h6,
-.page-landing .h1, .page-landing .h2, .page-landing .h3,
-.page-landing .h4, .page-landing .h5, .page-landing .h6 {
+.page-landing h1,
+.page-landing h2,
+.page-landing h3,
+.page-landing h4,
+.page-landing h5,
+.page-landing h6,
+.page-landing .h1,
+.page-landing .h2,
+.page-landing .h3,
+.page-landing .h4,
+.page-landing .h5,
+.page-landing .h6 {
     font-family: 'Poppins', sans-serif;
     font-weight: 600;
     color: #2c3e50;
 }
 
 /* アプリ名の大見出し */
-.page-landing #main-content > .container h2.text-center {
+.page-landing #main-content>.container h2.text-center {
     font-size: 2.8rem;
     font-weight: 700;
     letter-spacing: -0.5px;
@@ -79,7 +185,7 @@
 }
 
 /* キャッチコピー */
-.page-landing #main-content > .container p.text-center.text-muted {
+.page-landing #main-content>.container p.text-center.text-muted {
     font-size: 1.15rem;
     color: #526272 !important;
     margin-bottom: 3rem !important;
@@ -97,6 +203,7 @@
     transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
     color: #fff;
 }
+
 .page-landing .btn-primary:hover {
     transform: translateY(-3px);
     box-shadow: 0 7px 18px rgba(22, 160, 133, 0.35);
@@ -109,6 +216,7 @@
     border-radius: 0.6rem;
     overflow: hidden;
 }
+
 .page-landing .card-header {
     background-color: #ffffff;
     border-bottom: 1px solid #e7eaec;
@@ -119,19 +227,22 @@
 
 /* 機能ハイライトのリストアイテム */
 .page-landing #indexFunctionalHighlights .list-group-item {
-    border:none;
+    border: none;
     padding: 1.25rem;
     background-color: #fff;
     transition: background-color 0.2s ease-in-out;
 }
+
 .page-landing #indexFunctionalHighlights .list-group-item i {
     color: #1abc9c;
     font-size: 1.6rem;
 }
+
 .page-landing #indexFunctionalHighlights .list-group-item h6 {
     font-weight: 600;
     margin-bottom: 0.2rem;
 }
+
 .page-landing #indexFunctionalHighlights .list-group-item small {
     color: #7f8c8d;
 }
@@ -142,9 +253,10 @@
     border: 1px solid #fce8b2;
     color: #8a6d3b;
     border-radius: 0.375rem;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
     padding: 1.25rem;
 }
+
 .page-landing .alert-warning .alert-heading {
     color: inherit;
     font-weight: 600;
@@ -158,6 +270,7 @@
     font-weight: 500;
     padding: 0.5rem 1.25rem;
 }
+
 .page-landing .btn-outline-primary:hover {
     background-color: #1abc9c;
     color: #fff;
@@ -165,14 +278,21 @@
 
 /* フッターの text-muted の色もトップページでは調整 (任意) */
 .page-landing .footer .text-muted,
-.page-landing .footer a.text-muted { /* text-muted クラスを持つリンクも対象に */
-    color: #526272 !important; /* キャッチコピーの text-muted と合わせるなど */
+.page-landing .footer a.text-muted {
+    /* text-muted クラスを持つリンクも対象に */
+    color: #526272 !important;
+    /* キャッチコピーの text-muted と合わせるなど */
 }
-.page-landing .footer a:not(.text-muted) { /* 通常のフッターリンク */
-    color: #1abc9c; /* アクセントカラー */
+
+.page-landing .footer a:not(.text-muted) {
+    /* 通常のフッターリンク */
+    color: #1abc9c;
+    /* アクセントカラー */
 }
+
 .page-landing .footer a:not(.text-muted):hover {
-    color: #16a085; /* ホバー色 */
+    color: #16a085;
+    /* ホバー色 */
 }
 
 /* --- 給油記録カード (スマートフォン表示用) --- */
@@ -185,14 +305,17 @@
 }
 
 .fuel-log-card dt {
-    font-size: 0.8rem; /* 項目ラベルのフォントサイズ */
+    font-size: 0.8rem;
+    /* 項目ラベルのフォントサイズ */
     font-weight: normal;
-    color: #6c757d;     /* Bootstrapの .text-muted の色 */
+    color: #6c757d;
+    /* Bootstrapの .text-muted の色 */
     margin-bottom: 0.1rem;
 }
 
 .fuel-log-card dd {
-    font-size: 1rem;    /* 値のフォントサイズ */
+    font-size: 1rem;
+    /* 値のフォントサイズ */
     font-weight: 500;
     margin-bottom: 0;
     line-height: 1.2;
@@ -200,7 +323,8 @@
 
 /* 一部のdd要素は少し大きくして目立たせる */
 .fuel-log-card dd.fs-5 {
-    font-size: 1.25rem !important; /* fs-5クラスを上書き */
+    font-size: 1.25rem !important;
+    /* fs-5クラスを上書き */
     font-weight: 600;
 }
 
@@ -243,6 +367,7 @@
     word-wrap: break-word;
     overflow-wrap: break-word;
 }
+
 /* --- ▲▲▲ 追記はここまで ▲▲▲ --- */
 
 
@@ -257,10 +382,13 @@
 
 /* --- 表示設定トグル用 --- */
 .view-toggles-container .form-switch {
-    padding-left: 3.5em; /* ラベルとの余白を調整 */
+    padding-left: 3.5em;
+    /* ラベルとの余白を調整 */
 }
+
 .view-toggles-container .form-check-label {
-    padding-top: 0.1em; /* スイッチとの垂直位置を微調整 */
+    padding-top: 0.1em;
+    /* スイッチとの垂直位置を微調整 */
 }
 
 /* --- Touring Log Timeline --- */
@@ -269,6 +397,7 @@
     padding: 0;
     position: relative;
 }
+
 .timeline:before {
     content: '';
     position: absolute;
@@ -278,11 +407,13 @@
     width: 2px;
     background-color: #e9ecef;
 }
+
 .timeline-item {
     position: relative;
     margin-bottom: 20px;
     padding-left: 35px;
 }
+
 .timeline-item-marker {
     position: absolute;
     top: 5px;
@@ -293,12 +424,14 @@
     background-color: #fff;
     border: 2px solid var(--bs-primary);
 }
+
 .timeline-item-content {
     background-color: #f8f9fa;
     padding: 1rem;
     border-radius: 0.375rem;
     border: 1px solid #e9ecef;
 }
+
 .timeline-item-title {
     font-weight: 600;
     margin-bottom: 0.25rem;
@@ -307,8 +440,10 @@
 /* --- ヘルプページ共通スタイル --- */
 .help-body {
     font-family: 'Poppins', 'Helvetica Neue', 'Helvetica', 'Arial', 'sans-serif';
-    background-color: #f4f7f9; /* アプリ全体の背景色 */
-    color: #4a5568; /* 基本テキストカラー */
+    background-color: #f4f7f9;
+    /* アプリ全体の背景色 */
+    color: #4a5568;
+    /* 基本テキストカラー */
     line-height: 1.7;
 }
 
@@ -319,13 +454,18 @@
     padding: 2rem;
 }
 
-.help-content h1, .help-content h2, .help-content h3, .help-content h4, .help-content h5 {
+.help-content h1,
+.help-content h2,
+.help-content h3,
+.help-content h4,
+.help-content h5 {
     font-weight: 600;
     color: #2d3748;
     letter-spacing: -0.5px;
 }
 
-.help-content h2.page-title { /* layout.htmlのメインタイトル */
+.help-content h2.page-title {
+    /* layout.htmlのメインタイトル */
     padding-bottom: 0.75rem;
     border-bottom: 1px solid #e2e8f0;
 }
@@ -343,7 +483,8 @@
     color: #4a5568;
     border-radius: 0.5rem !important;
     margin-bottom: 0.25rem;
-    transition: background-color 0.15s ease-in-out, color 0.15s ease-in-out; /* スムーズな変化のため */
+    transition: background-color 0.15s ease-in-out, color 0.15s ease-in-out;
+    /* スムーズな変化のため */
 }
 
 /* 機能ガイドのトグルボタンのスタイルを!importantで上書きし、アニメーション中の崩れを防ぐ */
@@ -355,13 +496,15 @@
 /* 展開ボタンが「展開されている」状態（.collapsedクラスがない状態）のスタイル */
 .help-sidebar .list-group-item[data-bs-toggle="collapse"]:not(.collapsed) {
     background-color: #ecf0f1;
-    color: #2d3748 !important; /* 文字色も濃いまま維持 */
+    color: #2d3748 !important;
+    /* 文字色も濃いまま維持 */
 }
 
 /* 現在地を示すアクティブなリンクのスタイル */
 .help-sidebar .list-group-item.active {
     background-color: #3498db;
-    color: white !important; /* !importantを追加 */
+    color: white !important;
+    /* !importantを追加 */
     box-shadow: 0 4px 10px rgba(52, 152, 219, 0.3);
 }
 
@@ -373,14 +516,18 @@
 .help-sidebar .list-group-item .fa-chevron-down {
     transition: transform 0.2s ease-in-out;
 }
+
 .help-sidebar .list-group-item[aria-expanded="true"] .fa-chevron-down {
     transform: rotate(180deg);
 }
+
 .help-sidebar .collapse .list-group-item {
     font-size: 0.9rem;
-    padding: 0.6rem 1.25rem 0.6rem 2.5rem; /* インデント */
+    padding: 0.6rem 1.25rem 0.6rem 2.5rem;
+    /* インデント */
     font-weight: 400;
 }
+
 .help-sidebar .collapse .list-group-item.active {
     font-weight: 500;
 }
@@ -391,28 +538,36 @@
     border: 1px solid #e2e8f0;
     border-radius: 0.5rem;
     margin-bottom: 1rem;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.03);
-    overflow: hidden; /* 角丸を効かせるため */
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.03);
+    overflow: hidden;
+    /* 角丸を効かせるため */
 }
+
 .help-content .accordion-header {
     border-bottom: 1px solid #e2e8f0;
 }
+
 .help-content .accordion-button {
     font-weight: 600;
     color: #2d3748;
 }
+
 .help-content .accordion-button:not(.collapsed) {
     background-color: #f8fafc;
     color: #3498db;
     box-shadow: none;
 }
+
 .help-content .accordion-button:focus {
     box-shadow: 0 0 0 0.25rem rgba(52, 152, 219, 0.25);
 }
+
 .help-content .accordion-body {
     font-size: 0.95rem;
 }
-.help-content .accordion-body ul, .help-content .accordion-body ol {
+
+.help-content .accordion-body ul,
+.help-content .accordion-body ol {
     padding-left: 1.2rem;
 }
 
@@ -420,9 +575,11 @@
 .help-content table {
     font-size: 0.9rem;
 }
+
 .help-content table thead {
     background-color: #f8fafc;
 }
+
 .help-content table th {
     font-weight: 600;
     color: #4a5568;
@@ -448,11 +605,13 @@
     overflow-y: auto;
     padding-right: 10px;
 }
+
 .timeline-item {
     position: relative;
     margin-bottom: 1.5rem;
     padding-left: 50px;
 }
+
 .timeline-item::before {
     content: '';
     position: absolute;
@@ -463,9 +622,11 @@
     background-color: #e9ecef;
     z-index: 1;
 }
+
 .timeline-item:last-child::before {
     display: none;
 }
+
 .timeline-item-marker {
     position: absolute;
     top: 0;
@@ -481,14 +642,17 @@
     font-size: 1.2rem;
     z-index: 10;
 }
+
 .timeline-item-marker.type-fuel {
     color: #198754;
     border-color: #198754;
 }
+
 .timeline-item-marker.type-maintenance {
     color: #ffc107;
     border-color: #ffc107;
 }
+
 .timeline-item-content {
     position: relative;
     background-color: #f8f9fa;
@@ -498,57 +662,78 @@
     cursor: pointer;
     transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
 }
+
 .timeline-item-content:hover {
     background-color: #f1f3f5;
     border-color: #dee2e6;
 }
+
 .timeline-item-date {
     font-weight: 600;
     font-size: 0.9rem;
     color: #6c757d;
 }
+
 .timeline-item-title {
     font-weight: 600;
     margin-bottom: 0.1rem;
     color: #212529;
 }
+
 .timeline-item-description {
     font-size: 0.9rem;
     color: #495057;
 }
+
 .timeline-item-cost {
     font-size: 0.85rem;
     color: #6c757d;
 }
-#timelineDetailModal .modal-header .icon-fuel { color: #198754; }
-#timelineDetailModal .modal-header .icon-maintenance { color: #ffc107; }
+
+#timelineDetailModal .modal-header .icon-fuel {
+    color: #198754;
+}
+
+#timelineDetailModal .modal-header .icon-maintenance {
+    color: #ffc107;
+}
 
 /* モーダルの詳細表示スタイル */
 #timelineDetailModal .modal-body dt {
     font-weight: bold;
 }
+
 #timelineDetailModal .modal-body dd {
-    white-space: pre-wrap; /* メモなどの改行を反映 */
+    white-space: pre-wrap;
+    /* メモなどの改行を反映 */
     word-break: break-word;
 }
+
 /* ▼▼▼ 変更・追記 ▼▼▼ */
 /* --- 並び替えモード用のスタイル --- */
 .widget-grab-handle {
     cursor: grab;
-    display: none; /* 通常時は非表示 */
+    display: none;
+    /* 通常時は非表示 */
 }
+
 .sortable-ghost {
     opacity: 0.4;
     background: #c8ebfb;
 }
+
 #dashboard-widgets-container.is-sorting .widget-grab-handle {
-    display: inline-block; /* is-sortingクラスが付いた時だけ表示 */
+    display: inline-block;
+    /* is-sortingクラスが付いた時だけ表示 */
 }
+
 #dashboard-widgets-container.is-sorting .card-header,
 /* ▼▼▼ アコーディオン化対応 ▼▼▼ */
 #dashboard-widgets-container.is-sorting .accordion-header {
-    background-color: #f0f8ff; /* 並び替え中はヘッダー色を少し変える */
+    background-color: #f0f8ff;
+    /* 並び替え中はヘッダー色を少し変える */
 }
+
 /* ▲▲▲ 変更・追記 ここまで ▲▲▲ */
 
 /* --- 【見た目修正】ダッシュボード アコーディオンウィジェット --- */
@@ -564,18 +749,21 @@
     flex-grow: 1;
 }
 
-.dashboard-widgets .accordion-header > *:not(.accordion-button) {
+.dashboard-widgets .accordion-header>*:not(.accordion-button) {
     padding: 0.5rem 1rem;
     flex-shrink: 0;
 }
 
 /* ボタンのデフォルトスタイルをリセットして、親ヘッダーの見た目を継承させる */
 .dashboard-widgets .accordion-button {
-    color: inherit; /* テキスト色を親から継承 */
-    background-color: transparent; /* 背景を透過 */
+    color: inherit;
+    /* テキスト色を親から継承 */
+    background-color: transparent;
+    /* 背景を透過 */
     border: none;
     box-shadow: none;
-    border-radius: 0; /* 角丸をなくす */
+    border-radius: 0;
+    /* 角丸をなくす */
 }
 
 /* 展開時もスタイルを維持 */
@@ -599,18 +787,24 @@
 
 /* --- グローバル検索フォーム --- */
 #global-search-form {
-    position: relative; /* 結果表示の基準位置とする */
+    position: relative;
+    /* 結果表示の基準位置とする */
 }
 
 #global-search-results {
-    /* display: none; */ /* JSで制御するため、ここでは'block'のままにしておく */
+    /* display: none; */
+    /* JSで制御するため、ここでは'block'のままにしておく */
     position: absolute;
-    top: 100%; /* フォームの真下に表示 */
+    top: 100%;
+    /* フォームの真下に表示 */
     left: 0;
     right: 0;
-    z-index: 1050; /* ナビゲーションバーより手前に */
-    max-height: 70vh; /* 最大高さを画面の70%に */
-    overflow-y: auto; /* 高さを超えたらスクロール */
+    z-index: 1050;
+    /* ナビゲーションバーより手前に */
+    max-height: 70vh;
+    /* 最大高さを画面の70%に */
+    overflow-y: auto;
+    /* 高さを超えたらスクロール */
     border-top: none;
     border-top-left-radius: 0;
     border-top-right-radius: 0;
@@ -620,9 +814,11 @@
 .search-result-item .result-title {
     font-weight: 500;
 }
+
 .search-result-item .result-text {
     font-size: 0.85em;
-    color: #6c757d; /* text-muted */
+    color: #6c757d;
+    /* text-muted */
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -632,9 +828,12 @@
 /* ▼▼▼ ここから追記 ▼▼▼ */
 /* --- グローバル検索フォームのスタイル調整 --- */
 #global-search-input {
-    background-color: #495057; /* 濃いグレーの背景 */
-    color: #f8f9fa;            /* 明るいグレーの文字色 */
-    border-color: #6c757d;     /* 少し明るいグレーの境界線 */
+    background-color: #495057;
+    /* 濃いグレーの背景 */
+    color: #f8f9fa;
+    /* 明るいグレーの文字色 */
+    border-color: #6c757d;
+    /* 少し明るいグレーの境界線 */
 }
 
 /* 検索ボックスのプレースホルダー文字の色 */
@@ -646,16 +845,20 @@
 #global-search-input:focus {
     background-color: #495057;
     color: #f8f9fa;
-    border-color: #80bdff; /* Bootstrapのデフォルトのフォーカス色 */
-    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25); /* Bootstrapのデフォルトのフォーカスグロー */
+    border-color: #80bdff;
+    /* Bootstrapのデフォルトのフォーカス色 */
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+    /* Bootstrapのデフォルトのフォーカスグロー */
 }
 
 /* ナビゲーションバーの入力グループのアイコン背景 */
 #global-search-form .input-group-text {
     background-color: #495057;
     border-color: #6c757d;
-    color: #adb5bd; /* アイコンの色 */
+    color: #adb5bd;
+    /* アイコンの色 */
 }
+
 /* ▲▲▲ 追記ここまで ▲▲▲ */
 
 /* ▼▼▼ 【ここから追記】車両アイコン画像用のスタイル ▼▼▼ */
@@ -664,9 +867,11 @@
     height: 28px;
     object-fit: cover;
     border-radius: 50%;
-    border: 1px solid #dee2e6; /* 薄い枠線 */
+    border: 1px solid #dee2e6;
+    /* 薄い枠線 */
     vertical-align: middle;
 }
+
 /* ▲▲▲ 追記ここまで ▲▲▲ */
 
 
@@ -681,7 +886,8 @@
     padding: 0 !important;
     max-width: 400px !important;
     min-width: 320px !important;
-    overflow: visible !important; /* キャラクターを枠外にはみ出させるため必須 */
+    overflow: visible !important;
+    /* キャラクターを枠外にはみ出させるため必須 */
 }
 
 /* デフォルトの矢印（三角）はデザインの邪魔になるので非表示 */
@@ -693,32 +899,40 @@
 .tutorial-card {
     background-color: #ffffff;
     border-radius: 16px;
-    padding: 24px 24px 16px 24px; /* 上左右は広め、下はボタンエリア用に調整 */
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25); /* 影を強めにして浮遊感を出す */
+    padding: 24px 24px 16px 24px;
+    /* 上左右は広め、下はボタンエリア用に調整 */
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+    /* 影を強めにして浮遊感を出す */
     position: relative;
-    border: 1px solid rgba(0,0,0,0.05);
-    margin-top: 30px; /* キャラクターが上に乗るスペースを確保 */
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    margin-top: 30px;
+    /* キャラクターが上に乗るスペースを確保 */
 }
 
 /* 3. キャラクター（ステッカー風配置） */
 .tutorial-character-img {
     position: absolute;
-    top: -55px; /* カードの上に飛び出させる */
-    left: 20px; /* 左寄せ */
+    top: -55px;
+    /* カードの上に飛び出させる */
+    left: 20px;
+    /* 左寄せ */
     width: 90px;
     height: auto;
-    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.2));
-    z-index: 100; /* テキストより手前に */
+    filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.2));
+    z-index: 100;
+    /* テキストより手前に */
     transform-origin: bottom center;
     transition: transform 0.2s ease;
 }
+
 .tutorial-character-img:hover {
     transform: scale(1.1) rotate(-5deg);
 }
 
 /* 4. タイトルとテキスト */
 .tutorial-content {
-    margin-top: 10px; /* キャラクターと被らないように少し下げる */
+    margin-top: 10px;
+    /* キャラクターと被らないように少し下げる */
 }
 
 .tutorial-title {
@@ -729,13 +943,22 @@
     margin-bottom: 0.5rem;
     display: flex;
     align-items: center;
-    padding-left: 5px; /* 左端を少し空ける */
+    padding-left: 5px;
+    /* 左端を少し空ける */
 }
 
 /* アイコンの色調整 */
-.tutorial-title i { margin-right: 8px; }
-.tutorial-title .fa-paw { color: #198754; }
-.tutorial-title .fa-exclamation-triangle { color: #dc3545; }
+.tutorial-title i {
+    margin-right: 8px;
+}
+
+.tutorial-title .fa-paw {
+    color: #198754;
+}
+
+.tutorial-title .fa-exclamation-triangle {
+    color: #dc3545;
+}
 
 .tutorial-text {
     font-size: 0.95rem;
@@ -746,14 +969,17 @@
 
 /* 5. ボタンエリアの整理 */
 .introjs-tooltipbuttons {
-    background-color: transparent !important; /* 背景色を完全に消す */
-    border-top: 1px solid #f0f0f0; /* 薄い区切り線 */
+    background-color: transparent !important;
+    /* 背景色を完全に消す */
+    border-top: 1px solid #f0f0f0;
+    /* 薄い区切り線 */
     margin-top: 16px;
     padding-top: 12px;
     text-align: right;
     display: flex;
     justify-content: flex-end;
-    gap: 8px; /* ボタン間の隙間 */
+    gap: 8px;
+    /* ボタン間の隙間 */
 }
 
 /* ボタン共通スタイル (Bootstrapライクに) */
@@ -762,7 +988,8 @@
     font-weight: 600;
     font-size: 0.85rem;
     padding: 0.5rem 1rem;
-    border-radius: 8px; /* 丸み */
+    border-radius: 8px;
+    /* 丸み */
     border: none;
     text-shadow: none;
     box-shadow: none;
@@ -782,12 +1009,14 @@
 }
 
 /* 「次へ」「完了」ボタン (プライマリーカラー) */
-.introjs-nextbutton, .introjs-donebutton {
+.introjs-nextbutton,
+.introjs-donebutton {
     background-color: #198754 !important;
     color: #ffffff !important;
 }
 
-.introjs-nextbutton:hover, .introjs-donebutton:hover {
+.introjs-nextbutton:hover,
+.introjs-donebutton:hover {
     background-color: #146c43 !important;
     box-shadow: 0 4px 10px rgba(25, 135, 84, 0.3);
 }
@@ -800,10 +1029,61 @@
     color: #adb5bd !important;
 }
 
+/* --- Dashboard & Card Styles (Ported from Circuit Dashboard) --- */
+
+/* Card Hover Effect */
+.hover-lift {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hover-lift:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Hero Stat Card */
+.hero-stat-card {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border: none;
+    border-radius: 1rem;
+}
+
+.hero-stat-icon {
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    font-size: 1.5rem;
+}
+
+/* Custom Card (Generic Dashboard Card) */
+.custom-card {
+    border: none;
+    border-radius: 1rem;
+    overflow: hidden;
+    background-color: #fff;
+    position: relative;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    /* Bootstrap shadow-sm default */
+}
+
+/* Card Top Accent Bar */
+.custom-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background: linear-gradient(90deg, #0d6efd, #0dcaf0);
+}
+
 /* 6. ハイライト枠 (ターゲット強調) */
 .introjs-helperLayer {
     /* 枠線を太く、目立つオレンジに */
-    border: 4px solid #ffc107 !important; 
+    border: 4px solid #ffc107 !important;
     border-radius: 4px;
     background-color: rgba(255, 255, 255, 0.1);
     /* 周囲の暗転を濃くする (50% -> 70%) */
@@ -823,6 +1103,7 @@
     top: 10px;
     right: 15px;
 }
+
 .introjs-skipbutton:hover {
     color: #6c757d;
 }

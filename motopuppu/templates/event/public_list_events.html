@@ -5,99 +5,134 @@
 
 {% block content %}
 <div class="row justify-content-center">
-    <div class="col-lg-10 col-xl-8">
+    <div class="col-12">
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1 class="h2 mb-0">
-                <i class="fas fa-calendar-alt me-2"></i>開催予定のイベント一覧
-            </h1>
+            <div>
+                <h1 class="h2 mb-0 fw-bold">
+                    <i class="fas fa-calendar-alt me-2 text-primary"></i>開催予定のイベント一覧
+                </h1>
+                <p class="text-muted mb-0">Scheduled Events</p>
+            </div>
         </div>
 
         {% if events_pagination.items %}
-            <div class="list-group">
-                {% for event, attending_count, tentative_count in events_pagination.items %}
-                <a href="{{ url_for('event.public_event_view', public_id=event.public_id) }}" class="list-group-item list-group-item-action p-3">
-                    <div class="d-flex w-100 justify-content-between">
-                        <h5 class="mb-1">{{ event.title }}</h5>
-                        {# ▼▼▼ 修正: to_jst フィルタを使用 ▼▼▼ #}
-                        <small class="text-muted">{{ event.start_datetime | to_jst('%Y年%m月%d日(%a)') }}</small>
-                    </div>
-                    <p class="mb-1">
-                        <i class="fas fa-clock fa-fw me-1 text-muted"></i>
-                        {# ▼▼▼ 修正: to_jst フィルタを使用 ▼▼▼ #}
-                        {{ event.start_datetime | to_jst('%H:%M') }}
-                        {% if event.end_datetime %}
-                            {# ▼▼▼ 修正: to_jst フィルタを使用 ▼▼▼ #}
-                            〜 {{ event.end_datetime | to_jst('%H:%M') }}
-                        {% endif %}
-                    </p>
-                    {% if event.location %}
-                    <p class="mb-1">
-                        <i class="fas fa-map-marker-alt fa-fw me-1 text-muted"></i>
-                        {{ event.location }}
-                    </p>
-                    {% endif %}
+        <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4">
+            {% for event, attending_count, tentative_count in events_pagination.items %}
+            <div class="col">
+                <a href="{{ url_for('event.public_event_view', public_id=event.public_id) }}"
+                    class="text-decoration-none text-dark">
+                    <div class="card custom-card hover-lift h-100">
+                        <div class="card-body p-4 d-flex flex-column">
+                            {# --- 日時 --- #}
+                            <div class="d-flex align-items-center mb-3 text-muted small fw-bold text-uppercase">
+                                <i class="far fa-clock me-2 text-primary"></i>
+                                {{ event.start_datetime | to_jst('%Y.%m.%d (%a) %H:%M') }}
+                            </div>
 
-                    {# --- 主催者と参加者数の表示 --- #}
-                    <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top small text-muted">
-                        {# 主催者情報 #}
-                        <div class="d-flex align-items-center">
-                            {% if event.owner and event.owner.avatar_url %}
-                                <img src="{{ event.owner.avatar_url }}" alt="{{ event.owner.display_name or event.owner.misskey_username }}" class="rounded-circle me-2" style="width: 24px; height: 24px; object-fit: cover;">
-                            {% else %}
-                                <i class="fas fa-user-circle fa-lg me-2 text-secondary"></i>
+                            {# --- イベントタイトル --- #}
+                            <h5 class="card-title fw-bold mb-3 d-block text-truncate" title="{{ event.title }}">
+                                {{ event.title }}
+                            </h5>
+
+                            {# --- 場所 --- #}
+                            {% if event.location %}
+                            <div class="mb-3">
+                                <small class="text-muted d-block mb-1" style="font-size: 0.75rem;">LOCATION</small>
+                                <div class="d-flex align-items-center text-truncate">
+                                    <i class="fas fa-map-marker-alt text-danger me-2"></i>
+                                    <span class="text-truncate" title="{{ event.location }}">{{ event.location }}</span>
+                                </div>
+                            </div>
                             {% endif %}
-                            <span>主催者: {{ event.owner.display_name or event.owner.misskey_username }}</span>
-                        </div>
-                        {# 参加者数・保留者数 #}
-                        <div class="d-flex align-items-center">
-                            <span class="me-3" title="参加者">
-                                <i class="fas fa-check-circle text-success me-1"></i>
-                                <span class="fw-bold">{{ attending_count }}</span> 名
-                            </span>
-                            <span title="保留者">
-                                <i class="fas fa-question-circle text-warning me-1"></i>
-                                <span class="fw-bold">{{ tentative_count }}</span> 名
-                            </span>
+
+                            <div class="mt-auto pt-3 border-top">
+                                {# --- 主催者と参加者数の表示 --- #}
+                                <div class="d-flex justify-content-between align-items-center">
+                                    {# 主催者情報 #}
+                                    <div class="d-flex align-items-center">
+                                        {% if event.owner and event.owner.avatar_url %}
+                                        <img src="{{ event.owner.avatar_url }}"
+                                            alt="{{ event.owner.display_name or event.owner.misskey_username }}"
+                                            class="rounded-circle me-2 border"
+                                            style="width: 28px; height: 28px; object-fit: cover;">
+                                        {% else %}
+                                        <i class="fas fa-user-circle fa-lg me-2 text-secondary"></i>
+                                        {% endif %}
+                                        <div class="d-flex flex-column" style="line-height: 1.2;">
+                                            <small class="text-muted" style="font-size: 0.65rem;">ORGANIZER</small>
+                                            <small class="fw-bold text-truncate" style="max-width: 100px;">{{
+                                                event.owner.display_name or event.owner.misskey_username }}</small>
+                                        </div>
+                                    </div>
+
+                                    {# 参加者数・保留者数 #}
+                                    <div class="d-flex align-items-center bg-light rounded-pill px-3 py-1">
+                                        <span class="me-3" title="参加者">
+                                            <i class="fas fa-check-circle text-success me-1"></i>
+                                            <span class="fw-bold">{{ attending_count }}</span>
+                                        </span>
+                                        <span title="保留者">
+                                            <i class="fas fa-question-circle text-warning me-1"></i>
+                                            <span class="fw-bold">{{ tentative_count }}</span>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </a>
-                {% endfor %}
             </div>
+            {% endfor %}
+        </div>
 
-            {# --- ページネーション --- #}
-            {% if events_pagination.pages > 1 %}
-            <nav aria-label="Page navigation" class="mt-4">
-                <ul class="pagination justify-content-center">
-                    <li class="page-item {% if not events_pagination.has_prev %}disabled{% endif %}">
-                        <a class="page-link" href="{{ url_for('event.public_events_list', page=events_pagination.prev_num) if events_pagination.has_prev else '#' }}">前へ</a>
-                    </li>
-                    {% for page_num in events_pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
-                        {% if page_num %}
-                            <li class="page-item {% if page_num == events_pagination.page %}active{% endif %}">
-                                <a class="page-link" href="{{ url_for('event.public_events_list', page=page_num) }}">{{ page_num }}</a>
-                            </li>
-                        {% else %}
-                            <li class="page-item disabled"><span class="page-link">&hellip;</span></li>
-                        {% endif %}
-                    {% endfor %}
-                    <li class="page-item {% if not events_pagination.has_next %}disabled{% endif %}">
-                        <a class="page-link" href="{{ url_for('event.public_events_list', page=events_pagination.next_num) if events_pagination.has_next else '#' }}">次へ</a>
-                    </li>
-                </ul>
-            </nav>
-            {% endif %}
+        {# --- ページネーション --- #}
+        {% if events_pagination.pages > 1 %}
+        <nav aria-label="Page navigation" class="mt-5">
+            <ul class="pagination justify-content-center">
+                <li class="page-item {% if not events_pagination.has_prev %}disabled{% endif %}">
+                    <a class="page-link rounded-pill px-3 me-1"
+                        href="{{ url_for('event.public_events_list', page=events_pagination.prev_num) if events_pagination.has_prev else '#' }}">
+                        <i class="fas fa-chevron-left me-1"></i> Prev
+                    </a>
+                </li>
+                {% for page_num in events_pagination.iter_pages(left_edge=1, right_edge=1, left_current=2,
+                right_current=2) %}
+                {% if page_num %}
+                <li class="page-item {% if page_num == events_pagination.page %}active{% endif %}">
+                    <a class="page-link rounded-circle mx-1 d-flex align-items-center justify-content-center"
+                        style="width: 38px; height: 38px;"
+                        href="{{ url_for('event.public_events_list', page=page_num) }}">{{ page_num }}</a>
+                </li>
+                {% else %}
+                <li class="page-item disabled"><span class="page-link border-0">&hellip;</span></li>
+                {% endif %}
+                {% endfor %}
+                <li class="page-item {% if not events_pagination.has_next %}disabled{% endif %}">
+                    <a class="page-link rounded-pill px-3 ms-1"
+                        href="{{ url_for('event.public_events_list', page=events_pagination.next_num) if events_pagination.has_next else '#' }}">
+                        Next <i class="fas fa-chevron-right ms-1"></i>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        {% endif %}
 
         {% else %}
-            <div class="card text-center">
-                <div class="card-body">
-                    <p class="card-text">現在、開催予定の公開イベントはありません。</p>
-                    {% if current_user.is_authenticated %}
-                        <a href="{{ url_for('event.add_event') }}" class="btn btn-primary">
-                            <i class="fas fa-calendar-plus me-1"></i> 新しくイベントを作成する
-                        </a>
-                    {% endif %}
-                </div>
+        <div class="text-center py-5 my-5">
+            <div class="mb-4">
+                <span class="fa-stack fa-3x text-light">
+                    <i class="fas fa-circle fa-stack-2x"></i>
+                    <i class="fas fa-calendar-times fa-stack-1x fa-inverse text-secondary"></i>
+                </span>
             </div>
+            <h4 class="fw-bold text-dark">No Events Scheduled</h4>
+            <p class="text-muted mb-4">現在、開催予定の公開イベントはありません。</p>
+            {% if current_user.is_authenticated %}
+            <a href="{{ url_for('event.add_event') }}" class="btn btn-primary px-4 rounded-pill">
+                <i class="fas fa-plus me-1"></i> イベントを作成する
+            </a>
+            {% endif %}
+        </div>
         {% endif %}
     </div>
 </div>

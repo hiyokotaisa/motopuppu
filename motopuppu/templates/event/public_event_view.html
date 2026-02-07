@@ -6,247 +6,359 @@
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-lg-8 col-md-10">
-        
+
+        {# --- 戻るボタン --- #}
+        <div class="mb-3">
+            <a href="{{ url_for('event.public_events_list') }}" class="btn btn-sm btn-outline-secondary">
+                <i class="fas fa-arrow-left me-1"></i>一覧に戻る
+            </a>
+        </div>
+
         {# --- イベント情報 --- #}
-        <div class="card mb-4">
-            <div class="card-header bg-dark text-white">
-                <h1 class="h3 mb-0">{{ event.title }}</h1>
-            </div>
-            <div class="card-body">
-                <p><strong><i class="fas fa-user-circle fa-fw me-2 text-secondary"></i>主催者:</strong> {{ event.owner.display_name or event.owner.misskey_username }}</p>
-                <p><strong><i class="fas fa-clock fa-fw me-2 text-secondary"></i>日時:</strong>
-                    {{ event.start_datetime | to_jst }}
-                    {% if event.end_datetime %}
-                    ～ {{ event.end_datetime | to_jst }}
+        <div class="card custom-card mb-4 shadow-sm">
+            <div class="card-body p-4">
+                {# タイトル #}
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <h1 class="h3 fw-bold mb-0 text-dark">{{ event.title }}</h1>
+                    {# ステータスバッジ（例：募集中など）があればここに追加 #}
+                </div>
+
+                {# 主催者情報 #}
+                <div class="d-flex align-items-center mb-4 pb-3 border-bottom">
+                    {% if event.owner and event.owner.avatar_url %}
+                    <img src="{{ event.owner.avatar_url }}"
+                        alt="{{ event.owner.display_name or event.owner.misskey_username }}"
+                        class="rounded-circle me-3 border" style="width: 48px; height: 48px; object-fit: cover;">
+                    {% else %}
+                    <div class="bg-light rounded-circle d-flex align-items-center justify-content-center me-3"
+                        style="width: 48px; height: 48px;">
+                        <i class="fas fa-user-circle fa-2x text-secondary"></i>
+                    </div>
                     {% endif %}
-                </p>
-                {% if event.location %}
-                <p><strong><i class="fas fa-map-marker-alt fa-fw me-2 text-secondary"></i>場所:</strong> {{ event.location }}</p>
-                {% endif %}
+                    <div>
+                        <small class="text-muted d-block" style="font-size: 0.75rem;">主催者</small>
+                        <span class="fw-bold">{{ event.owner.display_name or event.owner.misskey_username }}</span>
+                    </div>
+                </div>
+
+                <div class="row g-4 mb-4">
+                    {# 日時 #}
+                    <div class="col-md-6">
+                        <div class="d-flex">
+                            <div class="flex-shrink-0 me-3">
+                                <div class="bg-primary bg-opacity-10 text-primary rounded p-2 text-center"
+                                    style="width: 48px;">
+                                    <i class="far fa-clock fa-lg"></i>
+                                </div>
+                            </div>
+                            <div>
+                                <h6 class="fw-bold mb-1">日時</h6>
+                                <p class="mb-0 text-dark">
+                                    {{ event.start_datetime | to_jst('%Y年%m月%d日(%a)') }}<br>
+                                    <span class="fs-5 fw-bold">{{ event.start_datetime | to_jst('%H:%M') }}</span>
+                                    {% if event.end_datetime %}
+                                    <span class="text-muted mx-1">〜</span>
+                                    {{ event.end_datetime | to_jst('%H:%M') }}
+                                    {% endif %}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {# 場所 #}
+                    {% if event.location %}
+                    <div class="col-md-6">
+                        <div class="d-flex">
+                            <div class="flex-shrink-0 me-3">
+                                <div class="bg-danger bg-opacity-10 text-danger rounded p-2 text-center"
+                                    style="width: 48px;">
+                                    <i class="fas fa-map-marker-alt fa-lg"></i>
+                                </div>
+                            </div>
+                            <div>
+                                <h6 class="fw-bold mb-1">開催場所</h6>
+                                <p class="mb-0 text-dark fs-5 fw-bold">{{ event.location }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+
+                {# 詳細説明 #}
                 {% if event.description %}
-                <hr>
-                <h5 class="card-title">イベント詳細</h5>
-                <p class="card-text" style="white-space: pre-wrap;">{{ event.description | urlize(target='_blank', rel='noopener noreferrer') }}</p>
+                <div class="bg-light rounded p-4 mb-3">
+                    <h6 class="fw-bold mb-3"><i class="fas fa-align-left me-2 text-muted"></i>イベント詳細</h6>
+                    <div class="card-text text-break" style="white-space: pre-wrap; line-height: 1.8;">{{
+                        event.description | urlize(target='_blank', rel='noopener noreferrer') }}</div>
+                </div>
                 {% endif %}
             </div>
         </div>
 
         {# --- フラッシュメッセージ --- #}
         {% with messages = get_flashed_messages(with_categories=true) %}
-          {% if messages %}
-            {% for category, message in messages %}
-              <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                {{ message }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-              </div>
-            {% endfor %}
-          {% endif %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category }} alert-dismissible fade show border-0 shadow-sm" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+        {% endif %}
         {% endwith %}
 
         {# --- 出欠登録フォーム --- #}
-        <div class="card mb-4">
-            <div class="card-header">
-                <h2 class="h5 mb-0"><i class="fas fa-edit me-2"></i>出欠を登録・更新する</h2>
+        <div class="card custom-card mb-4 shadow-sm">
+            <div class="card-header bg-white border-bottom py-3">
+                <h5 class="h6 mb-0 fw-bold"><i class="fas fa-edit me-2 text-primary"></i>出欠登録・更新</h5>
             </div>
-            <div class="card-body">
-                <form method="POST" action="{{ url_for('event.public_event_view', public_id=event.public_id) }}" novalidate>
+            <div class="card-body p-4">
+                <form method="POST" action="{{ url_for('event.public_event_view', public_id=event.public_id) }}"
+                    novalidate>
                     {{ form.hidden_tag() }}
-                    
+
                     {% if current_user.is_authenticated %}
-                        {# ▼▼▼ ログイン時の表示 ▼▼▼ #}
-                        <div class="alert alert-info d-flex align-items-center">
-                            <div class="me-3">
-                                {% if current_user.avatar_url %}
-                                <img src="{{ current_user.avatar_url }}" class="rounded-circle" width="48" height="48" alt="Avatar">
-                                {% else %}
-                                <i class="fas fa-user-circle fa-3x text-secondary"></i>
-                                {% endif %}
-                            </div>
-                            <div>
-                                <h5 class="alert-heading mb-0 h6">ログイン中: <strong>{{ current_user.display_name or current_user.misskey_username }}</strong></h5>
-                                <small>このアカウントとして参加登録します。名前とパスコードの入力は不要です。</small>
-                            </div>
+                    {# ▼▼▼ ログイン時の表示 ▼▼▼ #}
+                    <div class="alert alert-info d-flex align-items-center mb-4 border-0 bg-info bg-opacity-10">
+                        <div class="me-3">
+                            {% if current_user.avatar_url %}
+                            <img src="{{ current_user.avatar_url }}" class="rounded-circle border border-white"
+                                width="48" height="48" alt="Avatar">
+                            {% else %}
+                            <i class="fas fa-user-circle fa-3x text-info opacity-50"></i>
+                            {% endif %}
                         </div>
-
-                        {# 隠しフィールドとしての名前・パスコード（通常は空で送信される） #}
-                        <div class="d-none">
-                            {{ form.name(value=current_user.display_name or current_user.misskey_username) }}
-                            {{ form.passcode() }}
+                        <div>
+                            <h6 class="alert-heading mb-1 fw-bold">ログイン中: {{ current_user.display_name or
+                                current_user.misskey_username }}</h6>
+                            <small class="text-muted">このアカウントとして参加登録します。</small>
                         </div>
+                    </div>
 
-                        {# ゲスト統合機能のトグル #}
-                        <div class="mb-3">
-                            <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="collapse" data-bs-target="#guestClaimCollapse" aria-expanded="false" aria-controls="guestClaimCollapse">
-                                <i class="fas fa-link me-1"></i>過去にゲストとして登録したデータをこのアカウントに紐付ける
-                            </button>
-                            <div class="collapse mt-2" id="guestClaimCollapse">
-                                <div class="card card-body bg-light">
-                                    <small class="text-muted mb-2 d-block">以前、ログインせずに登録した「名前」と「パスコード」を入力して更新すると、過去のデータを削除し、あなたのアカウントとして統合します。</small>
-                                    <div class="row g-2">
-                                        <div class="col-md-6">
-                                            {# ▼▼▼【変更】name属性を claim_name に変更 ▼▼▼ #}
-                                            <input type="text" name="claim_name" class="form-control form-control-sm" placeholder="ゲスト登録時の名前">
-                                            {# ▲▲▲【変更】ここまで ▲▲▲ #}
-                                        </div>
-                                        <div class="col-md-6">
-                                            {# ▼▼▼【変更】name属性を claim_passcode に変更 ▼▼▼ #}
-                                            <input type="password" name="claim_passcode" class="form-control form-control-sm" placeholder="ゲスト登録時のパスコード">
-                                            {# ▲▲▲【変更】ここまで ▲▲▲ #}
-                                        </div>
+                    {# 隠しフィールド #}
+                    <div class="d-none">
+                        {{ form.name(value=current_user.display_name or current_user.misskey_username) }}
+                        {{ form.passcode() }}
+                    </div>
+
+                    {# ゲスト統合機能 #}
+                    <div class="mb-4">
+                        <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-3"
+                            data-bs-toggle="collapse" data-bs-target="#guestClaimCollapse">
+                            <i class="fas fa-history me-1"></i> 過去のゲスト登録を紐付ける
+                        </button>
+                        <div class="collapse mt-2" id="guestClaimCollapse">
+                            <div class="card card-body bg-light border-0 small">
+                                <p class="mb-2 text-muted">以前、ログインせずに登録した際の名前とパスコードを入力してください。既存のデータをあなたのアカウントに統合します。</p>
+                                <div class="row g-2">
+                                    <div class="col-md-6">
+                                        <input type="text" name="claim_name" class="form-control form-control-sm"
+                                            placeholder="登録時の名前">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <input type="password" name="claim_passcode"
+                                            class="form-control form-control-sm" placeholder="登録時のパスコード">
                                     </div>
                                 </div>
                             </div>
                         </div>
+                    </div>
 
                     {% else %}
-                        {# ▼▼▼ ゲスト時の表示 (既存のフォーム要素を表示) ▼▼▼ #}
-                        <p class="small text-muted">初めて登録する方は、お名前と好きなパスコードを入力してください。<a href="{{ url_for('auth.login', next=request.url) }}">ログイン</a>すると、入力の手間が省けます。</p>
-                        
-                        <div class="mb-3">
-                            {{ form.name.label(class="form-label") }} <span class="badge bg-danger ms-1">必須</span>
-                            {{ form.name(class="form-control" + (" is-invalid" if form.name.errors else ""), placeholder="ハンドルネーム等") }}
+                    {# ▼▼▼ ゲスト時の表示 ▼▼▼ #}
+                    <div class="bg-light p-3 rounded mb-4">
+                        <p class="small text-muted mb-0">
+                            ゲストとして参加登録します。<a href="{{ url_for('auth.login', next=request.url) }}"
+                                class="fw-bold text-decoration-none">ログイン</a>すると管理が便利になります。
+                        </p>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            {{ form.name.label(class="form-label fw-bold small text-muted") }} <span
+                                class="badge bg-danger ms-1" style="font-size: 0.6rem;">必須</span>
+                            {{ form.name(class="form-control" + (" is-invalid" if form.name.errors else ""),
+                            placeholder="ハンドルネーム") }}
                             {% if form.name.errors %}
-                            <div class="invalid-feedback">
-                                {% for error in form.name.errors %}{{ error }}{% endfor %}
+                            <div class="invalid-feedback">{% for error in form.name.errors %}{{ error }}{% endfor %}
                             </div>
                             {% endif %}
                         </div>
-                        
-                        <div class="mb-3">
-                            {{ form.passcode.label(class="form-label") }} <span class="badge bg-danger ms-1">必須</span>
-                            {{ form.passcode(class="form-control" + (" is-invalid" if form.passcode.errors else ""), placeholder="4文字以上で設定") }}
-                            <div class="form-text">出欠ステータスを変更する際に必要になります。</div>
+                        <div class="col-md-6">
+                            {{ form.passcode.label(class="form-label fw-bold small text-muted") }} <span
+                                class="badge bg-danger ms-1" style="font-size: 0.6rem;">必須</span>
+                            {{ form.passcode(class="form-control" + (" is-invalid" if form.passcode.errors else ""),
+                            placeholder="編集用パスワード (4文字以上)") }}
                             {% if form.passcode.errors %}
-                            <div class="invalid-feedback">
-                                {% for error in form.passcode.errors %}{{ error }}{% endfor %}
+                            <div class="invalid-feedback">{% for error in form.passcode.errors %}{{ error }}{% endfor %}
                             </div>
                             {% endif %}
                         </div>
+                    </div>
                     {% endif %}
-                    
+
                     <div class="mb-3">
-                        {{ form.vehicle_name.label(class="form-label") }}
-                        {{ form.vehicle_name(class="form-control" + (" is-invalid" if form.vehicle_name.errors else "")) }}
+                        {{ form.vehicle_name.label(class="form-label fw-bold small text-muted") }}
+                        <div class="input-group">
+                            <span class="input-group-text bg-white text-muted"><i class="fas fa-motorcycle"></i></span>
+                            {{ form.vehicle_name(class="form-control" + (" is-invalid" if form.vehicle_name.errors else
+                            ""), placeholder="参加車両 (任意)") }}
+                        </div>
                         {% if form.vehicle_name.errors %}
-                        <div class="invalid-feedback">
-                            {% for error in form.vehicle_name.errors %}{{ error }}{% endfor %}
-                        </div>
+                        <div class="invalid-feedback d-block">{% for error in form.vehicle_name.errors %}{{ error }}{%
+                            endfor %}</div>
                         {% endif %}
                     </div>
 
-                    <div class="mb-3">
-                        {{ form.comment.label(class="form-label") }}
-                        {{ form.comment(class="form-control" + (" is-invalid" if form.comment.errors else "")) }}
+                    <div class="mb-4">
+                        {{ form.comment.label(class="form-label fw-bold small text-muted") }}
+                        <div class="input-group">
+                            <span class="input-group-text bg-white text-muted"><i
+                                    class="far fa-comment-dots"></i></span>
+                            {{ form.comment(class="form-control" + (" is-invalid" if form.comment.errors else ""),
+                            placeholder="一言コメント (任意)") }}
+                        </div>
                         {% if form.comment.errors %}
-                        <div class="invalid-feedback">
-                            {% for error in form.comment.errors %}{{ error }}{% endfor %}
-                        </div>
+                        <div class="invalid-feedback d-block">{% for error in form.comment.errors %}{{ error }}{% endfor
+                            %}</div>
                         {% endif %}
                     </div>
 
-                    <div class="mb-3">
-                        {{ form.status.label(class="form-label") }} <span class="badge bg-danger ms-1">必須</span>
-                        <div class="btn-group w-100" role="group" aria-label="Participation status">
-                           {% for subfield in form.status %}
-                            <input type="radio" class="btn-check" name="{{ subfield.name }}" id="{{ subfield.id }}" value="{{ subfield.data }}" {% if subfield.checked %}checked{% endif %}>
-                            <label class="btn 
+                    <div class="mb-4">
+                        {{ form.status.label(class="form-label fw-bold small text-muted d-block") }}
+                        <div class="btn-group w-100" role="group">
+                            {% for subfield in form.status %}
+                            <input type="radio" class="btn-check" name="{{ subfield.name }}" id="{{ subfield.id }}"
+                                value="{{ subfield.data }}" {% if subfield.checked %}checked{% endif %}>
+                            <label class="btn py-2 fw-bold
                                 {% if subfield.data == 'attending' %}btn-outline-success{% endif %}
                                 {% if subfield.data == 'tentative' %}btn-outline-warning{% endif %}
                                 {% if subfield.data == 'not_attending' %}btn-outline-secondary{% endif %}
                                 {% if subfield.data == 'delete' %}btn-outline-danger{% endif %}"
-                                for="{{ subfield.id }}">{{ subfield.label.text }}</label>
+                                for="{{ subfield.id }}">
+                                {% if subfield.data == 'attending' %}<i class="fas fa-check me-1"></i>{% endif %}
+                                {% if subfield.data == 'tentative' %}<i class="fas fa-question me-1"></i>{% endif %}
+                                {% if subfield.data == 'not_attending' %}<i class="fas fa-times me-1"></i>{% endif %}
+                                {% if subfield.data == 'delete' %}<i class="fas fa-trash me-1"></i>{% endif %}
+                                {{ subfield.label.text }}
+                            </label>
                             {% endfor %}
                         </div>
-                         {% if form.status.errors %}
+                        {% if form.status.errors %}
                         <div class="invalid-feedback d-block">
                             {% for error in form.status.errors %}{{ error }}{% endfor %}
                         </div>
                         {% endif %}
                     </div>
+
                     <div class="d-grid">
-                        {{ form.submit(class="btn btn-primary btn-lg") }}
+                        {{ form.submit(class="btn btn-primary btn-lg fw-bold rounded-pill shadow-sm") }}
                     </div>
                 </form>
             </div>
         </div>
 
         {# --- 参加状況リスト (マクロ) --- #}
-        {% macro render_participant_list(participants, badge_class, badge_text, border_class) %}
+        {% macro render_participant_list(participants, badge_bg, badge_text, border_color) %}
         {% if participants %}
-        <div class="list-group list-group-flush mb-3">
+        <div class="list-group list-group-flush rounded border-0">
             {% for p in participants %}
-            <div class="list-group-item px-0 py-2">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div class="d-flex align-items-center">
-                        {# ▼▼▼ アイコン表示 ▼▼▼ #}
-                        <div class="me-3">
-                            {% if p.user and p.user.avatar_url %}
-                            <img src="{{ p.user.avatar_url }}" class="rounded-circle" width="40" height="40" alt="Avatar">
-                            {% else %}
-                            <div class="bg-light rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
-                                <i class="fas fa-user text-secondary"></i>
-                            </div>
-                            {% endif %}
+            <div class="list-group-item px-0 py-3 border-bottom">
+                <div class="d-flex align-items-start">
+                    {# アバター #}
+                    <div class="flex-shrink-0 me-3">
+                        {% if p.user and p.user.avatar_url %}
+                        <img src="{{ p.user.avatar_url }}" class="rounded-circle shadow-sm" width="42" height="42"
+                            alt="Avatar">
+                        {% else %}
+                        <div class="bg-light rounded-circle d-flex align-items-center justify-content-center text-secondary"
+                            style="width: 42px; height: 42px;">
+                            <i class="fas fa-user"></i>
                         </div>
+                        {% endif %}
+                    </div>
 
-                        <div>
-                            <span class="fw-bold">
+                    <div class="flex-grow-1">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="fw-bold text-dark">
                                 {{ p.name }}
-                                {# ▼▼▼ 認証バッジ ▼▼▼ #}
                                 {% if p.user_id %}
-                                <i class="fas fa-check-circle text-primary ms-1" title="認証済みユーザー"></i>
+                                <i class="fas fa-check-circle text-primary small ms-1" title="認証済み"
+                                    data-bs-toggle="tooltip"></i>
                                 {% endif %}
                             </span>
-                            
-                            {% if p.vehicle_name %}
-                            <div class="small text-muted">
-                                <i class="fas fa-motorcycle me-1"></i>{{ p.vehicle_name }}
-                            </div>
-                            {% endif %}
-                            
-                            {% if p.comment %}
-                            <div class="small text-muted mt-1 ms-2 border-start border-3 {{ border_class }} ps-2">
-                                {{ p.comment }}
-                            </div>
-                            {% endif %}
+                            <span class="badge {{ badge_bg }} rounded-pill" style="font-size: 0.7rem;">{{ badge_text
+                                }}</span>
                         </div>
+
+                        {% if p.vehicle_name %}
+                        <div class="small text-muted mb-1">
+                            <i class="fas fa-motorcycle me-1 text-secondary"></i>{{ p.vehicle_name }}
+                        </div>
+                        {% endif %}
+
+                        {% if p.comment %}
+                        <div class="small text-dark mt-2 bg-light p-2 rounded border-start border-3 {{ border_color }}"
+                            style="font-style: italic;">
+                            "{{ p.comment }}"
+                        </div>
+                        {% endif %}
                     </div>
-                    <span class="badge {{ badge_class }} rounded-pill">{{ badge_text }}</span>
                 </div>
             </div>
             {% endfor %}
         </div>
         {% else %}
-        <p class="text-muted">まだいません</p>
+        <div class="text-center py-3 text-muted small">まだ登録はありません</div>
         {% endif %}
         {% endmacro %}
 
-        <div class="card">
-            <div class="card-header">
-                <h2 class="h5 mb-0"><i class="fas fa-users me-2"></i>現在の参加状況</h2>
+        <div class="card custom-card shadow-sm">
+            <div class="card-header bg-white border-bottom py-3">
+                <h5 class="h6 mb-0 fw-bold"><i class="fas fa-users me-2 text-primary"></i>現在の参加状況</h5>
             </div>
-            <div class="card-body">
-                <h6 class="card-subtitle mb-2 text-success">
-                    <i class="fas fa-check-circle me-1"></i> 参加 ({{ participants_attending|length }}名)
-                </h6>
-                {{ render_participant_list(participants_attending, 'bg-success', '参加', 'border-success') }}
+            <div class="card-body p-4">
+                <div class="mb-4">
+                    <h6 class="text-success fw-bold text-uppercase mb-3 small border-bottom border-success pb-2"
+                        style="border-bottom-width: 2px !important; display: inline-block;">
+                        <i class="fas fa-check-circle me-1"></i> 参加 <span class="badge bg-success rounded-pill ms-1">{{
+                            participants_attending|length }}</span>
+                    </h6>
+                    {{ render_participant_list(participants_attending, 'bg-success', '参加', 'border-success') }}
+                </div>
 
-                <hr>
+                <div class="mb-4">
+                    <h6 class="text-warning fw-bold text-uppercase mb-3 small border-bottom border-warning pb-2"
+                        style="border-bottom-width: 2px !important; display: inline-block; color: #fd7e14 !important;">
+                        <i class="fas fa-question-circle me-1"></i> 保留 <span
+                            class="badge bg-warning text-dark rounded-pill ms-1">{{ participants_tentative|length
+                            }}</span>
+                    </h6>
+                    {{ render_participant_list(participants_tentative, 'bg-warning text-dark', '保留', 'border-warning')
+                    }}
+                </div>
 
-                <h6 class="card-subtitle mb-2 text-warning">
-                    <i class="fas fa-question-circle me-1"></i> 保留 ({{ participants_tentative|length }}名)
-                </h6>
-                {{ render_participant_list(participants_tentative, 'bg-warning text-dark', '保留', 'border-warning') }}
-
-                <hr>
-
-                <h6 class="card-subtitle mb-2 text-secondary">
-                    <i class="fas fa-times-circle me-1"></i> 不参加 ({{ participants_not_attending|length }}名)
-                </h6>
-                {{ render_participant_list(participants_not_attending, 'bg-secondary', '不参加', 'border-secondary') }}
+                <div>
+                    <h6 class="text-secondary fw-bold text-uppercase mb-3 small border-bottom border-secondary pb-2"
+                        style="border-bottom-width: 2px !important; display: inline-block;">
+                        <i class="fas fa-times-circle me-1"></i> 不参加 <span
+                            class="badge bg-secondary rounded-pill ms-1">{{ participants_not_attending|length }}</span>
+                    </h6>
+                    {{ render_participant_list(participants_not_attending, 'bg-secondary', '不参加', 'border-secondary') }}
+                </div>
             </div>
         </div>
 
     </div>
 </div>
+
+<script>
+    // ツールチップの初期化
+    document.addEventListener('DOMContentLoaded', function () {
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl)
+        })
+    });
+</script>
 {% endblock %}
