@@ -57,6 +57,7 @@ class Motorcycle(db.Model):
     odometer_offset = db.Column(db.Integer, nullable=False, default=0, server_default='0')
     is_default = db.Column(db.Boolean, nullable=False, server_default='false')
     is_racer = db.Column(db.Boolean, nullable=False, default=False, server_default='false')
+    is_archived = db.Column(db.Boolean, nullable=False, default=False, server_default='false', comment="アーカイブされた車両")
     total_operating_hours = db.Column(db.Numeric(8, 2), nullable=True, default=0.00)
 
     image_url = db.Column(db.String(2048), nullable=True, comment="車両画像のURL")

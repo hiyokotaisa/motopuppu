@@ -226,11 +226,10 @@ def maintenance_log():
         flash('登録されている車両はすべてレーサー仕様のため、整備記録の対象外です。公道走行可能な車両を登録してください。', 'info')
 
     user_motorcycle_ids_for_maintenance = [m.id for m in user_motorcycles_for_maintenance]
+    active_motorcycle_ids_for_maintenance = [m.id for m in user_motorcycles_for_maintenance if not m.is_archived]
 
     # ▼▼▼【パフォーマンス改善】joinedloadを追加してN+1問題を解消 ▼▼▼
-    query = db.session.query(MaintenanceEntry).options(joinedload(MaintenanceEntry.motorcycle)).join(Motorcycle).filter(
-        MaintenanceEntry.motorcycle_id.in_(user_motorcycle_ids_for_maintenance)
-    )
+    query = db.session.query(MaintenanceEntry).options(joinedload(MaintenanceEntry.motorcycle)).join(Motorcycle)
     # ▲▲▲ 改善ここまで ▲▲▲
 
     active_filters = {k: v for k, v in request.args.items() if k not in ['page', 'sort_by', 'order']}
@@ -250,7 +249,12 @@ def maintenance_log():
             else:
                 flash('選択された車両は整備記録の対象外か、有効ではありません。', 'warning')
                 active_filters.pop('vehicle_id', None)
-        except ValueError: active_filters.pop('vehicle_id', None)
+                query = query.filter(MaintenanceEntry.motorcycle_id.in_(active_motorcycle_ids_for_maintenance)) if active_motorcycle_ids_for_maintenance else query.filter(False)
+        except ValueError:
+            active_filters.pop('vehicle_id', None)
+            query = query.filter(MaintenanceEntry.motorcycle_id.in_(active_motorcycle_ids_for_maintenance)) if active_motorcycle_ids_for_maintenance else query.filter(False)
+    else:
+        query = query.filter(MaintenanceEntry.motorcycle_id.in_(active_motorcycle_ids_for_maintenance)) if active_motorcycle_ids_for_maintenance else query.filter(False)
 
     if category_filter: query = query.filter(MaintenanceEntry.category.ilike(f'%{category_filter}%'))
     if keyword:
@@ -315,7 +319,7 @@ def maintenance_log():
 @limiter.limit("60 per hour")
 @login_required
 def add_maintenance():
-    user_motorcycles_for_maintenance = Motorcycle.query.filter_by(user_id=current_user.id, is_racer=False).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
+    user_motorcycles_for_maintenance = Motorcycle.query.filter_by(user_id=current_user.id, is_racer=False, is_archived=False).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
     if not user_motorcycles_for_maintenance:
         all_motorcycles_count = Motorcycle.query.filter_by(user_id=current_user.id).count()
         if all_motorcycles_count > 0:
@@ -409,7 +413,7 @@ def edit_maintenance(entry_id):
     user_motorcycles_for_maintenance = Motorcycle.query.filter_by(user_id=current_user.id, is_racer=False).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
     
     form = MaintenanceForm(obj=entry)
-    form.motorcycle_id.choices = [(m.id, f"{m.name} ({m.maker or 'メーカー不明'})") for m in user_motorcycles_for_maintenance]
+    form.motorcycle_id.choices = [(m.id, f"{m.name} (アーカイブ)" if m.is_archived else f"{m.name} ({m.maker or 'メーカー不明'})") for m in user_motorcycles_for_maintenance]
 
     if request.method == 'GET':
         form.motorcycle_id.data = entry.motorcycle_id

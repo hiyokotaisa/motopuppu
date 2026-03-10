@@ -122,7 +122,7 @@ def dashboard():
     重い処理（統計、車両詳細、タイムライン、イベント、リマインダー、サーキット、にゃんぷっぷー）はここでは行わず、HTMXによって後から読み込まれる。
     """
     # 1. 基本データの準備 (ナビゲーションバーなどで必要)
-    user_motorcycles_all = Motorcycle.query.filter_by(user_id=current_user.id).order_by(
+    user_motorcycles_all = Motorcycle.query.filter_by(user_id=current_user.id, is_archived=False).order_by(
         Motorcycle.is_default.desc(), Motorcycle.name).all()
 
     start_initial_tutorial = False
@@ -183,7 +183,7 @@ def dashboard():
 @main_bp.route('/dashboard/widgets/nyanpuppu')
 @login_required
 def dashboard_nyanpuppu_widget():
-    user_motorcycles_all = Motorcycle.query.filter_by(user_id=current_user.id).all()
+    user_motorcycles_all = Motorcycle.query.filter_by(user_id=current_user.id, is_archived=False).all()
     # 重い処理: DBクエリが走る可能性あり
     nyanpuppu_advice = services.get_nyanpuppu_advice(current_user, user_motorcycles_all)
     return render_template('dashboard/_nyanpuppu_widget.html', nyanpuppu_advice=nyanpuppu_advice)
@@ -193,7 +193,7 @@ def dashboard_nyanpuppu_widget():
 @main_bp.route('/dashboard/widgets/reminders')
 @login_required
 def dashboard_reminders_widget():
-    user_motorcycles_all = Motorcycle.query.filter_by(user_id=current_user.id).all()
+    user_motorcycles_all = Motorcycle.query.filter_by(user_id=current_user.id, is_archived=False).all()
     # 重い処理: 距離計算など
     upcoming_reminders = services.get_upcoming_reminders(user_motorcycles_all, current_user.id)
     return render_template('dashboard/_reminders_widget.html', upcoming_reminders=upcoming_reminders)
@@ -240,7 +240,7 @@ def dashboard_stats_widget():
     selected_timeline_vehicle_id = request.args.get('timeline_vehicle_id', 'all')
 
     # 必要なデータを再取得
-    user_motorcycles_all = Motorcycle.query.filter_by(user_id=current_user.id).order_by(
+    user_motorcycles_all = Motorcycle.query.filter_by(user_id=current_user.id, is_archived=False).order_by(
         Motorcycle.is_default.desc(), Motorcycle.name).all()
     motorcycles_public = [m for m in user_motorcycles_all if not m.is_racer]
     user_motorcycle_ids_public = [m.id for m in motorcycles_public]
@@ -278,7 +278,7 @@ def dashboard_timeline_widget():
     selected_timeline_vehicle_id = request.args.get('timeline_vehicle_id', 'all')
     selected_stats_vehicle_id = request.args.get('stats_vehicle_id', '')
 
-    user_motorcycles_all = Motorcycle.query.filter_by(user_id=current_user.id).order_by(
+    user_motorcycles_all = Motorcycle.query.filter_by(user_id=current_user.id, is_archived=False).order_by(
         Motorcycle.is_default.desc(), Motorcycle.name).all()
     motorcycles_public = [m for m in user_motorcycles_all if not m.is_racer]
     user_motorcycle_ids_public = [m.id for m in motorcycles_public]
@@ -322,7 +322,7 @@ def dashboard_timeline_widget():
 @login_required
 def dashboard_vehicles_widget():
     # ウィジェット表示に必要なデータを再取得
-    user_motorcycles_all = Motorcycle.query.filter_by(user_id=current_user.id).order_by(
+    user_motorcycles_all = Motorcycle.query.filter_by(user_id=current_user.id, is_archived=False).order_by(
         Motorcycle.is_default.desc(), Motorcycle.name).all()
     
     # 重い処理: 最新ログ情報の計算
@@ -368,7 +368,7 @@ def misskey_redirect(note_id):
 @login_required
 def get_nyanpuppu_advice_api():
     """にゃんぷっぷーのアドバイスをJSONで返すAPI"""
-    user_motorcycles_all = Motorcycle.query.filter_by(user_id=current_user.id).all()
+    user_motorcycles_all = Motorcycle.query.filter_by(user_id=current_user.id, is_archived=False).all()
     advice_data = services.get_nyanpuppu_advice(current_user, user_motorcycles_all)
     
     if advice_data:
@@ -451,7 +451,7 @@ def complete_tutorial():
 def dashboard_lite():
     """軽量モードのダッシュボード"""
     # ユーザーの車両リストを取得
-    user_motorcycles_all = Motorcycle.query.filter_by(user_id=current_user.id).order_by(
+    user_motorcycles_all = Motorcycle.query.filter_by(user_id=current_user.id, is_archived=False).order_by(
         Motorcycle.is_default.desc(), Motorcycle.name).all()
     
     # デフォルト車両を特定 (リストの先頭は is_default=True のはず)

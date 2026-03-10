@@ -85,7 +85,8 @@ def add_event():
     # ▲▲▲【追加】▲▲▲
 
     form = EventForm()
-    form.motorcycle_id.choices = [(m.id, m.name) for m in Motorcycle.query.filter_by(user_id=current_user.id).order_by('name')]
+    user_motorcycles = Motorcycle.query.filter_by(user_id=current_user.id, is_archived=False).order_by('name').all()
+    form.motorcycle_id.choices = [(m.id, m.name) for m in user_motorcycles]
     form.motorcycle_id.choices.insert(0, (0, '--- 車両を関連付けない ---'))
 
     # ▼▼▼【追加】チームイベント作成時は「公開設定」を強制的にOFFの扱いにするための初期値設定
@@ -137,7 +138,8 @@ def edit_event(event_id):
     event = Event.query.filter_by(id=event_id, user_id=current_user.id).first_or_404()
     form = EventForm(request.form)
 
-    form.motorcycle_id.choices = [(m.id, m.name) for m in Motorcycle.query.filter_by(user_id=current_user.id).order_by('name')]
+    user_motorcycles = Motorcycle.query.filter_by(user_id=current_user.id).order_by('name').all()
+    form.motorcycle_id.choices = [(m.id, f"{m.name} (アーカイブ)" if m.is_archived else m.name) for m in user_motorcycles]
     form.motorcycle_id.choices.insert(0, (0, '--- 車両を関連付けない ---'))
 
     if form.validate_on_submit():

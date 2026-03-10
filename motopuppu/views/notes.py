@@ -24,6 +24,7 @@ def notes_log():
     
     user_motorcycles = Motorcycle.query.filter_by(user_id=current_user.id).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
     user_motorcycle_ids = [m.id for m in user_motorcycles]
+    active_motorcycle_ids = [m.id for m in user_motorcycles if not m.is_archived]
 
     request_args_dict = {k: v for k, v in request.args.items() if k != 'page'}
     query = GeneralNote.query.filter_by(user_id=current_user.id)
@@ -51,6 +52,8 @@ def notes_log():
                 else: flash('選択された車両は有効ではありません。', 'warning'); request_args_dict.pop('vehicle_id', None)
             except ValueError: flash('車両フィルターの値が無効です。', 'warning'); request_args_dict.pop('vehicle_id', None)
         elif vehicle_id_str: flash('車両フィルターの値が無効です。', 'warning'); request_args_dict.pop('vehicle_id', None)
+    else:
+        query = query.filter(or_(GeneralNote.motorcycle_id.is_(None), GeneralNote.motorcycle_id.in_(active_motorcycle_ids)))
 
     if keyword:
         search_term = f'%{keyword}%'
@@ -99,7 +102,7 @@ def notes_log():
 @limiter.limit("30 per hour")
 @login_required
 def add_note():
-    user_motorcycles = Motorcycle.query.filter_by(user_id=current_user.id).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
+    user_motorcycles = Motorcycle.query.filter_by(user_id=current_user.id, is_archived=False).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
     form = NoteForm()
     form.motorcycle_id.choices = [(0, '-- 車両に紐付けない --')] + [(m.id, m.name) for m in user_motorcycles]
 
@@ -171,7 +174,7 @@ def edit_note(note_id):
     note = GeneralNote.query.filter_by(id=note_id, user_id=current_user.id).first_or_404()
     user_motorcycles = Motorcycle.query.filter_by(user_id=current_user.id).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
     form = NoteForm(obj=note)
-    form.motorcycle_id.choices = [(0, '-- 車両に紐付けない --')] + [(m.id, m.name) for m in user_motorcycles]
+    form.motorcycle_id.choices = [(0, '-- 車両に紐付けない --')] + [(m.id, f"{m.name} (アーカイブ)" if m.is_archived else m.name) for m in user_motorcycles]
 
     if request.method == 'GET':
         form.motorcycle_id.data = note.motorcycle_id if note.motorcycle_id is not None else 0
@@ -221,7 +224,7 @@ def edit_note(note_id):
             current_app.logger.error(f"Error updating general note ID {note_id}: {e}", exc_info=True)
 
     elif request.method == 'POST': 
-        form.motorcycle_id.choices = [(0, '-- 車両に紐付けない --')] + [(m.id, m.name) for m in user_motorcycles]
+        form.motorcycle_id.choices = [(0, '-- 車両に紐付けない --')] + [(m.id, f"{m.name} (アーカイブ)" if m.is_archived else m.name) for m in user_motorcycles]
 
     return render_template('note_form.html',
                            form=form,

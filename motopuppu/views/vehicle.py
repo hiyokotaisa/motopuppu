@@ -40,7 +40,7 @@ def vehicle_list():
     ).filter(
         Motorcycle.user_id == current_user.id
     ).order_by(
-        Motorcycle.is_default.desc(), Motorcycle.name
+        Motorcycle.is_archived.asc(), Motorcycle.is_default.desc(), Motorcycle.name
     ).all()
     # ▲▲▲ 変更ここまで ▲▲▲
 
@@ -333,6 +333,39 @@ def set_default_vehicle(vehicle_id):
         db.session.rollback()
         flash(f'デフォルト車両の設定中にエラーが発生しました: {e}', 'danger')
         current_app.logger.error(f"Error setting default vehicle ID {vehicle_id}: {e}", exc_info=True)
+    return redirect(url_for('vehicle.vehicle_list'))
+
+@vehicle_bp.route('/<int:vehicle_id>/archive', methods=['POST'])
+@login_required
+def archive_vehicle(vehicle_id):
+    motorcycle = Motorcycle.query.filter_by(id=vehicle_id, user_id=current_user.id).first_or_404()
+    if motorcycle.is_default:
+        flash('デフォルト車両はアーカイブできません。先に別の車両をデフォルトに設定してください。', 'danger')
+        return redirect(url_for('vehicle.vehicle_list'))
+    
+    try:
+        motorcycle.is_archived = True
+        motorcycle.is_default = False # 念のため
+        db.session.commit()
+        flash(f'車両「{motorcycle.name}」をアーカイブしました。', 'success')
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error archiving vehicle {vehicle_id}: {e}", exc_info=True)
+        flash('車両のアーカイブ中にエラーが発生しました。', 'danger')
+    return redirect(url_for('vehicle.vehicle_list'))
+
+@vehicle_bp.route('/<int:vehicle_id>/unarchive', methods=['POST'])
+@login_required
+def unarchive_vehicle(vehicle_id):
+    motorcycle = Motorcycle.query.filter_by(id=vehicle_id, user_id=current_user.id).first_or_404()
+    try:
+        motorcycle.is_archived = False
+        db.session.commit()
+        flash(f'車両「{motorcycle.name}」をアーカイブから復元しました。', 'success')
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error unarchiving vehicle {vehicle_id}: {e}", exc_info=True)
+        flash('車両のアーカイブ復元中にエラーが発生しました。', 'danger')
     return redirect(url_for('vehicle.vehicle_list'))
 
 @vehicle_bp.route('/<int:vehicle_id>/odo_reset_log/add', methods=['GET', 'POST'])

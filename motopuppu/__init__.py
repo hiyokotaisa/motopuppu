@@ -134,7 +134,7 @@ def create_app(config_name=None):
             # パフォーマンス考慮: ここではナビゲーションに必要な基本情報のみを取得するのが望ましいが、
             # テンプレート側の依存関係が複雑なため、まずは標準的なクエリで取得する。
             # 重いカラム(Text型など)がある場合は defer() を検討すること。
-            g.user_motorcycles = Motorcycle.query.filter_by(user_id=current_user.id).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
+            g.user_motorcycles = Motorcycle.query.filter_by(user_id=current_user.id, is_archived=False).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
             g.user_teams = current_user.teams.order_by(Team.name.asc()).all()
 
     try:

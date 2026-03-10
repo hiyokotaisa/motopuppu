@@ -269,9 +269,10 @@ def fuel_log():
         flash('登録されている車両はすべてレーサー仕様のため、給油記録の対象外です。公道走行可能な車両を登録してください。', 'info')
 
     user_motorcycle_ids_for_fuel = [m.id for m in user_motorcycles_for_fuel]
+    active_motorcycle_ids_for_fuel = [m.id for m in user_motorcycles_for_fuel if not m.is_archived]
 
     # --- 1. ベースクエリの構築 (N+1対策済み) ---
-    base_query = db.session.query(FuelEntry).options(joinedload(FuelEntry.motorcycle)).join(Motorcycle).filter(FuelEntry.motorcycle_id.in_(user_motorcycle_ids_for_fuel))
+    base_query = db.session.query(FuelEntry).options(joinedload(FuelEntry.motorcycle)).join(Motorcycle)
 
     # --- 燃費の一括計算 (N+1対策) ---
     # フィルタリングに関わらず、対象車両の全記録を取得して燃費を計算しておく
@@ -306,8 +307,16 @@ def fuel_log():
             else:
                 flash('選択された車両は給油記録の対象外か、有効ではありません。', 'warning')
                 active_filters.pop('vehicle_id', None)
+                base_query = base_query.filter(FuelEntry.motorcycle_id.in_(active_motorcycle_ids_for_fuel))
         except ValueError:
             active_filters.pop('vehicle_id', None)
+            base_query = base_query.filter(FuelEntry.motorcycle_id.in_(active_motorcycle_ids_for_fuel))
+    else:
+        # 未指定時はアーカイブ車両を除外
+        if active_motorcycle_ids_for_fuel:
+            base_query = base_query.filter(FuelEntry.motorcycle_id.in_(active_motorcycle_ids_for_fuel))
+        else:
+            base_query = base_query.filter(False)
 
     if keyword:
         search_term = f'%{keyword}%'
@@ -414,7 +423,7 @@ def fuel_log():
 @limiter.limit("60 per hour")
 @login_required
 def add_fuel():
-    user_motorcycles_for_fuel = Motorcycle.query.filter_by(user_id=current_user.id, is_racer=False).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
+    user_motorcycles_for_fuel = Motorcycle.query.filter_by(user_id=current_user.id, is_racer=False, is_archived=False).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
     if not user_motorcycles_for_fuel:
         all_motorcycles_count = Motorcycle.query.filter_by(user_id=current_user.id).count()
         if all_motorcycles_count > 0:
@@ -535,7 +544,7 @@ def edit_fuel(entry_id):
     form = FuelForm(obj=entry)
 
     user_motorcycles_for_fuel = Motorcycle.query.filter_by(user_id=current_user.id, is_racer=False).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
-    form.motorcycle_id.choices = [(m.id, f"{m.name} ({m.maker or 'メーカー不明'})") for m in user_motorcycles_for_fuel]
+    form.motorcycle_id.choices = [(m.id, f"{m.name} (アーカイブ)" if m.is_archived else f"{m.name} ({m.maker or 'メーカー不明'})") for m in user_motorcycles_for_fuel]
     
     if request.method == 'GET':
         form.motorcycle_id.data = entry.motorcycle_id

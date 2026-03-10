@@ -81,6 +81,7 @@ def activity_log():
     # ユーザーの全車両を取得（フィルタ用）
     user_motorcycles = Motorcycle.query.filter_by(user_id=current_user.id).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
     user_motorcycle_ids = [m.id for m in user_motorcycles]
+    active_motorcycle_ids = [m.id for m in user_motorcycles if not m.is_archived]
 
     if not user_motorcycles:
         flash('ログを閲覧するには、まず車両を登録してください。', 'info')
@@ -130,8 +131,15 @@ def activity_log():
             else:
                 flash('選択された車両は有効ではありません。', 'warning')
                 active_filters.pop('vehicle_id', None)
+                if activity_query: activity_query = activity_query.filter(ActivityLog.motorcycle_id.in_(active_motorcycle_ids))
+                if touring_query: touring_query = touring_query.filter(TouringLog.motorcycle_id.in_(active_motorcycle_ids))
         except ValueError:
             active_filters.pop('vehicle_id', None)
+            if activity_query: activity_query = activity_query.filter(ActivityLog.motorcycle_id.in_(active_motorcycle_ids))
+            if touring_query: touring_query = touring_query.filter(TouringLog.motorcycle_id.in_(active_motorcycle_ids))
+    else:
+        if activity_query: activity_query = activity_query.filter(ActivityLog.motorcycle_id.in_(active_motorcycle_ids))
+        if touring_query: touring_query = touring_query.filter(TouringLog.motorcycle_id.in_(active_motorcycle_ids))
 
     if keyword:
         search_term = f'%{keyword}%'
@@ -328,7 +336,7 @@ def add_activity(vehicle_id):
     form = ActivityLogForm(request.form)
     
     user_motorcycles = Motorcycle.query.filter_by(user_id=current_user.id).order_by(Motorcycle.name).all()
-    form.motorcycle_id.choices = [(m.id, m.name) for m in user_motorcycles]
+    form.motorcycle_id.choices = [(m.id, f"{m.name} (アーカイブ)" if m.is_archived else m.name) for m in user_motorcycles]
 
     if request.method == 'POST':
         form.motorcycle_id.data = vehicle_id
@@ -403,7 +411,7 @@ def edit_activity(activity_id):
     form = ActivityLogForm(obj=activity)
 
     user_motorcycles = Motorcycle.query.filter_by(user_id=current_user.id).order_by(Motorcycle.name).all()
-    form.motorcycle_id.choices = [(m.id, m.name) for m in user_motorcycles]
+    form.motorcycle_id.choices = [(m.id, f"{m.name} (アーカイブ)" if m.is_archived else m.name) for m in user_motorcycles]
 
     if form.validate_on_submit():
         original_motorcycle_id = activity.motorcycle_id
