@@ -80,6 +80,36 @@
     <div class="col">
         <div class="card h-100 shadow-sm">
             <div class="card-body d-flex flex-column">
+                <h5 class="card-title"><i class="fas fa-trophy me-2 text-warning"></i>実績機能</h5>
+                <p class="card-text flex-grow-1">アプリを使い込むことで解除される「実績」機能と、そのMisskey連携について解説します。</p>
+                <a href="{{ url_for('help.feature_achievements') }}" class="btn btn-warning mt-auto">続きを読む</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body d-flex flex-column">
+                <h5 class="card-title"><i class="fas fa-id-card me-2 text-primary"></i>パブリックガレージ</h5>
+                <p class="card-text flex-grow-1">愛車やこれまでの記録を他の人に公開できる、プロフィールとしての活用方法を解説します。</p>
+                <a href="{{ url_for('help.feature_garage') }}" class="btn btn-primary mt-auto">続きを読む</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body d-flex flex-column">
+                <h5 class="card-title"><i class="fas fa-users me-2 text-info"></i>チーム機能</h5>
+                <p class="card-text flex-grow-1">仲間だけでクローズドな予定共有や記録ができる、チーム機能の使い方を解説します。</p>
+                <a href="{{ url_for('help.feature_teams') }}" class="btn btn-info text-dark mt-auto">続きを読む</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body d-flex flex-column">
                 <h5 class="card-title"><i class="fas fa-comments me-2 text-secondary"></i>よくある質問</h5>
                 <p class="card-text flex-grow-1">アプリの仕様や操作について、よく寄せられる質問とその回答をまとめています。</p>
                 <a href="{{ url_for('help.faq') }}" class="btn btn-secondary mt-auto">続きを読む</a>

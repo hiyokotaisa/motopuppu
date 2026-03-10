@@ -52,6 +52,21 @@ def feature_activity_log():
     # テンプレートを専用のものに修正
     return render_template('help/features/activity_log.html', title="機能ガイド：活動ログ")
 
+@help_bp.route('/features/achievements')
+def feature_achievements():
+    """機能ガイド：実績機能"""
+    return render_template('help/features/achievements.html', title="機能ガイド：実績機能")
+
+@help_bp.route('/features/garage')
+def feature_garage():
+    """機能ガイド：パブリックガレージ"""
+    return render_template('help/features/garage.html', title="機能ガイド：パブリックガレージ")
+
+@help_bp.route('/features/teams')
+def feature_teams():
+    """機能ガイド：チーム機能"""
+    return render_template('help/features/teams.html', title="機能ガイド：チーム機能")
+
 @help_bp.route('/faq')
 def faq():
     """よくある質問（FAQ）ページを表示します。"""

@@ -1,0 +1,64 @@
+{# motopuppu/templates/help/features/garage.html #}
+{% extends "help/layout.html" %}
+
+{% block help_content %}
+<p class="lead">あなたの登録した車両や実績などを、他の人に公開できる「パブリックガレージ」機能について解説します。名刺代わりに使えるあなた専用のプロフィールページです。</p>
+
+<div class="accordion mt-4" id="garage-guide">
+
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="garage-what-is-header">
+            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#garage-what-is-collapse" aria-expanded="true" aria-controls="garage-what-is-collapse">
+                <strong>1. パブリックガレージとは？</strong>
+            </button>
+        </h2>
+        <div id="garage-what-is-collapse" class="accordion-collapse collapse show" aria-labelledby="garage-what-is-header" data-bs-parent="#garage-guide">
+            <div class="accordion-body">
+                <p>本アプリは多機能な記録ツールですが、同時にあなたのバイクライフをWeb上で表現する場でもあります。「パブリックガレージ」を有効にすると、ログインしていない人でも閲覧できる専用のURLが発行されます。</p>
+                <p>このページには、以下のような情報が表示されます。</p>
+                <ul>
+                    <li>あなたのMisskeyプロフィール情報（アバター、名前）</li>
+                    <li>所有している車両の一覧（公開設定をONにしているもののみ）</li>
+                    <li>最近の活動記録やツーリングログ</li>
+                    <li>獲得した実績のバッジ</li>
+                </ul>
+                <p>SNSのプロフィール欄にこのURLを掲載することで、「私はこんなバイクに乗っていて、こんな活動をしている」という自己紹介として活用できます。</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="garage-setup-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#garage-setup-collapse" aria-expanded="false" aria-controls="garage-setup-collapse">
+                <strong>2. 公開設定とデザインのカスタマイズ</strong>
+            </button>
+        </h2>
+        <div id="garage-setup-collapse" class="accordion-collapse collapse" aria-labelledby="garage-setup-header" data-bs-parent="#garage-guide">
+            <div class="accordion-body">
+                <p>ナビゲーションバーのユーザーメニューから「ガレージ・プロフィール設定」を開くことで、公開ページの設定を行えます。</p>
+                <ul>
+                    <li><strong>公開の有効化:</strong> デフォルトでは「非公開」になっています。公開するには「ガレージを公開する」のスイッチをONにしてください。</li>
+                    <li><strong>テーマ変更:</strong> ページのカラーテーマ（デザイン）を選択できます。愛車の色や好みに合わせてカスタマイズしてください。</li>
+                    <li><strong>ヒーロー車両:</strong> ページの一番上に大きく表示される「主役（ヒーロー）」となる車両を選択できます。特にアピールしたい愛車を選びましょう。</li>
+                    <li><strong>表示項目の設定:</strong> カスタム内容や総走行距離、最近の活動など、項目ごとに公開・非公開を細かくコントロールできます。</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="garage-vehicle-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#garage-vehicle-collapse" aria-expanded="false" aria-controls="garage-vehicle-collapse">
+                <strong>3. 車両ごとの公開・非公開設定</strong>
+            </button>
+        </h2>
+        <div id="garage-vehicle-collapse" class="accordion-collapse collapse" aria-labelledby="garage-vehicle-header" data-bs-parent="#garage-guide">
+            <div class="accordion-body">
+                <p>パブリックガレージを公開設定にしていても、特定の車両だけ見せたくない（例: 通勤用スクーターは非公開にしたい等）場合があります。</p>
+                <p>その場合は、「車両管理」の編集ページで、その車両の<strong>「ガレージ公開」のチェックを外す</strong>ことで、その車両だけをパブリックガレージのリストから非表示にすることができます。</p>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

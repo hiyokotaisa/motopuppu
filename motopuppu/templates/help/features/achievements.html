@@ -1,0 +1,57 @@
+{# motopuppu/templates/help/features/achievements.html #}
+{% extends "help/layout.html" %}
+
+{% block help_content %}
+<p class="lead">アプリを通じて様々な操作や記録を行うことで、「実績」を解除（アンロック）していく機能です。あなたのバイクライフの軌跡をバッジとしてコレクションできます。</p>
+
+<div class="accordion mt-4" id="achievements-guide">
+
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="achievements-what-is-header">
+            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#achievements-what-is-collapse" aria-expanded="true" aria-controls="achievements-what-is-collapse">
+                <strong>1. 実績機能とは？</strong>
+            </button>
+        </h2>
+        <div id="achievements-what-is-collapse" class="accordion-collapse collapse show" aria-labelledby="achievements-what-is-header" data-bs-parent="#achievements-guide">
+            <div class="accordion-body">
+                <p>もとぷっぷーでは、初めて車両を登録した時や給油記録を追加した時など、特定の条件を満たすと「実績」が解除されます。これはゲームのトロフィー機能のようなもので、アプリを使い込む楽しみの一つです。</p>
+                <p>現在解除されている実績は、ナビゲーションバーの「活動記録」→「実績」ページ、またはご自身のパブリックガレージ（プロフィール）で確認することができます。</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="achievements-how-to-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#achievements-how-to-collapse" aria-expanded="false" aria-controls="achievements-how-to-collapse">
+                <strong>2. 実績の解除方法</strong>
+            </button>
+        </h2>
+        <div id="achievements-how-to-collapse" class="accordion-collapse collapse" aria-labelledby="achievements-how-to-header" data-bs-parent="#achievements-guide">
+            <div class="accordion-body">
+                <p>実績の多くは日常的にアプリを使っていると自然に解除されていきます。条件は多岐にわたり、以下のようなカテゴリがあります。</p>
+                <ul>
+                    <li><strong>記録・登録系:</strong> 車両の登録、最初の給油記録、整備記録の追加など</li>
+                    <li><strong>継続・回数系:</strong> 給油記録10回達成、活動ログの複数回記録など</li>
+                    <li><strong>特殊条件系:</strong> 特定の機能（例: スクラップブック、リーダーボード）の利用や、特定の条件下での記録など</li>
+                </ul>
+                <p>実績ページにはまだ解除されていない実績がシルエットで表示されており、ヒントが記載されています。ぜひ様々な機能を試して、すべての実績解除を目指してみてください。</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="achievements-share-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#achievements-share-collapse" aria-expanded="false" aria-controls="achievements-share-collapse">
+                <strong>3. 実績のMisskey共有</strong>
+            </button>
+        </h2>
+        <div id="achievements-share-collapse" class="accordion-collapse collapse" aria-labelledby="achievements-share-header" data-bs-parent="#achievements-guide">
+            <div class="accordion-body">
+                <p>実績を解除した喜びは、Misskeyでフォロワーと共有することができます。</p>
+                <p>実績一覧ページで各実績カードの右下にある共有ボタン <i class="fa-solid fa-share-nodes fa-fw"></i> をクリックすると、専用の共有テキストが自動生成され、Misskeyの投稿画面が開きます。珍しい実績を解除した際には、ぜひ自慢してみてください。</p>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

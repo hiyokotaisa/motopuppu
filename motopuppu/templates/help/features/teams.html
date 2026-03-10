@@ -1,0 +1,59 @@
+{# motopuppu/templates/help/features/teams.html #}
+{% extends "help/layout.html" %}
+
+{% block help_content %}
+<p class="lead">友人や仲間とチームを作り、イベントや日々の活動記録をプライベートに共有できる「チーム」機能について解説します。</p>
+
+<div class="accordion mt-4" id="teams-guide">
+
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="teams-what-is-header">
+            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#teams-what-is-collapse" aria-expanded="true" aria-controls="teams-what-is-collapse">
+                <strong>1. チーム機能でできること</strong>
+            </button>
+        </h2>
+        <div id="teams-what-is-collapse" class="accordion-collapse collapse show" aria-labelledby="teams-what-is-header" data-bs-parent="#teams-guide">
+            <div class="accordion-body">
+                <p>もとぷっぷーのチーム機能を利用すると、特定のメンバー間だけでクローズドな情報共有が可能になります。</p>
+                <ul>
+                    <li><strong>活動ログの共有:</strong> 自分のツーリングやサーキット走行の記録を、「チームに共有する」設定をONにすることで、チームのタイムラインに表示させることができます。</li>
+                    <li><strong>チームイベントの作成:</strong> 一般には公開されない、チームメンバー限定のイベントプランを作成し、出欠管理を行うことができます。</li>
+                    <li><strong>メンバーのガレージ閲覧:</strong> チームメンバーの一覧から、それぞれの公開ガレージ（プロフィール）に簡単にアクセスできます。</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="teams-create-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#teams-create-collapse" aria-expanded="false" aria-controls="teams-create-collapse">
+                <strong>2. チームの作成とメンバー招待</strong>
+            </button>
+        </h2>
+        <div id="teams-create-collapse" class="accordion-collapse collapse" aria-labelledby="teams-create-header" data-bs-parent="#teams-guide">
+            <div class="accordion-body">
+                <p>ナビゲーションバーの「活動記録」→「チーム・グループ」からチームの管理画面にアクセスします。</p>
+                <h5 class="mt-3"><i class="fas fa-plus-circle text-primary me-2"></i>チームを作る</h5>
+                <p>「新しくチームを作成」ボタンからチーム名を決めて作成します。作成したユーザーがそのチームの「オーナー」となります。</p>
+                <h5 class="mt-3"><i class="fas fa-user-plus text-primary me-2"></i>メンバーを招待する</h5>
+                <p>作成したチームの詳細ページに「招待リンク（または招待コード）」が用意されています。このURLをSNSのDMなどで直接友人に送ってください。リンクを受け取った人がアクセスして参加を承認すれば、メンバーに加わります。</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="teams-event-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#teams-event-collapse" aria-expanded="false" aria-controls="teams-event-collapse">
+                <strong>3. チーム内でのイベント企画</strong>
+            </button>
+        </h2>
+        <div id="teams-event-collapse" class="accordion-collapse collapse" aria-labelledby="teams-event-header" data-bs-parent="#teams-guide">
+            <div class="accordion-body">
+                <p>通常の「イベント」機能は、設定によってはアプリ利用者全員に公開される一覧に載ってしまいますが、チームイベントとして作成すれば安心です。</p>
+                <p>イベントの作成・編集画面で<strong>「対象チーム」</strong>を選択すると、そのイベントは対象チームのメンバーにしか見えなくなり、クローズドなツーリングやオフ会の予定管理に最適です。</p>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

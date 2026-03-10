@@ -111,6 +111,24 @@
                     </div>
                 </div>
             </div>
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="faq-receipt-header">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq-receipt-collapse" aria-expanded="false" aria-controls="faq-receipt-collapse">
+                        <strong>Q. レシート読み取り機能がうまく動作しません。</strong>
+                    </button>
+                </h2>
+                <div id="faq-receipt-collapse" class="accordion-collapse collapse" aria-labelledby="faq-receipt-header" data-bs-parent="#faqAccordion-fuel">
+                    <div class="accordion-body">
+                        <p>レシートの画像から情報を読み取るAIは、写真の画質やレシートの印字状態に大きく影響を受けます。</p>
+                        <ul>
+                            <li>明るい場所で、影が入らないように撮影してください。</li>
+                            <li>文字がぼやけたり、レシートが極端に曲がったりしていないか確認してください。</li>
+                            <li>一部の特殊なフォーマットのレシートは、正しく読み取れない場合があります。</li>
+                        </ul>
+                        <p>どうしても読み取れない場合は、お手数ですが手動での入力をお願いいたします。</p>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -150,6 +168,20 @@
 
     <div class="tab-pane fade" id="cat-app" role="tabpanel" aria-labelledby="cat-app-tab">
         <div class="accordion" id="faqAccordion-app">
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="faq-garage-header">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq-garage-collapse" aria-expanded="false" aria-controls="faq-garage-collapse">
+                        <strong>Q. パブリックガレージを公開すると、誰にどこまで見られますか？</strong>
+                    </button>
+                </h2>
+                <div id="faq-garage-collapse" class="accordion-collapse collapse" aria-labelledby="faq-garage-header" data-bs-parent="#faqAccordion-app">
+                    <div class="accordion-body">
+                        <p>公開設定（パブリックガレージ）をONにした場合、発行されたURLを知っている人なら<strong>誰でも（ログインしていなくても）閲覧可能</strong>になります。</p>
+                        <p>ただし、ガレージ上でどの情報を表示するか（車両、カスタム内容、走行距離、活動ログなど）は、設定画面から細かくコントロールできます。また、車両ごとに公開/非公開を設定することも可能です。</p>
+                        <p class="mt-2 small"><a href="{{ url_for('help.feature_garage') }}">→ 詳しくは「機能ガイド：パブリックガレージ」へ</a></p>
+                    </div>
+                </div>
+            </div>
             <div class="accordion-item">
                 <h2 class="accordion-header" id="faq-q8-header">
                     <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#faq-q8-collapse" aria-expanded="true" aria-controls="faq-q8-collapse">

@@ -33,6 +33,15 @@
                  <a href="{{ url_for('help.feature_notes') }}" class="list-group-item list-group-item-action border-0 {% if request.endpoint == 'help.feature_notes' %}active{% endif %}">
                     <i class="fas fa-sticky-note fa-fw me-2"></i>ノート機能
                 </a>
+                <a href="{{ url_for('help.feature_achievements') }}" class="list-group-item list-group-item-action border-0 {% if request.endpoint == 'help.feature_achievements' %}active{% endif %}">
+                    <i class="fas fa-trophy fa-fw me-2"></i>実績機能
+                </a>
+                <a href="{{ url_for('help.feature_garage') }}" class="list-group-item list-group-item-action border-0 {% if request.endpoint == 'help.feature_garage' %}active{% endif %}">
+                    <i class="fas fa-id-card fa-fw me-2"></i>パブリックガレージ
+                </a>
+                <a href="{{ url_for('help.feature_teams') }}" class="list-group-item list-group-item-action border-0 {% if request.endpoint == 'help.feature_teams' %}active{% endif %}">
+                    <i class="fas fa-users fa-fw me-2"></i>チーム機能
+                </a>
             </div>
         </div>
     </div>

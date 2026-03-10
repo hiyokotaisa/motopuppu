@@ -144,5 +144,28 @@
         </div>
     </div>
 
+    <div class="accordion-item">
+        <h2 class="accordion-header" id="fuel-receipt-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#fuel-receipt-collapse" aria-expanded="false" aria-controls="fuel-receipt-collapse">
+                <strong>4. レシート読み取りで簡単入力</strong>
+            </button>
+        </h2>
+        <div id="fuel-receipt-collapse" class="accordion-collapse collapse" aria-labelledby="fuel-receipt-header" data-bs-parent="#fuel-guide">
+            <div class="accordion-body">
+                <p>給油のたびに数値を手入力するのが面倒な場合、AIを用いた「レシート読み取り機能」を活用できます。</p>
+                <ol>
+                    <li>「給油記録の追加」ページで、<strong>「レシートから自動入力」</strong>ボタン（カメラアイコン）をクリックまたはタップします。</li>
+                    <li>スマートフォンのカメラが起動するか、ファイル選択画面が開くので、ガソリンスタンドのレシートを撮影・アップロードします。</li>
+                    <li>AIがレシートの画像を解析し、<strong>給油日、給油量、単価、合計金額、スタンド名</strong>などの情報を自動で読み取り、フォームに入力します。</li>
+                    <li>読み取られた内容が正しいか確認し、必要に応じて修正してから保存してください。</li>
+                </ol>
+                <div class="alert alert-info small mt-2">
+                    <i class="fas fa-info-circle me-2"></i>
+                    ※OCR精度の限界やレシートの印字状態により、正しく読み取れない場合があります。保存前に必ず内容の確認をお願いします。
+                </div>
+            </div>
+        </div>
+    </div>
+
 </div>
 {% endblock %}
