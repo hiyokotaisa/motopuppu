@@ -4,6 +4,7 @@ from datetime import datetime, date
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy import Index, func, text
 import uuid
+from decimal import Decimal
 from enum import Enum as PyEnum
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import UserMixin
@@ -94,6 +95,17 @@ class Motorcycle(db.Model):
         latest_maint_dist = db.session.query(func.max(MaintenanceEntry.total_distance_at_maintenance)).filter(MaintenanceEntry.motorcycle_id == self.id).scalar() or 0
         current_offset = self.odometer_offset if self.odometer_offset is not None else 0
         return max(latest_fuel_dist, latest_maint_dist, current_offset)
+
+    @property
+    def display_operating_hours(self):
+        base_hours = self.total_operating_hours if self.total_operating_hours is not None else Decimal('0.00')
+        if not self.is_racer:
+            return base_hours
+            
+        max_maintenance_hours = db.session.query(func.max(MaintenanceEntry.operating_hours_at_maintenance)).filter_by(motorcycle_id=self.id).scalar()
+        if max_maintenance_hours is not None:
+            return max(base_hours, max_maintenance_hours)
+        return base_hours
 
     def __repr__(self):
         return f'<Motorcycle id={self.id} name={self.name}>'

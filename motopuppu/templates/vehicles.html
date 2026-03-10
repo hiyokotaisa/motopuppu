@@ -124,7 +124,7 @@
                         <div class="d-flex align-items-center">
                             <i class="fas fa-road fa-fw text-muted me-2"></i>
                             {% if motorcycle.is_racer %}
-                                <span class="text-muted me-1">Hours:</span> <strong>{{ "%.2f"|format(motorcycle.total_operating_hours if motorcycle.total_operating_hours is not none else 0) }} h</strong>
+                                <span class="text-muted me-1">Hours:</span> <strong>{{ "%.2f"|format(motorcycle.display_operating_hours if motorcycle.display_operating_hours is not none else 0) }} h</strong>
                             {% else %}
                                 <span class="text-muted me-1">ODO:</span> <strong>{{ "{:,.0f}".format(motorcycle.get_display_total_mileage() | int) }} km</strong>
                             {% endif %}

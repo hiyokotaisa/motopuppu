@@ -341,7 +341,7 @@ def get_dashboard_stats(user_motorcycles_all, user_motorcycle_ids_public, target
     if target_vehicle_for_stats:
         stats['is_racer_stats'] = target_vehicle_for_stats.is_racer
         if target_vehicle_for_stats.is_racer:
-            stats['primary_metric_val'] = target_vehicle_for_stats.total_operating_hours if target_vehicle_for_stats.total_operating_hours is not None else 0
+            stats['primary_metric_val'] = target_vehicle_for_stats.display_operating_hours if target_vehicle_for_stats.display_operating_hours is not None else 0
             stats['primary_metric_unit'] = '時間'
             stats['primary_metric_label'] = target_vehicle_for_stats.name
             stats['average_kpl_label'] = f"{target_vehicle_for_stats.name} (レーサー)"
@@ -818,7 +818,7 @@ def get_user_garage_data(user: User) -> dict:
     if hero_vehicle:
         if hero_vehicle.is_racer:
             hero_stats['primary_metric_label'] = '総稼働時間'
-            hero_stats['primary_metric_value'] = f"{hero_vehicle.total_operating_hours or 0:.2f}"
+            hero_stats['primary_metric_value'] = f"{hero_vehicle.display_operating_hours or 0:.2f}"
             hero_stats['primary_metric_unit'] = '時間'
         else:
             total_mileage = get_latest_total_distance(hero_vehicle.id, hero_vehicle.odometer_offset)

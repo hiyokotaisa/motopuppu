@@ -30,7 +30,7 @@
                                 <br>
                                 
                                 {% if motorcycle_item.is_racer %}
-                                    <small class="text-info"><i class="fas fa-stopwatch me-1"></i> 総稼働: <strong>{{ "%.2f"|format(motorcycle_item.total_operating_hours if motorcycle_item.total_operating_hours is not none else 0) }}</strong> 時間</small>
+                                    <small class="text-info"><i class="fas fa-stopwatch me-1"></i> 総稼働: <strong>{{ "%.2f"|format(motorcycle_item.display_operating_hours if motorcycle_item.display_operating_hours is not none else 0) }}</strong> 時間</small>
                                 {% else %}
                                     {# 最新ログ情報の高速表示 #}
                                     {% set log_info = latest_log_info.get(motorcycle_item.id) %}
