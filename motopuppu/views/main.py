@@ -106,6 +106,32 @@ def index():
     return render_template('index.html', announcements=announcements_for_modal, important_notice=important_notice_content)
 
 
+@main_bp.route('/api/announcements/modal')
+@login_required
+def announcements_modal_api():
+    """ナビゲーションバーからの呼び出し用: お知らせモーダルのHTMLを返す"""
+    announcements_for_modal = []
+    try:
+        announcement_file = os.path.join(
+            current_app.root_path, '..', 'announcements.json')
+        if os.path.exists(announcement_file):
+            with open(announcement_file, 'r', encoding='utf-8') as f:
+                all_announcements_data = json.load(f)
+
+            temp_modal_announcements = []
+            for item in all_announcements_data:
+                if item.get('active', False) and item.get('id') != 1:
+                    temp_modal_announcements.append(item)
+
+            temp_modal_announcements.sort(
+                key=lambda x: x.get('id', 0), reverse=True)
+            announcements_for_modal = temp_modal_announcements
+    except Exception as e:
+        current_app.logger.error(f"Error loading announcements for modal: {e}")
+
+    return render_template('_announcements_modal.html', announcements=announcements_for_modal)
+
+
 @main_bp.route('/dashboard')
 @login_required
 def dashboard():

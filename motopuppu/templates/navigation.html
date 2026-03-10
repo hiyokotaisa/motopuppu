@@ -305,6 +305,14 @@
                             </a>
                         </li>
                         <li>
+                            <a class="dropdown-item" href="#"
+                               hx-get="{{ url_for('main.announcements_modal_api') }}"
+                               hx-target="#global-modal-container"
+                               hx-swap="innerHTML">
+                                <i class="fas fa-info-circle fa-fw me-2 text-info"></i>お知らせ
+                            </a>
+                        </li>
+                        <li>
                             <hr class="dropdown-divider">
                         </li>
                         <li>
@@ -352,3 +360,6 @@
 </style>
 {# 以前のJavaScriptは不要になったため削除済み #}
 {% endif %}
+
+{# お知らせ等のモーダルを読み込むためのコンテナ #}
+<div id="global-modal-container"></div>

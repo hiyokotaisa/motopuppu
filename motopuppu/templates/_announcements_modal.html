@@ -1,0 +1,36 @@
+<div class="modal fade" id="announcementsModal" tabindex="-1" aria-labelledby="announcementsModalLabel" aria-hidden="true"
+     hx-on:hidden.bs.modal="this.remove()">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="announcementsModalLabel"><i class="fas fa-info-circle me-2 text-info"></i>お知らせ一覧</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                {% for notice in announcements %}
+                <div class="mb-3 pb-2 {% if not loop.last %}border-bottom{% endif %}">
+                    <h6 class="mb-1 fw-bold">{{ notice.title }}</h6>
+                    <p class="mb-0 small text-muted">{{ notice.content | replace('\n', '<br>') | safe }}</p>
+                </div>
+                {% else %}
+                <p>現在、表示できるお知らせはありません。</p>
+                {% endfor %}
+            </div>
+            <div class="modal-footer d-flex justify-content-center border-0 pt-0">
+                <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">閉じる</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function(){
+        // IDがannouncementsModalの要素を取得
+        var modalEl = document.getElementById('announcementsModal');
+        if (modalEl) {
+            // BootstrapのModalインスタンスを作成してただちに表示
+            var modal = new bootstrap.Modal(modalEl);
+            modal.show();
+        }
+    })();
+</script>
