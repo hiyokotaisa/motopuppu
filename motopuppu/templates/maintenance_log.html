@@ -218,9 +218,15 @@
                         <div class="col-6 col-md-3">
                             <div class="small text-muted mb-1"><i class="fas fa-tachometer-alt me-1"></i>ODO</div>
                             <div class="fw-bold distance-value-cell"
+                                 data-is-racer="{{ 'true' if entry.motorcycle.is_racer else 'false' }}"
                                  data-odo-value="{{ entry.odometer_reading_at_maintenance }}"
+                                 data-hours-value="{{ entry.operating_hours_at_maintenance }}"
                                  data-actual-value="{{ entry.total_distance_at_maintenance if entry.total_distance_at_maintenance is not none else entry.odometer_reading_at_maintenance }}">
-                                {{ "{:,}".format(entry.odometer_reading_at_maintenance) }} km
+                                {% if entry.motorcycle.is_racer %}
+                                    {{ entry.operating_hours_at_maintenance }} H
+                                {% else %}
+                                    {{ "{:,}".format(entry.odometer_reading_at_maintenance) }} km
+                                {% endif %}
                             </div>
                         </div>
                         <div class="col-6 col-md-3">
@@ -252,7 +258,7 @@
                                 data-type="maintenance"
                                 data-vehicle-name="{{ entry.motorcycle.name }}"
                                 data-date="{{ entry.maintenance_date.isoformat() }}"
-                                data-odo="{{ entry.odometer_reading_at_maintenance }}"
+                                data-odo="{% if entry.motorcycle.is_racer %}{{ entry.operating_hours_at_maintenance }}H{% else %}{{ entry.odometer_reading_at_maintenance }}{% endif %}"
                                 data-total-distance = "{{ entry.total_distance_at_maintenance if entry.total_distance_at_maintenance is not none else '' }}"
                                 data-category="{{ entry.category or '' }}"
                                 data-description="{{ entry.description }}"
@@ -306,7 +312,7 @@
 
                     {{ sortable_th('date', '<i class="bi bi-calendar-event me-2"></i>日付', current_sort_by, current_order, request_args, "ps-3") }}
                     {{ sortable_th('vehicle', '<i class="bi bi-bicycle me-2"></i>車両', current_sort_by, current_order, request_args) }}
-                    {{ sortable_th('odo_reading', '<i class="bi bi-speedometer2 me-2"></i>ODO', current_sort_by, current_order, request_args, "text-end", "distance_header") }}
+                    {{ sortable_th('odo_reading', '<i class="bi bi-speedometer2 me-2"></i>走行距離(km)/稼働(H)', current_sort_by, current_order, request_args, "text-end", "distance_header") }}
                     {{ sortable_th('category', '<i class="bi bi-tag-fill me-2"></i>カテゴリ', current_sort_by, current_order, request_args) }}
                     <th><i class="bi bi-card-text me-2"></i>内容</th>
                     <th class="text-end"><i class="bi bi-currency-yen me-2"></i>費用</th>
@@ -323,9 +329,15 @@
                         </a>
                     </td>
                     <td class="text-end font-monospace distance-value-cell"
+                        data-is-racer="{{ 'true' if entry.motorcycle.is_racer else 'false' }}"
                         data-odo-value="{{ entry.odometer_reading_at_maintenance }}"
+                        data-hours-value="{{ entry.operating_hours_at_maintenance }}"
                         data-actual-value="{{ entry.total_distance_at_maintenance if entry.total_distance_at_maintenance is not none else entry.odometer_reading_at_maintenance }}">
-                        {{ "{:,}".format(entry.odometer_reading_at_maintenance) }}
+                        {% if entry.motorcycle.is_racer %}
+                            {{ entry.operating_hours_at_maintenance }}
+                        {% else %}
+                            {{ "{:,}".format(entry.odometer_reading_at_maintenance) }}
+                        {% endif %}
                     </td>
                     <td>{{ entry.category if entry.category else '-' }}</td>
                     <td>
@@ -350,7 +362,7 @@
                                 data-type="maintenance"
                                 data-vehicle-name="{{ entry.motorcycle.name }}"
                                 data-date="{{ entry.maintenance_date.isoformat() }}"
-                                data-odo="{{ entry.odometer_reading_at_maintenance }}"
+                                data-odo="{% if entry.motorcycle.is_racer %}{{ entry.operating_hours_at_maintenance }}H{% else %}{{ entry.odometer_reading_at_maintenance }}{% endif %}"
                                 data-total-distance = "{{ entry.total_distance_at_maintenance if entry.total_distance_at_maintenance is not none else '' }}"
                                 data-category="{{ entry.category or '' }}"
                                 data-description="{{ entry.description }}"
@@ -483,12 +495,23 @@ document.addEventListener('DOMContentLoaded', function() {
             const cells = document.querySelectorAll('.distance-value-cell');
             
             cells.forEach(cell => {
-                const val = isOdo ? cell.dataset.odoValue : cell.dataset.actualValue;
-                // カンマ区切りフォーマット
-                cell.textContent = parseInt(val).toLocaleString();
-                // ダッシュボード表示のときは " km" をつける
-                if (cell.classList.contains('fw-bold')) { // 簡易的な判定: ダッシュボード側はfw-boldがついている
-                     cell.textContent += ' km';
+                const isRacer = cell.dataset.isRacer === 'true';
+                if (isRacer) {
+                    const val = cell.dataset.hoursValue;
+                    if (val && val !== 'None') {
+                        cell.textContent = parseFloat(val).toFixed(2);
+                        if (cell.classList.contains('fw-bold')) {
+                            cell.textContent += ' H';
+                        }
+                    }
+                } else {
+                    const val = isOdo ? cell.dataset.odoValue : cell.dataset.actualValue;
+                    if (val && val !== 'None') {
+                        cell.textContent = parseInt(val).toLocaleString();
+                        if (cell.classList.contains('fw-bold')) {
+                             cell.textContent += ' km';
+                        }
+                    }
                 }
             });
 

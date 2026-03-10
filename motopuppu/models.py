@@ -158,7 +158,8 @@ class MaintenanceEntry(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     motorcycle_id = db.Column(db.Integer, db.ForeignKey('motorcycles.id', ondelete='CASCADE'), nullable=False)
     maintenance_date = db.Column(db.Date, nullable=False)
-    odometer_reading_at_maintenance = db.Column(db.Integer, nullable=False)
+    odometer_reading_at_maintenance = db.Column(db.Integer, nullable=True)
+    operating_hours_at_maintenance = db.Column(db.Numeric(8, 2), nullable=True, comment="レーサー車両用の稼働時間")
     total_distance_at_maintenance = db.Column(db.Integer, nullable=False, server_default='0')
     description = db.Column(db.Text, nullable=False)
     location = db.Column(db.String(100), nullable=True)
@@ -176,7 +177,11 @@ class MaintenanceEntry(db.Model):
 
     @property
     def maintenance_summary_for_select(self):
-        odo_text = f"({self.odometer_reading_at_maintenance:,}km)" if self.odometer_reading_at_maintenance is not None else ""
+        odo_text = ""
+        if self.motorcycle and getattr(self.motorcycle, 'is_racer', False) and self.operating_hours_at_maintenance is not None:
+            odo_text = f"({self.operating_hours_at_maintenance}H)"
+        elif self.odometer_reading_at_maintenance is not None:
+            odo_text = f"({self.odometer_reading_at_maintenance:,}km)"
         desc_text = f"{self.description[:25]}..." if len(self.description) > 25 else self.description
         return f"{self.maintenance_date.strftime('%Y-%m-%d')} / {desc_text} {odo_text}"
 

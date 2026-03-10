@@ -91,6 +91,36 @@
         {% endif %}
     </div>
 
+    <div id="hours-input-group" class="mb-3" style="display: none;">
+        <label for="{{ form.operating_hours_at_maintenance.id }}" class="form-label">
+            <i class="bi bi-clock-history me-2"></i>{{ form.operating_hours_at_maintenance.label.text }} <span class="text-danger">*</span>
+        </label>
+        {{ form.operating_hours_at_maintenance(class="form-control" + (" is-invalid" if form.operating_hours_at_maintenance.errors else ""), min="0", step="0.01") }}
+        {% if form.operating_hours_at_maintenance.errors %}
+            <div class="invalid-feedback">
+                {% for error in form.operating_hours_at_maintenance.errors %}<span>{{ error }}</span><br>{% endfor %}
+            </div>
+        {% else %}
+            <div class="form-text">整備を実施した時の稼働時間(H)を入力してください。</div>
+        {% endif %}
+    </div>
+
+    <div id="hours-diff-input-group" class="mb-3" style="display: none;">
+        <label for="{{ form.operating_hours_duration.id }}" class="form-label">
+            <i class="bi bi-hourglass-split me-2"></i>{{ form.operating_hours_duration.label.text }} <span class="text-danger">*</span>
+        </label>
+        {{ form.operating_hours_duration(class="form-control" + (" is-invalid" if form.operating_hours_duration.errors else ""), min="0", step="0.01") }}
+        {% if form.operating_hours_duration.errors %}
+            <div class="invalid-feedback">
+                {% for error in form.operating_hours_duration.errors %}<span>{{ error }}</span><br>{% endfor %}
+            </div>
+        {% else %}
+            <div class="form-text">
+                前回整備時からの稼働時間 (H) を入力してください。
+            </div>
+        {% endif %}
+    </div>
+
     <div class="mb-3">
         <label for="{{ form.category.id }}" class="form-label">
             <i class="bi bi-tags me-2"></i>{{ form.category.label.text }}
@@ -213,6 +243,10 @@ document.addEventListener('DOMContentLoaded', function() {
             } else {
                 previousInfoContainer.style.display = 'none';
             }
+            window.isRacer = data.is_racer;
+            if (typeof window.toggleInputFields === 'function') {
+                window.toggleInputFields();
+            }
         } catch (error) {
             console.error("Error fetching previous maintenance info:", error);
             previousInfoContainer.style.display = 'none';
@@ -230,19 +264,35 @@ document.addEventListener('DOMContentLoaded', function() {
     const inputModeToggle = document.getElementById('input_mode');
     const odoGroup = document.getElementById('odo-input-group');
     const tripGroup = document.getElementById('trip-input-group');
+    const hoursGroup = document.getElementById('hours-input-group');
+    const hoursDiffGroup = document.getElementById('hours-diff-input-group');
 
-    if (inputModeToggle && odoGroup && tripGroup) {
-        function toggleInputFields() {
-            if (inputModeToggle.checked) {
-                odoGroup.style.display = 'none';
-                tripGroup.style.display = 'block';
+    if (inputModeToggle) {
+        window.toggleInputFields = function() {
+            const isRacer = window.isRacer || false;
+            if (isRacer) {
+                if (odoGroup) odoGroup.style.display = 'none';
+                if (tripGroup) tripGroup.style.display = 'none';
+                if (inputModeToggle.checked) {
+                    if (hoursGroup) hoursGroup.style.display = 'none';
+                    if (hoursDiffGroup) hoursDiffGroup.style.display = 'block';
+                } else {
+                    if (hoursGroup) hoursGroup.style.display = 'block';
+                    if (hoursDiffGroup) hoursDiffGroup.style.display = 'none';
+                }
             } else {
-                odoGroup.style.display = 'block';
-                tripGroup.style.display = 'none';
+                if (hoursGroup) hoursGroup.style.display = 'none';
+                if (hoursDiffGroup) hoursDiffGroup.style.display = 'none';
+                if (inputModeToggle.checked) {
+                    if (odoGroup) odoGroup.style.display = 'none';
+                    if (tripGroup) tripGroup.style.display = 'block';
+                } else {
+                    if (odoGroup) odoGroup.style.display = 'block';
+                    if (tripGroup) tripGroup.style.display = 'none';
+                }
             }
-        }
-        inputModeToggle.addEventListener('change', toggleInputFields);
-        toggleInputFields();
+        };
+        inputModeToggle.addEventListener('change', window.toggleInputFields);
     }
 });
 </script>

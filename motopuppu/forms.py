@@ -139,6 +139,24 @@ class MaintenanceForm(FlaskForm):
         ],
         render_kw={"placeholder": "前回整備からの走行距離"}
     )
+    operating_hours_at_maintenance = DecimalField(
+        '稼働時間 (H)',
+        places=2,
+        validators=[
+            Optional(),
+            NumberRange(min=0, message='稼働時間は0以上で入力してください。')
+        ],
+        render_kw={"placeholder": "例: 12.50"}
+    )
+    operating_hours_duration = DecimalField(
+        '前回整備からの稼働時間 (H)',
+        places=2,
+        validators=[
+            Optional(),
+            NumberRange(min=0, message='稼働時間は0以上で入力してください。')
+        ],
+        render_kw={"placeholder": "前回整備からの稼働時間"}
+    )
     description = TextAreaField(
         '整備内容',
         validators=[
