@@ -13,55 +13,6 @@
 
 {% block content %}
 <style>
-    /* --- Hero Section --- */
-    .hero-section {
-        /* Deep Blue / Night Ride Theme */
-        background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
-        color: white;
-        padding: 5rem 0 7rem;
-        margin-bottom: -3rem;
-        border-radius: 0 0 50% 50% / 3rem;
-        position: relative;
-        overflow: hidden;
-    }
-
-    /* Asphalt/Carbon Texture Overlay */
-    .hero-section::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background-image:
-            radial-gradient(#ffffff 15%, transparent 16%),
-            radial-gradient(#ffffff 15%, transparent 16%);
-        background-size: 60px 60px;
-        background-position: 0 0, 30px 30px;
-        opacity: 0.03;
-    }
-
-    /* Speed Lines / Dynamic Accent */
-    .hero-section::after {
-        content: '';
-        position: absolute;
-        top: 0;
-        right: 0;
-        bottom: 0;
-        left: 0;
-        background: repeating-linear-gradient(45deg,
-                transparent,
-                transparent 10px,
-                rgba(255, 255, 255, 0.03) 10px,
-                rgba(255, 255, 255, 0.03) 20px);
-        pointer-events: none;
-    }
-
-    .hero-content {
-        position: relative;
-        z-index: 2;
-    }
-
     /* --- App Title Styling --- */
     .app-title {
         font-family: 'Kanit', sans-serif;
@@ -69,63 +20,9 @@
         font-style: italic;
         letter-spacing: -0.02em;
         text-transform: uppercase;
-        text-shadow: 3px 3px 0px rgba(0, 0, 0, 0.3);
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        color: #ffffff !important;
-        -webkit-text-fill-color: initial;
-        /* Ensure no gradient fill persists */
-    }
-
-    .app-icon-wrapper {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 80px;
-        height: 80px;
-        background: linear-gradient(135deg, #ff9966 0%, #ff5e62 100%);
-        border-radius: 20px;
-        transform: skew(-10deg);
-        margin-right: 1rem;
-        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
-        border: 2px solid rgba(255, 255, 255, 0.2);
-    }
-
-    .app-icon-wrapper i {
-        transform: skew(10deg);
-        /* Counter-skew icon */
-        font-size: 2.5rem;
-        color: white;
-        -webkit-text-fill-color: white;
-        /* Override gradient text fill */
-    }
-
-    /* --- Feature Cards (Gradient) --- */
-    .feature-card {
-        border: none;
-        border-radius: 1rem;
-        transition: transform 0.3s ease, box-shadow 0.3s ease;
-        overflow: hidden;
-        height: 100%;
-    }
-
-    .feature-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 1rem 3rem rgba(0, 0, 0, .175) !important;
-    }
-
-    .feature-icon-wrapper {
-        width: 64px;
-        height: 64px;
-        border-radius: 1rem;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 2rem;
-        margin-bottom: 1.5rem;
-        background: rgba(255, 255, 255, 0.2);
-        color: white;
     }
 
     /* --- Timeline Section --- */
@@ -170,36 +67,27 @@
         font-weight: bold;
         color: #0d6efd;
     }
-
-    /* --- Login Card Floating --- */
-    .login-card-wrapper {
-        margin-top: -4rem;
-        position: relative;
-        z-index: 10;
-    }
 </style>
 
 {# --- Hero Section --- #}
-<div class="hero-section text-center">
-    <div class="container hero-content">
+<div class="bg-light py-5 text-center mb-5 border-bottom">
+    <div class="container py-4">
         <div class="mb-4 d-flex justify-content-center align-items-center">
-            <div class="app-icon-wrapper">
-                <i class="fas fa-motorcycle"></i>
-            </div>
-            <h1 class="display-2 mb-0 app-title">
+            <i class="fas fa-motorcycle text-primary display-4 me-3"></i>
+            <h1 class="display-3 fw-bold mb-0 app-title text-dark">
                 もとぷっぷー
             </h1>
         </div>
-        <p class="fs-4 fw-light mb-4 text-light opacity-75" style="letter-spacing: 1px;">Bike Life, All in One Place</p>
-        <p class="lead mb-5 text-light opacity-75">
+        <p class="fs-4 fw-light mb-4 text-muted" style="letter-spacing: 1px;">Bike Life, All in One Place</p>
+        <p class="lead mb-5 text-secondary">
             愛車の記録を、もっと手軽に、もっと楽しく。<br>
             給油からサーキット走行まで、あなたのバイクライフをトータルサポート。
         </p>
         <div class="d-flex justify-content-center gap-3">
-            <a href="#login-area" class="btn btn-light btn-lg px-4 fw-bold text-primary shadow-sm">
+            <a href="#login-area" class="btn btn-primary btn-lg px-4 fw-bold shadow-sm">
                 <i class="fas fa-sign-in-alt me-2"></i>今すぐ始める
             </a>
-            <a href="#features-area" class="btn btn-outline-light btn-lg px-4">
+            <a href="#features-area" class="btn btn-outline-secondary btn-lg px-4">
                 機能を見る
             </a>
         </div>
@@ -207,10 +95,10 @@
 </div>
 
 <div class="container mb-5">
-    {# --- Login Card (Floating) --- #}
-    <div class="row justify-content-center login-card-wrapper" id="login-area">
+    {# --- Login Area --- #}
+    <div class="row justify-content-center mb-5" id="login-area">
         <div class="col-md-8 col-lg-6">
-            <div class="card border-0 shadow-lg rounded-3">
+            <div class="card shadow-sm border-0 rounded-3">
                 <div class="card-body p-4 p-md-5 text-center">
                     <h3 class="card-title fw-bold mb-3">Misskey アカウントでログイン</h3>
                     <p class="text-muted mb-4">
@@ -259,56 +147,52 @@
 
         <div class="row g-4">
             <div class="col-md-6 col-lg-3">
-                <div class="card feature-card shadow-sm h-100 bg-primary text-white"
-                    style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
-                    <div class="card-body p-4">
-                        <div class="feature-icon-wrapper">
+                <div class="card shadow-sm h-100 border-0 bg-white">
+                    <div class="card-body p-4 text-center">
+                        <div class="display-4 text-success mb-3">
                             <i class="fas fa-gas-pump"></i>
                         </div>
                         <h5 class="fw-bold mb-3">給油記録 & 燃費分析</h5>
-                        <p class="opacity-75 mb-0">
+                        <p class="text-muted mb-0">
                             日々の給油を記録して、燃費の推移をグラフで確認。コスト管理もばっちりです。
                         </p>
                     </div>
                 </div>
             </div>
             <div class="col-md-6 col-lg-3">
-                <div class="card feature-card shadow-sm h-100 text-white"
-                    style="background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 99%, #fecfef 100%); color: #555 !important;">
-                    <div class="card-body p-4">
-                        <div class="feature-icon-wrapper text-white" style="background: rgba(0,0,0,0.1);">
+                <div class="card shadow-sm h-100 border-0 bg-white">
+                    <div class="card-body p-4 text-center">
+                        <div class="display-4 text-warning mb-3">
                             <i class="fas fa-tools"></i>
                         </div>
-                        <h5 class="fw-bold mb-3 text-dark">メンテナンス管理</h5>
-                        <p class="text-dark opacity-75 mb-0">
+                        <h5 class="fw-bold mb-3">メンテナンス管理</h5>
+                        <p class="text-muted mb-0">
                             オイル交換やタイヤ交換などの整備履歴を記録。次回のメンテナンス時期もお知らせ。
                         </p>
                     </div>
                 </div>
             </div>
             <div class="col-md-6 col-lg-3">
-                <div class="card feature-card shadow-sm h-100 text-white"
-                    style="background: linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%); color: #444 !important;">
-                    <div class="card-body p-4">
-                        <div class="feature-icon-wrapper text-white" style="background: rgba(0,0,0,0.1);">
+                <div class="card shadow-sm h-100 border-0 bg-white">
+                    <div class="card-body p-4 text-center">
+                        <div class="display-4 text-info mb-3">
                             <i class="fas fa-tachometer-alt"></i>
                         </div>
-                        <h5 class="fw-bold mb-3 text-dark">サーキット走行ログ</h5>
-                        <p class="text-dark opacity-75 mb-0">
+                        <h5 class="fw-bold mb-3">サーキット走行ログ</h5>
+                        <p class="text-muted mb-0">
                             サーキットごとの走行データやセッティングを詳細に記録。ベストタイム更新を目指そう。
                         </p>
                     </div>
                 </div>
             </div>
             <div class="col-md-6 col-lg-3">
-                <div class="card feature-card shadow-sm h-100 text-white"
-                    style="background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%); color: #555 !important;">
-                    <div class="card-body p-4">
-                        <div class="feature-icon-wrapper text-white" style="background: rgba(0,0,0,0.1);">
+                <div class="card shadow-sm h-100 border-0 bg-white">
+                    <div class="card-body p-4 text-center">
+                        <div class="display-4 text-primary mb-3">
                             <i class="fas fa-share-alt"></i>
                         </div>
-                        <h5 class="fw-bold mb-3 text-dark">Misskey 連携</h5>
-                        <p class="text-dark opacity-75 mb-0">
+                        <h5 class="fw-bold mb-3">Misskey 連携</h5>
+                        <p class="text-muted mb-0">
                             記録した内容はボタン一つでMisskeyにシェア。バイク仲間と活動を共有できます。
                         </p>
                     </div>
