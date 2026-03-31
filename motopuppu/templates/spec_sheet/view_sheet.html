@@ -60,14 +60,28 @@
                                         {% if line.strip() %}
                                             {# 品番パターン：英数字・ハイフン・スラッシュのみで構成される文字列をリンクにする #}
                                             {% if line.strip() | is_part_number %}
-                                                <a href="https://www.webike.net/tab/parts/?q={{ line.strip() | urlencode }}"
-                                                   target="_blank"
-                                                   rel="noopener noreferrer"
-                                                   class="webike-parts-link"
-                                                   title="Webikeで「{{ line.strip() }}」を検索">
-                                                    {{ line.strip() }}
-                                                    <i class="fas fa-external-link-alt fa-xs ms-1"></i>
-                                                </a>
+                                                <span class="parts-number-row">
+                                                    {# 品番テキスト #}
+                                                    <span class="parts-number-text">{{ line.strip() }}</span>
+                                                    {# 購入リンク群 #}
+                                                    <span class="parts-buy-links">
+                                                        <a href="https://www.webike.net/tab/parts/?q={{ line.strip() | urlencode }}"
+                                                           target="_blank"
+                                                           rel="noopener noreferrer"
+                                                           class="parts-buy-link"
+                                                           title="Webikeで「{{ line.strip() }}」を検索">
+                                                            Webike <i class="fas fa-external-link-alt fa-xs"></i>
+                                                        </a>
+                                                        <span class="parts-buy-sep">|</span>
+                                                        <a href="https://www.monotaro.com/s/?c=&q={{ line.strip() | urlencode }}"
+                                                           target="_blank"
+                                                           rel="noopener noreferrer"
+                                                           class="parts-buy-link"
+                                                           title="モノタロウで「{{ line.strip() }}」を検索">
+                                                            モノタロウ <i class="fas fa-external-link-alt fa-xs"></i>
+                                                        </a>
+                                                    </span>
+                                                </span>
                                             {% else %}
                                                 {{ line.strip() }}
                                             {% endif %}
@@ -127,10 +141,29 @@
     border-left: 3px solid #eee;
     word-wrap: break-word; /* 値が長い場合に折り返す */
 }
-/* 消耗品・品番カテゴリの品番Webikeリンクのスタイル */
-.webike-parts-link {
-    font-family: monospace;
+/* 消耗品・品番カテゴリの品番・購入リンクのスタイル */
+.parts-number-row {
+    display: flex;
+    align-items: baseline;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+}
+.parts-number-text {
     font-size: 0.95em;
+}
+.parts-buy-links {
+    font-size: 0.78em;
+    white-space: nowrap;
+}
+.parts-buy-link {
+    text-decoration: none;
+}
+.parts-buy-link:hover {
+    text-decoration: underline;
+}
+.parts-buy-sep {
+    color: #aaa;
+    margin: 0 0.15rem;
 }
 </style>
 {% endblock %}
