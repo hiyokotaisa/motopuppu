@@ -38,13 +38,14 @@ class FuelForm(FlaskForm):
         ],
         render_kw={"placeholder": "例: 12345"}
     )
-    trip_distance = IntegerField(
+    trip_distance = DecimalField(
         'トリップメーター (km)',
+        places=1,
         validators=[
             Optional(),
             NumberRange(min=0, message='トリップメーターは0以上で入力してください。')
         ],
-        render_kw={"placeholder": "前回給油からの走行距離"}
+        render_kw={"placeholder": "例: 123.4", "step": "0.1"}
     )
     fuel_volume = DecimalField(
         '給油量 (L)',
@@ -131,13 +132,14 @@ class MaintenanceForm(FlaskForm):
         ],
         render_kw={"placeholder": "例: 20000"}
     )
-    trip_distance = IntegerField(
+    trip_distance = DecimalField(
         '前回整備からの走行距離 (km)',
+        places=1,
         validators=[
             Optional(),
             NumberRange(min=0, message='走行距離は0以上で入力してください。')
         ],
-        render_kw={"placeholder": "前回整備からの走行距離"}
+        render_kw={"placeholder": "例: 123.4", "step": "0.1"}
     )
     operating_hours_at_maintenance = DecimalField(
         '稼働時間 (H)',

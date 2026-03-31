@@ -362,7 +362,7 @@ def add_maintenance():
                 if form.trip_distance.data is None:
                     form.trip_distance.errors.append('トリップメーターで入力する場合、この項目は必須です。')
                 elif previous_mainte and previous_mainte.odometer_reading_at_maintenance is not None:
-                    form.odometer_reading_at_maintenance.data = previous_mainte.odometer_reading_at_maintenance + form.trip_distance.data
+                    form.odometer_reading_at_maintenance.data = round(previous_mainte.odometer_reading_at_maintenance + float(form.trip_distance.data))
                 else:
                     form.trip_distance.errors.append('この車両で初めての整備記録です。トリップ入力は使用できません。ODOメーター値を直接入力してください。')
             else:
@@ -457,7 +457,7 @@ def edit_maintenance(entry_id):
                 if form.trip_distance.data is None:
                     form.trip_distance.errors.append('トリップメーターで入力する場合、この項目は必須です。')
                 elif previous_mainte and previous_mainte.odometer_reading_at_maintenance is not None:
-                    form.odometer_reading_at_maintenance.data = previous_mainte.odometer_reading_at_maintenance + form.trip_distance.data
+                    form.odometer_reading_at_maintenance.data = round(previous_mainte.odometer_reading_at_maintenance + float(form.trip_distance.data))
                 else:
                     form.trip_distance.errors.append('この記録より前の整備記録がありません。トリップ入力は使用できません。')
             else:

@@ -121,7 +121,7 @@
                 class="text-danger">*</span>
         </label>
         {{ form.trip_distance(class="form-control" + (" is-invalid" if form.trip_distance.errors else ""), min="0",
-        step="1", placeholder=(form.trip_distance.render_kw.get("placeholder", "") if form.trip_distance.render_kw else
+        step="0.1", placeholder=(form.trip_distance.render_kw.get("placeholder", "") if form.trip_distance.render_kw else
         "")) }}
         {% if form.trip_distance.errors %}
         <div class="invalid-feedback">
@@ -129,7 +129,7 @@
         </div>
         {% else %}
         <div class="form-text">
-            前回給油時からの走行距離 (整数) を入力してください。
+            前回給油時からの走行距離を入力してください (小数点第一位まで可、例: 123.4)。四捨五入してODOが計算されます。
         </div>
         {% endif %}
     </div>

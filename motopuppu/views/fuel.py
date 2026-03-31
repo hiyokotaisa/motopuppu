@@ -457,7 +457,7 @@ def add_fuel():
             if form.trip_distance.data is None:
                 form.trip_distance.errors.append('トリップメーターで入力する場合、この項目は必須です。')
             elif previous_fuel:
-                form.odometer_reading.data = previous_fuel.odometer_reading + form.trip_distance.data
+                form.odometer_reading.data = round(previous_fuel.odometer_reading + float(form.trip_distance.data))
             else:
                 form.trip_distance.errors.append('この車両で初めての給油です。トリップ入力は使用できません。ODOメーター値を直接入力してください。')
         else:
@@ -566,7 +566,7 @@ def edit_fuel(entry_id):
             if form.trip_distance.data is None:
                 form.trip_distance.errors.append('トリップメーターで入力する場合、この項目は必須です。')
             elif previous_fuel:
-                form.odometer_reading.data = previous_fuel.odometer_reading + form.trip_distance.data
+                form.odometer_reading.data = round(previous_fuel.odometer_reading + float(form.trip_distance.data))
             else:
                 form.trip_distance.errors.append('この記録より前の給油記録がありません。トリップ入力は使用できません。ODOメーター値を直接入力してください。')
         else:
