@@ -149,13 +149,15 @@
     </div>
     {% endif %}
 
-    {% if other_vehicles and owner.garage_display_settings.get('show_other_vehicles', True) %}
+    {% if other_vehicles_with_stats and owner.garage_display_settings.get('show_other_vehicles', True) %}
     <hr class="my-5">
     <h2 class="border-bottom pb-2 mb-4"><i class="fas fa-motorcycle me-2"></i>Other Machines</h2>
     <div class="row">
-        {% for vehicle in other_vehicles %}
+        {% for item in other_vehicles_with_stats %}
+        {% set vehicle = item.vehicle %}
+        {% set stats = item.stats %}
         <div class="col-md-6 col-lg-4 mb-4">
-            <div class="card h-100">
+            <div class="card shadow-sm" style="cursor: pointer;" data-bs-toggle="collapse" data-bs-target="#vehicle-detail-{{ loop.index }}" aria-expanded="false">
                 {% if vehicle.image_url %}
                 <img src="{{ vehicle.image_url }}" class="card-img-top" alt="{{ vehicle.name }}" style="height: 200px; object-fit: cover;">
                 {% else %}
@@ -164,8 +166,40 @@
                 </div>
                 {% endif %}
                 <div class="card-body">
-                    <h5 class="card-title">{{ vehicle.name }}</h5>
-                    <p class="card-text text-muted">{{ vehicle.maker or '' }} {{ vehicle.year or '' }}</p>
+                    <h5 class="card-title mb-1">{{ vehicle.name }}</h5>
+                    <p class="card-text text-muted mb-2">{{ vehicle.maker or '' }} {{ vehicle.year or '' }}</p>
+                    <small class="text-primary"><i class="fas fa-chevron-down me-1"></i>詳細を表示</small>
+                </div>
+
+                {# ▼ クリックで展開する詳細エリア ▼ #}
+                <div class="collapse" id="vehicle-detail-{{ loop.index }}">
+                    <div class="card-body border-top pt-3">
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <div class="text-muted small">{{ stats.primary_metric_label }}</div>
+                                <div class="fw-bold">{{ stats.primary_metric_value }} <small class="text-muted">{{ stats.primary_metric_unit }}</small></div>
+                            </div>
+                            {% if stats.avg_kpl is defined %}
+                            <div class="col-6">
+                                <div class="text-muted small"><i class="fas fa-gas-pump me-1"></i>平均燃費</div>
+                                <div class="fw-bold">{{ stats.avg_kpl }}</div>
+                            </div>
+                            {% endif %}
+                            <div class="col-6">
+                                <div class="text-muted small"><i class="fas fa-tools me-1"></i>メンテナンス費用</div>
+                                <div class="fw-bold">{{ stats.total_maint_cost }}</div>
+                            </div>
+                            <div class="col-6">
+                                <div class="text-muted small"><i class="fas fa-flag-checkered me-1"></i>活動ログ</div>
+                                <div class="fw-bold">{{ stats.total_activities }}</div>
+                            </div>
+                        </div>
+                        {% if vehicle.custom_details and owner.garage_display_settings.get('show_custom_details', True) %}
+                        <hr class="my-2">
+                        <div class="text-muted small"><i class="fas fa-wrench me-1"></i>カスタム・メモ</div>
+                        <pre class="small p-2 rounded bg-light mb-0" style="white-space: pre-wrap;">{{ vehicle.custom_details }}</pre>
+                        {% endif %}
+                    </div>
                 </div>
             </div>
         </div>
@@ -193,5 +227,6 @@
 
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

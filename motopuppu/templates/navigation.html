@@ -73,6 +73,12 @@
                                 <i class="fas fa-sticky-note fa-fw me-2"></i>ノート
                             </a>
                         </li>
+                        <li>
+                            <a class="dropdown-item {% if request.endpoint and 'spec_sheet' in request.endpoint %}active{% endif %}"
+                                href="{{ url_for('spec_sheet.list_sheets', vehicle_id=default_moto.id) }}">
+                                <i class="fas fa-clipboard-list fa-fw me-2"></i>整備情報シート
+                            </a>
+                        </li>
 
                         <li>
                             <hr class="dropdown-divider">
@@ -85,7 +91,13 @@
                         <li>
                             <a class="dropdown-item {% if request.endpoint == 'activity.activity_log' %}active{% endif %}"
                                 href="{{ url_for('activity.activity_log') }}">
-                                <i class="fas fa-history fa-fw me-2"></i>走行・ツーリング記録
+                                <i class="fas fa-history fa-fw me-2"></i>走行ログ
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item {% if request.endpoint and 'touring' in request.endpoint %}active{% endif %}"
+                                href="{{ url_for('touring.list_logs', vehicle_id=default_moto.id) }}">
+                                <i class="fas fa-map-signs fa-fw me-2"></i>ツーリング記録
                             </a>
                         </li>
 
@@ -251,12 +263,6 @@
                                 <i class="fas fa-users-cog fa-fw me-2"></i>チーム
                             </a>
                         </li>
-                        <li>
-                            <a class="dropdown-item {% if request.endpoint.startswith('garage_settings.') %}active{% endif %}"
-                                href="{{ url_for('garage_settings.settings') }}">
-                                <i class="fas fa-id-card fa-fw me-2"></i>ガレージカード
-                            </a>
-                        </li>
                     </ul>
                 </li>
                 {# ▲▲▲ カテゴリ分け完了 ▲▲▲ #}
@@ -296,6 +302,12 @@
                             <a class="dropdown-item {% if request.endpoint == 'profile.settings' %}active{% endif %}"
                                 href="{{ url_for('profile.settings') }}">
                                 <i class="fas fa-user-cog fa-fw me-2"></i>プロフィール
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item {% if request.endpoint.startswith('garage_settings.') %}active{% endif %}"
+                                href="{{ url_for('garage_settings.settings') }}">
+                                <i class="fas fa-id-card fa-fw me-2"></i>ガレージカード
                             </a>
                         </li>
                         <li>

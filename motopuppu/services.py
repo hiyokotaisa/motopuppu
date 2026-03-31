@@ -812,35 +812,49 @@ def get_user_garage_data(user: User) -> dict:
         hero_vehicle = vehicles_in_garage[0]
     
     other_vehicles = [v for v in vehicles_in_garage if v != hero_vehicle]
-    
-    # ヒーロー車両の統計情報
-    hero_stats = {}
-    if hero_vehicle:
-        if hero_vehicle.is_racer:
-            hero_stats['primary_metric_label'] = '総稼働時間'
-            hero_stats['primary_metric_value'] = f"{hero_vehicle.display_operating_hours or 0:.2f}"
-            hero_stats['primary_metric_unit'] = '時間'
+
+    # ▼▼▼ 車両の統計情報を計算するヘルパー関数 ▼▼▼
+    def _calc_vehicle_stats(vehicle):
+        """1台分の車両統計情報を計算して辞書で返す"""
+        stats = {}
+        if vehicle.is_racer:
+            stats['primary_metric_label'] = '総稼働時間'
+            stats['primary_metric_value'] = f"{vehicle.display_operating_hours or 0:.2f}"
+            stats['primary_metric_unit'] = '時間'
         else:
-            total_mileage = get_latest_total_distance(hero_vehicle.id, hero_vehicle.odometer_offset)
-            avg_kpl = calculate_average_kpl(hero_vehicle)
-            hero_stats['primary_metric_label'] = '総走行距離'
-            hero_stats['primary_metric_value'] = f"{total_mileage:,}"
-            hero_stats['primary_metric_unit'] = 'km'
-            hero_stats['avg_kpl'] = f"{avg_kpl:.2f} km/L" if avg_kpl else "---"
+            total_mileage = get_latest_total_distance(vehicle.id, vehicle.odometer_offset)
+            avg_kpl = calculate_average_kpl(vehicle)
+            stats['primary_metric_label'] = '総走行距離'
+            stats['primary_metric_value'] = f"{total_mileage:,}"
+            stats['primary_metric_unit'] = 'km'
+            stats['avg_kpl'] = f"{avg_kpl:.2f} km/L" if avg_kpl else "---"
 
         total_maint_cost = db.session.query(
             func.sum(func.coalesce(MaintenanceEntry.parts_cost, 0) + func.coalesce(MaintenanceEntry.labor_cost, 0))
         ).filter(
-            MaintenanceEntry.motorcycle_id == hero_vehicle.id
+            MaintenanceEntry.motorcycle_id == vehicle.id
         ).scalar() or 0
-        hero_stats['total_maint_cost'] = f"{total_maint_cost:,.0f} 円"
+        stats['total_maint_cost'] = f"{total_maint_cost:,.0f} 円"
 
         total_activities = db.session.query(
             func.count(ActivityLog.id)
         ).filter(
-            ActivityLog.motorcycle_id == hero_vehicle.id
+            ActivityLog.motorcycle_id == vehicle.id
         ).scalar() or 0
-        hero_stats['total_activities'] = f"{total_activities} 回"
+        stats['total_activities'] = f"{total_activities} 回"
+        return stats
+    # ▲▲▲ ヘルパー関数ここまで ▲▲▲
+
+    # ヒーロー車両の統計情報
+    hero_stats = _calc_vehicle_stats(hero_vehicle) if hero_vehicle else {}
+
+    # Other Machinesの統計情報
+    other_vehicles_with_stats = []
+    for v in other_vehicles:
+        other_vehicles_with_stats.append({
+            'vehicle': v,
+            'stats': _calc_vehicle_stats(v),
+        })
 
     # ユーザーの総合サーキット実績を取得するロジック
     user_circuit_performance = []
@@ -931,7 +945,8 @@ def get_user_garage_data(user: User) -> dict:
     return {
         'owner': user,
         'hero_vehicle': hero_vehicle,
-        'other_vehicles': other_vehicles,
+        'other_vehicles': other_vehicles,  # OGP画像生成用 (互換維持)
+        'other_vehicles_with_stats': other_vehicles_with_stats,  # 公開ガレージページ用
         'hero_stats': hero_stats,
         'achievements': unlocked_achievements,
         'user_circuit_performance': user_circuit_performance,
