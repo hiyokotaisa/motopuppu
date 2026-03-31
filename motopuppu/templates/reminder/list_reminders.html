@@ -13,6 +13,17 @@
     <a href="{{ url_for('reminder.add_reminder', vehicle_id=motorcycle.id) }}" class="btn btn-primary"><i class="fas fa-plus me-1"></i> 新しいリマインダーを追加</a>
 </div>
 
+{# --- 車両スイッチャー --- #}
+{% with
+  switcher_motorcycles        = g.user_motorcycles,
+  switcher_current_vehicle_id = motorcycle.id,
+  switcher_mode               = 'link',
+  switcher_endpoint           = 'reminder.list_reminders',
+  switcher_endpoint_param     = 'vehicle_id'
+%}
+{% include '_vehicle_switcher.html' %}
+{% endwith %}
+
 {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
         {% for category, message in messages %}

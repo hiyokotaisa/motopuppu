@@ -19,6 +19,17 @@
 
 </div>
 
+{# --- 車両スイッチャー --- #}
+{% with
+  switcher_motorcycles        = g.user_motorcycles,
+  switcher_current_vehicle_id = motorcycle.id,
+  switcher_mode               = 'link',
+  switcher_endpoint           = 'activity.list_activities',
+  switcher_endpoint_param     = 'vehicle_id'
+%}
+{% include '_vehicle_switcher.html' %}
+{% endwith %}
+
 {# Flash Messages #}
 {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}

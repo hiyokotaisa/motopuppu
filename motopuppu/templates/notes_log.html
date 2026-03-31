@@ -70,6 +70,17 @@
     </div>
 </div>
 
+{# --- 車両スイッチャー --- #}
+{% with
+  switcher_motorcycles        = motorcycles,
+  switcher_current_vehicle_id = request_args.get('vehicle_id'),
+  switcher_mode               = 'filter',
+  switcher_all_url            = url_for('notes.notes_log'),
+  switcher_filter_param       = 'vehicle_id'
+%}
+{% include '_vehicle_switcher.html' %}
+{% endwith %}
+
 {# --- フィルターエリア --- #}
 <div class="mb-3">
     <button class="btn btn-sm btn-outline-secondary rounded-pill" type="button" data-bs-toggle="collapse"

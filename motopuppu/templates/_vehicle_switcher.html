@@ -1,0 +1,146 @@
+{# motopuppu/templates/_vehicle_switcher.html #}
+{#
+  共通・車両スイッチャー UI
+  ─────────────────────────────────────────────────────
+  呼び出し元から以下のテンプレート変数を渡すこと：
+
+  [必須]
+  switcher_motorcycles       : 表示する車両オブジェクトのリスト
+  switcher_current_vehicle_id: 現在選択中の車両ID (None = "すべて" 選択中)
+  switcher_mode              : "filter" or "link"
+
+  [filter モード専用]
+  switcher_all_url           : "すべて" に対応するURL (不要な場合は None)
+  switcher_filter_param      : URLパラメータ名 (省略時は "vehicle_id")
+
+  [link モード専用]
+  switcher_endpoint          : 遷移先の Flask エンドポイント名
+  switcher_endpoint_param    : エンドポイントの引数名 (省略時は "vehicle_id")
+  ─────────────────────────────────────────────────────
+#}
+
+{% if switcher_motorcycles %}
+{% set _param = switcher_filter_param if switcher_filter_param is defined and switcher_filter_param else 'vehicle_id' %}
+{% set _ep_param = switcher_endpoint_param if switcher_endpoint_param is defined and switcher_endpoint_param else 'vehicle_id' %}
+{% set _total_count = switcher_motorcycles | length %}
+
+<div class="vehicle-switcher mb-3" aria-label="車両の切り替え">
+
+  {# ----------------------------------------------- #}
+  {# PC・タブレット向け（md以上）: nav-pills 横並び  #}
+  {# スマホでも4台以下はpillsを表示、5台以上はselectに自動切替 #}
+  {# ----------------------------------------------- #}
+
+  {# Pill群: スマホ5台未満 or md以上 #}
+  <div class="vehicle-switcher-pills d-flex flex-wrap gap-1 align-items-center
+              {% if _total_count >= 5 %}d-none d-md-flex{% endif %}">
+
+    {# 「すべて」ボタン（filterモードのみ） #}
+    {% if switcher_mode == 'filter' and switcher_all_url is defined and switcher_all_url %}
+    <a href="{{ switcher_all_url }}"
+       onclick="['motopuppu_fuelLogFilters','motopuppu_maintenanceLogFilters','motopuppu_noteLogFilters'].forEach(function(k){localStorage.removeItem(k);});"
+       class="btn btn-sm rounded-pill border
+              {% if switcher_current_vehicle_id is none or not switcher_current_vehicle_id %}
+                btn-primary
+              {% else %}
+                btn-outline-secondary
+              {% endif %}">
+      <i class="fas fa-th-list fa-fw me-1"></i>すべて
+    </a>
+    {% endif %}
+
+    {# 各車両 #}
+    {% for moto in switcher_motorcycles %}
+    {% if switcher_mode == 'filter' %}
+      {# フィルターモード: 現在のクエリを保持しつつ vehicle_id だけ書き換え #}
+      {% set _new_args = request.args.to_dict() %}
+      {% set _ = _new_args.update({_param: moto.id|string, 'page': '1'}) %}
+      {% set _href = url_for(request.endpoint, **_new_args) %}
+    {% else %}
+      {# リンクモード: 指定エンドポイントへ遷移 #}
+      {% set _href = url_for(switcher_endpoint, **{_ep_param: moto.id}) %}
+    {% endif %}
+
+    <a href="{{ _href }}"
+       class="btn btn-sm rounded-pill border
+              {% if switcher_current_vehicle_id|string == moto.id|string %}
+                btn-primary
+              {% else %}
+                btn-outline-secondary
+              {% endif %}"
+       title="{{ moto.name }}">
+      {% if moto.image_url %}
+        <img src="{{ moto.image_url }}" alt="" class="rounded-circle me-1"
+             style="width:16px; height:16px; object-fit:cover; vertical-align:middle;">
+      {% endif %}
+      <span class="vehicle-name-text">{{ moto.name }}</span>
+    </a>
+    {% endfor %}
+  </div>
+
+  {# ----------------------------------------------- #}
+  {# スマホ向け（5台以上の場合のみ）: Selectドロップダウン #}
+  {# ----------------------------------------------- #}
+  {% if _total_count >= 5 %}
+  <div class="vehicle-switcher-select d-flex d-md-none align-items-center gap-2">
+    <label for="vehicleSwitcherSelect" class="text-muted small text-nowrap">
+      <i class="fas fa-motorcycle fa-fw me-1"></i>車両：
+    </label>
+    <select id="vehicleSwitcherSelect" class="form-select form-select-sm"
+            data-mode="{{ switcher_mode }}"
+            data-endpoint="{{ switcher_endpoint if switcher_mode == 'link' else '' }}"
+            data-ep-param="{{ _ep_param }}"
+            data-param="{{ _param }}"
+            {% if switcher_mode == 'filter' and switcher_all_url is defined and switcher_all_url %}
+            data-all-url="{{ switcher_all_url }}"
+            {% endif %}>
+
+      {% if switcher_mode == 'filter' and switcher_all_url is defined and switcher_all_url %}
+      <option value="" {% if not switcher_current_vehicle_id %}selected{% endif %}>すべて</option>
+      {% endif %}
+
+      {% for moto in switcher_motorcycles %}
+      <option value="{{ moto.id }}"
+              {% if switcher_current_vehicle_id|string == moto.id|string %}selected{% endif %}
+              {% if switcher_mode == 'link' %}
+              data-href="{{ url_for(switcher_endpoint, **{_ep_param: moto.id}) }}"
+              {% endif %}>
+        {{ moto.name }}
+      </option>
+      {% endfor %}
+    </select>
+  </div>
+  {% endif %}
+
+</div>
+
+<script>
+(function() {
+  var sel = document.getElementById('vehicleSwitcherSelect');
+  if (!sel) return;
+  sel.addEventListener('change', function() {
+    var mode = this.dataset.mode;
+    var val = this.value;
+    if (mode === 'link') {
+      // リンクモード: data-href 属性から遷移先を取得
+      var opt = this.options[this.selectedIndex];
+      if (opt && opt.dataset.href) {
+        window.location.href = opt.dataset.href;
+      }
+    } else {
+      // フィルターモード: URLパラメータを更新してリロード
+      if (!val) {
+        var allUrl = this.dataset.allUrl;
+        if (allUrl) { window.location.href = allUrl; }
+        return;
+      }
+      var url = new URL(window.location.href);
+      url.searchParams.set(this.dataset.param, val);
+      url.searchParams.set('page', '1');
+      window.location.href = url.toString();
+    }
+  });
+})();
+</script>
+
+{% endif %}

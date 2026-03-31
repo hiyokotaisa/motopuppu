@@ -1107,3 +1107,35 @@
 .introjs-skipbutton:hover {
     color: #6c757d;
 }
+
+/* --- 車両スイッチャー --- */
+.vehicle-switcher-pills {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; /* Firefox */
+    padding-bottom: 2px; /* ボタンのフォーカスリングが切れないように */
+}
+
+.vehicle-switcher-pills::-webkit-scrollbar {
+    display: none; /* Chrome/Safari */
+}
+
+.vehicle-switcher-pills .btn {
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* 車両名テキスト: 長すぎる場合は省略 */
+.vehicle-switcher-pills .vehicle-name-text {
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+/* スマホ select */
+.vehicle-switcher-select select {
+    max-width: 220px;
+}

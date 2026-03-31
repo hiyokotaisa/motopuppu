@@ -54,6 +54,41 @@ document.addEventListener('DOMContentLoaded', () => {
             const savedFiltersJSON = localStorage.getItem(this.storageKey);
             const savedFilters = savedFiltersJSON ? JSON.parse(savedFiltersJSON) : {};
 
+            // 現在のURLのクエリパラメータを取得
+            const currentParams = new URLSearchParams(window.location.search);
+
+            // ▼▼▼ 車両スイッチャー / URLパラメータ優先ロジック ▼▼▼
+            // URLにフィルター関連のパラメータが1つでも存在する場合は、
+            // そのURLを「確定済み」の状態とみなしてlocalStorage復元による
+            // リダイレクトを一切行わない。フォームのUI表示のみ更新する。
+            const filterKeys = Array.from(currentParams.keys()).filter(
+                k => !['page', 'sort_by', 'order'].includes(k)
+            );
+            if (filterKeys.length > 0) {
+                // URLを正とするので、今のURL状態をlocalStorageに上書き保存して同期する
+                const urlFilters = {};
+                for (const [key, value] of currentParams.entries()) {
+                    if (!['page', 'sort_by', 'order'].includes(key)) {
+                        urlFilters[key] = value;
+                    }
+                }
+                if (Object.keys(urlFilters).length > 0) {
+                    localStorage.setItem(this.storageKey, JSON.stringify(urlFilters));
+                } else {
+                    localStorage.removeItem(this.storageKey);
+                }
+                // フォームのUI表示をURLの値に合わせて更新
+                Object.keys(urlFilters).forEach(key => {
+                    const element = this.form.elements[key];
+                    if (element) {
+                        element.value = urlFilters[key];
+                    }
+                });
+                return; // リダイレクトは行わない ← ここが肝心
+            }
+            // ▲▲▲ 追加ここまで ▲▲▲
+
+            // URLにフィルターが何もない場合のみ、localStorageから復元してリダイレクト
             // まず、保存された値をフォームの各フィールドに設定する
             Object.keys(savedFilters).forEach(key => {
                 const element = this.form.elements[key];
@@ -62,10 +97,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
 
-            // 次に、現在のURLのクエリパラメータとLocalStorageの値を比較する
-            const currentParams = new URLSearchParams(window.location.search);
-            
-            // 比較用のクリーンなURLSearchParamsオブジェクトを作成（フィルター関連のキーのみ）
+            // 比較用のクリーンなURLSearchParamsオブジェクトを作成
             const currentFilterParams = new URLSearchParams();
             for(const [key, value] of currentParams.entries()){
                 if(!['page', 'sort_by', 'order'].includes(key)){
@@ -88,6 +120,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 window.location.search = savedFilterParams.toString();
             }
         }
+
 
         /**
          * フォームの値が変更されたときにLocalStorageに保存するリスナーを設定
