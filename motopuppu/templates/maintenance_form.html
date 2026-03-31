@@ -61,6 +61,21 @@
         </label>
     </div>
 
+    {# ODO/稼働時間入力保留チェックボックス #}
+    <div class="mb-3 form-check">
+        {{ form.is_odo_pending(class="form-check-input" + (" is-invalid" if form.is_odo_pending.errors else "")) }}
+        <label for="{{ form.is_odo_pending.id }}" class="form-check-label">
+            <i class="bi bi-hourglass-split me-2"></i>{{ form.is_odo_pending.label.text }}
+        </label>
+        {% if form.is_odo_pending.errors %}
+        <div class="invalid-feedback d-block">
+            {% for error in form.is_odo_pending.errors %}<span>{{ error }}</span><br>{% endfor %}
+        </div>
+        {% else %}
+        <div class="form-text">その場にバイクがなく正確なODO/稼働時間がわからない場合にチェックしてください。後から編集で入力できます。</div>
+        {% endif %}
+    </div>
+
     <div id="odo-input-group" class="mb-3">
         <label for="{{ form.odometer_reading_at_maintenance.id }}" class="form-label">
             <i class="bi bi-speedometer2 me-2"></i>{{ form.odometer_reading_at_maintenance.label.text }} <span class="text-danger">*</span>
@@ -266,10 +281,24 @@ document.addEventListener('DOMContentLoaded', function() {
     const tripGroup = document.getElementById('trip-input-group');
     const hoursGroup = document.getElementById('hours-input-group');
     const hoursDiffGroup = document.getElementById('hours-diff-input-group');
+    const odoPendingToggle = document.getElementById('is_odo_pending');
 
     if (inputModeToggle) {
         window.toggleInputFields = function() {
             const isRacer = window.isRacer || false;
+
+            // ODO保留がチェックされている場合、全てのODO/稼働時間入力を非表示
+            if (odoPendingToggle && odoPendingToggle.checked) {
+                if (odoGroup) odoGroup.style.display = 'none';
+                if (tripGroup) tripGroup.style.display = 'none';
+                if (hoursGroup) hoursGroup.style.display = 'none';
+                if (hoursDiffGroup) hoursDiffGroup.style.display = 'none';
+                inputModeToggle.disabled = true;
+                return;
+            }
+
+            inputModeToggle.disabled = false;
+
             if (isRacer) {
                 if (odoGroup) odoGroup.style.display = 'none';
                 if (tripGroup) tripGroup.style.display = 'none';
@@ -293,6 +322,9 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         };
         inputModeToggle.addEventListener('change', window.toggleInputFields);
+        if (odoPendingToggle) {
+            odoPendingToggle.addEventListener('change', window.toggleInputFields);
+        }
     }
 });
 </script>

@@ -26,6 +26,12 @@ def calculate_kpl_bulk(entries):
         vol = entry.fuel_volume
         is_full = entry.is_full_tank
 
+        # ODO保留中のレコード (total_distance == 0 かつ本来保留のもの) は安全のためスキップ
+        is_pending = getattr(entry, 'is_odo_pending', False)
+        if is_pending:
+            kpl_map[e_id] = None
+            continue
+
         if m_id not in state_map:
             state_map[m_id] = {'last_full_entry': None, 'accumulated_fuel': 0.0}
         

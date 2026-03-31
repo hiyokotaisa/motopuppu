@@ -343,7 +343,12 @@ def add_maintenance():
 
         previous_mainte = get_previous_maintenance_entry(motorcycle.id, form.maintenance_date.data)
         
-        if motorcycle.is_racer:
+        # ODO/稼働時間の入力保留がチェックされている場合、バリデーションをスキップ
+        if form.is_odo_pending.data:
+            form.odometer_reading_at_maintenance.data = None
+            form.operating_hours_at_maintenance.data = None
+            total_distance = 0
+        elif motorcycle.is_racer:
             if form.input_mode.data:
                 if form.operating_hours_duration.data is None:
                     form.operating_hours_duration.errors.append('稼働時間(H)を差分で入力する場合、この項目は必須です。')
@@ -388,7 +393,8 @@ def add_maintenance():
             location=form.location.data.strip() if form.location.data else None,
             category=form.category.data.strip() if form.category.data else None,
             parts_cost=form.parts_cost.data, labor_cost=form.labor_cost.data,
-            notes=form.notes.data.strip() if form.notes.data else None
+            notes=form.notes.data.strip() if form.notes.data else None,
+            is_odo_pending=form.is_odo_pending.data
         )
 
         try:
@@ -438,7 +444,12 @@ def edit_maintenance(entry_id):
 
         previous_mainte = get_previous_maintenance_entry(motorcycle.id, form.maintenance_date.data, entry.id)
 
-        if motorcycle.is_racer:
+        # ODO/稼働時間の入力保留がチェックされている場合、バリデーションをスキップ
+        if form.is_odo_pending.data:
+            form.odometer_reading_at_maintenance.data = None
+            form.operating_hours_at_maintenance.data = None
+            total_distance = 0
+        elif motorcycle.is_racer:
             if form.input_mode.data:
                 if form.operating_hours_duration.data is None:
                     form.operating_hours_duration.errors.append('稼働時間(H)を差分で入力する場合、この項目は必須です。')
@@ -485,6 +496,7 @@ def edit_maintenance(entry_id):
         entry.parts_cost = form.parts_cost.data
         entry.labor_cost = form.labor_cost.data
         entry.notes = form.notes.data.strip() if form.notes.data else None
+        entry.is_odo_pending = form.is_odo_pending.data
 
         try:
             _update_reminder_if_applicable(entry)

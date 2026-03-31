@@ -30,6 +30,10 @@ class FuelForm(FlaskForm):
         'トリップメーターで入力する',
         default=False
     )
+    is_odo_pending = BooleanField(
+        'ODOの入力を保留する',
+        default=False
+    )
     odometer_reading = IntegerField(
         'ODOメーター値 (km)',
         validators=[
@@ -122,6 +126,10 @@ class MaintenanceForm(FlaskForm):
     )
     input_mode = BooleanField(
         'トリップメーターで入力する',
+        default=False
+    )
+    is_odo_pending = BooleanField(
+        'ODO/稼働時間の入力を保留する',
         default=False
     )
     odometer_reading_at_maintenance = IntegerField(

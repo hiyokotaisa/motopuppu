@@ -272,7 +272,13 @@
                     <div class="row g-2 mt-1">
                         <div class="col-6 col-sm-3">
                             <div class="small text-muted mb-1"><i class="fas fa-tachometer-alt me-1"></i>ODO</div>
-                            <div class="fw-bold">{{ "{:,}".format(entry.odometer_reading) }} km</div>
+                            <div class="fw-bold">
+                                {% if entry.is_odo_pending %}
+                                <span class="badge bg-warning-subtle text-warning border border-warning-subtle"><i class="bi bi-hourglass-split me-1"></i>保留中</span>
+                                {% else %}
+                                {{ "{:,}".format(entry.odometer_reading) }} km
+                                {% endif %}
+                            </div>
                         </div>
                         <div class="col-6 col-sm-3">
                             <div class="small text-muted mb-1"><i class="fas fa-gas-pump me-1"></i>給油量</div>
@@ -304,6 +310,10 @@
                                     class="fas fa-check me-1"></i>満タン</span>
                             {% else %}
                             <span class="badge bg-warning-subtle text-warning border border-warning-subtle">途中給油</span>
+                            {% endif %}
+
+                            {% if entry.is_odo_pending %}
+                            <span class="badge bg-warning-subtle text-warning border border-warning-subtle"><i class="bi bi-hourglass-split me-1"></i>ODO保留中</span>
                             {% endif %}
 
                             {% if entry.exclude_from_average %}
@@ -396,7 +406,13 @@
                             {{ entry.motorcycle.name }}
                         </a>
                     </td>
-                    <td class="text-end font-monospace">{{ "{:,}".format(entry.odometer_reading) }}</td>
+                    <td class="text-end font-monospace">
+                        {% if entry.is_odo_pending %}
+                        <span class="badge bg-warning-subtle text-warning border border-warning-subtle"><i class="bi bi-hourglass-split me-1"></i>保留中</span>
+                        {% else %}
+                        {{ "{:,}".format(entry.odometer_reading) }}
+                        {% endif %}
+                    </td>
                     <td class="text-end font-monospace">{{ "%.2f"|format(entry.fuel_volume) }}</td>
                     <td class="text-end font-monospace">{{ entry.price_per_liter|round|int if entry.price_per_liter else
                         '-' }}</td>

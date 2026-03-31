@@ -233,7 +233,9 @@
                                  data-odo-value="{{ entry.odometer_reading_at_maintenance }}"
                                  data-hours-value="{{ entry.operating_hours_at_maintenance }}"
                                  data-actual-value="{{ entry.total_distance_at_maintenance if entry.total_distance_at_maintenance is not none else entry.odometer_reading_at_maintenance }}">
-                                {% if entry.motorcycle.is_racer %}
+                                {% if entry.is_odo_pending %}
+                                    <span class="badge bg-warning-subtle text-warning border border-warning-subtle"><i class="bi bi-hourglass-split me-1"></i>保留中</span>
+                                {% elif entry.motorcycle.is_racer %}
                                     {{ entry.operating_hours_at_maintenance }} H
                                 {% else %}
                                     {{ "{:,}".format(entry.odometer_reading_at_maintenance) }} km
@@ -344,7 +346,9 @@
                         data-odo-value="{{ entry.odometer_reading_at_maintenance }}"
                         data-hours-value="{{ entry.operating_hours_at_maintenance }}"
                         data-actual-value="{{ entry.total_distance_at_maintenance if entry.total_distance_at_maintenance is not none else entry.odometer_reading_at_maintenance }}">
-                        {% if entry.motorcycle.is_racer %}
+                        {% if entry.is_odo_pending %}
+                            <span class="badge bg-warning-subtle text-warning border border-warning-subtle"><i class="bi bi-hourglass-split me-1"></i>保留中</span>
+                        {% elif entry.motorcycle.is_racer %}
                             {{ entry.operating_hours_at_maintenance }}
                         {% else %}
                             {{ "{:,}".format(entry.odometer_reading_at_maintenance) }}

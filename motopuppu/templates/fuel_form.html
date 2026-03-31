@@ -95,6 +95,21 @@
         {% endif %}
     </div>
 
+    {# ODO入力保留チェックボックス #}
+    <div class="mb-3 form-check">
+        {{ form.is_odo_pending(class="form-check-input" + (" is-invalid" if form.is_odo_pending.errors else "")) }}
+        <label for="{{ form.is_odo_pending.id }}" class="form-check-label">
+            <i class="bi bi-hourglass-split me-2"></i>{{ form.is_odo_pending.label.text }}
+        </label>
+        {% if form.is_odo_pending.errors %}
+        <div class="invalid-feedback d-block">
+            {% for error in form.is_odo_pending.errors %}<span>{{ error }}</span><br>{% endfor %}
+        </div>
+        {% else %}
+        <div class="form-text">その場にバイクがなく正確なODOがわからない場合にチェックしてください。後から編集で入力できます。</div>
+        {% endif %}
+    </div>
+
     {# ODOメーター入力グループ #}
     <div id="odo-input-group" class="mb-3">
         <label for="{{ form.odometer_reading.id }}" class="form-label">
@@ -435,19 +450,31 @@
         const inputModeToggle = document.getElementById('input_mode');
         const odoGroup = document.getElementById('odo-input-group');
         const tripGroup = document.getElementById('trip-input-group');
+        const odoPendingToggle = document.getElementById('is_odo_pending');
 
         function toggleInputFields() {
-            if (inputModeToggle.checked) {
+            // ODO保留がチェックされている場合、ODO/トリップ入力を非表示
+            if (odoPendingToggle && odoPendingToggle.checked) {
                 odoGroup.style.display = 'none';
-                tripGroup.style.display = 'block';
-            } else {
-                odoGroup.style.display = 'block';
                 tripGroup.style.display = 'none';
+                inputModeToggle.disabled = true;
+            } else {
+                inputModeToggle.disabled = false;
+                if (inputModeToggle.checked) {
+                    odoGroup.style.display = 'none';
+                    tripGroup.style.display = 'block';
+                } else {
+                    odoGroup.style.display = 'block';
+                    tripGroup.style.display = 'none';
+                }
             }
         }
 
         if (inputModeToggle && odoGroup && tripGroup) {
             inputModeToggle.addEventListener('change', toggleInputFields);
+            if (odoPendingToggle) {
+                odoPendingToggle.addEventListener('change', toggleInputFields);
+            }
             toggleInputFields();
         }
 

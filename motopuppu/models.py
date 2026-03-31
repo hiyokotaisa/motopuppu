@@ -91,8 +91,15 @@ class Motorcycle(db.Model):
         return result if result is not None else 0
 
     def get_display_total_mileage(self):
-        latest_fuel_dist = db.session.query(func.max(FuelEntry.total_distance)).filter(FuelEntry.motorcycle_id == self.id).scalar() or 0
-        latest_maint_dist = db.session.query(func.max(MaintenanceEntry.total_distance_at_maintenance)).filter(MaintenanceEntry.motorcycle_id == self.id).scalar() or 0
+        # ODO保留中 (is_odo_pending=True) のレコードは最大距離計算から除外
+        latest_fuel_dist = db.session.query(func.max(FuelEntry.total_distance)).filter(
+            FuelEntry.motorcycle_id == self.id,
+            FuelEntry.is_odo_pending == False
+        ).scalar() or 0
+        latest_maint_dist = db.session.query(func.max(MaintenanceEntry.total_distance_at_maintenance)).filter(
+            MaintenanceEntry.motorcycle_id == self.id,
+            MaintenanceEntry.is_odo_pending == False
+        ).scalar() or 0
         current_offset = self.odometer_offset if self.odometer_offset is not None else 0
         return max(latest_fuel_dist, latest_maint_dist, current_offset)
 
@@ -125,13 +132,18 @@ class FuelEntry(db.Model):
     notes = db.Column(db.Text, nullable=True)
     is_full_tank = db.Column(db.Boolean, nullable=False, server_default='true')
     exclude_from_average = db.Column(db.Boolean, nullable=False, default=False, server_default='false')
+    is_odo_pending = db.Column(db.Boolean, nullable=False, default=False, server_default='false', comment="ODO入力保留フラグ")
     __table_args__ = (Index('ix_fuel_entries_entry_date', 'entry_date'),)
 
     @property
     def km_per_liter(self):
         if self.motorcycle and self.motorcycle.is_racer:
             return None
-            
+
+        # ODO保留中の記録は燃費計算対象外
+        if self.is_odo_pending:
+            return None
+
         if not self.is_full_tank:
             return None
         
@@ -179,6 +191,7 @@ class MaintenanceEntry(db.Model):
     labor_cost = db.Column(db.Float, nullable=True, default=0.0)
     category = db.Column(db.String(50), nullable=True)
     notes = db.Column(db.Text, nullable=True)
+    is_odo_pending = db.Column(db.Boolean, nullable=False, default=False, server_default='false', comment="ODO/稼働時間入力保留フラグ")
     attachments = db.relationship('Attachment', backref='maintenance_entry', lazy=True, cascade="all, delete-orphan")
     __table_args__ = (Index('ix_maintenance_entries_category', 'category'), Index('ix_maintenance_entries_maintenance_date', 'maintenance_date'),)
     @property
@@ -190,7 +203,9 @@ class MaintenanceEntry(db.Model):
     @property
     def maintenance_summary_for_select(self):
         odo_text = ""
-        if self.motorcycle and getattr(self.motorcycle, 'is_racer', False) and self.operating_hours_at_maintenance is not None:
+        if self.is_odo_pending:
+            odo_text = "(ODO保留中)"
+        elif self.motorcycle and getattr(self.motorcycle, 'is_racer', False) and self.operating_hours_at_maintenance is not None:
             odo_text = f"({self.operating_hours_at_maintenance}H)"
         elif self.odometer_reading_at_maintenance is not None:
             odo_text = f"({self.odometer_reading_at_maintenance:,}km)"

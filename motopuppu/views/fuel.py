@@ -281,7 +281,8 @@ def fuel_log():
         FuelEntry.id, FuelEntry.motorcycle_id, FuelEntry.total_distance, 
         FuelEntry.fuel_volume, FuelEntry.is_full_tank
     ).filter(
-        FuelEntry.motorcycle_id.in_(user_motorcycle_ids_for_fuel)
+        FuelEntry.motorcycle_id.in_(user_motorcycle_ids_for_fuel),
+        FuelEntry.is_odo_pending == False  # ODO保留中の記録は燃費計算から除外
     ).order_by(FuelEntry.motorcycle_id, FuelEntry.total_distance).all()
 
     kpl_map = calculate_kpl_bulk(all_entries_for_calc)
@@ -333,9 +334,14 @@ def fuel_log():
     ).one()
 
     # 総走行距離の計算 (最大ODO - 最小ODO)
+    # ODO保留中のレコードは除外して再計算
     total_distance_interval = 0
-    if stats_data.max_dist is not None and stats_data.min_dist is not None:
-        total_distance_interval = stats_data.max_dist - stats_data.min_dist
+    stats_non_pending = base_query.filter(FuelEntry.is_odo_pending == False).with_entities(
+        func.min(FuelEntry.total_distance).label('min_dist'),
+        func.max(FuelEntry.total_distance).label('max_dist')
+    ).one()
+    if stats_non_pending.max_dist is not None and stats_non_pending.min_dist is not None:
+        total_distance_interval = stats_non_pending.max_dist - stats_non_pending.min_dist
 
     # --- 4. チャート用データ & 平均燃費の作成 (Pythonで処理) ---
     # すべての対象データを取得し、Python側で燃費プロパティにアクセスしてリスト化
@@ -453,7 +459,11 @@ def add_fuel():
 
         previous_fuel = get_previous_fuel_entry(motorcycle.id, form.entry_date.data)
 
-        if form.input_mode.data:
+        # ODO保留がチェックされている場合、ODOバリデーションをスキップ
+        if form.is_odo_pending.data:
+            form.odometer_reading.data = 0
+            total_distance = 0
+        elif form.input_mode.data:
             if form.trip_distance.data is None:
                 form.trip_distance.errors.append('トリップメーターで入力する場合、この項目は必須です。')
             elif previous_fuel:
@@ -468,11 +478,13 @@ def add_fuel():
             flash('入力内容にエラーがあります。ご確認ください。', 'danger')
             return render_template('fuel_form.html', form_action='add', form=form, gas_station_brands=GAS_STATION_BRANDS, start_fuel_tutorial=False)
 
-        offset_at_entry_date = motorcycle.calculate_cumulative_offset_from_logs(target_date=form.entry_date.data)
-        total_distance = form.odometer_reading.data + offset_at_entry_date
+        # ODO保留でない場合のみオフセット計算と総走行距離を算出
+        if not form.is_odo_pending.data:
+            offset_at_entry_date = motorcycle.calculate_cumulative_offset_from_logs(target_date=form.entry_date.data)
+            total_distance = form.odometer_reading.data + offset_at_entry_date
 
-        if previous_fuel and total_distance < previous_fuel.total_distance:
-            flash(f'注意: 今回の総走行距離 ({total_distance:,}km) が、前回記録 ({previous_fuel.entry_date.strftime("%Y-%m-%d")} の {previous_fuel.total_distance:,}km) より小さくなっています。入力内容を確認してください。', 'warning')
+            if previous_fuel and total_distance < previous_fuel.total_distance:
+                flash(f'注意: 今回の総走行距離 ({total_distance:,}km) が、前回記録 ({previous_fuel.entry_date.strftime("%Y-%m-%d")} の {previous_fuel.total_distance:,}km) より小さくなっています。入力内容を確認してください。', 'warning')
 
         total_cost_val = form.total_cost.data
         if total_cost_val is None and form.price_per_liter.data is not None and form.fuel_volume.data is not None:
@@ -487,7 +499,8 @@ def add_fuel():
             total_cost=total_cost_val, station_name=form.station_name.data.strip() if form.station_name.data else None,
             fuel_type=form.fuel_type.data if form.fuel_type.data else None,
             notes=form.notes.data.strip() if form.notes.data else None, is_full_tank=form.is_full_tank.data,
-            exclude_from_average=form.exclude_from_average.data
+            exclude_from_average=form.exclude_from_average.data,
+            is_odo_pending=form.is_odo_pending.data
         )
 
         try:
@@ -562,7 +575,11 @@ def edit_fuel(entry_id):
         
         previous_fuel = get_previous_fuel_entry(new_motorcycle.id, form.entry_date.data, entry.id)
 
-        if form.input_mode.data:
+        # ODO保留がチェックされている場合、ODOバリデーションをスキップ
+        if form.is_odo_pending.data:
+            form.odometer_reading.data = 0
+            total_distance = 0
+        elif form.input_mode.data:
             if form.trip_distance.data is None:
                 form.trip_distance.errors.append('トリップメーターで入力する場合、この項目は必須です。')
             elif previous_fuel:
@@ -577,11 +594,13 @@ def edit_fuel(entry_id):
             flash('入力内容にエラーがあります。ご確認ください。', 'danger')
             return render_template('fuel_form.html', form_action='edit', form=form, entry_id=entry.id, gas_station_brands=GAS_STATION_BRANDS, start_fuel_tutorial=False)
 
-        offset_at_entry_date = new_motorcycle.calculate_cumulative_offset_from_logs(target_date=form.entry_date.data)
-        total_distance = form.odometer_reading.data + offset_at_entry_date
+        # ODO保留でない場合のみオフセット計算と総走行距離を算出
+        if not form.is_odo_pending.data:
+            offset_at_entry_date = new_motorcycle.calculate_cumulative_offset_from_logs(target_date=form.entry_date.data)
+            total_distance = form.odometer_reading.data + offset_at_entry_date
 
-        if previous_fuel and total_distance < previous_fuel.total_distance:
-                      flash(f'注意: 今回の総走行距離 ({total_distance:,}km) が、前回記録 ({previous_fuel.entry_date.strftime("%Y-%m-%d")} の {previous_fuel.total_distance:,}km) より小さくなっています。入力内容を確認してください。', 'warning')
+            if previous_fuel and total_distance < previous_fuel.total_distance:
+                          flash(f'注意: 今回の総走行距離 ({total_distance:,}km) が、前回記録 ({previous_fuel.entry_date.strftime("%Y-%m-%d")} の {previous_fuel.total_distance:,}km) より小さくなっています。入力内容を確認してください。', 'warning')
 
         total_cost_val = form.total_cost.data
         if total_cost_val is None and form.price_per_liter.data is not None and form.fuel_volume.data is not None:
@@ -601,6 +620,7 @@ def edit_fuel(entry_id):
         entry.notes = form.notes.data.strip() if form.notes.data else None
         entry.is_full_tank = form.is_full_tank.data
         entry.exclude_from_average = form.exclude_from_average.data
+        entry.is_odo_pending = form.is_odo_pending.data
 
         try:
             db.session.commit()
