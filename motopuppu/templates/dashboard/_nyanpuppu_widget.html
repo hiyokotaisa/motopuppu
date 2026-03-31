@@ -14,7 +14,7 @@
                 <img src="{{ url_for('static', filename='images/nyanpuppu/' + nyanpuppu_advice.image_filename) }}"
                     alt="にゃんぷっぷー" class="nyanpuppu-image me-3" aria-hidden="true" id="nyanpuppu-image">
                 <div class="nyanpuppu-bubble position-relative pe-4">
-                    <p class="mb-0" id="nyanpuppu-text">{{ nyanpuppu_advice.text }}</p>
+                    <p class="mb-0" id="nyanpuppu-text">{{ (nyanpuppu_advice.html_text or nyanpuppu_advice.text) | safe }}</p>
                     <button onclick="reloadNyanpuppu(this)"
                         class="btn btn-sm text-secondary position-absolute bottom-0 end-0 p-1 mb-1 me-2"
                         title="別のアドバイスを聞く" style="line-height: 1;">
@@ -54,7 +54,7 @@
 
                 setTimeout(() => {
                     image.src = baseUrl + data.image_filename;
-                    text.textContent = data.text;
+                    text.innerHTML = data.html_text || data.text;
 
                     image.style.opacity = 1;
                     text.style.opacity = 1;

@@ -1,4 +1,5 @@
 # motopuppu/nyanpuppu.py
+import re
 import random
 import os
 from datetime import datetime, timezone
@@ -65,7 +66,7 @@ def get_advice(user, motorcycles):
                 ("活動ログのセッティングシートは一度作れば使い回せるにゃ。基本セットを作っておくと楽ちんにゃん。", None),
                 ("ガレージ設定から、君だけの公開プロフィールページを作れるにゃ。テーマも色々選べるにゃん！", "blobcatuwu.png"),
                 ("各記録の一覧画面にあるCSVエクスポート機能で、データのバックアップもバッチリにゃ。", None),
-                ("もとぷっぷーは個人開発・個人運営・広告ゼロで運営されてるにゃ。ここ(https://www.amazon.co.jp/hz/wishlist/ls/XAG2DQB43S80)からなにか送ってくれると、今後のもとぷっぷー開発の励みになるにゃ！", "blobcat_daisuki.webp"),
+                ("もとぷっぷーは個人開発・個人運営・広告ゼロで運営されてるにゃ。[ここ](https://www.amazon.co.jp/hz/wishlist/ls/XAG2DQB43S80)からなにか送ってくれると、今後のもとぷっぷー開発の励みになるにゃ！", "blobcat_daisuki.webp"),
             ]
             advice_pool.extend(app_tips)
 
@@ -527,7 +528,18 @@ def get_advice(user, motorcycles):
     if not image_filename:
         return None
 
+    # [テキスト](URL) 形式のMarkdownリンクをHTMLの<a>タグに変換する
+    def convert_markdown_links(text):
+        return re.sub(
+            r'\[([^\]]+)\]\((https?://[^)]+)\)',
+            lambda m: f'<a href="{m.group(2)}" target="_blank" rel="noopener noreferrer">{m.group(1)}</a>',
+            text
+        )
+
+    html_text = convert_markdown_links(selected_advice)
+
     return {
         'text': selected_advice,
+        'html_text': html_text,
         'image_filename': image_filename
     }
