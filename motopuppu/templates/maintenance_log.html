@@ -514,6 +514,7 @@ document.addEventListener('DOMContentLoaded', function() {
             cells.forEach(cell => {
                 // ODO保留中のセルはバッジ表示のままにする（上書きしない）
                 if (cell.dataset.isPending === 'true') return;
+                if (cell.querySelector('.badge')) return;
 
                 const isRacer = cell.dataset.isRacer === 'true';
                 if (isRacer) {
@@ -526,7 +527,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 } else {
                     const val = isOdo ? cell.dataset.odoValue : cell.dataset.actualValue;
-                    if (val && val !== 'None') {
+                    if (val && val !== 'None' && val !== '0') {
                         cell.textContent = parseInt(val).toLocaleString();
                         if (cell.classList.contains('fw-bold')) {
                              cell.textContent += ' km';

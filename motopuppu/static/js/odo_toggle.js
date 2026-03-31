@@ -76,6 +76,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         distanceValueCells.forEach(cell => {
+            // ODO保留中のセルはバッジ表示を維持する（上書きしない）
+            if (cell.dataset.isPending === 'true') return;
+            if (cell.querySelector('.badge')) return;
+
             const odoValue = cell.dataset.odoValue;
             const actualValue = cell.dataset.actualValue;
             const valueToShow = isActual ? actualValue : odoValue;
