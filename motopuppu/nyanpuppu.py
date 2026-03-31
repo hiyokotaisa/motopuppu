@@ -65,6 +65,7 @@ def get_advice(user, motorcycles):
                 ("活動ログのセッティングシートは一度作れば使い回せるにゃ。基本セットを作っておくと楽ちんにゃん。", None),
                 ("ガレージ設定から、君だけの公開プロフィールページを作れるにゃ。テーマも色々選べるにゃん！", "blobcatuwu.png"),
                 ("各記録の一覧画面にあるCSVエクスポート機能で、データのバックアップもバッチリにゃ。", None),
+                ("もとぷっぷーは個人開発・個人運営・広告ゼロで運営されてるにゃ。ここ(https://www.amazon.co.jp/hz/wishlist/ls/XAG2DQB43S80)からなにか送ってくれると、今後のもとぷっぷー開発の励みになるにゃ！", "blobcat_daisuki.webp"),
             ]
             advice_pool.extend(app_tips)
 
