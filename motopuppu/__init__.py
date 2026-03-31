@@ -112,6 +112,19 @@ def create_app(config_name=None):
         return Markup(value.replace('\n', '<br>\n'))
 
     app.jinja_env.filters['nl2br'] = nl2br_filter
+
+    import re as _re
+    def is_part_number_filter(value):
+        """
+        文字列が部品の品番パターン（英数字・ハイフン・スラッシュのみ、2文字以上）かどうかを判定する
+        Jinja2フィルター。消耗品・品番カテゴリでWebikeリンクを生成するために使用。
+        例: '15410-KYJ-901' -> True, 'オイル交換' -> False
+        """
+        if not value:
+            return False
+        return bool(_re.match(r'^[A-Za-z0-9][A-Za-z0-9\-/]+$', value.strip()))
+
+    app.jinja_env.filters['is_part_number'] = is_part_number_filter
     
     from .models import User
     @login_manager.user_loader
