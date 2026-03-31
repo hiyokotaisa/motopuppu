@@ -1,0 +1,546 @@
+{# motopuppu/templates/vehicle_dashboard.html #}
+{% extends "base.html" %}
+
+{% block title %}{{ vehicle.name }} Dashboard - もとぷっぷー{% endblock %}
+
+{% block content %}
+<div class="container pb-5 mb-5">
+    {# パンくずリスト風に戻るリンク #}
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-1">
+                    <li class="breadcrumb-item"><a href="{{ url_for('main.dashboard') }}" class="text-decoration-none"><i class="fas fa-home me-1"></i>ホーム</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('vehicle.vehicle_list') }}" class="text-decoration-none">マイガレージ</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">{{ vehicle.name }}</li>
+                </ol>
+            </nav>
+            <h2 class="fw-bold mb-0 text-dark">
+                <i class="fas fa-motorcycle me-2 text-primary"></i>{{ vehicle.name }} <span class="fs-5 text-muted fw-normal ms-2">Dashboard</span>
+            </h2>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('vehicle.edit_vehicle', vehicle_id=vehicle.id) }}" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-cog me-1"></i> 車両設定
+            </a>
+        </div>
+    </div>
+
+    <style>
+        .hero-stat-card {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border: none;
+            border-radius: 1rem;
+        }
+        .hero-stat-icon {
+            width: 48px;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            font-size: 1.5rem;
+        }
+        .timeline-container {
+            position: relative;
+            padding-left: 2rem;
+        }
+        .timeline-container::before {
+            content: '';
+            position: absolute;
+            top: 0; bottom: 0; left: 0.75rem;
+            width: 2px;
+            background-color: #e9ecef;
+        }
+        .timeline-item {
+            position: relative;
+            margin-bottom: 1.5rem;
+        }
+        .timeline-icon {
+            position: absolute;
+            left: -2rem;
+            top: 0;
+            width: 1.8rem;
+            height: 1.8rem;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #fff;
+            border: 2px solid #e9ecef;
+            z-index: 1;
+        }
+        .tab-card {
+            border: none;
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            background-color: #fff;
+            overflow: hidden;
+        }
+        .nav-tabs-custom {
+            border-bottom: 2px solid #f8f9fa;
+        }
+        .nav-tabs-custom .nav-link {
+            border: none;
+            color: #6c757d;
+            font-weight: 600;
+            padding: 1rem 1.5rem;
+            position: relative;
+        }
+        .nav-tabs-custom .nav-link.active {
+            color: #0d6efd;
+            background: transparent;
+        }
+        .nav-tabs-custom .nav-link.active::after {
+            content: '';
+            position: absolute;
+            bottom: -2px; left: 0; right: 0;
+            height: 2px;
+            background-color: #0d6efd;
+        }
+        .nav-tabs-custom .nav-link:hover:not(.active) {
+            color: #495057;
+        }
+        
+        .hover-lift {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .hover-lift:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.08) !important;
+        }
+    </style>
+
+    {# フラッシュメッセージ #}
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+            <div class="alert alert-{{ category if category != 'error' else 'danger' }} alert-dismissible fade show shadow-sm" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+    {% endwith %}
+
+    {# --- 1. ヒーロー統計エリア --- #}
+    <div class="row g-3 mb-4">
+        {# 総走行距離 または 稼働時間 #}
+        <div class="col-lg-3 col-md-6">
+            <div class="card hero-stat-card shadow-sm h-100">
+                <div class="card-body d-flex align-items-center p-4">
+                    <div class="hero-stat-icon bg-white text-primary shadow-sm me-3">
+                        {% if vehicle.is_racer %}
+                        <i class="fas fa-stopwatch"></i>
+                        {% else %}
+                        <i class="fas fa-road"></i>
+                        {% endif %}
+                    </div>
+                    <div>
+                        {% if vehicle.is_racer %}
+                        <h6 class="text-uppercase text-muted fw-bold mb-1" style="font-size: 0.75rem;">Total Hours</h6>
+                        <h2 class="mb-0 fw-bold">{{ "{:,.1f}".format(vehicle.display_operating_hours) }}<span class="fs-6 text-muted ms-1">H</span></h2>
+                        {% else %}
+                        <h6 class="text-uppercase text-muted fw-bold mb-1" style="font-size: 0.75rem;">Total Mileage</h6>
+                        <h2 class="mb-0 fw-bold">{{ "{:,}".format(vehicle.get_display_total_mileage()) }}<span class="fs-6 text-muted ms-1">km</span></h2>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {# 平均燃費 または コンディション(レーサー等) #}
+        <div class="col-lg-3 col-md-6">
+            <div class="card hero-stat-card shadow-sm h-100">
+                <div class="card-body d-flex align-items-center p-4">
+                    <div class="hero-stat-icon bg-white text-success shadow-sm me-3">
+                        <i class="fas fa-gas-pump"></i>
+                    </div>
+                    <div>
+                        <h6 class="text-uppercase text-muted fw-bold mb-1" style="font-size: 0.75rem;">Average Fuel</h6>
+                        {% if avg_kpl %}
+                        <h2 class="mb-0 fw-bold">{{ "{:.1f}".format(avg_kpl) }}<span class="fs-6 text-muted ms-1">km/L</span></h2>
+                        {% else %}
+                        <h2 class="mb-0 fw-bold text-muted fs-4">N/A</h2>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {# 整備費用 #}
+        <div class="col-lg-3 col-md-6">
+            <div class="card hero-stat-card shadow-sm h-100">
+                <div class="card-body d-flex align-items-center p-4">
+                    <div class="hero-stat-icon bg-white text-warning shadow-sm me-3">
+                        <i class="fas fa-tools"></i>
+                    </div>
+                    <div>
+                        <h6 class="text-uppercase text-muted fw-bold mb-1" style="font-size: 0.75rem;">Maint. Cost</h6>
+                        <h2 class="mb-0 fw-bold">¥{{ "{:,}".format(total_maint_cost|int) }}</h2>
+                        <small class="text-muted" style="font-size: 0.65rem;">パーツ: ¥{{ "{:,}".format(total_maint_parts|int) }}</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {# 総費用 または 今月の走行数 #}
+        <div class="col-lg-3 col-md-6">
+            <div class="card hero-stat-card shadow-sm h-100">
+                <div class="card-body d-flex align-items-center p-4">
+                    <div class="hero-stat-icon bg-white text-danger shadow-sm me-3">
+                        <i class="fas fa-coins"></i>
+                    </div>
+                    <div>
+                        <h6 class="text-uppercase text-muted fw-bold mb-1" style="font-size: 0.75rem;">Total Cost</h6>
+                        <h2 class="mb-0 fw-bold">¥{{ "{:,}".format(total_expense|int) }}</h2>
+                        <small class="text-muted" style="font-size: 0.65rem;">燃料含む</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# --- 2. クイックアクション --- #}
+    <div class="d-flex flex-wrap gap-2 mb-4">
+        {% if not vehicle.is_racer %}
+        <a href="{{ url_for('fuel.add_fuel', motorcycle_id=vehicle.id) }}" class="btn btn-primary rounded-pill shadow-sm hover-lift px-3 py-2">
+            <i class="fas fa-gas-pump me-1"></i> 給油記録を追加
+        </a>
+        {% endif %}
+        <a href="{{ url_for('maintenance.add_maintenance', motorcycle_id=vehicle.id) }}" class="btn btn-warning text-dark rounded-pill shadow-sm hover-lift px-3 py-2">
+            <i class="fas fa-tools me-1"></i> 整備記録を追加
+        </a>
+        <a href="{{ url_for('activity.add_activity', vehicle_id=vehicle.id) }}" class="btn btn-success rounded-pill shadow-sm hover-lift px-3 py-2">
+            <i class="fas fa-flag-checkered me-1"></i> 走行ログを追加
+        </a>
+        <a href="{{ url_for('touring.create_log', vehicle_id=vehicle.id) }}" class="btn btn-info text-white rounded-pill shadow-sm hover-lift px-3 py-2">
+            <i class="fas fa-map-signs me-1"></i> ツーリング記録
+        </a>
+        <a href="{{ url_for('notes.add_note', motorcycle_id=vehicle.id) }}" class="btn btn-secondary rounded-pill shadow-sm hover-lift px-3 py-2">
+            <i class="fas fa-sticky-note me-1"></i> ノートを追加
+        </a>
+        <div class="dropdown">
+            <button class="btn btn-outline-dark rounded-pill shadow-sm hover-lift px-3 py-2 dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                <i class="fas fa-ellipsis-h"></i> その他
+            </button>
+            <ul class="dropdown-menu shadow-sm border-0">
+                <li><a class="dropdown-item" href="{{ url_for('activity.add_setting', vehicle_id=vehicle.id) }}"><i class="fas fa-clipboard-list fa-fw me-2"></i>セッティングシート追加</a></li>
+                <li><a class="dropdown-item" href="{{ url_for('reminder.add_reminder', vehicle_id=vehicle.id) }}"><i class="fas fa-bell fa-fw me-2"></i>リマインダー追加</a></li>
+            </ul>
+        </div>
+    </div>
+
+    {# --- 3. メインコンテンツ (タブによる切り替え) --- #}
+    <div class="card tab-card mt-4">
+        <div class="card-header bg-white p-0 border-0">
+            <ul class="nav nav-tabs nav-tabs-custom flex-nowrap overflow-auto" id="dashboardTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active text-nowrap" id="overview-tab" data-bs-toggle="tab" data-bs-target="#overview" type="button" role="tab">
+                        <i class="fas fa-stream me-1"></i> タイムライン
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link text-nowrap" id="fuel-tab" data-bs-toggle="tab" data-bs-target="#fuel" type="button" role="tab">
+                        <i class="fas fa-gas-pump me-1"></i> 給油履歴
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link text-nowrap" id="maintenance-tab" data-bs-toggle="tab" data-bs-target="#maintenance" type="button" role="tab">
+                        <i class="fas fa-tools me-1"></i> 整備履歴
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link text-nowrap" id="activities-tab" data-bs-toggle="tab" data-bs-target="#activities" type="button" role="tab">
+                        <i class="fas fa-flag-checkered me-1"></i> 活動・ツーリング
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link text-nowrap" id="notes-tab" data-bs-toggle="tab" data-bs-target="#notes" type="button" role="tab">
+                        <i class="fas fa-sticky-note me-1"></i> 設定・ノート
+                    </button>
+                </li>
+            </ul>
+        </div>
+        
+        <div class="card-body p-4">
+            <div class="tab-content" id="dashboardTabsContent">
+                
+                {# タブ1: タイムライン (概要) #}
+                <div class="tab-pane fade show active" id="overview" role="tabpanel">
+                    <div class="row">
+                        <div class="col-lg-8">
+                            <h5 class="fw-bold mb-4 text-dark"><i class="fas fa-history me-2 text-muted"></i>Recent History <span class="badge bg-light text-muted fw-normal ms-2">直近30件</span></h5>
+                            {% if timeline %}
+                                <div class="timeline-container">
+                                    {% for item in timeline %}
+                                    <div class="timeline-item">
+                                        <div class="timeline-icon {{ item.bg_class }}">
+                                            <i class="fas {{ item.icon }} text-white fa-sm"></i>
+                                        </div>
+                                        <div class="card border-0 shadow-sm mb-0">
+                                            <div class="card-body py-2 px-3 d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <span class="d-block text-muted small fw-bold mb-1">{{ item.date.strftime('%Y-%m-%d') }}</span>
+                                                    <a href="{{ item.link }}" class="text-decoration-none text-dark fw-bold hover-lift d-inline-block">
+                                                        {{ item.title }}
+                                                    </a>
+                                                </div>
+                                                <a href="{{ item.link }}" class="btn btn-sm btn-light rounded-circle"><i class="fas fa-chevron-right text-muted"></i></a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <div class="text-center py-4 text-muted border rounded bg-light">
+                                    <p class="mb-0">記録がありません。</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        {# 右側のサイドバー (リマインダー等) #}
+                        <div class="col-lg-4 mt-4 mt-lg-0">
+                            <h5 class="fw-bold mb-4 text-dark"><i class="fas fa-bell me-2 text-muted"></i>Reminders</h5>
+                            {% if upcoming_reminders %}
+                                <div class="list-group list-group-flush border rounded overflow-hidden">
+                                    {% for reminder in upcoming_reminders %}
+                                    <a href="{{ url_for('reminder.edit_reminder', reminder_id=reminder['reminder_id']) }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center py-3">
+                                        <div>
+                                            <h6 class="mb-1 fw-bold text-dark">{{ reminder['task'] }}</h6>
+                                            <small class="{% if reminder['status'] == 'danger' %}text-danger{% else %}text-warning{% endif %} fw-bold">
+                                                {% if reminder['status'] == 'danger' %}
+                                                    <i class="fas fa-exclamation-circle me-1"></i>{{ reminder['message'] }}
+                                                {% else %}
+                                                    <i class="fas fa-clock me-1"></i>{{ reminder['message'] }}
+                                                {% endif %}
+                                            </small>
+                                        </div>
+                                        <i class="fas fa-angle-right text-muted"></i>
+                                    </a>
+                                    {% endfor %}
+                                    <div class="px-3 py-2 bg-light border-top text-center">
+                                        <a href="{{ url_for('reminder.list_reminders', vehicle_id=vehicle.id) }}" class="small text-decoration-none fw-bold">すべてを見る</a>
+                                    </div>
+                                </div>
+                            {% else %}
+                                <div class="text-center p-4 border rounded bg-light">
+                                    <div class="text-muted fa-2x mb-2"><i class="fas fa-check-circle"></i></div>
+                                    <p class="text-muted small mb-0 fw-bold">直近のリマインダーはありません</p>
+                                    <a href="{{ url_for('reminder.list_reminders', vehicle_id=vehicle.id) }}" class="small text-decoration-none mt-2 d-block">管理画面へ</a>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                {# タブ2: 給油履歴 #}
+                <div class="tab-pane fade" id="fuel" role="tabpanel">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="fw-bold mb-0 text-dark">給油履歴 <span class="badge bg-light text-muted fw-normal ms-2">直近30件</span></h5>
+                        <a href="{{ url_for('fuel.fuel_log', vehicle_id=vehicle.id) }}" class="btn btn-sm btn-outline-primary shadow-sm rounded-pill px-3">全件表示・検索 <i class="fas fa-arrow-right ms-1"></i></a>
+                    </div>
+                    {% if fuels %}
+                        <div class="table-responsive bg-white rounded shadow-sm border">
+                            <table class="table table-hover table-striped mb-0 align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>日付</th>
+                                        <th>ODO/総距離</th>
+                                        <th>給油量</th>
+                                        <th>区間燃費</th>
+                                        <th>費用</th>
+                                        <th class="text-end">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for f in fuels %}
+                                    <tr>
+                                        <td>{{ f.entry_date.strftime('%Y-%m-%d') }}</td>
+                                        <td>{{ "{:,}".format(f.total_distance) }} km</td>
+                                        <td>{{ f.fuel_volume }} L</td>
+                                        <td>
+                                            {% if f.km_per_liter %}
+                                                <span class="badge bg-success">{{ f.km_per_liter }} km/L</span>
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{% if f.total_cost %}¥{{ "{:,}".format(f.total_cost|int) }}{% else %}¥0{% endif %}</td>
+                                        <td class="text-end">
+                                            <a href="{{ url_for('fuel.edit_fuel', entry_id=f.id) }}" class="btn btn-sm btn-outline-secondary"><i class="fas fa-edit"></i></a>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5 text-muted border rounded bg-light">
+                            <p class="mb-0">給油記録がありません。</p>
+                        </div>
+                    {% endif %}
+                </div>
+
+                {# タブ3: 整備履歴 #}
+                <div class="tab-pane fade" id="maintenance" role="tabpanel">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="fw-bold mb-0 text-dark">整備履歴 <span class="badge bg-light text-muted fw-normal ms-2">直近30件</span></h5>
+                        <a href="{{ url_for('maintenance.maintenance_log', motorcycle_id=vehicle.id) }}" class="btn btn-sm btn-outline-primary shadow-sm rounded-pill px-3">全件表示・検索 <i class="fas fa-arrow-right ms-1"></i></a>
+                    </div>
+                    {% if maintenances %}
+                        <div class="table-responsive bg-white rounded shadow-sm border">
+                            <table class="table table-hover table-striped mb-0 align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>日付</th>
+                                        <th>距離/時間</th>
+                                        <th>カテゴリ</th>
+                                        <th>内容</th>
+                                        <th>費用</th>
+                                        <th class="text-end">操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for m in maintenances %}
+                                    <tr>
+                                        <td>{{ m.maintenance_date.strftime('%Y-%m-%d') }}</td>
+                                        <td>
+                                            {% if vehicle.is_racer and m.operating_hours_at_maintenance is not none %}
+                                                {{ m.operating_hours_at_maintenance }} H
+                                            {% elif m.odometer_reading_at_maintenance is not none %}
+                                                {{ "{:,}".format(m.odometer_reading_at_maintenance) }} km
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td><span class="badge bg-secondary">{{ m.category or '未分類' }}</span></td>
+                                        <td class="text-truncate" style="max-width: 200px;" title="{{ m.description }}">{{ m.description }}</td>
+                                        <td>¥{{ "{:,}".format((m.parts_cost or 0) + (m.labor_cost or 0)) }}</td>
+                                        <td class="text-end">
+                                            <a href="{{ url_for('maintenance.edit_maintenance', entry_id=m.id) }}" class="btn btn-sm btn-outline-secondary"><i class="fas fa-edit"></i></a>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5 text-muted border rounded bg-light">
+                            <p class="mb-0">整備記録がありません。</p>
+                        </div>
+                    {% endif %}
+                </div>
+
+                {# タブ4: 活動・ツーリング #}
+                <div class="tab-pane fade" id="activities" role="tabpanel">
+                    <div class="row g-4">
+                        <div class="col-md-6">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h5 class="fw-bold mb-0 text-dark"><i class="fas fa-flag-checkered text-success me-2"></i>走行ログ</h5>
+                                <a href="{{ url_for('activity.list_activities', vehicle_id=vehicle.id) }}" class="btn btn-sm btn-outline-primary shadow-sm rounded-pill px-3">全件表示 <i class="fas fa-arrow-right ms-1"></i></a>
+                            </div>
+                            {% if activities %}
+                                <div class="list-group list-group-flush border rounded shadow-sm">
+                                    {% for a in activities %}
+                                    <a href="{{ url_for('activity.detail_activity', activity_id=a.id) }}" class="list-group-item list-group-item-action py-3">
+                                        <div class="d-flex justify-content-between w-100">
+                                            <h6 class="mb-1 fw-bold text-dark">{{ a.location_name_display or a.activity_title }}</h6>
+                                            <small class="text-muted">{{ a.activity_date.strftime('%Y-%m-%d') }}</small>
+                                        </div>
+                                        <p class="mb-1 text-muted small text-truncate">{{ a.circuit_name or a.custom_location or '' }}</p>
+                                    </a>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <div class="text-center py-4 text-muted border rounded bg-light">
+                                    <p class="mb-0 small">走行ログがありません。</p>
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h5 class="fw-bold mb-0 text-dark"><i class="fas fa-map-signs text-primary me-2"></i>ツーリング</h5>
+                                <a href="{{ url_for('touring.list_logs', vehicle_id=vehicle.id) }}" class="btn btn-sm btn-outline-primary shadow-sm rounded-pill px-3">全件表示 <i class="fas fa-arrow-right ms-1"></i></a>
+                            </div>
+                            {% if tourings %}
+                                <div class="list-group list-group-flush border rounded shadow-sm">
+                                    {% for t in tourings %}
+                                    <a href="{{ url_for('touring.detail_log', log_id=t.id) }}" class="list-group-item list-group-item-action py-3">
+                                        <div class="d-flex justify-content-between w-100">
+                                            <h6 class="mb-1 fw-bold text-dark">{{ t.title }}</h6>
+                                            <small class="text-muted">{{ t.touring_date.strftime('%Y-%m-%d') }}</small>
+                                        </div>
+                                    </a>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <div class="text-center py-4 text-muted border rounded bg-light">
+                                    <p class="mb-0 small">ツーリング記録がありません。</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                {# タブ5: 設定・ノート #}
+                <div class="tab-pane fade" id="notes" role="tabpanel">
+                    <div class="row g-4">
+                        <div class="col-md-6">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h5 class="fw-bold mb-0 text-dark"><i class="fas fa-clipboard-list text-dark me-2"></i>セッティング・整備情報</h5>
+                                {# セッティングシート全体リストがない場合は spec_sheet のリストなど #}
+                                <a href="{{ url_for('spec_sheet.list_sheets', vehicle_id=vehicle.id) }}" class="btn btn-sm btn-outline-primary shadow-sm rounded-pill px-3">整備シート <i class="fas fa-arrow-right ms-1"></i></a>
+                            </div>
+                            {% if settings %}
+                                <div class="list-group list-group-flush border rounded shadow-sm">
+                                    {% for s in settings %}
+                                    <a href="{{ url_for('activity.edit_setting', setting_id=s.id) }}" class="list-group-item list-group-item-action py-3">
+                                        <div class="d-flex justify-content-between w-100">
+                                            <h6 class="mb-1 fw-bold text-dark">{{ s.sheet_name }}</h6>
+                                            <small class="text-muted">{{ s.updated_at.strftime('%Y-%m-%d') if s.updated_at else '' }}</small>
+                                        </div>
+                                    </a>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <div class="text-center py-4 text-muted border rounded bg-light">
+                                    <p class="mb-0 small">セッティングシートがありません。</p>
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h5 class="fw-bold mb-0 text-dark"><i class="fas fa-sticky-note text-secondary me-2"></i>ノート</h5>
+                                <a href="{{ url_for('notes.notes_log', motorcycle_id=vehicle.id) }}" class="btn btn-sm btn-outline-primary shadow-sm rounded-pill px-3">全件表示 <i class="fas fa-arrow-right ms-1"></i></a>
+                            </div>
+                            {% if notes %}
+                                <div class="list-group list-group-flush border rounded shadow-sm">
+                                    {% for n in notes %}
+                                    <a href="{{ url_for('notes.edit_note', note_id=n.id) }}" class="list-group-item list-group-item-action py-3">
+                                        <div class="d-flex justify-content-between w-100">
+                                            <h6 class="mb-1 fw-bold text-dark">{{ n.title or n.category }}</h6>
+                                            <small class="text-muted">{{ n.note_date.strftime('%Y-%m-%d') }}</small>
+                                        </div>
+                                        {% if n.content %}
+                                        <p class="mb-0 text-muted small text-truncate">{{ n.content }}</p>
+                                        {% endif %}
+                                    </a>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <div class="text-center py-4 text-muted border rounded bg-light">
+                                    <p class="mb-0 small">ノートがありません。</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

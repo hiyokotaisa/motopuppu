@@ -141,7 +141,9 @@
                                                 <i class="fas fa-motorcycle text-secondary"></i>
                                             </div>
                                             {% endif %}
-                                            <span class="fw-bold text-dark text-truncate">{{ motorcycle.name }}</span>
+                                            <a href="{{ url_for('vehicle.dashboard', vehicle_id=motorcycle.id) }}" class="fw-bold text-dark text-truncate text-decoration-none hover-primary flex-grow-1" title="{{ motorcycle.name }}のダッシュボードを開く">
+                                                {{ motorcycle.name }} <i class="fas fa-angle-right ms-1 text-muted"></i>
+                                            </a>
                                         </div>
 
                                         {# 機能リンク (左右分割) #}

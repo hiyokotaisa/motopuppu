@@ -12,7 +12,7 @@ from flask_login import login_required, current_user
 # ▼▼▼【ここから変更】削除対象のモデルをインポート ▼▼▼
 from ..models import (
     db, User, Motorcycle, MaintenanceReminder, OdoResetLog, MaintenanceEntry, ActivityLog,
-    GeneralNote, Event
+    GeneralNote, Event, FuelEntry, SessionLog, TouringLog, SettingSheet
 )
 # ▲▲▲【変更はここまで】▲▲▲
 from ..forms import VehicleForm, OdoResetLogForm
@@ -521,3 +521,127 @@ def toggle_garage_display(vehicle_id):
         current_app.logger.error(f"Error toggling show_in_garage for vehicle {vehicle_id}: {e}", exc_info=True)
         return jsonify({'status': 'error', 'message': '設定の更新中にエラーが発生しました。'}), 500
 # ▲▲▲ 追記ここまで ▲▲▲
+
+@vehicle_bp.route('/<int:vehicle_id>/dashboard')
+@login_required
+def dashboard(vehicle_id):
+    motorcycle = Motorcycle.query.filter_by(id=vehicle_id, user_id=current_user.id).first_or_404()
+    
+    # 最近のデータを取得（最大30件）
+    recent_fuels = FuelEntry.query.filter_by(motorcycle_id=motorcycle.id).order_by(FuelEntry.entry_date.desc(), FuelEntry.id.desc()).limit(30).all()
+    recent_maintenances = MaintenanceEntry.query.filter_by(motorcycle_id=motorcycle.id).order_by(MaintenanceEntry.maintenance_date.desc(), MaintenanceEntry.id.desc()).limit(30).all()
+    recent_notes = GeneralNote.query.filter_by(motorcycle_id=motorcycle.id).order_by(GeneralNote.note_date.desc(), GeneralNote.id.desc()).limit(30).all()
+    recent_activities = ActivityLog.query.filter_by(motorcycle_id=motorcycle.id).order_by(ActivityLog.activity_date.desc(), ActivityLog.id.desc()).limit(30).all()
+    recent_tourings = TouringLog.query.filter_by(motorcycle_id=motorcycle.id).order_by(TouringLog.touring_date.desc(), TouringLog.id.desc()).limit(30).all()
+    recent_settings = SettingSheet.query.filter_by(motorcycle_id=motorcycle.id, is_archived=False).order_by(SettingSheet.updated_at.desc(), SettingSheet.id.desc()).limit(30).all()
+    
+    # リマインダー (次回対応が近いものを services 経由で取得)
+    upcoming_reminders = services.get_upcoming_reminders([motorcycle], current_user.id)
+    
+    # タイムラインの構築（すべてのアクティビティを時系列で混合、直近30件）
+    timeline_items = []
+    
+    for f in recent_fuels:
+        timeline_items.append({
+            'date': f.entry_date,
+            'type': 'fuel',
+            'title': f'給油: {f.fuel_volume}L ({f.total_distance:,}km)',
+            'icon': 'fa-gas-pump',
+            'bg_class': 'bg-info',
+            'text_class': 'text-info',
+            'link': url_for('fuel.fuel_log', vehicle_id=motorcycle.id) + f"#record-{f.id}"
+        })
+    for m in recent_maintenances:
+        try:
+            desc = m.category or m.description
+        except Exception:
+            desc = m.description
+        timeline_items.append({
+            'date': m.maintenance_date,
+            'type': 'maintenance',
+            'title': f'整備: {desc}',
+            'icon': 'fa-tools',
+            'bg_class': 'bg-warning text-dark',
+            'text_class': 'text-warning text-dark',
+            'link': url_for('maintenance.edit_maintenance', entry_id=m.id)
+        })
+    for n in recent_notes:
+        try:
+            title = n.title or n.category
+        except Exception:
+            title = 'ノート'
+        timeline_items.append({
+            'date': n.note_date,
+            'type': 'note',
+            'title': f'ノート: {title}',
+            'icon': 'fa-sticky-note',
+            'bg_class': 'bg-secondary',
+            'text_class': 'text-secondary',
+            'link': url_for('notes.edit_note', note_id=n.id)
+        })
+    for a in recent_activities:
+        title = a.location_name_display or a.activity_title
+        timeline_items.append({
+            'date': a.activity_date,
+            'type': 'activity',
+            'title': f'活動: {title}',
+            'icon': 'fa-flag-checkered',
+            'bg_class': 'bg-success',
+            'text_class': 'text-success',
+            'link': url_for('activity.detail_activity', activity_id=a.id)
+        })
+    for t in recent_tourings:
+        timeline_items.append({
+            'date': t.touring_date,
+            'type': 'touring',
+            'title': f'ツーリング: {t.title}',
+            'icon': 'fa-map-signs',
+            'bg_class': 'bg-primary',
+            'text_class': 'text-primary',
+            'link': url_for('touring.detail_log', log_id=t.id)
+        })
+    for s in recent_settings:
+        if hasattr(s, 'created_at') and s.created_at:
+            s_date = s.created_at.date()
+        elif hasattr(s, 'updated_at') and s.updated_at:
+            s_date = s.updated_at.date()
+        else:
+            s_date = datetime.utcnow().date()
+            
+        timeline_items.append({
+            'date': s_date,
+            'type': 'setting',
+            'title': f'セッティング: {s.sheet_name}',
+            'icon': 'fa-clipboard-list',
+            'bg_class': 'bg-dark',
+            'text_class': 'text-dark',
+            'link': url_for('activity.edit_setting', setting_id=s.id)
+        })
+        
+    timeline_items.sort(key=lambda x: x['date'], reverse=True)
+    timeline_items = timeline_items[:30]
+    
+    # 統計情報の計算
+    total_fuel_cost = db.session.query(db.func.sum(FuelEntry.total_cost)).filter_by(motorcycle_id=motorcycle.id).scalar() or 0
+    total_maint_parts = db.session.query(db.func.sum(MaintenanceEntry.parts_cost)).filter_by(motorcycle_id=motorcycle.id).scalar() or 0
+    total_maint_labor = db.session.query(db.func.sum(MaintenanceEntry.labor_cost)).filter_by(motorcycle_id=motorcycle.id).scalar() or 0
+    total_maint_cost = total_maint_parts + total_maint_labor
+    total_expense = total_fuel_cost + total_maint_cost
+    
+    avg_kpl = services.calculate_average_kpl(motorcycle) if not motorcycle.is_racer else None
+    
+    return render_template('vehicle_dashboard.html',
+                           vehicle=motorcycle,
+                           timeline=timeline_items,
+                           fuels=recent_fuels,
+                           maintenances=recent_maintenances,
+                           notes=recent_notes,
+                           activities=recent_activities,
+                           tourings=recent_tourings,
+                           settings=recent_settings,
+                           upcoming_reminders=upcoming_reminders,
+                           total_fuel_cost=total_fuel_cost,
+                           total_maint_cost=total_maint_cost,
+                           total_maint_parts=total_maint_parts,
+                           total_expense=total_expense,
+                           avg_kpl=avg_kpl)
