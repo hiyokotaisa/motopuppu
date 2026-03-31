@@ -40,6 +40,24 @@
  .dropdown-menu {
    z-index: 1030; 
  }
+
+  /* ▼▼▼【追加】セッションランクバッジ ▼▼▼ */
+  .rank-badge-inline {
+      font-size: 0.65rem;
+      padding: 0.15rem 0.4rem;
+      border-radius: 0.25rem;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      vertical-align: middle;
+  }
+  .rank-sp { background: linear-gradient(135deg, #ffc107, #ff9800); color: #000; }
+  .rank-s { background: linear-gradient(135deg, #7c3aed, #a855f7); color: #fff; }
+  .rank-a { background: linear-gradient(135deg, #0d6efd, #0dcaf0); color: #fff; }
+  .rank-b { background: linear-gradient(135deg, #198754, #20c997); color: #fff; }
+  .rank-c { background: #ffc107; color: #000; }
+  .rank-d { background: #6c757d; color: #fff; }
+  /* ▲▲▲【追加】セッションランクここまで ▲▲▲ */
+
  canvas[id^="lapChart-"] {
    touch-action: pan-y;
  }
@@ -491,6 +509,26 @@
                             {% if session.best_lap %}
                                 <span class="badge bg-light text-muted border fw-normal small">{{ session.best_lap }}</span>
                             {% endif %}
+
+                            {# ▼▼▼【追加】セッションランクバッジ ▼▼▼ #}
+                            {% if circuit_pb_seconds and session.best_lap_seconds %}
+                            {% set pct_off = ((session.best_lap_seconds|float - circuit_pb_seconds) / circuit_pb_seconds) * 100 %}
+                            {% if session.best_lap_seconds|float <= circuit_pb_seconds %}
+                                {% set sess_rank = 'S+' %}{% set rank_class = 'rank-sp' %}
+                            {% elif pct_off <= 0.5 %}
+                                {% set sess_rank = 'S' %}{% set rank_class = 'rank-s' %}
+                            {% elif pct_off <= 1.0 %}
+                                {% set sess_rank = 'A' %}{% set rank_class = 'rank-a' %}
+                            {% elif pct_off <= 3.0 %}
+                                {% set sess_rank = 'B' %}{% set rank_class = 'rank-b' %}
+                            {% elif pct_off <= 5.0 %}
+                                {% set sess_rank = 'C' %}{% set rank_class = 'rank-c' %}
+                            {% else %}
+                                {% set sess_rank = 'D' %}{% set rank_class = 'rank-d' %}
+                            {% endif %}
+                            <span class="rank-badge-inline {{ rank_class }}">{{ sess_rank }}</span>
+                            {% endif %}
+                            {# ▲▲▲【追加】セッションランクここまで ▲▲▲ #}
                         </div>
 
                         <div class="d-flex align-items-center ms-auto ps-2" onclick="event.stopPropagation()">

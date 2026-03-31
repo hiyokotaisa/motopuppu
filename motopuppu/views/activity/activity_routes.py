@@ -591,6 +591,20 @@ def detail_activity(activity_id):
             current_app.logger.error(f"Error adding new session log: {e}", exc_info=True)
             flash('セッションの保存中にエラーが発生しました。', 'danger')
 
+    # ▼▼▼【追加】サーキットPBタイムを取得（セッションランク計算用） ▼▼▼
+    circuit_pb_seconds = None
+    if activity.location_type == 'circuit' and activity.circuit_name:
+        pb_result = db.session.query(func.min(SessionLog.best_lap_seconds)).join(
+            ActivityLog, SessionLog.activity_log_id == ActivityLog.id
+        ).filter(
+            ActivityLog.user_id == current_user.id,
+            ActivityLog.circuit_name == activity.circuit_name,
+            SessionLog.best_lap_seconds.isnot(None)
+        ).scalar()
+        if pb_result:
+            circuit_pb_seconds = float(pb_result)
+    # ▲▲▲【追加】ここまで ▲▲▲
+
     return render_template('activity/detail_activity.html',
                            activity=activity,
                            sessions=sessions,
@@ -599,7 +613,8 @@ def detail_activity(activity_id):
                            import_form=import_form,
                            setting_key_map=SETTING_KEY_MAP,
                            current_sort=sort_order,
-                           is_owner=is_owner
+                           is_owner=is_owner,
+                           circuit_pb_seconds=circuit_pb_seconds
                            )
 
 @activity_bp.route('/<int:activity_id>/toggle_team_share', methods=['POST'])

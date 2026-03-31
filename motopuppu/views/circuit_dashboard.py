@@ -128,8 +128,8 @@ def index():
     today = date.today()
     next_week = today + timedelta(days=7)
 
-    # ▼▼▼【追加】PBトラッキングデータを全セッションから一括計算 (A-3) ▼▼▼
-    pb_tracking = {}  # circuit_name -> {'count': int, 'last_pb_date': date, 'first_time': Decimal}
+    # ▼▼▼【追加】PBトラッキングデータを全セッションから一括計算 (A-3 + 成長タイムライン + セッションランク) ▼▼▼
+    pb_tracking = {}  # circuit_name -> {'count': int, 'last_pb_date': date, 'first_time': Decimal, 'history': list}
     for activity, session in all_sessions_for_graph:
         cn = activity.circuit_name
         if cn not in pb_tracking:
@@ -137,12 +137,21 @@ def index():
                 'count': 0,
                 'running_min': None,
                 'last_pb_date': None,
-                'first_time': session.best_lap_seconds
+                'first_time': session.best_lap_seconds,
+                'history': []  # 成長タイムライン用PB更新履歴
             }
         if pb_tracking[cn]['running_min'] is None or session.best_lap_seconds < pb_tracking[cn]['running_min']:
+            # PB更新時の短縮タイムを計算
+            prev_min = pb_tracking[cn]['running_min']
+            improvement = float(prev_min - session.best_lap_seconds) if prev_min is not None else 0
             pb_tracking[cn]['running_min'] = session.best_lap_seconds
             pb_tracking[cn]['count'] += 1
             pb_tracking[cn]['last_pb_date'] = activity.activity_date
+            pb_tracking[cn]['history'].append({
+                'date': activity.activity_date.isoformat(),
+                'time': float(session.best_lap_seconds),
+                'improvement': round(improvement, 3)
+            })
     # ▲▲▲【追加】PBトラッキングここまで ▲▲▲
 
     for best_session in best_sessions:
@@ -209,12 +218,34 @@ def index():
         # 2b. ラップタイム推移グラフ（スパークライン）のデータを作成
         chart_data = {
             'labels': [], # 日付
-            'data': []   # ベストラップ
+            'data': [],   # ベストラップ
+            'ranks': []   # セッションランク
         }
         for activity, session in all_sessions_for_graph:
             if activity.circuit_name == circuit_name:
-                chart_data['labels'].append(activity.activity_date.isoformat())
-                chart_data['data'].append(float(session.best_lap_seconds))
+                chart_data['labels'].append(activity.activity_date.strftime('%Y-%m-%d'))
+                lap_sec = float(session.best_lap_seconds)
+                chart_data['data'].append(lap_sec)
+                # ▼▼▼【追加】セッションランク計算 ▼▼▼
+                pb_sec = float(best_session.best_lap_seconds)
+                if pb_sec > 0:
+                    pct_off = ((lap_sec - pb_sec) / pb_sec) * 100
+                else:
+                    pct_off = 0
+                if lap_sec <= pb_sec:
+                    rank = 'S+'
+                elif pct_off <= 0.5:
+                    rank = 'S'
+                elif pct_off <= 1.0:
+                    rank = 'A'
+                elif pct_off <= 3.0:
+                    rank = 'B'
+                elif pct_off <= 5.0:
+                    rank = 'C'
+                else:
+                    rank = 'D'
+                chart_data['ranks'].append(rank)
+                # ▲▲▲【追加】セッションランクここまで ▲▲▲
 
         # 2c. リーダーボード情報を取得
         leaderboard_info = get_leaderboard_rankings(circuit_name, current_user.id)
@@ -345,6 +376,9 @@ def index():
             'is_pb_fresh': is_pb_fresh,
             'first_time': first_time,
             # ▲▲▲【追加】ここまで ▲▲▲
+            # ▼▼▼【追加】成長タイムライン用PB更新履歴 ▼▼▼
+            'pb_history': circuit_pb.get('history', []),
+            # ▲▲▲【追加】ここまで ▲▲▲
         })
         
     # 3. 総合サマリー情報を計算
@@ -382,11 +416,24 @@ def index():
     # サーキット名でソートしてテンプレートに渡す
     circuit_data.sort(key=lambda x: x['name'])
     
+    # ▼▼▼【追加】ヒートマップカレンダー用データ (過去12ヶ月の走行日) ▼▼▼
+    heatmap_query = db.session.query(
+        ActivityLog.activity_date,
+        func.count(ActivityLog.id)
+    ).filter(
+        ActivityLog.user_id == current_user.id,
+        ActivityLog.circuit_name.isnot(None),
+        ActivityLog.activity_date >= today - timedelta(days=365)
+    ).group_by(ActivityLog.activity_date).all()
+    heatmap_data = {d.isoformat(): c for d, c in heatmap_query}
+    # ▲▲▲【追加】ヒートマップここまで ▲▲▲
+
     return render_template(
         'circuit_dashboard/index.html',
         summary_stats=summary_stats,
         circuit_data=circuit_data,
-        format_seconds_to_time=format_seconds_to_time
+        format_seconds_to_time=format_seconds_to_time,
+        heatmap_data=heatmap_data
     )
 
 @circuit_dashboard_bp.route('/weather/<path:circuit_name>')
