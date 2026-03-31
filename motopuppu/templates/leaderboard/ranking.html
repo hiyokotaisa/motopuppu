@@ -42,6 +42,58 @@
     .ranking-table-card { border: none; border-radius: 1rem; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
     .table-hover tbody tr:hover { background-color: rgba(13, 110, 253, 0.03); }
     .gap-time { font-family: 'Monaco', 'Consolas', monospace; font-size: 0.85rem; color: #dc3545; }
+
+    /* ▼▼▼【追加】D-2: 表彰台アニメーション ▼▼▼ */
+    @keyframes shimmer-gold {
+        0%, 100% { box-shadow: 0 0 15px rgba(255, 193, 7, 0.3); }
+        50% { box-shadow: 0 0 25px rgba(255, 193, 7, 0.6), 0 0 40px rgba(255, 193, 7, 0.2); }
+    }
+    @keyframes shimmer-silver {
+        0%, 100% { box-shadow: 0 0 10px rgba(0, 0, 0, 0.05); }
+        50% { box-shadow: 0 0 20px rgba(173, 181, 189, 0.4); }
+    }
+    @keyframes shimmer-bronze {
+        0%, 100% { box-shadow: 0 0 10px rgba(205, 127, 50, 0.1); }
+        50% { box-shadow: 0 0 20px rgba(205, 127, 50, 0.4); }
+    }
+    @keyframes podium-rise {
+        from { opacity: 0; transform: translateY(30px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .podium-first .avatar-img { animation: shimmer-gold 3s ease-in-out infinite; }
+    .podium-second .avatar-img { animation: shimmer-silver 3s ease-in-out infinite 0.5s; }
+    .podium-third .avatar-img { animation: shimmer-bronze 3s ease-in-out infinite 1s; }
+    .podium-place { animation: podium-rise 0.6s ease-out forwards; }
+    .podium-first { animation-delay: 0.3s; opacity: 0; }
+    .podium-second { animation-delay: 0.1s; opacity: 0; }
+    .podium-third { animation-delay: 0.5s; opacity: 0; }
+    /* ▲▲▲【追加】D-2 ここまで ▲▲▲ */
+
+    /* ▼▼▼【追加】B-2: 自分のハイライト行 ▼▼▼ */
+    .my-ranking-row {
+        background-color: rgba(13, 110, 253, 0.06) !important;
+        border-left: 3px solid #0d6efd;
+    }
+    .my-ranking-row:hover {
+        background-color: rgba(13, 110, 253, 0.1) !important;
+    }
+    /* B-2: 表彰台の自分のリング */
+    .podium-self-ring .avatar-img {
+        outline: 3px solid #0d6efd;
+        outline-offset: 3px;
+    }
+    /* ▲▲▲【追加】B-2 ここまで ▲▲▲ */
+
+    /* ▼▼▼【追加】B-1: 鮮度バッジ ▼▼▼ */
+    .fresh-badge {
+        font-size: 0.6rem;
+        padding: 0.15rem 0.4rem;
+        border-radius: 1rem;
+        font-weight: bold;
+        letter-spacing: 0.5px;
+        vertical-align: middle;
+    }
+    /* ▲▲▲【追加】B-1 ここまで ▲▲▲ */
 </style>
 
 <div class="container py-3">
@@ -73,19 +125,59 @@
         {# --- 1位〜3位の表彰台エリア --- #}
         <div class="podium-container">
             {% for item in rankings[:3] %}
-                <div class="podium-place {% if item.rank == 1 %}podium-first{% elif item.rank == 2 %}podium-second{% else %}podium-third{% endif %}">
+                {# ▼▼▼【修正】B-2: 自分の表彰台にリング追加 ▼▼▼ #}
+                <div class="podium-place {% if item.rank == 1 %}podium-first{% elif item.rank == 2 %}podium-second{% else %}podium-third{% endif %} {% if current_user_id and item.user_id == current_user_id %}podium-self-ring{% endif %}">
                     <img src="{{ item.avatar_url or url_for('static', filename='images/blobcat_8bit.webp') }}" alt="{{ item.username }}" class="avatar-img mb-1">
                     <div class="text-center">
                         <div class="rank-label">{{ item.rank }}</div>
                         <div class="mt-2">
-                            <span class="podium-user text-truncate" style="max-width: 120px;">{{ item.username }}</span>
+                            <span class="podium-user text-truncate" style="max-width: 120px;">
+                                {{ item.username }}
+                                {# ▼▼▼【追加】B-2: 自分マーカー ▼▼▼ #}
+                                {% if current_user_id and item.user_id == current_user_id %}
+                                <i class="fas fa-user-circle text-primary ms-1" title="あなた" style="font-size: 0.7rem;"></i>
+                                {% endif %}
+                            </span>
                             <div class="podium-time">{{ item.lap_time }}</div>
                             <div class="podium-vehicle text-truncate" style="max-width: 120px;">{{ item.motorcycle_name }}</div>
+                            {# ▼▼▼【追加】B-1: 鮮度バッジ ▼▼▼ #}
+                            {% if item.is_fresh %}
+                            <span class="fresh-badge bg-success text-white mt-1 d-inline-block">
+                                <i class="fas fa-bolt me-1"></i>NEW
+                            </span>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
             {% endfor %}
         </div>
+
+        {# ▼▼▼【追加】B-2: 自分の順位サマリーカード（自分がランキングに存在する場合） ▼▼▼ #}
+        {% if current_user_id %}
+            {% for item in rankings %}
+                {% if item.user_id == current_user_id %}
+                <div class="card border-0 shadow-sm mb-4 mx-auto" style="max-width: 500px; border-radius: 1rem;">
+                    <div class="card-body text-center py-3">
+                        <div class="d-flex align-items-center justify-content-center gap-3">
+                            <div>
+                                <div class="text-muted small">Your Position</div>
+                                <div class="fw-bold fs-3">{{ item.rank }}<span class="text-muted fs-6">位</span></div>
+                            </div>
+                            {% if item.gap_to_above %}
+                            <div class="vr"></div>
+                            <div>
+                                <div class="text-muted small">次の順位まで</div>
+                                <div class="fw-bold fs-5 text-danger">{{ item.gap_to_above }}</div>
+                                <div class="text-muted" style="font-size: 0.7rem;">あと少しで追い抜ける！</div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            {% endfor %}
+        {% endif %}
+        {# ▲▲▲【追加】B-2 ここまで ▲▲▲ #}
 
         {# --- 4位以下のリストエリア --- #}
         <div class="card ranking-table-card">
@@ -103,8 +195,8 @@
                     </thead>
                     <tbody>
                         {% for item in rankings %}
-                        {# 4位以降、またはリストとして全員表示したい場合は調整可能。ここでは全員表示して1-3位は色付け #}
-                        <tr class="{% if item.rank <= 3 %}bg-light{% endif %}">
+                        {# ▼▼▼【修正】B-2: 自分の行をハイライト ▼▼▼ #}
+                        <tr class="{% if current_user_id and item.user_id == current_user_id %}my-ranking-row{% elif item.rank <= 3 %}bg-light{% endif %}">
                             <th scope="row" class="text-center text-muted">
                                 {% if item.rank == 1 %}
                                     <i class="fas fa-crown text-warning"></i>
@@ -115,7 +207,17 @@
                             <td>
                                 <div class="d-flex align-items-center">
                                     <img src="{{ item.avatar_url or url_for('static', filename='images/blobcat_8bit.webp') }}" alt="{{ item.username }}" class="rounded-circle me-2" style="width: 32px; height: 32px; object-fit: cover;">
-                                    <span class="fw-bold text-dark">{{ item.username }}</span>
+                                    <div>
+                                        <span class="fw-bold text-dark">{{ item.username }}</span>
+                                        {# ▼▼▼【追加】B-2: 自分マーカー #}
+                                        {% if current_user_id and item.user_id == current_user_id %}
+                                        <span class="badge bg-primary ms-1" style="font-size: 0.6rem;">YOU</span>
+                                        {% endif %}
+                                        {# ▼▼▼【追加】B-1: 鮮度バッジ ▼▼▼ #}
+                                        {% if item.is_fresh %}
+                                        <span class="fresh-badge bg-success text-white ms-1">NEW</span>
+                                        {% endif %}
+                                    </div>
                                 </div>
                             </td>
                             <td>
@@ -126,6 +228,12 @@
                                     <span class="badge bg-warning text-dark">TOP</span>
                                 {% else %}
                                     <span class="gap-time">{{ item.gap }}</span>
+                                    {# ▼▼▼【追加】B-2: 自分の行に「追い抜き」情報 ▼▼▼ #}
+                                    {% if current_user_id and item.user_id == current_user_id and item.gap_to_above %}
+                                    <div style="font-size: 0.65rem;" class="text-primary fw-bold mt-1">
+                                        <i class="fas fa-angle-double-up"></i> あと {{ item.gap_to_above }}
+                                    </div>
+                                    {% endif %}
                                 {% endif %}
                             </td>
                             <td class="d-none d-md-table-cell text-muted small">

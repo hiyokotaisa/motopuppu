@@ -1,6 +1,8 @@
 # motopuppu/views/leaderboard.py
 import decimal
+from datetime import date
 from flask import Blueprint, render_template, current_app, redirect, url_for
+from flask_login import current_user
 from sqlalchemy import func, desc
 
 from ..models import db, ActivityLog, SessionLog, User, Motorcycle
@@ -103,6 +105,7 @@ def ranking(circuit_name):
 
     # ランク1位（各ユーザーの自己ベスト）の記録のみを抽出
     best_laps = db.session.query(
+        User.id.label('user_id'),
         User.misskey_username,
         User.display_name,
         User.avatar_url,
@@ -117,6 +120,7 @@ def ranking(circuit_name):
     
     rankings = []
     top_time = None
+    prev_time = None
 
     for i, row in enumerate(best_laps):
         current_time = row.best_lap_seconds
@@ -125,9 +129,18 @@ def ranking(circuit_name):
         if i == 0:
             top_time = current_time
             gap = None
+            gap_to_above = None
         else:
             # 1位との差を計算
             gap = current_time - top_time
+            # ▼▼▼【追加】B-2: 1つ上の順位との差分 ▼▼▼
+            gap_to_above = current_time - prev_time if prev_time is not None else None
+
+        prev_time = current_time
+
+        # ▼▼▼【追加】B-1: キャラクターの鮮度判定 (14日以内か) ▼▼▼
+        days_since = (date.today() - row.activity_date).days
+        is_fresh = days_since <= 14
 
         rankings.append({
             'rank': i + 1,
@@ -136,7 +149,16 @@ def ranking(circuit_name):
             'motorcycle_name': row.motorcycle_name,
             'lap_time': format_seconds_to_time(current_time),
             'gap': f"+{gap:.3f}" if gap is not None else "-", # Gap文字列を作成
-            'date': row.activity_date.strftime('%Y-%m-%d')
+            'date': row.activity_date.strftime('%Y-%m-%d'),
+            # ▼▼▼【追加】B-1, B-2 用データ ▼▼▼
+            'user_id': row.user_id,
+            'is_fresh': is_fresh,
+            'gap_to_above': f"+{gap_to_above:.3f}" if gap_to_above is not None else None,
+            'gap_to_above_raw': float(gap_to_above) if gap_to_above is not None else None,
+            # ▲▲▲【追加】ここまで ▲▲▲
         })
 
-    return render_template('leaderboard/ranking.html', circuit_name=circuit_name, rankings=rankings)
+    # ▼▼▼【追加】B-2: ログインユーザーIDをテンプレートに渡す ▼▼▼
+    current_user_id = current_user.id if current_user.is_authenticated else None
+
+    return render_template('leaderboard/ranking.html', circuit_name=circuit_name, rankings=rankings, current_user_id=current_user_id)

@@ -88,6 +88,30 @@
         border-radius: 2rem;
         box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
     }
+
+    /* ▼▼▼【追加】D-1: PB更新フレッシュアニメーション ▼▼▼ */
+    @keyframes pulse-glow {
+        0%, 100% { text-shadow: 0 0 4px rgba(255, 107, 0, 0.3); }
+        50% { text-shadow: 0 0 12px rgba(255, 107, 0, 0.6); }
+    }
+    .pb-fresh-indicator {
+        animation: pulse-glow 2s ease-in-out infinite;
+    }
+    /* ▲▲▲【追加】D-1 ここまで ▲▲▲ */
+
+    /* ▼▼▼【追加】A-1: 目標プログレスバー ▼▼▼ */
+    .target-progress {
+        height: 6px;
+        border-radius: 3px;
+        background-color: #e9ecef;
+        overflow: hidden;
+    }
+    .target-progress-bar {
+        height: 100%;
+        border-radius: 3px;
+        transition: width 0.8s ease;
+    }
+    /* ▲▲▲【追加】A-1 ここまで ▲▲▲ */
 </style>
 
 {# Flashメッセージ #}
@@ -111,7 +135,7 @@
 
 {# --- 1. ヒーロー統計エリア --- #}
 <div class="row g-3 mb-5">
-    <div class="col-md-4">
+    <div class="col-lg-3 col-md-6">
         <div class="card hero-stat-card shadow-sm h-100">
             <div class="card-body d-flex align-items-center p-4">
                 <div class="hero-stat-icon bg-white text-primary shadow-sm me-3">
@@ -125,7 +149,7 @@
             </div>
         </div>
     </div>
-    <div class="col-md-4">
+    <div class="col-lg-3 col-md-6">
         <div class="card hero-stat-card shadow-sm h-100">
             <div class="card-body d-flex align-items-center p-4">
                 <div class="hero-stat-icon bg-white text-success shadow-sm me-3">
@@ -139,7 +163,7 @@
             </div>
         </div>
     </div>
-    <div class="col-md-4">
+    <div class="col-lg-3 col-md-6">
         <div class="card hero-stat-card shadow-sm h-100">
             <div class="card-body d-flex align-items-center p-4">
                 <div class="hero-stat-icon bg-white text-warning shadow-sm me-3">
@@ -153,6 +177,37 @@
             </div>
         </div>
     </div>
+    {# ▼▼▼【追加】A-2: 今月の走行ストリークカード ▼▼▼ #}
+    <div class="col-lg-3 col-md-6">
+        <div class="card hero-stat-card shadow-sm h-100">
+            <div class="card-body d-flex align-items-center p-4">
+                <div class="hero-stat-icon bg-white shadow-sm me-3"
+                    style="color: {% if summary_stats.monthly_sessions >= 3 %}#ff6b35{% elif summary_stats.monthly_sessions >= 1 %}#ffc107{% else %}#6c757d{% endif %};">
+                    <i class="fas fa-fire-alt"></i>
+                </div>
+                <div>
+                    <h6 class="text-uppercase text-muted fw-bold mb-1" style="font-size: 0.75rem;">This Month</h6>
+                    <h2 class="mb-0 fw-bold">{{ summary_stats.monthly_sessions }}<span
+                            class="fs-6 text-muted ms-1">走行</span></h2>
+                    {% if summary_stats.days_since_last is not none %}
+                    <small class="{% if summary_stats.days_since_last > 30 %}text-danger{% elif summary_stats.days_since_last > 14 %}text-warning{% else %}text-muted{% endif %}"
+                        style="font-size: 0.7rem;">
+                        {% if summary_stats.days_since_last == 0 %}
+                            🏁 今日走行！
+                        {% elif summary_stats.days_since_last <= 7 %}
+                            最終走行 {{ summary_stats.days_since_last }}日前
+                        {% elif summary_stats.days_since_last > 30 %}
+                            ⚠️ {{ summary_stats.days_since_last }}日間ブランク
+                        {% else %}
+                            最終走行 {{ summary_stats.days_since_last }}日前
+                        {% endif %}
+                    </small>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {# ▲▲▲【追加】A-2 ここまで ▲▲▲ #}
 </div>
 
 {# --- 2. サーキットカードグリッド --- #}
@@ -193,11 +248,22 @@
 
                 {# メイン情報: ベストタイム #}
                 <div class="mt-2 mb-3">
-                    <small class="text-muted d-block mb-1">Personal Best</small>
+                    <small class="text-muted d-block mb-1">Personal Best
+                        {# ▼▼▼【追加】A-3: PB更新カウンター ▼▼▼ #}
+                        {% if circuit.pb_count > 1 %}
+                        <span class="badge bg-light text-muted border ms-1" style="font-size: 0.65rem;" title="PB更新回数">
+                            <i class="fas fa-arrow-up"></i> {{ circuit.pb_count }}回更新
+                        </span>
+                        {% endif %}
+                        {# ▲▲▲【追加】A-3 ここまで ▲▲▲ #}
+                    </small>
                     <div class="d-flex align-items-baseline">
-                        <h1 class="best-time-display display-5 mb-0 me-3">
+                        {# ▼▼▼【修正】D-1: PBフレッシュ表示 - 最近PB更新時はアイコン付き ▼▼▼ #}
+                        <h1 class="best-time-display display-5 mb-0 me-3 {% if circuit.is_pb_fresh %}pb-fresh-indicator{% endif %}">
+                            {% if circuit.is_pb_fresh %}<span class="me-1" title="最近PB更新！">🔥</span>{% endif %}
                             {{ format_seconds_to_time(circuit.best_session.best_lap_seconds) }}
                         </h1>
+                        {# ▲▲▲【修正】D-1 ここまで ▲▲▲ #}
 
                         {# 車両アイコン #}
                         {% if circuit.best_session.activity.motorcycle.image_url %}
@@ -210,16 +276,43 @@
                         {% endif %}
                     </div>
 
-                    {# 目標タイムとの比較 #}
-                    {% if circuit.target_lap_seconds %}
-                    {# ▼▼▼【修正】Decimal同士の引き算なので安全 ▼▼▼ #}
-                    {% set gap = circuit.best_session.best_lap_seconds - circuit.target_lap_seconds %}
-                    <div class="mt-1 small">
-                        Target: <span class="fw-bold">{{ format_seconds_to_time(circuit.target_lap_seconds) }}</span>
-                        {% if gap > 0 %}
-                        <span class="text-danger ms-2"><i class="fas fa-caret-up"></i> {{ "%.3f"|format(gap) }}</span>
+                    {# ▼▼▼【追加】A-3: 最終PB更新日からの経過表示 ▼▼▼ #}
+                    {% if circuit.days_since_pb is not none %}
+                    <div class="mt-1" style="font-size: 0.7rem;">
+                        {% if circuit.days_since_pb == 0 %}
+                        <span class="text-success fw-bold"><i class="fas fa-star"></i> 今日PB更新！</span>
+                        {% elif circuit.days_since_pb <= 7 %}
+                        <span class="text-success"><i class="fas fa-clock"></i> {{ circuit.days_since_pb }}日前にPB更新</span>
+                        {% elif circuit.days_since_pb <= 30 %}
+                        <span class="text-muted"><i class="fas fa-clock"></i> {{ circuit.days_since_pb }}日前にPB更新</span>
                         {% else %}
-                        <span class="text-success ms-2"><i class="fas fa-check-circle"></i> Cleared!</span>
+                        <span class="text-warning"><i class="fas fa-exclamation-circle"></i> {{ circuit.days_since_pb }}日間PB更新なし</span>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    {# ▲▲▲【追加】A-3 ここまで ▲▲▲ #}
+
+                    {# ▼▼▼【修正】A-1: 目標タイムプログレスバー付き比較 ▼▼▼ #}
+                    {% if circuit.target_lap_seconds %}
+                    {% set gap = circuit.best_session.best_lap_seconds - circuit.target_lap_seconds %}
+                    {% set progress_pct = (circuit.target_lap_seconds|float / circuit.best_session.best_lap_seconds|float * 100) %}
+                    {% set progress_clamped = [progress_pct, 100]|min %}
+                    <div class="mt-2">
+                        <div class="d-flex justify-content-between align-items-center small mb-1">
+                            <span class="text-muted">Target: <span class="fw-bold">{{ format_seconds_to_time(circuit.target_lap_seconds) }}</span></span>
+                            {% if gap > 0 %}
+                            <span class="text-danger fw-bold"><i class="fas fa-caret-up"></i> {{ "%.3f"|format(gap) }}s</span>
+                            {% else %}
+                            <span class="text-success fw-bold"><i class="fas fa-check-circle"></i> Cleared!</span>
+                            {% endif %}
+                        </div>
+                        <div class="target-progress">
+                            <div class="target-progress-bar" style="width: {{ progress_clamped }}%;
+                                background: {% if gap <= 0 %}linear-gradient(90deg, #198754, #20c997){% elif progress_clamped >= 97 %}linear-gradient(90deg, #198754, #20c997){% elif progress_clamped >= 93 %}linear-gradient(90deg, #ffc107, #fd7e14){% else %}linear-gradient(90deg, #dc3545, #fd7e14){% endif %};">
+                            </div>
+                        </div>
+                        {% if gap > 0 %}
+                        <div class="text-end" style="font-size: 0.65rem; color: #6c757d; margin-top: 2px;">達成率 {{ "%.1f"|format(progress_clamped) }}%</div>
                         {% endif %}
                     </div>
                     {% else %}
@@ -227,6 +320,7 @@
                         No target set
                     </div>
                     {% endif %}
+                    {# ▲▲▲【修正】A-1 ここまで ▲▲▲ #}
                 </div>
 
                 {# Latest情報とトレンド #}
@@ -513,6 +607,13 @@
                     }
                 }
 
+                // ▼▼▼【追加】A-4: ベストラップのポイントを強調表示 ▼▼▼
+                const minVal = Math.min(...chartData.data);
+                const pointRadii = chartData.data.map(v => v === minVal ? 6 : 0);
+                const pointBgColors = chartData.data.map(v => v === minVal ? '#ffc107' : 'transparent');
+                const pointBorderColors = chartData.data.map(v => v === minVal ? '#ff9800' : 'transparent');
+                // ▲▲▲【追加】A-4 ここまで ▲▲▲
+
                 // 目標ライン用のアノテーション設定
                 const annotations = {};
                 if (targetTime) {
@@ -544,8 +645,13 @@
                                 return gradient;
                             },
                             fill: true,
-                            pointRadius: 0, // 通常時は点を消す
-                            pointHoverRadius: 4, // ホバー時のみ点を表示
+                            // ▼▼▼【修正】A-4: ベストポイント強調 ▼▼▼
+                            pointRadius: pointRadii,
+                            pointBackgroundColor: pointBgColors,
+                            pointBorderColor: pointBorderColors,
+                            pointBorderWidth: 2,
+                            pointHoverRadius: 5,
+                            // ▲▲▲【修正】A-4 ここまで ▲▲▲
                             tension: 0.4 // 曲線を滑らかに
                         }]
                     },

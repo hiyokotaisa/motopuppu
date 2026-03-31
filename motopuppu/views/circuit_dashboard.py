@@ -128,6 +128,23 @@ def index():
     today = date.today()
     next_week = today + timedelta(days=7)
 
+    # ▼▼▼【追加】PBトラッキングデータを全セッションから一括計算 (A-3) ▼▼▼
+    pb_tracking = {}  # circuit_name -> {'count': int, 'last_pb_date': date, 'first_time': Decimal}
+    for activity, session in all_sessions_for_graph:
+        cn = activity.circuit_name
+        if cn not in pb_tracking:
+            pb_tracking[cn] = {
+                'count': 0,
+                'running_min': None,
+                'last_pb_date': None,
+                'first_time': session.best_lap_seconds
+            }
+        if pb_tracking[cn]['running_min'] is None or session.best_lap_seconds < pb_tracking[cn]['running_min']:
+            pb_tracking[cn]['running_min'] = session.best_lap_seconds
+            pb_tracking[cn]['count'] += 1
+            pb_tracking[cn]['last_pb_date'] = activity.activity_date
+    # ▲▲▲【追加】PBトラッキングここまで ▲▲▲
+
     for best_session in best_sessions:
         circuit_name = best_session.activity.circuit_name
         
@@ -299,6 +316,15 @@ def index():
         if metadata.get('lat') and metadata.get('lng'):
             weather_api_url = url_for('circuit_dashboard.get_circuit_weather', circuit_name=circuit_name)
 
+        # ▼▼▼【追加】PBトラッキングデータを取得 (A-3) ▼▼▼
+        circuit_pb = pb_tracking.get(circuit_name, {})
+        pb_count = circuit_pb.get('count', 0)
+        last_pb_date = circuit_pb.get('last_pb_date')
+        first_time = circuit_pb.get('first_time')
+        days_since_pb = (today - last_pb_date).days if last_pb_date else None
+        is_pb_fresh = days_since_pb is not None and days_since_pb <= 14
+        # ▲▲▲【追加】ここまで ▲▲▲
+
         circuit_data.append({
             'name': circuit_name,
             'best_session': best_session,
@@ -311,18 +337,46 @@ def index():
             'form': form,
             'metadata': metadata,
             'upcoming_schedules': upcoming_schedules,
-            'weather_endpoint': weather_api_url
+            'weather_endpoint': weather_api_url,
+            # ▼▼▼【追加】PBトラッキング・プログレス用データ (A-1, A-3, D-1) ▼▼▼
+            'pb_count': pb_count,
+            'last_pb_date': last_pb_date,
+            'days_since_pb': days_since_pb,
+            'is_pb_fresh': is_pb_fresh,
+            'first_time': first_time,
+            # ▲▲▲【追加】ここまで ▲▲▲
         })
         
     # 3. 総合サマリー情報を計算
     all_sessions_list = base_query.all()
     total_sessions = len(all_sessions_list)
     total_laps = sum(len(s.lap_times) for a, s in all_sessions_list if s.lap_times)
+
+    # ▼▼▼【追加】ストリーク情報 (A-2) ▼▼▼
+    first_of_month = today.replace(day=1)
+    monthly_circuit_sessions = db.session.query(func.count(func.distinct(ActivityLog.id))).filter(
+        ActivityLog.user_id == current_user.id,
+        ActivityLog.circuit_name.isnot(None),
+        ActivityLog.activity_date >= first_of_month,
+        ActivityLog.activity_date <= today
+    ).scalar() or 0
+
+    last_circuit_date = db.session.query(func.max(ActivityLog.activity_date)).filter(
+        ActivityLog.user_id == current_user.id,
+        ActivityLog.circuit_name.isnot(None),
+        ActivityLog.activity_date <= today
+    ).scalar()
+    days_since_last_session = (today - last_circuit_date).days if last_circuit_date else None
+    # ▲▲▲【追加】ストリークここまで ▲▲▲
     
     summary_stats = {
         'total_circuits': len(circuit_data),
         'total_sessions': total_sessions,
-        'total_laps': total_laps
+        'total_laps': total_laps,
+        # ▼▼▼【追加】ストリーク情報 (A-2) ▼▼▼
+        'monthly_sessions': monthly_circuit_sessions,
+        'days_since_last': days_since_last_session,
+        # ▲▲▲【追加】ここまで ▲▲▲
     }
 
     # サーキット名でソートしてテンプレートに渡す
