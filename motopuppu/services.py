@@ -15,8 +15,45 @@ from .utils.fuel_calculator import calculate_kpl_bulk
 from .models import db, Motorcycle, FuelEntry, MaintenanceEntry, MaintenanceReminder, ActivityLog, GeneralNote, UserAchievement, AchievementDefinition, SessionLog, User
 from .utils.lap_time_utils import format_seconds_to_time
 
-
 # --- データ取得・計算ヘルパー ---
+
+def get_announcements():
+    """
+    announcements.json からお知らせデータを読み込み、パースして返す共通関数。
+    
+    :return: (announcements_for_modal, important_notice_content) のタプル。
+             announcements_for_modal: モーダル表示用のお知らせリスト（id降順ソート済み）
+             important_notice_content: id==1 の重要なお知らせ（または None）
+    """
+    import os
+    announcements_for_modal = []
+    important_notice_content = None
+    try:
+        announcement_file = os.path.join(
+            current_app.root_path, '..', 'announcements.json')
+        if os.path.exists(announcement_file):
+            with open(announcement_file, 'r', encoding='utf-8') as f:
+                all_announcements_data = json.load(f)
+
+            temp_modal_announcements = []
+            for item in all_announcements_data:
+                if item.get('active', False):
+                    if item.get('id') == 1:
+                        important_notice_content = item
+                    else:
+                        temp_modal_announcements.append(item)
+
+            temp_modal_announcements.sort(
+                key=lambda x: x.get('id', 0), reverse=True)
+            announcements_for_modal = temp_modal_announcements
+        else:
+            current_app.logger.warning(
+                f"announcements.json not found at {announcement_file}")
+    except Exception as e:
+        current_app.logger.error(
+            f"An unexpected error occurred loading announcements: {e}", exc_info=True)
+    
+    return announcements_for_modal, important_notice_content
 
 def get_latest_total_distance(motorcycle_id, offset_val):
     # ... (unchanged) ...

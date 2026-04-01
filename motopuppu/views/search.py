@@ -12,6 +12,7 @@ from ..models import (
     TouringLog, Event, Team, MaintenanceSpecSheet
 )
 from ..constants import JAPANESE_CIRCUITS
+from ..utils.search_helpers import escape_like
 
 
 search_bp = Blueprint('search', __name__, url_prefix='/search')
@@ -32,7 +33,7 @@ def global_search():
     if len(query) < MIN_QUERY_LENGTH:
         return jsonify({'results': []})
 
-    search_term = f"%{query}%"
+    search_term = escape_like(query)
     results = []
 
     # --- データ検索 --- (このセクションは変更ありません)
@@ -245,7 +246,7 @@ def global_search():
         '追加': {'url': url_for('vehicle.add_vehicle'), 'text': '新しい車両を登録します'},
         '活動': {'url': url_for('main.dashboard'), 'text': '活動ログは車両を選択してアクセスします'},
         'セッティング': {'url': url_for('main.dashboard'), 'text': 'セッティングシートは車両を選択してアクセスします'},
-        'ツーリング': {'url': url_for('touring.list_logs', vehicle_id=g.user_motorcycles[0].id if g.user_motorcycles else None), 'text': 'ツーリングログの一覧を確認します'},
+        'ツーリング': {'url': (url_for('touring.list_logs', vehicle_id=g.user_motorcycles[0].id) if g.user_motorcycles else None), 'text': 'ツーリングログの一覧を確認します'},
         'イベント': {'url': url_for('event.list_events'), 'text': 'イベントの管理ページを開きます'},
         'チーム': {'url': url_for('team.list_teams'), 'text': 'チームの管理ページを開きます'},
         'リーダーボード': {'url': url_for('leaderboard.index'), 'text': 'サーキットのリーダーボードを表示します'},

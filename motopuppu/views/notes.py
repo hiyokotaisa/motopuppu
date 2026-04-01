@@ -11,6 +11,7 @@ from ..models import db, Motorcycle, GeneralNote
 from ..forms import NoteForm
 from ..constants import NOTE_CATEGORIES, MAX_TODO_ITEMS
 from ..achievement_evaluator import check_achievements_for_event, EVENT_ADD_NOTE
+from ..utils.search_helpers import escape_like
 from .. import limiter
 
 
@@ -56,7 +57,7 @@ def notes_log():
         query = query.filter(or_(GeneralNote.motorcycle_id.is_(None), GeneralNote.motorcycle_id.in_(active_motorcycle_ids)))
 
     if keyword:
-        search_term = f'%{keyword}%'
+        search_term = escape_like(keyword)
         query = query.filter(or_(GeneralNote.title.ilike(search_term), GeneralNote.content.ilike(search_term)))
 
     allowed_category_values = [cat_val for cat_val, _ in NOTE_CATEGORIES]

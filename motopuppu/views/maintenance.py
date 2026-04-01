@@ -15,6 +15,7 @@ from ..forms import MaintenanceForm, MaintenanceCsvUploadForm
 from ..constants import MAINTENANCE_CATEGORIES
 from ..achievement_evaluator import check_achievements_for_event, EVENT_ADD_MAINTENANCE_LOG
 from .. import limiter
+from ..utils.search_helpers import escape_like
 
 
 maintenance_bp = Blueprint('maintenance', __name__, url_prefix='/maintenance')
@@ -256,7 +257,7 @@ def maintenance_log():
 
     if category_filter: query = query.filter(MaintenanceEntry.category.ilike(f'%{category_filter}%'))
     if keyword:
-        search_term = f'%{keyword}%'
+        search_term = escape_like(keyword)
         query = query.filter(or_(MaintenanceEntry.description.ilike(search_term), MaintenanceEntry.location.ilike(search_term), MaintenanceEntry.notes.ilike(search_term)))
 
     # ▼▼▼ 統計情報の計算 (ページネーション前) ▼▼▼
@@ -594,9 +595,10 @@ def import_maintenance_logs_csv(vehicle_id):
             success_count, errors, duplicates = _process_maintenance_csv_import(csv_file.stream, motorcycle)
 
             if duplicates:
+                from markupsafe import escape
                 flash_message = "<strong>インポートが中断されました。以下のデータが既にデータベースに存在します。</strong><br>CSVファイルから該当の行を削除して、再度アップロードしてください。<ul class='mb-0'>"
                 for dup in duplicates:
-                    flash_message += f"<li>{dup}</li>"
+                    flash_message += f"<li>{escape(dup)}</li>"
                 flash_message += "</ul>"
                 flash(flash_message, 'warning')
             
@@ -619,28 +621,52 @@ def import_maintenance_logs_csv(vehicle_id):
 
     return redirect(url_for('maintenance.maintenance_log', vehicle_id=vehicle_id))
 
+# --- CSV エクスポート共通ヘルパー ---
+def _build_maintenance_csv(maintenance_logs):
+    """整備記録のリストからCSV文字列を生成する共通ヘルパー関数"""
+    output = io.StringIO()
+    writer = csv.writer(output)
+    header = [
+        'id', 'motorcycle_id', 'motorcycle_name', 'maintenance_date',
+        'odometer_reading_at_maintenance', 'operating_hours_at_maintenance', 'total_distance_at_maintenance',
+        'category', 'description', 'parts_cost', 'labor_cost', 'total_cost',
+        'location', 'notes'
+    ]
+    writer.writerow(header)
+    for record in maintenance_logs:
+        total_cost_val = record.total_cost
+        row = [
+            record.id, record.motorcycle_id, record.motorcycle.name,
+            record.maintenance_date.strftime('%Y-%m-%d') if record.maintenance_date else '',
+            record.odometer_reading_at_maintenance, record.operating_hours_at_maintenance, record.total_distance_at_maintenance,
+            record.category if record.category else '', record.description if record.description else '',
+            f"{record.parts_cost:.2f}" if record.parts_cost is not None else '',
+            f"{record.labor_cost:.2f}" if record.labor_cost is not None else '',
+            f"{total_cost_val:.2f}" if total_cost_val is not None else '',
+            record.location if record.location else '', record.notes if record.notes else ''
+        ]
+        writer.writerow(row)
+    output.seek(0)
+    return output.getvalue()
+
+
 @maintenance_bp.route('/motorcycle/<int:motorcycle_id>/export_csv')
 @login_required
 def export_maintenance_logs_csv(motorcycle_id):
     motorcycle = Motorcycle.query.filter_by(id=motorcycle_id, user_id=current_user.id).first_or_404()
-    maintenance_logs = MaintenanceEntry.query.filter_by(motorcycle_id=motorcycle.id).order_by(MaintenanceEntry.maintenance_date.asc(), MaintenanceEntry.total_distance_at_maintenance.asc()).all()
+    maintenance_logs = MaintenanceEntry.query.filter_by(motorcycle_id=motorcycle.id)\
+                                              .options(db.joinedload(MaintenanceEntry.motorcycle))\
+                                              .order_by(MaintenanceEntry.maintenance_date.asc(), MaintenanceEntry.total_distance_at_maintenance.asc()).all()
     if not maintenance_logs:
         flash(f'{motorcycle.name}にはエクスポート対象の整備記録がありません。', 'info')
         return redirect(url_for('maintenance.maintenance_log', vehicle_id=motorcycle.id))
-    output = io.StringIO()
-    writer = csv.writer(output)
-    header = ['id', 'motorcycle_id', 'motorcycle_name', 'maintenance_date', 'odometer_reading_at_maintenance', 'operating_hours_at_maintenance', 'total_distance_at_maintenance', 'category', 'description', 'parts_cost', 'labor_cost', 'total_cost', 'location', 'notes']
-    writer.writerow(header)
-    for record in maintenance_logs:
-        total_cost_val = record.total_cost
-        row = [record.id, record.motorcycle_id, motorcycle.name, record.maintenance_date.strftime('%Y-%m-%d') if record.maintenance_date else '', record.odometer_reading_at_maintenance, record.operating_hours_at_maintenance, record.total_distance_at_maintenance, record.category if record.category else '', record.description if record.description else '', f"{record.parts_cost:.2f}" if record.parts_cost is not None else '', f"{record.labor_cost:.2f}" if record.labor_cost is not None else '', f"{total_cost_val:.2f}" if total_cost_val is not None else '', record.location if record.location else '', record.notes if record.notes else '']
-        writer.writerow(row)
-    output.seek(0)
+    
+    csv_content = _build_maintenance_csv(maintenance_logs)
     safe_vehicle_name = "".join(c for c in motorcycle.name if c.isalnum() or c in ['_', '-']).strip()
     if not safe_vehicle_name: safe_vehicle_name = "vehicle"
     timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
     filename = f"motopuppu_maintenance_logs_{safe_vehicle_name}_{motorcycle.id}_{timestamp}.csv"
-    return Response(output.getvalue(), mimetype="text/csv", headers={"Content-Disposition": f"attachment;filename=\"{filename}\"", "Content-Type": "text/csv; charset=utf-8-sig"})
+    return Response(csv_content, mimetype="text/csv", headers={"Content-Disposition": f"attachment;filename=\"{filename}\"", "Content-Type": "text/csv; charset=utf-8-sig"})
 
 @maintenance_bp.route('/export_all_csv')
 @login_required
@@ -657,33 +683,12 @@ def export_all_maintenance_logs_csv():
     if not all_maintenance_logs:
         flash('エクスポート対象の整備記録がありません。', 'info')
         return redirect(url_for('maintenance.maintenance_log'))
-    output = io.StringIO()
-    writer = csv.writer(output)
-    header = [
-        'id', 'motorcycle_id', 'motorcycle_name', 'maintenance_date',
-        'odometer_reading_at_maintenance', 'operating_hours_at_maintenance', 'total_distance_at_maintenance',
-        'category', 'description', 'parts_cost', 'labor_cost', 'total_cost',
-        'location', 'notes'
-    ]
-    writer.writerow(header)
-    for record in all_maintenance_logs:
-        total_cost_val = record.total_cost
-        row = [
-            record.id, record.motorcycle_id, record.motorcycle.name,
-            record.maintenance_date.strftime('%Y-%m-%d') if record.maintenance_date else '',
-            record.odometer_reading_at_maintenance, record.operating_hours_at_maintenance, record.total_distance_at_maintenance,
-            record.category if record.category else '', record.description if record.description else '',
-            f"{record.parts_cost:.2f}" if record.parts_cost is not None else '',
-            f"{record.labor_cost:.2f}" if record.labor_cost is not None else '',
-            f"{total_cost_val:.2f}" if total_cost_val is not None else '',
-            record.location if record.location else '', record.notes if record.notes else ''
-        ]
-        writer.writerow(row)
-    output.seek(0)
+    
+    csv_content = _build_maintenance_csv(all_maintenance_logs)
     timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
     filename = f"motopuppu_maintenance_logs_all_vehicles_{timestamp}.csv"
     return Response(
-        output.getvalue(), mimetype="text/csv",
+        csv_content, mimetype="text/csv",
         headers={"Content-Disposition": f"attachment;filename=\"{filename}\"", "Content-Type": "text/csv; charset=utf-8-sig"}
     )
 
@@ -698,14 +703,18 @@ def get_previous_maintenance_api():
     if not motorcycle_id or not maintenance_date_str:
         return jsonify({'error': 'Missing required parameters'}), 400
 
+    # セキュリティ対策: 車両の所有者であることを検証する
+    motorcycle = Motorcycle.query.filter_by(id=motorcycle_id, user_id=current_user.id).first()
+    if not motorcycle:
+        return jsonify({'error': 'Vehicle not found'}), 404
+
     try:
         maintenance_date = date.fromisoformat(maintenance_date_str)
     except ValueError:
         return jsonify({'error': 'Invalid date format'}), 400
 
     previous_mainte = get_previous_maintenance_entry(motorcycle_id, maintenance_date, current_entry_id=entry_id)
-    motorcycle = Motorcycle.query.get(motorcycle_id)
-    is_racer = motorcycle.is_racer if motorcycle else False
+    is_racer = motorcycle.is_racer
 
     if previous_mainte:
         odo_disp = f"{previous_mainte.operating_hours_at_maintenance} H" if is_racer else f"{previous_mainte.odometer_reading_at_maintenance:,}km"

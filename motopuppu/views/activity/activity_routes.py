@@ -20,6 +20,7 @@ from flask_login import login_required, current_user
 from ...models import db, Motorcycle, ActivityLog, SessionLog, SettingSheet, User, TouringLog, TouringSpot, TouringScrapbookEntry 
 from ...forms import ActivityLogForm, SessionLogForm, LapTimeImportForm
 from ... import limiter
+from ...utils.search_helpers import escape_like
 
 # --- RDPアルゴリズム (Douglas-Peucker) のヘルパー関数 ---
 def _calculate_perpendicular_distance(point, start, end):
@@ -142,7 +143,7 @@ def activity_log():
         if touring_query: touring_query = touring_query.filter(TouringLog.motorcycle_id.in_(active_motorcycle_ids))
 
     if keyword:
-        search_term = f'%{keyword}%'
+        search_term = escape_like(keyword)
         # ActivityLog: タイトル、場所名、メモ、サーキット名
         if activity_query:
             activity_query = activity_query.filter(
@@ -169,18 +170,27 @@ def activity_log():
 
     combined_logs = []
     
+    # ActivityLogのベストラップを一括で取得 (N+1対策)
+    if activities:
+        activity_ids = [act.id for act in activities]
+        best_laps_query = db.session.query(
+            SessionLog.activity_log_id,
+            db.func.min(SessionLog.best_lap_seconds).label('best_lap')
+        ).filter(
+            SessionLog.activity_log_id.in_(activity_ids),
+            SessionLog.best_lap_seconds.isnot(None)
+        ).group_by(SessionLog.activity_log_id).all()
+        
+        best_laps_map = {row.activity_log_id: row.best_lap for row in best_laps_query}
+    else:
+        best_laps_map = {}
+
     # ActivityLogを共通形式に変換
     for act in activities:
-        # ベストラップ情報の取得（N+1回避のため簡易的に取得するか、必要なら別途クエリ）
-        # ここではリスト表示用に代表的な情報だけ持たせる
         best_lap_str = None
-        best_session = SessionLog.query.filter(
-            SessionLog.activity_log_id == act.id,
-            SessionLog.best_lap_seconds.isnot(None)
-        ).order_by(SessionLog.best_lap_seconds.asc()).first()
-        
-        if best_session:
-            best_lap_str = format_seconds_to_time(best_session.best_lap_seconds)
+        best_lap_seconds = best_laps_map.get(act.id)
+        if best_lap_seconds is not None:
+            best_lap_str = format_seconds_to_time(best_lap_seconds)
 
         combined_logs.append({
             'type': 'activity',
@@ -232,46 +242,8 @@ def activity_log():
     paginated_logs = combined_logs[start_idx:end_idx]
 
     # 簡易的なページネーションオブジェクトを作成（テンプレート互換用）
-    class SimplePagination:
-        def __init__(self, page, per_page, total):
-            self.page = page
-            self.per_page = per_page
-            self.total = total
-            self.items = paginated_logs
-        
-        @property
-        def pages(self):
-            if self.per_page == 0: return 0
-            return math.ceil(self.total / self.per_page)
-        
-        @property
-        def has_prev(self):
-            return self.page > 1
-        
-        @property
-        def has_next(self):
-            return self.page < self.pages
-        
-        @property
-        def prev_num(self):
-            return self.page - 1
-        
-        @property
-        def next_num(self):
-            return self.page + 1
-
-        def iter_pages(self, left_edge=2, left_current=2, right_current=5, right_edge=2):
-            last = 0
-            for num in range(1, self.pages + 1):
-                if num <= left_edge or \
-                   (num > self.page - left_current - 1 and num < self.page + right_current) or \
-                   num > self.pages - right_edge:
-                    if last + 1 != num:
-                        yield None
-                    yield num
-                    last = num
-
-    pagination = SimplePagination(page, per_page, total_items)
+    from ...utils.pagination import SimplePagination
+    pagination = SimplePagination(page, per_page, total_items, paginated_logs)
 
     is_filter_active = bool(active_filters)
 

@@ -76,32 +76,7 @@ def index():
     if current_user.is_authenticated:
         return redirect(url_for('main.dashboard'))
 
-    announcements_for_modal = []
-    important_notice_content = None
-    try:
-        announcement_file = os.path.join(
-            current_app.root_path, '..', 'announcements.json')
-        if os.path.exists(announcement_file):
-            with open(announcement_file, 'r', encoding='utf-8') as f:
-                all_announcements_data = json.load(f)
-
-            temp_modal_announcements = []
-            for item in all_announcements_data:
-                if item.get('active', False):
-                    if item.get('id') == 1:
-                        important_notice_content = item
-                    else:
-                        temp_modal_announcements.append(item)
-
-            temp_modal_announcements.sort(
-                key=lambda x: x.get('id', 0), reverse=True)
-            announcements_for_modal = temp_modal_announcements
-        else:
-            current_app.logger.warning(
-                f"announcements.json not found at {announcement_file}")
-    except Exception as e:
-        current_app.logger.error(
-            f"An unexpected error occurred loading announcements: {e}", exc_info=True)
+    announcements_for_modal, important_notice_content = services.get_announcements()
 
     return render_template('index.html', announcements=announcements_for_modal, important_notice=important_notice_content)
 
@@ -110,24 +85,7 @@ def index():
 @login_required
 def announcements_modal_api():
     """ナビゲーションバーからの呼び出し用: お知らせモーダルのHTMLを返す"""
-    announcements_for_modal = []
-    try:
-        announcement_file = os.path.join(
-            current_app.root_path, '..', 'announcements.json')
-        if os.path.exists(announcement_file):
-            with open(announcement_file, 'r', encoding='utf-8') as f:
-                all_announcements_data = json.load(f)
-
-            temp_modal_announcements = []
-            for item in all_announcements_data:
-                if item.get('active', False) and item.get('id') != 1:
-                    temp_modal_announcements.append(item)
-
-            temp_modal_announcements.sort(
-                key=lambda x: x.get('id', 0), reverse=True)
-            announcements_for_modal = temp_modal_announcements
-    except Exception as e:
-        current_app.logger.error(f"Error loading announcements for modal: {e}")
+    announcements_for_modal, _ = services.get_announcements()
 
     return render_template('_announcements_modal.html', announcements=announcements_for_modal)
 
@@ -364,9 +322,6 @@ def dashboard_vehicles_widget():
 @main_bp.route('/api/dashboard/events')
 @login_required
 def dashboard_events_api():
-    if not current_user.is_authenticated:
-        return jsonify({'error': 'User not logged in'}), 401
-    
     calendar_events = services.get_calendar_events_for_user(current_user)
     
     return jsonify(calendar_events)
@@ -386,6 +341,11 @@ def privacy_policy():
 @login_required
 def misskey_redirect(note_id):
     """Misskeyのノートへリダイレクトする"""
+    # セキュリティ対策: note_id が英数字のみであることを検証
+    import re
+    if not re.match(r'^[a-zA-Z0-9]+$', note_id):
+        from flask import abort
+        abort(400)
     misskey_instance_url = current_app.config.get('MISSKEY_INSTANCE_URL', 'https://misskey.io')
     return redirect(f"{misskey_instance_url}/notes/{note_id}")
 

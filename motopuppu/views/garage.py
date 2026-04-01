@@ -61,6 +61,24 @@ def garage_ogp_image(public_id):
         hero_vehicle = garage_data.get('hero_vehicle')
         if hero_vehicle and hero_vehicle.image_url:
             try:
+                # セキュリティ対策: SSRF防止のためURLをバリデーション
+                from urllib.parse import urlparse
+                import ipaddress
+                import socket
+
+                parsed_url = urlparse(hero_vehicle.image_url)
+                # httpsスキームのみ許可
+                if parsed_url.scheme not in ('https',):
+                    raise ValueError(f"Unsupported URL scheme: {parsed_url.scheme}")
+                
+                # ホスト名をIPアドレスに解決し、プライベートIPでないことを確認
+                hostname = parsed_url.hostname
+                if hostname:
+                    resolved_ip = socket.gethostbyname(hostname)
+                    ip_obj = ipaddress.ip_address(resolved_ip)
+                    if ip_obj.is_private or ip_obj.is_loopback or ip_obj.is_reserved or ip_obj.is_link_local:
+                        raise ValueError(f"Access to private/reserved IP address is blocked: {resolved_ip}")
+
                 res = requests.get(hero_vehicle.image_url, timeout=5)
                 res.raise_for_status()
                 vehicle_img_data = io.BytesIO(res.content)

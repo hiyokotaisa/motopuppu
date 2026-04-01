@@ -18,6 +18,7 @@ from ..constants import GAS_STATION_BRANDS
 from ..achievement_evaluator import check_achievements_for_event, EVENT_ADD_FUEL_LOG
 from .. import limiter
 from ..utils.receipt_parser import parse_receipt_image
+from ..utils.search_helpers import escape_like
 
 
 fuel_bp = Blueprint('fuel', __name__, url_prefix='/fuel')
@@ -320,7 +321,7 @@ def fuel_log():
             base_query = base_query.filter(False)
 
     if keyword:
-        search_term = f'%{keyword}%'
+        search_term = escape_like(keyword)
         base_query = base_query.filter(or_(FuelEntry.notes.ilike(search_term), FuelEntry.station_name.ilike(search_term)))
 
     # --- 3. 統計情報の集計 (SQLで実行可能な項目のみ) ---
@@ -738,9 +739,10 @@ def import_fuel_records_csv(vehicle_id):
             success_count, errors, duplicates = _process_fuel_csv_import(csv_file.stream, motorcycle)
 
             if duplicates:
+                from markupsafe import escape
                 flash_message = "<strong>インポートが中断されました。以下のデータが既にデータベースに存在します。</strong><br>CSVファイルから該当の行を削除して、再度アップロードしてください。<ul class='mb-0'>"
                 for dup in duplicates:
-                    flash_message += f"<li>{dup}</li>"
+                    flash_message += f"<li>{escape(dup)}</li>"
                 flash_message += "</ul>"
                 flash(flash_message, 'warning')
             
@@ -764,28 +766,53 @@ def import_fuel_records_csv(vehicle_id):
     return redirect(url_for('fuel.fuel_log', vehicle_id=vehicle_id))
 
 
+# --- CSV エクスポート共通ヘルパー ---
+def _build_fuel_csv(fuel_records):
+    """給油記録のリストからCSV文字列を生成する共通ヘルパー関数"""
+    output = io.StringIO()
+    writer = csv.writer(output)
+    header = [
+        'id', 'motorcycle_id', 'motorcycle_name', 'entry_date', 'odometer_reading',
+        'total_distance', 'fuel_volume', 'price_per_liter', 'total_cost',
+        'station_name', 'is_full_tank', 'km_per_liter', 'exclude_from_average', 'notes', 'fuel_type'
+    ]
+    writer.writerow(header)
+    for record in fuel_records:
+        km_per_liter_val = record.km_per_liter
+        row = [
+            record.id, record.motorcycle_id, record.motorcycle.name,
+            record.entry_date.strftime('%Y-%m-%d') if record.entry_date else '',
+            record.odometer_reading, record.total_distance,
+            f"{record.fuel_volume:.2f}" if record.fuel_volume is not None else '',
+            f"{record.price_per_liter:.1f}" if record.price_per_liter is not None else '',
+            f"{record.total_cost:.0f}" if record.total_cost is not None else '',
+            record.station_name if record.station_name else '', str(record.is_full_tank),
+            f"{km_per_liter_val:.2f}" if km_per_liter_val is not None else '',
+            str(record.exclude_from_average),
+            record.notes if record.notes else '', record.fuel_type if record.fuel_type else ''
+        ]
+        writer.writerow(row)
+    output.seek(0)
+    return output.getvalue()
+
+
 @fuel_bp.route('/motorcycle/<int:motorcycle_id>/export_csv')
 @login_required
 def export_fuel_records_csv(motorcycle_id):
     motorcycle = Motorcycle.query.filter_by(id=motorcycle_id, user_id=current_user.id, is_racer=False).first_or_404()
-    fuel_records = FuelEntry.query.filter_by(motorcycle_id=motorcycle.id).order_by(FuelEntry.entry_date.asc(), FuelEntry.total_distance.asc()).all()
+    fuel_records = FuelEntry.query.filter_by(motorcycle_id=motorcycle.id)\
+                                  .options(db.joinedload(FuelEntry.motorcycle))\
+                                  .order_by(FuelEntry.entry_date.asc(), FuelEntry.total_distance.asc()).all()
     if not fuel_records:
         flash(f'{motorcycle.name}にはエクスポート対象の燃費記録がありません。', 'info')
         return redirect(url_for('fuel.fuel_log', vehicle_id=motorcycle.id))
-    output = io.StringIO()
-    writer = csv.writer(output)
-    header = ['id', 'motorcycle_id', 'motorcycle_name', 'entry_date', 'odometer_reading', 'total_distance', 'fuel_volume', 'price_per_liter', 'total_cost', 'station_name', 'is_full_tank', 'km_per_liter', 'exclude_from_average', 'notes', 'fuel_type']
-    writer.writerow(header)
-    for record in fuel_records:
-        km_per_liter_val = record.km_per_liter
-        row = [record.id, record.motorcycle_id, motorcycle.name, record.entry_date.strftime('%Y-%m-%d') if record.entry_date else '', record.odometer_reading, record.total_distance, f"{record.fuel_volume:.2f}" if record.fuel_volume is not None else '', f"{record.price_per_liter:.1f}" if record.price_per_liter is not None else '', f"{record.total_cost:.0f}" if record.total_cost is not None else '', record.station_name if record.station_name else '', str(record.is_full_tank), f"{km_per_liter_val:.2f}" if km_per_liter_val is not None else '', str(record.exclude_from_average), record.notes if record.notes else '', record.fuel_type if record.fuel_type else '']
-        writer.writerow(row)
-    output.seek(0)
+    
+    csv_content = _build_fuel_csv(fuel_records)
     safe_vehicle_name = "".join(c for c in motorcycle.name if c.isalnum() or c in ['_', '-']).strip()
     if not safe_vehicle_name: safe_vehicle_name = "vehicle"
     timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
     filename = f"motopuppu_fuel_records_{safe_vehicle_name}_{motorcycle.id}_{timestamp}.csv"
-    return Response(output.getvalue(), mimetype="text/csv", headers={"Content-Disposition": f"attachment;filename=\"{filename}\"", "Content-Type": "text/csv; charset=utf-8-sig"})
+    return Response(csv_content, mimetype="text/csv", headers={"Content-Disposition": f"attachment;filename=\"{filename}\"", "Content-Type": "text/csv; charset=utf-8-sig"})
 
 @fuel_bp.route('/export_all_csv')
 @login_required
@@ -805,34 +832,11 @@ def export_all_fuel_records_csv():
         flash('エクスポート対象の燃費記録がありません。', 'info')
         return redirect(url_for('fuel.fuel_log'))
 
-    output = io.StringIO()
-    writer = csv.writer(output)
-    header = [
-        'id', 'motorcycle_id', 'motorcycle_name', 'entry_date', 'odometer_reading',
-        'total_distance', 'fuel_volume', 'price_per_liter', 'total_cost',
-        'station_name', 'is_full_tank', 'km_per_liter', 'exclude_from_average', 'notes', 'fuel_type'
-    ]
-    writer.writerow(header)
-    for record in all_fuel_records:
-        km_per_liter_val = record.km_per_liter
-        row = [
-            record.id, record.motorcycle_id, record.motorcycle.name,
-            record.entry_date.strftime('%Y-%m-%d') if record.entry_date else '',
-            record.odometer_reading, record.total_distance,
-            f"{record.fuel_volume:.2f}" if record.fuel_volume is not None else '',
-            f"{record.price_per_liter:.1f}" if record.price_per_liter is not None else '',
-            f"{record.total_cost:.0f}" if record.total_cost is not None else '',
-            record.station_name if record.station_name else '', str(record.is_full_tank),
-            f"{km_per_liter_val:.2f}" if km_per_liter_val is not None else '',
-            str(record.exclude_from_average),
-            record.notes if record.notes else '', record.fuel_type if record.fuel_type else ''
-        ]
-        writer.writerow(row)
-    output.seek(0)
+    csv_content = _build_fuel_csv(all_fuel_records)
     timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
     filename = f"motopuppu_fuel_records_all_vehicles_{timestamp}.csv"
     return Response(
-        output.getvalue(), mimetype="text/csv",
+        csv_content, mimetype="text/csv",
         headers={"Content-Disposition": f"attachment;filename=\"{filename}\"", "Content-Type": "text/csv; charset=utf-8-sig"}
     )
 

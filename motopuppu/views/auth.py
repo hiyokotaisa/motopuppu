@@ -181,13 +181,21 @@ def miauth_callback():
     flash('ログインしました。', 'success')
     
     # ▼▼▼【ここから修正】セッションからリダイレクト先を取得してリダイレクト ▼▼▼
+    # セキュリティ対策: next_url がアプリケーション内の相対パスであることを検証する
+    # 外部URLへのオープンリダイレクトを防止
     next_url = session.pop('next_url', None)
     if next_url:
-        current_app.logger.info(f"Redirecting to stored next_url: {next_url}")
-        return redirect(next_url)
-    else:
-        current_app.logger.info("No stored next_url, redirecting to dashboard.")
-        return redirect(url_for('main.dashboard'))
+        from urllib.parse import urlparse
+        parsed = urlparse(next_url)
+        # スキームとネットワークロケーションが空（=相対パス）の場合のみ許可
+        if not parsed.scheme and not parsed.netloc and next_url.startswith('/'):
+            current_app.logger.info(f"Redirecting to stored next_url: {next_url}")
+            return redirect(next_url)
+        else:
+            current_app.logger.warning(f"Blocked potentially malicious next_url: {next_url}")
+    
+    current_app.logger.info("Redirecting to dashboard.")
+    return redirect(url_for('main.dashboard'))
     # ▲▲▲【修正はここまで】▲▲▲
 
 @auth_bp.route('/logout')
@@ -203,23 +211,8 @@ def login_page():
     if current_user.is_authenticated:
         return redirect(url_for('main.dashboard'))
 
-    announcements_for_modal = []
-    important_notice_content = None
-    try:
-        announcement_file = os.path.join(current_app.root_path, '..', 'announcements.json')
-        if os.path.exists(announcement_file):
-            with open(announcement_file, 'r', encoding='utf-8') as f:
-                all_announcements_data = json.load(f)
-                for item in all_announcements_data:
-                    if item.get('active', False):
-                        if item.get('id') == 1:
-                            important_notice_content = item
-                        else:
-                            announcements_for_modal.append(item)
-        else:
-                current_app.logger.warning(f"announcements.json not found at {announcement_file}")
-    except Exception as e:
-        current_app.logger.error(f"An unexpected error occurred loading announcements: {e}", exc_info=True)
+    from ..services import get_announcements
+    announcements_for_modal, important_notice_content = get_announcements()
 
     return render_template('index.html', 
                            announcements=announcements_for_modal,
