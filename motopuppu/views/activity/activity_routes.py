@@ -552,6 +552,12 @@ def detail_activity(activity_id):
     session_form = SessionLogForm()
     import_form = LapTimeImportForm()
 
+    # GETリクエスト時は、既存のセッション数に基づいて連番のデフォルト名をセットする
+    # POSTリクエスト時はユーザーが入力した値をそのまま保持するため、条件分岐で制御する
+    if request.method == 'GET':
+        next_session_number = len(sessions) + 1
+        session_form.session_name.data = f"Session {next_session_number}"
+
     setting_sheets = SettingSheet.query.filter_by(motorcycle_id=motorcycle.id, is_archived=False).order_by(SettingSheet.sheet_name).all()
     session_form.setting_sheet_id.choices = [(s.id, s.sheet_name) for s in setting_sheets]
     session_form.setting_sheet_id.choices.insert(0, (0, '--- セッティングなし ---'))
