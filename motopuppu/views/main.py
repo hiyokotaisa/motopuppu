@@ -447,3 +447,27 @@ def dashboard_lite():
                            title="軽量ダッシュボード",
                            default_vehicle=default_vehicle,
                            user_motorcycles_all=user_motorcycles_all)
+
+
+# ▼▼▼ HTMX用コンポーネントAPI群 ▼▼▼
+
+@main_bp.route('/api/components/nav_functions')
+@login_required
+def nav_functions_api():
+    """ナビゲーションバーの「機能」ドロップダウンの中身を遅延ロードして返す"""
+    # テンプレートを直接レンダリング (g.user_motorcyclesはここで自動的に評価されます)
+    return render_template('components/_nav_functions.html')
+
+
+@main_bp.route('/api/components/nav_garage')
+@login_required
+def nav_garage_api():
+    """ナビゲーションバーの「マイガレージ」メガメニューの中身を遅延ロードして返す"""
+    return render_template('components/_nav_garage.html')
+
+
+@main_bp.route('/api/components/quick_actions')
+@login_required
+def quick_actions_api():
+    """画面右下の「クイックアクション(+ボタン)」を遅延ロードして返す"""
+    return render_template('components/_quick_actions.html')

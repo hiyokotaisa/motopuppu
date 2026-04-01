@@ -19,6 +19,7 @@ from ..achievement_evaluator import check_achievements_for_event, EVENT_ADD_FUEL
 from .. import limiter
 from ..utils.receipt_parser import parse_receipt_image
 from ..utils.search_helpers import escape_like
+from ..utils.image_security import strip_exif
 
 
 fuel_bp = Blueprint('fuel', __name__, url_prefix='/fuel')
@@ -235,7 +236,13 @@ def parse_receipt():
     file.seek(0)
 
     try:
-        image_bytes = file.read()
+        # 画像データを読み込み、EXIF情報を安全に除去する
+        raw_image_bytes = file.read()
+        try:
+            image_bytes = strip_exif(raw_image_bytes)
+        except ValueError as e:
+            return jsonify({'error': str(e)}), 400
+            
         result = parse_receipt_image(image_bytes, mime_type=file.content_type)
         
         if result['success']:

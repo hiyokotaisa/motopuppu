@@ -57,6 +57,9 @@ def create_app(config_name=None):
         GOOGLE_PLACES_API_KEY=os.environ.get('GOOGLE_PLACES_API_KEY'),
         REMEMBER_COOKIE_SAMESITE='Lax',
         REMEMBER_COOKIE_SECURE=True if os.environ.get('FLASK_ENV') == 'production' else False,
+        SESSION_COOKIE_SECURE=True if os.environ.get('FLASK_ENV') == 'production' else False,
+        SESSION_COOKIE_HTTPONLY=True,
+        SESSION_COOKIE_SAMESITE='Lax',
         GOOGLE_MAPS_API_KEY=os.environ.get('GOOGLE_PLACES_API_KEY')
     )
     # ▲▲▲ 修正ここまで ▲▲▲
@@ -132,21 +135,34 @@ def create_app(config_name=None):
         except (TypeError, ValueError):
             return None
     
+    from werkzeug.local import LocalProxy
+
+    def get_user_motorcycles():
+        if not hasattr(g, '_user_motorcycles'):
+            if current_user.is_authenticated:
+                from .models import Motorcycle
+                g._user_motorcycles = Motorcycle.query.filter_by(user_id=current_user.id, is_archived=False).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
+            else:
+                g._user_motorcycles = []
+        return g._user_motorcycles
+
+    def get_user_teams():
+        if not hasattr(g, '_user_teams'):
+            if current_user.is_authenticated:
+                from .models import Team
+                g._user_teams = current_user.teams.order_by(Team.name.asc()).all()
+            else:
+                g._user_teams = []
+        return g._user_teams
+    
     @app.before_request
     def load_global_g_variables():
         """
-        全リクエスト共通で利用する変数をロードする。
-        ナビゲーションバーの表示などに使用。
+        全リクエスト共通で利用する変数を遅延ロード(LocalProxy)で登録する。
+        実際にアクセスされるまでDBクエリは発行されない。
         """
-        g.user_motorcycles = []
-        g.user_teams = []
-        if current_user.is_authenticated:
-            from .models import Motorcycle, Team
-            # パフォーマンス考慮: ここではナビゲーションに必要な基本情報のみを取得するのが望ましいが、
-            # テンプレート側の依存関係が複雑なため、まずは標準的なクエリで取得する。
-            # 重いカラム(Text型など)がある場合は defer() を検討すること。
-            g.user_motorcycles = Motorcycle.query.filter_by(user_id=current_user.id, is_archived=False).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
-            g.user_teams = current_user.teams.order_by(Team.name.asc()).all()
+        g.user_motorcycles = LocalProxy(get_user_motorcycles)
+        g.user_teams = LocalProxy(get_user_teams)
 
     try:
         # Blueprintのインポート
