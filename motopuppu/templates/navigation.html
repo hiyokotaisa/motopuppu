@@ -33,27 +33,26 @@
                 </li>
                 {# ▲▲▲【追加】ここまで ▲▲▲ #}
 
-                {# ▼▼▼ メガメニュー化されたマイガレージ (HTMX対応) ▼▼▼ #}
-                <li class="nav-item dropdown position-static"
+                {# ▼▼▼ マイガレージ (HTMX対応) ▼▼▼ #}
+                <li class="nav-item dropdown"
                     hx-get="{{ url_for('main.nav_garage_api') }}"
                     hx-trigger="mouseenter once, click once"
-                    hx-target="#garage-mega-menu-content"
+                    hx-target="#garage-menu-content"
                     hx-swap="innerHTML">
                     <a class="nav-link dropdown-toggle {% if request.endpoint and request.endpoint.startswith(('vehicle.', 'activity.', 'touring.', 'reminder.', 'maintenance.', 'fuel.', 'notes.')) and ('list' in request.endpoint or 'log' in request.endpoint) %}active{% endif %}"
                         href="#" id="garageDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="fas fa-warehouse me-1"></i> マイガレージ
                     </a>
-                    <div class="dropdown-menu w-100 mt-0 py-3 shadow-sm border-0 mega-menu-content"
-                        aria-labelledby="garageDropdown">
-                        <div class="container" id="garage-mega-menu-content">
-                            <div class="text-center py-4 text-muted">
-                                <i class="fas fa-spinner fa-spin fa-2x"></i>
-                                <p class="mt-2 mb-0">ガレージを読み込み中...</p>
-                            </div>
-                        </div>
-                    </div>
+                    <ul class="dropdown-menu" aria-labelledby="garageDropdown" id="garage-menu-content">
+                        <li>
+                            <span class="dropdown-item text-center py-2 text-muted">
+                                <i class="fas fa-spinner fa-spin"></i>
+                                <span class="ms-2">ガレージを読み込み中...</span>
+                            </span>
+                        </li>
+                    </ul>
                 </li>
-                {# ▲▲▲ メガメニュー化完了 ▲▲▲ #}
+                {# ▲▲▲ マイガレージ完了 ▲▲▲ #}
 
                 {# ▼▼▼ カテゴリ分けされたコミュニティメニュー ▼▼▼ #}
                 <li class="nav-item dropdown">
