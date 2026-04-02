@@ -5,24 +5,38 @@
 
 {% block content %}
 <div class="container pb-5 mb-5">
-    {# パンくずリスト風に戻るリンク #}
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <nav aria-label="breadcrumb">
-                <ol class="breadcrumb mb-1">
-                    <li class="breadcrumb-item"><a href="{{ url_for('main.dashboard') }}" class="text-decoration-none"><i class="fas fa-home me-1"></i>ホーム</a></li>
-                    <li class="breadcrumb-item"><a href="{{ url_for('vehicle.vehicle_list') }}" class="text-decoration-none">マイガレージ</a></li>
-                    <li class="breadcrumb-item active" aria-current="page">{{ vehicle.name }}</li>
-                </ol>
-            </nav>
-            <h2 class="fw-bold mb-0 text-dark">
-                <i class="fas fa-motorcycle me-2 text-primary"></i>{{ vehicle.name }} <span class="fs-5 text-muted fw-normal ms-2">Dashboard</span>
-            </h2>
-        </div>
-        <div class="d-flex gap-2">
-            <a href="{{ url_for('vehicle.edit_vehicle', vehicle_id=vehicle.id) }}" class="btn btn-outline-secondary btn-sm">
-                <i class="fas fa-cog me-1"></i> 車両設定
-            </a>
+    {# ダッシュボードヘッダー (薄っすら車両画像背景) #}
+    <div class="position-relative overflow-hidden rounded-4 shadow-sm mb-4 border bg-white">
+        {% if vehicle.image_url %}
+        <div class="position-absolute top-0 start-0 w-100 h-100" style="background-image: url('{{ vehicle.image_url }}'); background-size: cover; background-position: center; opacity: 0.15; z-index: 0; pointer-events: none;"></div>
+        {% endif %}
+        <div class="position-relative p-4 p-md-5 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3" style="z-index: 1;">
+            <div>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb mb-2">
+                        <li class="breadcrumb-item"><a href="{{ url_for('main.dashboard') }}" class="text-decoration-none fw-bold"><i class="fas fa-home me-1"></i>ホーム</a></li>
+                        <li class="breadcrumb-item"><a href="{{ url_for('vehicle.vehicle_list') }}" class="text-decoration-none fw-bold">マイガレージ</a></li>
+                        <li class="breadcrumb-item active" aria-current="page">{{ vehicle.name }}</li>
+                    </ol>
+                </nav>
+                <div class="d-flex align-items-center">
+                    {% if vehicle.image_url %}
+                    <img src="{{ vehicle.image_url }}" alt="{{ vehicle.name }}" class="rounded-circle border border-2 border-white shadow-sm me-3" style="width: 56px; height: 56px; object-fit: cover;">
+                    {% else %}
+                    <div class="bg-light rounded-circle d-flex align-items-center justify-content-center border border-2 border-white shadow-sm me-3" style="width: 56px; height: 56px;">
+                        <i class="fas fa-motorcycle text-secondary fa-lg"></i>
+                    </div>
+                    {% endif %}
+                    <h2 class="fw-bold mb-0 text-dark" style="letter-spacing: -0.02em;">
+                        {{ vehicle.name }} <span class="fs-5 text-muted fw-normal ms-1">Dashboard</span>
+                    </h2>
+                </div>
+            </div>
+            <div>
+                <a href="{{ url_for('vehicle.edit_vehicle', vehicle_id=vehicle.id) }}" class="btn btn-outline-secondary bg-white bg-opacity-75 shadow-sm text-nowrap rounded-pill">
+                    <i class="fas fa-cog me-1"></i> 車両設定
+                </a>
+            </div>
         </div>
     </div>
 
