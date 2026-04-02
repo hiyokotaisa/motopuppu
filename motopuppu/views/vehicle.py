@@ -79,7 +79,7 @@ def add_vehicle():
         final_image_url = form.image_url.data
         if form.image_file.data:
             try:
-                uploaded_url = process_and_upload_image(form.image_file.data)
+                uploaded_url = process_and_upload_image(form.image_file.data, current_user.id)
                 if uploaded_url:
                     final_image_url = uploaded_url
             except ValueError as e:
@@ -239,8 +239,14 @@ def edit_vehicle(vehicle_id):
         final_image_url = form.image_url.data
         if form.image_file.data:
             try:
-                uploaded_url = process_and_upload_image(form.image_file.data)
+                uploaded_url = process_and_upload_image(form.image_file.data, current_user.id)
                 if uploaded_url:
+                    # ▼▼▼【ここから追記】新画像のアップロード成功後、旧GCS画像を削除 ▼▼▼
+                    from ..utils.image_security import delete_gcs_image
+                    old_image_url = motorcycle.image_url
+                    if old_image_url and old_image_url != uploaded_url:
+                        delete_gcs_image(old_image_url)
+                    # ▲▲▲【追記はここまで】▲▲▲
                     final_image_url = uploaded_url
             except ValueError as e:
                 flash(str(e), 'warning')
@@ -312,6 +318,12 @@ def delete_vehicle(vehicle_id):
     try:
         was_default = motorcycle.is_default
         vehicle_name = motorcycle.name
+
+        # ▼▼▼【ここから追記】車両削除前にGCS上の画像を削除してオーファンを防ぐ ▼▼▼
+        if motorcycle.image_url:
+            from ..utils.image_security import delete_gcs_image
+            delete_gcs_image(motorcycle.image_url)
+        # ▲▲▲【追記はここまで】▲▲▲
 
         # ondelete='SET NULL' が設定されている関連データを先に手動で削除する
         GeneralNote.query.filter_by(motorcycle_id=motorcycle.id).delete(synchronize_session=False)

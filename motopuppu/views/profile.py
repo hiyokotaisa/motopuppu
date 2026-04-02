@@ -47,6 +47,14 @@ def settings():
                 user_id_deleted = user_to_delete.id
                 user_name_deleted = user_to_delete.misskey_username
                 
+                # ▼▼▼【ここから追記】退会前にGCS上の全画像を削除してオーファンを防ぐ ▼▼▼
+                try:
+                    from ..utils.image_security import delete_all_gcs_images_for_user
+                    delete_all_gcs_images_for_user(user_id_deleted)
+                except Exception as e:
+                    current_app.logger.warning(f"退会時のGCS画像削除に失敗 (user_id={user_id_deleted}): {e}")
+                # ▲▲▲【追記はここまで】▲▲▲
+                
                 # ユーザーオブジェクトをDBから削除する前にログアウト処理を行う
                 logout_user()
                 

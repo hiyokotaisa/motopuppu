@@ -127,10 +127,28 @@
         <div class="list-group list-group-flush">
             {% for vehicle in vehicles_for_toggle %}
             <div class="list-group-item d-flex justify-content-between align-items-center flex-wrap">
-                <div class="me-auto my-1">
-                    <i class="fas fa-motorcycle me-2"></i>
-                    {{ vehicle.name }} 
-                    <small class="text-muted">({{ vehicle.maker or 'メーカー未設定' }})</small>
+                <div class="me-auto my-1 d-flex align-items-center">
+                    {% if vehicle.image_url %}
+                    <img src="{{ vehicle.image_url }}" alt="" class="rounded-circle me-2 border" style="width: 32px; height: 32px; object-fit: cover;">
+                    {% else %}
+                    <span class="rounded-circle me-2 border bg-light d-inline-flex align-items-center justify-content-center" style="width: 32px; height: 32px;"><i class="fas fa-image text-muted" style="font-size: 0.8rem;"></i></span>
+                    {% endif %}
+                    <div>
+                        <i class="fas fa-motorcycle me-1"></i>
+                        {{ vehicle.name }} 
+                        <small class="text-muted">({{ vehicle.maker or 'メーカー未設定' }})</small>
+                        {# ▼▼▼【ここから追記】画像種別バッジ ▼▼▼ #}
+                        {% if vehicle.image_url %}
+                            {% if 'storage.googleapis.com' in vehicle.image_url %}
+                            <span class="badge bg-success bg-opacity-75 ms-1" title="GCSにアップロードされた画像"><i class="fas fa-cloud-upload-alt me-1"></i>アップロード</span>
+                            {% else %}
+                            <span class="badge bg-info bg-opacity-75 ms-1" title="外部URLの直リンク画像"><i class="fas fa-link me-1"></i>外部リンク</span>
+                            {% endif %}
+                        {% else %}
+                        <span class="badge bg-secondary bg-opacity-50 ms-1"><i class="fas fa-times-circle me-1"></i>画像未設定</span>
+                        {% endif %}
+                        {# ▲▲▲【追記はここまで】▲▲▲ #}
+                    </div>
                 </div>
                 <div class="d-flex align-items-center my-1">
                     <button type="button" class="btn btn-sm btn-outline-secondary edit-details-btn" 
@@ -182,6 +200,19 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
+                    {# ▼▼▼【ここから追記】現在の画像プレビュー領域 ▼▼▼ #}
+                    <div class="mb-3" id="modal_image_preview_area">
+                        <label class="form-label fw-bold">現在の画像</label>
+                        <div id="modal_image_preview_container" class="text-center p-3 border rounded bg-light">
+                            <img id="modal_image_preview" src="" alt="プレビュー" class="img-fluid rounded shadow-sm" style="max-height: 200px; display: none;">
+                            <div id="modal_image_no_preview" class="text-muted py-3">
+                                <i class="fas fa-image fa-2x mb-2 d-block"></i>
+                                画像が設定されていません
+                            </div>
+                        </div>
+                        <div id="modal_image_type_badge" class="mt-2"></div>
+                    </div>
+                    {# ▲▲▲【追記はここまで】▲▲▲ #}
                     <div class="mb-3">
                         {{ details_form.image_url.label(class="form-label") }}
                         {{ details_form.image_url(class="form-control", id="modal_image_url") }}
@@ -259,6 +290,34 @@ document.addEventListener('DOMContentLoaded', function () {
             const modalForm = detailsModal.querySelector('#detailsModalForm');
             const imageUrlInput = detailsModal.querySelector('#modal_image_url');
             const customDetailsInput = detailsModal.querySelector('#modal_custom_details');
+            
+            // ▼▼▼【ここから追記】画像プレビューと種別バッジの更新 ▼▼▼
+            const previewImg = detailsModal.querySelector('#modal_image_preview');
+            const noPreview = detailsModal.querySelector('#modal_image_no_preview');
+            const typeBadge = detailsModal.querySelector('#modal_image_type_badge');
+            const imageFileInput = detailsModal.querySelector('#image_file');
+            
+            // ファイル入力をリセット（前回のモーダル操作をクリア）
+            if (imageFileInput) imageFileInput.value = '';
+            
+            if (imageUrl) {
+                previewImg.src = imageUrl;
+                previewImg.style.display = 'block';
+                noPreview.style.display = 'none';
+                
+                // 画像種別バッジを更新
+                if (imageUrl.includes('storage.googleapis.com')) {
+                    typeBadge.innerHTML = '<span class="badge bg-success"><i class="fas fa-cloud-upload-alt me-1"></i>アップロード画像（GCS）</span>';
+                } else {
+                    typeBadge.innerHTML = '<span class="badge bg-info"><i class="fas fa-link me-1"></i>外部リンク画像</span>';
+                }
+            } else {
+                previewImg.style.display = 'none';
+                previewImg.src = '';
+                noPreview.style.display = 'block';
+                typeBadge.innerHTML = '<span class="badge bg-secondary"><i class="fas fa-times-circle me-1"></i>画像未設定</span>';
+            }
+            // ▲▲▲【追記はここまで】▲▲▲
             
             // モーダルの内容を更新
             modalTitle.textContent = `「${vehicleName}」の詳細編集`;

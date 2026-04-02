@@ -1,7 +1,7 @@
 # motopuppu/views/garage_settings.py
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify
 from flask_login import login_required, current_user
-from .. import db
+from .. import db, limiter
 from ..models import User, Motorcycle
 from ..forms import GarageSettingsForm, GarageVehicleDetailsForm
 import uuid
@@ -79,6 +79,7 @@ def settings():
                            vehicles_for_toggle=vehicles_for_toggle)
 
 @garage_settings_bp.route('/<int:vehicle_id>/update-details', methods=['POST'])
+@limiter.limit("30 per hour")
 @login_required
 def update_details(vehicle_id):
     """個別の車両のガレージ情報を更新する"""
@@ -89,9 +90,14 @@ def update_details(vehicle_id):
         final_image_url = form.image_url.data
         if form.image_file.data:
             try:
-                from ..utils.image_security import process_and_upload_image
-                uploaded_url = process_and_upload_image(form.image_file.data)
+                from ..utils.image_security import process_and_upload_image, delete_gcs_image
+                uploaded_url = process_and_upload_image(form.image_file.data, current_user.id)
                 if uploaded_url:
+                    # ▼▼▼【ここから追記】新画像のアップロード成功後、旧GCS画像を削除 ▼▼▼
+                    old_image_url = motorcycle.image_url
+                    if old_image_url and old_image_url != uploaded_url:
+                        delete_gcs_image(old_image_url)
+                    # ▲▲▲【追記はここまで】▲▲▲
                     final_image_url = uploaded_url
             except ValueError as e:
                 flash(str(e), 'warning')
