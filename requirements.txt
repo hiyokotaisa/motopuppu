@@ -20,3 +20,4 @@ Pillow>=9.0.0
 # Flask-Uploads-Fork # ファイルアップロード処理に (代替ライブラリも検討可) (任意)
 # Pillow # 画像処理に (ファイルタイプ検証などで必要になる場合あり) (任意)
 google-generativeai
+google-cloud-storage

@@ -86,7 +86,19 @@ def update_details(vehicle_id):
     form = GarageVehicleDetailsForm()
 
     if form.validate_on_submit():
-        motorcycle.image_url = form.image_url.data
+        final_image_url = form.image_url.data
+        if form.image_file.data:
+            try:
+                from ..utils.image_security import process_and_upload_image
+                uploaded_url = process_and_upload_image(form.image_file.data)
+                if uploaded_url:
+                    final_image_url = uploaded_url
+            except ValueError as e:
+                flash(str(e), 'warning')
+            except Exception as e:
+                flash('画像のアップロードに失敗しました。', 'warning')
+
+        motorcycle.image_url = final_image_url
         motorcycle.custom_details = form.custom_details.data
         try:
             db.session.commit()

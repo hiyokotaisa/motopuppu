@@ -17,6 +17,7 @@ from ..models import (
 # ▲▲▲【変更はここまで】▲▲▲
 from ..forms import VehicleForm, OdoResetLogForm
 from ..achievement_evaluator import check_achievements_for_event, EVENT_ADD_VEHICLE, EVENT_ADD_ODO_RESET
+from ..utils.image_security import process_and_upload_image
 from .. import services, limiter
 
 
@@ -75,6 +76,17 @@ def add_vehicle():
         is_racer_vehicle = form.is_racer.data
         total_hours_data = form.total_operating_hours.data
 
+        final_image_url = form.image_url.data
+        if form.image_file.data:
+            try:
+                uploaded_url = process_and_upload_image(form.image_file.data)
+                if uploaded_url:
+                    final_image_url = uploaded_url
+            except ValueError as e:
+                flash(str(e), 'warning')
+            except Exception as e:
+                flash('画像のアップロードに失敗しました。', 'warning')
+
         new_motorcycle = Motorcycle(
             # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
             user_id=current_user.id,
@@ -85,7 +97,7 @@ def add_vehicle():
             is_racer=is_racer_vehicle,
             # ▼▼▼ ここから追記 ▼▼▼
             show_in_garage=form.show_in_garage.data,
-            image_url=form.image_url.data,
+            image_url=final_image_url,
             custom_details=form.custom_details.data
             # ▲▲▲ 追記ここまで ▲▲▲
         )
@@ -224,8 +236,19 @@ def edit_vehicle(vehicle_id):
         motorcycle.is_racer = original_is_racer
 
         # ▼▼▼ ここから変更 ▼▼▼
+        final_image_url = form.image_url.data
+        if form.image_file.data:
+            try:
+                uploaded_url = process_and_upload_image(form.image_file.data)
+                if uploaded_url:
+                    final_image_url = uploaded_url
+            except ValueError as e:
+                flash(str(e), 'warning')
+            except Exception as e:
+                flash('画像のアップロードに失敗しました。', 'warning')
+
         motorcycle.show_in_garage = form.show_in_garage.data
-        motorcycle.image_url = form.image_url.data
+        motorcycle.image_url = final_image_url
         motorcycle.custom_details = form.custom_details.data
         # ▲▲▲ 変更ここまで ▲▲▲
 

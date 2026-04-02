@@ -175,7 +175,7 @@
 <div class="modal fade" id="detailsModal" tabindex="-1" aria-labelledby="detailsModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
-            <form id="detailsModalForm" method="POST">
+            <form id="detailsModalForm" method="POST" enctype="multipart/form-data">
                 {{ details_form.hidden_tag() }}
                 <div class="modal-header">
                     <h5 class="modal-title" id="detailsModalLabel">車両詳細の編集</h5>
@@ -185,6 +185,12 @@
                     <div class="mb-3">
                         {{ details_form.image_url.label(class="form-label") }}
                         {{ details_form.image_url(class="form-control", id="modal_image_url") }}
+                        <div class="form-text">{{ details_form.image_url.description }}</div>
+                    </div>
+                    <div class="mb-3 border rounded p-2 bg-light">
+                        {{ details_form.image_file.label(class="form-label fw-bold text-primary") }}
+                        {{ details_form.image_file(class="form-control") }}
+                        <div class="form-text">画像をアップロードする場合はこちらを選択してください（URL欄より優先されます）。</div>
                     </div>
                     <div class="mb-3">
                         {{ details_form.custom_details.label(class="form-label") }}

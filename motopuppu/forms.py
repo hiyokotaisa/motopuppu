@@ -256,11 +256,19 @@ class VehicleForm(FlaskForm):
         default=True
     )
     image_url = StringField(
-        '車両画像URL',
+        '車両画像URL (直接リンク)',
         validators=[
             Optional(),
             URL(message="有効なURL形式で入力してください。"),
             Length(max=2048, message="URLは2048文字以内で入力してください。")
+        ],
+        description="※画像をアップロードする場合は空欄のままで構いません。"
+    )
+    image_file = FileField(
+        '画像のアップロード',
+        validators=[
+            Optional(),
+            FileAllowed(['jpg', 'jpeg', 'png', 'webp', 'heic', 'HEIC'], '許可されていない画像形式です。')
         ]
     )
     custom_details = TextAreaField(
@@ -832,13 +840,20 @@ class GarageSettingsForm(FlaskForm):
 class GarageVehicleDetailsForm(FlaskForm):
     """ガレージ設定ページで個別の車両詳細を編集するためのフォーム"""
     image_url = StringField(
-        '車両画像URL',
+        '車両画像URL (直接リンク)',
         validators=[
             Optional(),
             URL(message="有効なURL形式で入力してください。"),
             Length(max=2048, message="URLは2048文字以内で入力してください。")
         ],
-        render_kw={"placeholder": "https://... Misskeyの画像URLなど"}
+        description="※画像をアップロードする場合は空欄のままで構いません。"
+    )
+    image_file = FileField(
+        '画像のアップロード',
+        validators=[
+            Optional(),
+            FileAllowed(['jpg', 'jpeg', 'png', 'webp', 'heic', 'HEIC'], '許可されていない画像形式です。')
+        ]
     )
     custom_details = TextAreaField(
         'カスタム・メモ',
