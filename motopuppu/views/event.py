@@ -95,8 +95,9 @@ def add_event():
     # ▲▲▲【追加】▲▲▲
 
     if form.validate_on_submit():
-        start_dt_utc = form.start_datetime.data.replace(tzinfo=JST).astimezone(timezone.utc)
-        end_dt_utc = form.end_datetime.data.replace(tzinfo=JST).astimezone(timezone.utc) if form.end_datetime.data else None
+        # フォームの入力値はJSTとして解釈し、UTCのnaive datetimeに変換して保存
+        start_dt_utc = form.start_datetime.data.replace(tzinfo=JST).astimezone(timezone.utc).replace(tzinfo=None)
+        end_dt_utc = form.end_datetime.data.replace(tzinfo=JST).astimezone(timezone.utc).replace(tzinfo=None) if form.end_datetime.data else None
 
         new_event = Event(
             user_id=current_user.id,
@@ -143,8 +144,9 @@ def edit_event(event_id):
     form.motorcycle_id.choices.insert(0, (0, '--- 車両を関連付けない ---'))
 
     if form.validate_on_submit():
-        start_dt_utc = form.start_datetime.data.replace(tzinfo=JST).astimezone(timezone.utc)
-        end_dt_utc = form.end_datetime.data.replace(tzinfo=JST).astimezone(timezone.utc) if form.end_datetime.data else None
+        # フォームの入力値はJSTとして解釈し、UTCのnaive datetimeに変換して保存
+        start_dt_utc = form.start_datetime.data.replace(tzinfo=JST).astimezone(timezone.utc).replace(tzinfo=None)
+        end_dt_utc = form.end_datetime.data.replace(tzinfo=JST).astimezone(timezone.utc).replace(tzinfo=None) if form.end_datetime.data else None
 
         event.motorcycle_id = form.motorcycle_id.data if form.motorcycle_id.data != 0 else None
         event.title = form.title.data
@@ -171,9 +173,10 @@ def edit_event(event_id):
         form.description.data = event.description
         form.location.data = event.location
         form.motorcycle_id.data = event.motorcycle_id
-        form.start_datetime.data = event.start_datetime.astimezone(JST)
+        # DBのnaive datetime (UTC) を明示的にUTCマーキングしてからJSTに変換
+        form.start_datetime.data = event.start_datetime.replace(tzinfo=timezone.utc).astimezone(JST)
         if event.end_datetime:
-            form.end_datetime.data = event.end_datetime.astimezone(JST)
+            form.end_datetime.data = event.end_datetime.replace(tzinfo=timezone.utc).astimezone(JST)
         form.is_public.data = event.is_public
     
     return render_template('event/event_form.html', form=form, mode='edit', event=event)
