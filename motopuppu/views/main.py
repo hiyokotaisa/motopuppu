@@ -102,6 +102,10 @@ def dashboard():
         return redirect(url_for('main.dashboard_lite'))
     # ▲▲▲ 判定ここまで ▲▲▲
 
+    # ▼▼▼ Beta UI判定 ▼▼▼
+    use_beta = current_user.use_beta_ui and request.args.get('mode') != 'classic'
+    # ▲▲▲ Beta UI判定ここまで ▲▲▲
+
     """
     重い処理（統計、車両詳細、タイムライン、イベント、リマインダー、サーキット、にゃんぷっぷー）はここでは行わず、HTMXによって後から読み込まれる。
     """
@@ -140,8 +144,12 @@ def dashboard():
     
     motorcycles_public = [m for m in user_motorcycles_all if not m.is_racer]
 
+    # ▼▼▼ Beta UI / 通常UI でテンプレートを切り替え ▼▼▼
+    template_name = 'dashboard_beta.html' if use_beta else 'dashboard.html'
+    # ▲▲▲ テンプレート切替ここまで ▲▲▲
+
     return render_template(
-        'dashboard.html',
+        template_name,
         motorcycles=user_motorcycles_all,
         motorcycles_public=motorcycles_public,
         # upcoming_reminders=[], # HTMX化
@@ -398,6 +406,22 @@ def save_dashboard_layout():
         db.session.rollback()
         current_app.logger.error(f"Error saving dashboard layout for user {current_user.id}: {e}", exc_info=True)
         return jsonify({'status': 'error', 'message': 'Could not save layout to the database'}), 500
+
+
+@main_bp.route('/dashboard/toggle-beta-ui', methods=['POST'])
+@login_required
+def toggle_beta_ui():
+    """Beta UIのON/OFFを切り替える"""
+    try:
+        current_user.use_beta_ui = not current_user.use_beta_ui
+        db.session.commit()
+        flash('UIを切り替えました。' if current_user.use_beta_ui else '通常UIに戻しました。', 'success')
+        return redirect(url_for('main.dashboard'))
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error toggling beta UI for user {current_user.id}: {e}", exc_info=True)
+        flash('UIの切り替えに失敗しました。', 'danger')
+        return redirect(url_for('main.dashboard'))
 
 
 @main_bp.route('/api/tutorial/complete', methods=['POST'])

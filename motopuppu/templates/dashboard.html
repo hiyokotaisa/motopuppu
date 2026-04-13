@@ -299,6 +299,12 @@
                 aria-label="レイアウトを編集">
                 <i class="bi bi-gear-fill"></i>
             </button>
+            <form method="POST" action="{{ url_for('main.toggle_beta_ui') }}" class="d-inline ms-1">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-sm btn-outline-info" title="Beta UI（ダークテーマ）に切り替える">
+                    <i class="fas fa-flask me-1"></i>Beta UI
+                </button>
+            </form>
         </div>
         <div id="layout-buttons-editing" class="btn-group me-2" style="display: none;">
             <button id="save-layout-btn" type="button" class="btn btn-sm btn-success"><i class="fas fa-check me-1"></i>
