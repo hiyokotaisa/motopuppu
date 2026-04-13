@@ -557,6 +557,44 @@ def toggle_garage_display(vehicle_id):
         return jsonify({'status': 'error', 'message': '設定の更新中にエラーが発生しました。'}), 500
 # ▲▲▲ 追記ここまで ▲▲▲
 
+@vehicle_bp.route('/<int:vehicle_id>/simulator')
+@login_required
+def drivetrain_simulator(vehicle_id):
+    """駆動系シミュレーター: スプロケット・チェーン変更シミュレーション"""
+    motorcycle = Motorcycle.query.filter_by(id=vehicle_id, user_id=current_user.id).first_or_404()
+
+    # 最新のセッティングシートからスプロケット/チェーン/タイヤ情報を取得
+    prefill = {
+        'front_teeth': None, 'rear_teeth': None,
+        'chain_size': None, 'chain_links': None,
+        'rear_tire_size': None,
+    }
+    latest_setting = SettingSheet.query.filter_by(
+        motorcycle_id=motorcycle.id, is_archived=False
+    ).order_by(SettingSheet.updated_at.desc()).first()
+
+    if latest_setting and latest_setting.details:
+        details = latest_setting.details
+        sprocket = details.get('sprocket', {})
+        if sprocket.get('front_teeth'):
+            prefill['front_teeth'] = sprocket['front_teeth']
+        if sprocket.get('rear_teeth'):
+            prefill['rear_teeth'] = sprocket['rear_teeth']
+
+        chain = details.get('chain', {})
+        if chain.get('chain_size'):
+            prefill['chain_size'] = chain['chain_size']
+        if chain.get('chain_links'):
+            prefill['chain_links'] = chain['chain_links']
+
+        tire_rear = details.get('tire_rear', {})
+        if tire_rear.get('tire_size'):
+            prefill['rear_tire_size'] = tire_rear['tire_size']
+
+    return render_template('drivetrain_simulator.html',
+                           vehicle=motorcycle,
+                           prefill=prefill)
+
 @vehicle_bp.route('/<int:vehicle_id>/dashboard')
 @login_required
 def dashboard(vehicle_id):

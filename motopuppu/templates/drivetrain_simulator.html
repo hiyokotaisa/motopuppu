@@ -1,0 +1,279 @@
+{# motopuppu/templates/drivetrain_simulator.html #}
+{% extends "base.html" %}
+
+{% block title %}駆動系シミュレーター - {{ vehicle.name }} - もとぷっぷー{% endblock %}
+
+{% block content %}
+<div id="spec-data"
+    data-vehicle-name="{{ vehicle.name | e }}"
+    data-primary-ratio="{{ vehicle.primary_ratio or '' }}"
+    data-gear-ratios='{{ vehicle.gear_ratios | tojson | safe if vehicle.gear_ratios else '{}' }}'
+    style="display:none;">
+</div>
+
+{# ヘッダー #}
+<div class="d-flex align-items-center mb-4">
+    <a href="{{ url_for('vehicle.dashboard', vehicle_id=vehicle.id) }}"
+        class="btn btn-sm btn-outline-secondary me-3" title="車両ダッシュボードへ戻る">
+        <i class="fas fa-arrow-left"></i>
+    </a>
+    <div>
+        <h2 class="mb-0">
+            <i class="fas fa-cogs me-2 text-primary"></i>駆動系シミュレーター
+        </h2>
+        <small class="text-muted">{{ vehicle.name }}{% if vehicle.maker %} ({{ vehicle.maker }}){% endif %}</small>
+    </div>
+</div>
+
+<style>
+    .sim-card {
+        border: none;
+        border-radius: 1rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        overflow: hidden;
+    }
+    .sim-card .card-header {
+        font-weight: 700;
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-bottom: 2px solid #dee2e6;
+    }
+    .input-group .btn-number {
+        min-width: 38px;
+    }
+    .spec-input-sm {
+        max-width: 100px;
+    }
+    .ratio-highlight {
+        font-size: 1.5rem;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+    }
+    .chart-wrapper {
+        position: relative;
+        height: 55vh;
+        min-height: 350px;
+    }
+    .chart-no-data-overlay {
+        position: absolute;
+        top: 0; left: 0; right: 0; bottom: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(248,249,250,0.85);
+        z-index: 10;
+        border-radius: 0.5rem;
+    }
+</style>
+
+{# --- ① 基本スペック --- #}
+<div class="card sim-card mb-4">
+    <div class="card-header d-flex align-items-center">
+        <i class="fas fa-info-circle me-2 text-primary"></i>基本スペック
+        <span class="badge bg-light text-muted ms-auto fw-normal">車両データから自動取得（手入力で上書き可能）</span>
+    </div>
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-3 col-6">
+                <label for="sim-primary-ratio" class="form-label small fw-bold">一次減速比</label>
+                <input type="number" id="sim-primary-ratio" class="form-control"
+                    step="0.001" min="0"
+                    value="{{ vehicle.primary_ratio or '' }}"
+                    placeholder="例: 3.083">
+                {% if not vehicle.primary_ratio %}
+                <div class="form-text text-warning"><i class="fas fa-exclamation-circle me-1"></i>未登録</div>
+                {% endif %}
+            </div>
+            <div class="col-md-4 col-6">
+                <label for="sim-tire-size" class="form-label small fw-bold">リアタイヤサイズ</label>
+                <input type="text" id="sim-tire-size" class="form-control"
+                    value="{{ prefill.rear_tire_size or '' }}"
+                    placeholder="例: 150/60R17">
+                <div class="form-text" id="tire-circ-display">
+                    {% if prefill.rear_tire_size %}セッティングシートから取得{% else %}未入力{% endif %}
+                </div>
+            </div>
+        </div>
+        <hr class="my-3">
+        <label class="form-label small fw-bold mb-2">各ギア変速比</label>
+        <div class="row g-2">
+            {% for i in range(1, 8) %}
+            <div class="col-md col-4">
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text">{{ i }}速</span>
+                    <input type="number" class="form-control gear-ratio-input" data-gear="{{ i }}"
+                        step="0.001" min="0"
+                        value="{{ vehicle.gear_ratios[i|string] if vehicle.gear_ratios and i|string in vehicle.gear_ratios else '' }}"
+                        placeholder="---">
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% if not vehicle.gear_ratios %}
+        <div class="form-text text-warning mt-2"><i class="fas fa-exclamation-circle me-1"></i>ギア比が未登録です。<a href="{{ url_for('vehicle.edit_vehicle', vehicle_id=vehicle.id) }}">車両設定</a>から登録するか、上のフィールドに直接入力してください。</div>
+        {% endif %}
+    </div>
+</div>
+
+{# --- ② スプロケット変更シミュレーション --- #}
+<div class="card sim-card mb-4">
+    <div class="card-header">
+        <i class="fas fa-exchange-alt me-2 text-success"></i>スプロケット変更シミュレーション
+    </div>
+    <div class="card-body">
+        <div class="row g-4">
+            {# 現在のセット #}
+            <div class="col-md-4">
+                <div class="border rounded p-3 bg-light h-100">
+                    <h6 class="fw-bold text-muted mb-3"><i class="fas fa-motorcycle me-1"></i>現在のセット</h6>
+                    <div class="mb-3">
+                        <label for="current-front" class="form-label small">フロント (T)</label>
+                        <div class="input-group">
+                            <button class="btn btn-outline-secondary btn-number" type="button" data-type="minus" data-field="current-front">-</button>
+                            <input type="number" id="current-front" class="form-control text-center" min="1"
+                                value="{{ prefill.front_teeth or '' }}" placeholder="--">
+                            <button class="btn btn-outline-secondary btn-number" type="button" data-type="plus" data-field="current-front">+</button>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="current-rear" class="form-label small">リア (T)</label>
+                        <div class="input-group">
+                            <button class="btn btn-outline-secondary btn-number" type="button" data-type="minus" data-field="current-rear">-</button>
+                            <input type="number" id="current-rear" class="form-control text-center" min="1"
+                                value="{{ prefill.rear_teeth or '' }}" placeholder="--">
+                            <button class="btn btn-outline-secondary btn-number" type="button" data-type="plus" data-field="current-rear">+</button>
+                        </div>
+                    </div>
+                    <div class="text-center">
+                        <span class="text-muted small">二次減速比</span><br>
+                        <span class="ratio-highlight text-info" id="current-ratio-display">-.---</span>
+                    </div>
+                </div>
+            </div>
+
+            {# シミュレーション #}
+            <div class="col-md-4">
+                <div class="border rounded p-3 border-primary h-100" style="border-width: 2px !important;">
+                    <h6 class="fw-bold text-primary mb-3">
+                        <i class="fas fa-flask me-1"></i>シミュレーション
+                        <button type="button" class="btn btn-sm btn-outline-secondary float-end" id="copy-current-to-sim" title="現在値をコピー">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </h6>
+                    <div class="mb-3">
+                        <label for="sim-front" class="form-label small">フロント (T)</label>
+                        <div class="input-group">
+                            <button class="btn btn-outline-primary btn-number" type="button" data-type="minus" data-field="sim-front">-</button>
+                            <input type="number" id="sim-front" class="form-control text-center" min="1"
+                                value="{{ prefill.front_teeth or '' }}" placeholder="--">
+                            <button class="btn btn-outline-primary btn-number" type="button" data-type="plus" data-field="sim-front">+</button>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="sim-rear" class="form-label small">リア (T)</label>
+                        <div class="input-group">
+                            <button class="btn btn-outline-primary btn-number" type="button" data-type="minus" data-field="sim-rear">-</button>
+                            <input type="number" id="sim-rear" class="form-control text-center" min="1"
+                                value="{{ prefill.rear_teeth or '' }}" placeholder="--">
+                            <button class="btn btn-outline-primary btn-number" type="button" data-type="plus" data-field="sim-rear">+</button>
+                        </div>
+                    </div>
+                    <div class="text-center">
+                        <span class="text-muted small">二次減速比</span><br>
+                        <span class="ratio-highlight text-primary" id="sim-ratio-display">-.---</span>
+                        <div id="ratio-change-display" class="mt-1"></div>
+                    </div>
+                </div>
+            </div>
+
+            {# RPM設定 #}
+            <div class="col-md-4">
+                <div class="border rounded p-3 bg-light h-100">
+                    <h6 class="fw-bold text-muted mb-3"><i class="fas fa-tachometer-alt me-1"></i>グラフ設定</h6>
+                    <div class="mb-3">
+                        <label for="rpm-max" class="form-label small">最大回転数 (RPM)</label>
+                        <input type="number" id="rpm-max" class="form-control" value="14000" step="1000" min="5000">
+                    </div>
+                    <div class="mb-3">
+                        <label for="shift-rpm" class="form-label small">シフトアップ回転数 (RPM)</label>
+                        <input type="number" id="shift-rpm" class="form-control" value="13000" step="500">
+                    </div>
+                    <div class="form-text text-muted">
+                        <i class="fas fa-info-circle me-1"></i>シフトアップRPMを基に変速データテーブルが計算されます。
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {# ギアレシオチャート #}
+        <hr class="my-4">
+        <h6 class="fw-bold mb-3"><i class="fas fa-chart-line me-2 text-success"></i>ギアレシオチャート（速度グラフ）</h6>
+        <div class="chart-wrapper border rounded p-2 bg-white">
+            <canvas id="speed-chart"></canvas>
+            <div id="chart-no-data" class="chart-no-data-overlay" style="display: flex;">
+                <div class="text-center text-muted">
+                    <i class="fas fa-chart-area fa-3x mb-3 d-block"></i>
+                    <p class="fw-bold">グラフの表示に必要なデータが不足しています</p>
+                    <p class="small">「基本スペック」欄の一次減速比・ギア比・タイヤサイズを入力してください。</p>
+                </div>
+            </div>
+        </div>
+
+        {# 変速データテーブル #}
+        <div id="shift-data-container" class="mt-3"></div>
+    </div>
+</div>
+
+{# --- 減速比テーブル --- #}
+<div class="card sim-card mb-4">
+    <div class="card-header">
+        <i class="fas fa-table me-2 text-secondary"></i>減速比マトリックス
+    </div>
+    <div class="card-body">
+        <div id="ratio-table-container">
+            <p class="text-muted small">スプロケットの値を入力するとテーブルが表示されます。</p>
+        </div>
+    </div>
+</div>
+
+{# --- ③ チェーン変更シミュレーション --- #}
+<div class="card sim-card mb-4">
+    <div class="card-header">
+        <i class="fas fa-link me-2 text-warning"></i>チェーン変更シミュレーション
+    </div>
+    <div class="card-body">
+        <p class="text-muted small mb-3">
+            スプロケットを変更する際に、チェーンのリンク数をどのように調整すべきかを概算します。
+        </p>
+        <div class="row g-3 mb-3">
+            <div class="col-md-3 col-6">
+                <label for="chain-size" class="form-label small fw-bold">チェーンサイズ</label>
+                <input type="text" id="chain-size" class="form-control"
+                    value="{{ prefill.chain_size or '' }}" placeholder="例: 520">
+            </div>
+            <div class="col-md-3 col-6">
+                <label for="chain-links" class="form-label small fw-bold">現在のリンク数</label>
+                <div class="input-group">
+                    <button class="btn btn-outline-secondary btn-number" type="button" data-type="minus" data-field="chain-links">-</button>
+                    <input type="number" id="chain-links" class="form-control text-center" min="2" step="2"
+                        value="{{ prefill.chain_links or '' }}" placeholder="--">
+                    <button class="btn btn-outline-secondary btn-number" type="button" data-type="plus" data-field="chain-links">+</button>
+                </div>
+            </div>
+        </div>
+        <div class="border rounded p-3 bg-light">
+            <label class="form-label small fw-bold text-dark">
+                <i class="fas fa-calculator me-1"></i>推奨リンク数
+            </label>
+            <div id="chain-result">
+                <span class="text-muted">現在のスプロケット・チェーン情報とシミュレーション値を入力すると計算されます。</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script src="{{ url_for('static', filename='js/drivetrain_simulator.js') }}"></script>
+{% endblock %}

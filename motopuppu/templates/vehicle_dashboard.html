@@ -241,6 +241,8 @@
             <ul class="dropdown-menu shadow-sm border-0">
                 <li><a class="dropdown-item" href="{{ url_for('activity.add_setting', vehicle_id=vehicle.id) }}"><i class="fas fa-clipboard-list fa-fw me-2"></i>セッティングシート追加</a></li>
                 <li><a class="dropdown-item" href="{{ url_for('reminder.add_reminder', vehicle_id=vehicle.id) }}"><i class="fas fa-bell fa-fw me-2"></i>リマインダー追加</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item" href="{{ url_for('vehicle.drivetrain_simulator', vehicle_id=vehicle.id) }}"><i class="fas fa-cogs fa-fw me-2"></i>駆動系シミュレーター</a></li>
             </ul>
         </div>
     </div>
