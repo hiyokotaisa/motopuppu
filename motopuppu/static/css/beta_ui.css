@@ -1126,9 +1126,15 @@ body.beta-ui-body ::-webkit-scrollbar-thumb:hover {
         display: block;
     }
 
-    /* FABをボトムバーの上に移動 */
-    #quick-actions-container .position-fixed {
-        bottom: 72px !important;
+    /* FABをボトムバーの上に移動 & 半透明 */
+    body.beta-ui-body .position-fixed.bottom-0.end-0 {
+        bottom: 80px !important;
+        opacity: 0.8;
+        transition: opacity 0.2s ease;
+    }
+
+    body.beta-ui-body .position-fixed.bottom-0.end-0:hover {
+        opacity: 1;
     }
 }
 
