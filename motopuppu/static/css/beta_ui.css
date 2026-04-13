@@ -1125,6 +1125,11 @@ body.beta-ui-body ::-webkit-scrollbar-thumb:hover {
     .beta-mobile-overlay.active {
         display: block;
     }
+
+    /* FABをボトムバーの上に移動 */
+    #quick-actions-container .position-fixed {
+        bottom: 72px !important;
+    }
 }
 
 @media (min-width: 992px) {
