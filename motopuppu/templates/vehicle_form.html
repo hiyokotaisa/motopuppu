@@ -30,7 +30,7 @@
 {% endwith %}
 
 {# --- 車両基本情報フォーム --- #}
-<form method="POST" action="{{ url_for('vehicle.add_vehicle') if form_action == 'add' else url_for('vehicle.edit_vehicle', vehicle_id=vehicle.id) }}">
+<form method="POST" enctype="multipart/form-data" action="{{ url_for('vehicle.add_vehicle') if form_action == 'add' else url_for('vehicle.edit_vehicle', vehicle_id=vehicle.id) }}">
     {{ form.hidden_tag() }} {# CSRFトークン等 (VehicleForm) #}
 
     <div class="mb-3">
@@ -103,6 +103,85 @@
     </div>
 
     <hr class="my-4">
+
+    <h5><i class="fas fa-image me-2"></i>車両画像・ガレージ設定</h5>
+    <p class="text-muted small">車両の画像やガレージ（公開プロフィール）に掲載する情報を設定します。</p>
+
+    {# --- 画像プレビュー --- #}
+    <div class="mb-3" id="vehicle_image_preview_area">
+        <label class="form-label fw-bold">現在の画像</label>
+        <div id="vehicle_image_preview_container" class="text-center p-3 border rounded bg-light">
+            {% if form_action == 'edit' and vehicle and vehicle.image_url %}
+            <img id="vehicle_image_preview" src="{{ vehicle.image_url }}" alt="車両画像プレビュー" class="img-fluid rounded shadow-sm" style="max-height: 200px;">
+            <div id="vehicle_image_no_preview" class="text-muted py-3" style="display: none;">
+                <i class="fas fa-image fa-2x mb-2 d-block"></i>
+                画像が設定されていません
+            </div>
+            {% else %}
+            <img id="vehicle_image_preview" src="" alt="車両画像プレビュー" class="img-fluid rounded shadow-sm" style="max-height: 200px; display: none;">
+            <div id="vehicle_image_no_preview" class="text-muted py-3">
+                <i class="fas fa-image fa-2x mb-2 d-block"></i>
+                画像が設定されていません
+            </div>
+            {% endif %}
+        </div>
+        {% if form_action == 'edit' and vehicle and vehicle.image_url %}
+        <div class="mt-2">
+            {% if 'storage.googleapis.com' in vehicle.image_url %}
+            <span class="badge bg-success"><i class="fas fa-cloud-upload-alt me-1"></i>アップロード画像（GCS）</span>
+            {% else %}
+            <span class="badge bg-info"><i class="fas fa-link me-1"></i>外部リンク画像</span>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+
+    {# --- 画像アップロード --- #}
+    <div class="mb-3 border rounded p-3 bg-light">
+        {{ form.image_file.label(class="form-label fw-bold text-primary") }}
+        {{ form.image_file(class="form-control", id="vehicle_image_file_input") }}
+        {% if form.image_file.errors %}
+            <div class="invalid-feedback d-block">
+                {% for error in form.image_file.errors %}<span>{{ error }}</span><br>{% endfor %}
+            </div>
+        {% endif %}
+        <div class="form-text">画像をアップロードする場合はこちらを選択してください（URL欄より優先されます）。</div>
+    </div>
+
+    {# --- 画像URL --- #}
+    <div class="mb-3">
+        {{ form.image_url.label(class="form-label") }}
+        {{ form.image_url(class="form-control" + (" is-invalid" if form.image_url.errors else ""), id="vehicle_image_url_input") }}
+        {% if form.image_url.errors %}
+            <div class="invalid-feedback">
+                {% for error in form.image_url.errors %}<span>{{ error }}</span><br>{% endfor %}
+            </div>
+        {% else %}
+            <div class="form-text">{{ form.image_url.description }}</div>
+        {% endif %}
+    </div>
+
+    {# --- カスタム・メモ --- #}
+    <div class="mb-3">
+        {{ form.custom_details.label(class="form-label") }}
+        {{ form.custom_details(class="form-control" + (" is-invalid" if form.custom_details.errors else ""), rows="4", placeholder="マフラー:ヨシムラ\nハンドル:ハリケーン\n...") }}
+        {% if form.custom_details.errors %}
+            <div class="invalid-feedback">
+                {% for error in form.custom_details.errors %}<span>{{ error }}</span><br>{% endfor %}
+            </div>
+        {% else %}
+            <div class="form-text">ガレージカードに掲載するカスタム内容やメモを記入できます。</div>
+        {% endif %}
+    </div>
+
+    {# --- ガレージ掲載トグル --- #}
+    <div class="mb-3 form-check form-switch">
+        {{ form.show_in_garage(class="form-check-input" + (" is-invalid" if form.show_in_garage.errors else "")) }}
+        {{ form.show_in_garage.label(class="form-check-label") }}
+        <div class="form-text">ONにすると、公開ガレージにこの車両が掲載されます。</div>
+    </div>
+
+    <hr class="my-4">
     
     <h5 id="tutorial-drivetrain-data"><i class="fas fa-cogs me-2"></i>駆動系データ</h5>
     
@@ -169,11 +248,11 @@
     <hr class="my-4">
     <div class="card bg-light">
         <div class="card-body">
-            <h5 class="card-title"><i class="fas fa-id-card me-2"></i>ガレージカード設定</h5>
+            <h5 class="card-title"><i class="fas fa-id-card me-2"></i>ガレージ全体設定</h5>
             <p class="card-text">
-                この車両の公開ガレージへの掲載、画像のURL、カスタムメモの編集は、専用の「ガレージ設定」ページから行えます。
+                ガレージの公開/非公開、デザインテーマ、表示項目設定などの全体的な設定はガレージ設定ページから行えます。
             </p>
-            <a href="{{ url_for('garage_settings.settings') }}" class="btn btn-info">ガレージ設定へ移動</a>
+            <a href="{{ url_for('garage_settings.settings') }}" class="btn btn-outline-info btn-sm"><i class="fas fa-cog me-1"></i>ガレージ全体設定へ</a>
         </div>
     </div>
 
@@ -314,6 +393,25 @@ document.addEventListener('DOMContentLoaded', function() {
         {% endif %}
         isRacerCheckbox.addEventListener('change', toggleVehicleSpecificFields);
         toggleVehicleSpecificFields();
+    }
+
+    // --- 画像ファイル選択時のプレビュー更新 ---
+    const imageFileInput = document.getElementById('vehicle_image_file_input');
+    const imagePreview = document.getElementById('vehicle_image_preview');
+    const noPreview = document.getElementById('vehicle_image_no_preview');
+
+    if (imageFileInput && imagePreview && noPreview) {
+        imageFileInput.addEventListener('change', function() {
+            if (this.files && this.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    imagePreview.src = e.target.result;
+                    imagePreview.style.display = '';
+                    noPreview.style.display = 'none';
+                };
+                reader.readAsDataURL(this.files[0]);
+            }
+        });
     }
 
     // --- チュートリアル関連のスクリプト ---
