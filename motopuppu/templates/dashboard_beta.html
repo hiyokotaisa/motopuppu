@@ -49,6 +49,17 @@
                 <a href="{{ url_for('vehicle.vehicle_list') }}" class="beta-nav-item">
                     <i class="fas fa-motorcycle"></i> マイガレージ
                 </a>
+                {# 各車両へのリンク #}
+                {% for mc in motorcycles %}
+                <a href="{{ url_for('vehicle.dashboard', vehicle_id=mc.id) }}" class="beta-nav-item beta-nav-sub-item" title="{{ mc.name }}">
+                    {% if mc.image_url %}
+                    <img src="{{ mc.image_url }}" alt="" class="beta-nav-vehicle-img">
+                    {% else %}
+                    <i class="fas fa-motorcycle beta-nav-vehicle-icon"></i>
+                    {% endif %}
+                    <span class="beta-nav-vehicle-name">{{ mc.name }}</span>
+                </a>
+                {% endfor %}
             </div>
 
             <div class="beta-nav-section">
