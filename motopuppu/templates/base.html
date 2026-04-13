@@ -129,7 +129,7 @@
     {% block scripts %}{% endblock %}
 
     {# ▼▼▼ クイックアクションボタン (HTMXによる遅延ロード) ▼▼▼ #}
-    {% if current_user.is_authenticated %}
+    {% if current_user.is_authenticated and not current_user.use_beta_ui %}
         <div id="quick-actions-container" 
              hx-get="{{ url_for('main.quick_actions_api') }}" 
              hx-trigger="load delay:500ms" 
