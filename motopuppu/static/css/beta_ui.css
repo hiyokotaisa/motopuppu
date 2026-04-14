@@ -1140,9 +1140,9 @@ body.beta-ui-body ::-webkit-scrollbar-thumb:hover {
         color: var(--beta-text-primary);
     }
 
-    /* Mobile menu toggle */
+    /* Mobile menu toggle - ボトムバーの「メニュー」から開けるため非表示 */
     .beta-mobile-toggle {
-        display: flex !important;
+        display: none !important;
     }
 
     .beta-mobile-overlay {
