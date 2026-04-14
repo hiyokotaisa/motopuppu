@@ -165,7 +165,7 @@ def post_upcoming_events(dry_run=False):
     # アプリケーションのベースURL（投稿文中のリンク生成用）
     # Render環境では RENDER_EXTERNAL_URL が使える
     import os
-    app_base_url = os.environ.get('RENDER_EXTERNAL_URL', 'https://motopuppu.app')
+    app_base_url = os.environ.get('RENDER_EXTERNAL_URL', 'https://motopuppu.hiyoko.dev')
     # 末尾スラッシュを除去
     app_base_url = app_base_url.rstrip('/')
 
@@ -361,7 +361,7 @@ def post_leaderboard_records(dry_run=False, hours_back=25):
         print('エラー: MISSKEY_BOT_API_TOKEN が設定されていません。')
         return {'error': 'MISSKEY_BOT_API_TOKEN not configured', 'posted': 0}
 
-    app_base_url = os.environ.get('RENDER_EXTERNAL_URL', 'https://motopuppu.app').rstrip('/')
+    app_base_url = os.environ.get('RENDER_EXTERNAL_URL', 'https://motopuppu.hiyoko.dev').rstrip('/')
     now_utc = datetime.now(timezone.utc)
     cutoff_time = now_utc - timedelta(hours=hours_back)
 
