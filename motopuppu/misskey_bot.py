@@ -1,15 +1,22 @@
 # motopuppu/misskey_bot.py
 """
-Misskey公式アカウントによるイベント自動告知モジュール。
+Misskey公式アカウントによる自動投稿モジュール。
 
-公開イベント（is_public=True）を段階的に告知投稿する。
-通知スパン: 2ヶ月前、1ヶ月前、2週間前、1週間前、3日前、1日前、当日
+1. 公開イベント（is_public=True）を段階的に告知投稿する。
+   通知スパン: 2ヶ月前、1ヶ月前、2週間前、1週間前、3日前、1日前、当日
+2. リーダーボードの新記録（コースレコード更新）を告知投稿する。
 """
+import os
+import decimal
 import requests
 from datetime import datetime, timezone, timedelta
 from flask import current_app
 from . import db
-from .models import Event, EventNotification, EventParticipant, ParticipationStatus
+from .models import (
+    Event, EventParticipant, ParticipationStatus,
+    BotNotificationLog,
+    ActivityLog, SessionLog, User, Motorcycle
+)
 from .utils.datetime_helpers import JST
 from sqlalchemy import func
 
@@ -175,10 +182,12 @@ def post_upcoming_events(dry_run=False):
 
         notification_type, prefix = tier_result
 
+        # notification_typeにevent_idを含めて一意性を確保
+        notification_key = f'event_{notification_type}_{event.id}'
+
         # 既に投稿済みかチェック
-        existing = EventNotification.query.filter_by(
-            event_id=event.id,
-            notification_type=notification_type
+        existing = BotNotificationLog.query.filter_by(
+            notification_type=notification_key
         ).first()
 
         if existing:
@@ -208,9 +217,9 @@ def post_upcoming_events(dry_run=False):
             note_id = _post_to_misskey(note_text, bot_token, misskey_instance_url)
 
             # 投稿記録を保存
-            notification = EventNotification(
+            notification = BotNotificationLog(
                 event_id=event.id,
-                notification_type=notification_type,
+                notification_type=notification_key,
                 misskey_note_id=note_id,
             )
             db.session.add(notification)
@@ -246,6 +255,227 @@ def post_upcoming_events(dry_run=False):
 
     return {
         'events_checked': len(upcoming_events),
+        'posted': posted_count,
+        'skipped': skipped_count,
+        'errors': errors,
+    }
+
+
+# ============================================================
+# 2. リーダーボード新記録（コースレコード更新）通知
+# ============================================================
+
+def _format_seconds_to_time(total_seconds):
+    """秒(Decimal)を "M:SS.fff" 形式の文字列に変換する"""
+    if total_seconds is None:
+        return "N/A"
+    if not isinstance(total_seconds, decimal.Decimal):
+        total_seconds = decimal.Decimal(str(total_seconds))
+    minutes = int(total_seconds // 60)
+    seconds = total_seconds % 60
+    return f"{minutes}:{seconds:06.3f}"
+
+
+def _build_record_note_text(circuit_name, user, motorcycle, lap_time_seconds, app_base_url):
+    """コースレコード更新の投稿文を生成する"""
+    lap_time_str = _format_seconds_to_time(lap_time_seconds)
+    user_display = user.display_name or user.misskey_username
+
+    lines = [
+        '🏆 コースレコード更新！',
+        '',
+        f'🏁 {circuit_name}',
+        f'⏱️ {lap_time_str}',
+        f'🏍️ {motorcycle.name}',
+        f'👤 {user_display}',
+        '',
+        f'リーダーボードで確認👇',
+        f'{app_base_url}/leaderboard/{circuit_name}',
+        '',
+        '#もとぷっぷー #サーキット #コースレコード'
+    ]
+
+    return '\n'.join(lines)
+
+
+def post_leaderboard_records(dry_run=False, hours_back=25):
+    """
+    直近hours_back時間以内に更新されたコースレコード（各サーキットの全体1位）を
+    Misskey公式アカウントで告知投稿する。
+
+    検出ロジック:
+    - 各サーキットについて、リーダーボード対象の全セッションから全体のベストラップを取得
+    - そのベストラップが hours_back 時間以内に作成されたものであるかを確認
+    - 既に通知済みでなければ投稿
+
+    Args:
+        dry_run: Trueの場合は実際に投稿せず、投稿予定の内容を表示のみ。
+        hours_back: 何時間前まで遡って新記録を探すか。デフォルト25時間（cronの実行間隔に余裕）。
+
+    Returns:
+        dict: 処理結果のサマリー
+    """
+    from .constants import JAPANESE_CIRCUITS
+
+    bot_token = current_app.config.get('MISSKEY_BOT_API_TOKEN')
+    misskey_instance_url = current_app.config.get('MISSKEY_INSTANCE_URL', 'https://misskey.io')
+
+    if not bot_token and not dry_run:
+        current_app.logger.error('MISSKEY_BOT_API_TOKEN が設定されていません。')
+        print('エラー: MISSKEY_BOT_API_TOKEN が設定されていません。')
+        return {'error': 'MISSKEY_BOT_API_TOKEN not configured', 'posted': 0}
+
+    app_base_url = os.environ.get('RENDER_EXTERNAL_URL', 'https://motopuppu.app').rstrip('/')
+    now_utc = datetime.now(timezone.utc)
+    cutoff_time = now_utc - timedelta(hours=hours_back)
+
+    posted_count = 0
+    skipped_count = 0
+    errors = []
+    circuits_checked = 0
+
+    # データが存在するサーキットのリストを取得
+    active_circuits = db.session.query(
+        ActivityLog.circuit_name
+    ).join(SessionLog, SessionLog.activity_log_id == ActivityLog.id).filter(
+        ActivityLog.circuit_name.isnot(None),
+        ActivityLog.circuit_name.in_(JAPANESE_CIRCUITS),
+        SessionLog.include_in_leaderboard == True,
+        SessionLog.best_lap_seconds.isnot(None)
+    ).distinct().all()
+
+    active_circuit_names = [row[0] for row in active_circuits]
+
+    if not active_circuit_names:
+        msg = 'リーダーボードにデータのあるサーキットがありません。'
+        current_app.logger.info(msg)
+        print(msg)
+        return {'posted': 0, 'skipped': 0, 'circuits_checked': 0}
+
+    for circuit_name in active_circuit_names:
+        circuits_checked += 1
+
+        # このサーキットの全体ベストラップ（1位のセッション）を取得
+        best_session = db.session.query(
+            SessionLog.id,
+            SessionLog.best_lap_seconds,
+            ActivityLog.user_id,
+            ActivityLog.motorcycle_id,
+            ActivityLog.activity_date
+        ).join(ActivityLog, SessionLog.activity_log_id == ActivityLog.id).filter(
+            ActivityLog.circuit_name == circuit_name,
+            SessionLog.include_in_leaderboard == True,
+            SessionLog.best_lap_seconds.isnot(None)
+        ).order_by(SessionLog.best_lap_seconds.asc()).first()
+
+        if not best_session:
+            continue
+
+        session_id = best_session.id
+        lap_time = best_session.best_lap_seconds
+        user_id = best_session.user_id
+        motorcycle_id = best_session.motorcycle_id
+
+        # このセッションに紐づくActivityLogの作成日時で「新しいかどうか」を判定
+        # SessionLog自体にcreated_atがないため、ActivityLogのactivity_dateを使う
+        # ただしactivity_dateはDateなので、より正確にはSessionLogのIDの新しさで判定する
+        # → BotNotificationLogに記録がなければ「初めて1位になった」=新記録
+        notification_type = f'leaderboard_record_{session_id}'
+
+        # 既に通知済みか確認
+        existing = BotNotificationLog.query.filter_by(
+            notification_type=notification_type
+        ).first()
+
+        if existing:
+            skipped_count += 1
+            continue
+
+        # 追加チェック: activity_dateが直近のものかどうか
+        # 過去の記録を初回実行時にすべて投稿しないよう、cutoff以降の記録のみ対象
+        activity = ActivityLog.query.get(
+            db.session.query(SessionLog.activity_log_id).filter_by(id=session_id).scalar()
+        )
+        if not activity:
+            continue
+
+        # activity_dateはDate型なので、cutoffの日付と比較
+        if activity.activity_date < cutoff_time.date():
+            # 古い記録なので初回スキップ（でも通知済みとして記録しておく）
+            notification = BotNotificationLog(
+                notification_type=notification_type,
+                misskey_note_id=None,
+            )
+            db.session.add(notification)
+            try:
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+            skipped_count += 1
+            continue
+
+        # ユーザーと車両情報を取得
+        user = db.session.get(User, user_id)
+        motorcycle = db.session.get(Motorcycle, motorcycle_id)
+        if not user or not motorcycle:
+            continue
+
+        note_text = _build_record_note_text(circuit_name, user, motorcycle, lap_time, app_base_url)
+
+        if dry_run:
+            print(f'\n{"="*60}')
+            print(f'[DRY RUN] 🏆 新記録: {circuit_name}')
+            print(f'  タイム: {_format_seconds_to_time(lap_time)}')
+            print(f'  ライダー: {user.display_name or user.misskey_username}')
+            print(f'  車両: {motorcycle.name}')
+            print(f'  セッションID: {session_id}')
+            print(f'{"—"*60}')
+            print(note_text)
+            print(f'{"="*60}')
+            posted_count += 1
+            continue
+
+        # 実際に投稿
+        try:
+            note_id = _post_to_misskey(note_text, bot_token, misskey_instance_url)
+
+            notification = BotNotificationLog(
+                notification_type=notification_type,
+                misskey_note_id=note_id,
+            )
+            db.session.add(notification)
+            db.session.commit()
+
+            posted_count += 1
+            current_app.logger.info(
+                f'投稿成功: コースレコード {circuit_name} {_format_seconds_to_time(lap_time)} → Note ID: {note_id}'
+            )
+            print(f'✅ 投稿成功: 🏆 {circuit_name} [{_format_seconds_to_time(lap_time)}]')
+
+        except requests.exceptions.RequestException as e:
+            db.session.rollback()
+            error_msg = f'Misskey API エラー: レコード通知 {circuit_name} - {e}'
+            current_app.logger.error(error_msg)
+            print(f'❌ {error_msg}')
+            errors.append(error_msg)
+
+        except Exception as e:
+            db.session.rollback()
+            error_msg = f'予期せぬエラー: レコード通知 {circuit_name} - {e}'
+            current_app.logger.error(error_msg, exc_info=True)
+            print(f'❌ {error_msg}')
+            errors.append(error_msg)
+
+    # サマリー表示
+    print(f'\n--- リーダーボード通知 処理完了 ---')
+    print(f'  チェックしたサーキット数: {circuits_checked}')
+    print(f'  投稿{"予定" if dry_run else "成功"}: {posted_count}件')
+    print(f'  スキップ: {skipped_count}件')
+    if errors:
+        print(f'  エラー: {len(errors)}件')
+
+    return {
+        'circuits_checked': circuits_checked,
         'posted': posted_count,
         'skipped': skipped_count,
         'errors': errors,

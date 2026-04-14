@@ -724,6 +724,35 @@ def post_upcoming_events_command(dry_run):
         raise SystemExit(1)
 
 
+@click.command('post-leaderboard-records')
+@with_appcontext
+@click.option('--dry-run', is_flag=True, help='実際には投稿せず、投稿内容をプレビューします。')
+def post_leaderboard_records_command(dry_run):
+    """リーダーボードの新コースレコードをMisskey公式アカウントで告知投稿します。"""
+    from .misskey_bot import post_leaderboard_records
+    result = post_leaderboard_records(dry_run=dry_run)
+    if result.get('error'):
+        raise SystemExit(1)
+
+
+@click.command('post-misskey-bot')
+@with_appcontext
+@click.option('--dry-run', is_flag=True, help='実際には投稿せず、投稿内容をプレビューします。')
+def post_misskey_bot_command(dry_run):
+    """Misskey Bot の全自動投稿を実行します（イベント告知 + リーダーボード通知）。
+    Render Cron Job からはこのコマンドを使用してください。"""
+    from .misskey_bot import post_upcoming_events, post_leaderboard_records
+
+    click.echo('=== 1. イベント告知 ===')
+    event_result = post_upcoming_events(dry_run=dry_run)
+
+    click.echo('\n=== 2. リーダーボード新記録通知 ===')
+    record_result = post_leaderboard_records(dry_run=dry_run)
+
+    if event_result.get('error') or record_result.get('error'):
+        raise SystemExit(1)
+
+
 # --- アプリケーションへのコマンド登録 ---
 def register_commands(app):
     """FlaskアプリケーションインスタンスにCLIコマンドを登録する"""
@@ -737,4 +766,6 @@ def register_commands(app):
     app.cli.add_command(list_achievements_command)
     app.cli.add_command(merge_duplicate_achievements_command)
     app.cli.add_command(post_upcoming_events_command)
+    app.cli.add_command(post_leaderboard_records_command)
+    app.cli.add_command(post_misskey_bot_command)
     # ▲▲▲ 登録ここまで ▲▲▲
