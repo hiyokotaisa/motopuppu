@@ -60,7 +60,7 @@
                 {# カテゴリごとの車両 #}
                 {% for cat in g.vehicle_categories %}
                 <div class="beta-nav-category-wrapper beta-category-sortable-item" data-category-id="{{ cat.id }}">
-                    <div class="beta-nav-category-header" data-bs-toggle="collapse" data-bs-target="#beta-cat-{{ cat.id }}" aria-expanded="true">
+                    <div class="beta-nav-category-header" data-bs-toggle="collapse" data-bs-target="#beta-cat-{{ cat.id }}" aria-expanded="true" aria-controls="beta-cat-{{ cat.id }}">
                         <span class="beta-category-drag-handle" title="カテゴリをドラッグして並び替え"><i class="fas fa-grip-vertical"></i></span>
                         <i class="fas fa-chevron-down beta-nav-category-chevron"></i>
                         <span class="beta-nav-category-name">{{ cat.name }}</span>
@@ -360,7 +360,7 @@
                 wrapper.className = 'beta-nav-category-wrapper beta-category-sortable-item';
                 wrapper.dataset.categoryId = cat.id;
                 wrapper.innerHTML = `
-                    <div class="beta-nav-category-header" aria-expanded="true">
+                    <div class="beta-nav-category-header" data-bs-toggle="collapse" data-bs-target="#beta-cat-${cat.id}" aria-expanded="true" aria-controls="beta-cat-${cat.id}">
                         <span class="beta-category-drag-handle" title="カテゴリをドラッグして並び替え"><i class="fas fa-grip-vertical"></i></span>
                         <i class="fas fa-chevron-down beta-nav-category-chevron"></i>
                         <span class="beta-nav-category-name">${cat.name}</span>
@@ -370,7 +370,7 @@
                             <button class="beta-category-edit-btn beta-cat-delete" data-category-id="${cat.id}" data-category-name="${cat.name}" title="削除"><i class="fas fa-trash-alt"></i></button>
                         </div>
                     </div>
-                    <div class="show beta-vehicle-sortable-group beta-nav-category-vehicles" id="beta-cat-${cat.id}" data-category-id="${cat.id}"></div>
+                    <div class="collapse show beta-vehicle-sortable-group beta-nav-category-vehicles" id="beta-cat-${cat.id}" data-category-id="${cat.id}"></div>
                 `;
                 vehicleListArea.appendChild(wrapper);
 
@@ -453,7 +453,9 @@
         const states = {};
         vehicleListArea.querySelectorAll('.beta-nav-category-vehicles').forEach(el => {
             const catId = el.dataset.categoryId;
-            states[catId] = el.classList.contains('show');
+            // .show または Bootstrapの .collapsing の状態を考慮
+            const isOpen = el.classList.contains('show') || el.classList.contains('collapsing');
+            states[catId] = isOpen;
         });
         localStorage.setItem(CAT_STATE_KEY, JSON.stringify(states));
     }
@@ -480,23 +482,36 @@
 
     applyCategoryStates();
 
-    // カテゴリヘッダーのクリックで折りたたみをトグル
-    vehicleListArea.addEventListener('click', function(e) {
-        if (isSortMode) return;
-        const header = e.target.closest('.beta-nav-category-header');
-        if (!header || e.target.closest('.beta-category-edit-actions')) return;
+    applyCategoryStates();
 
-        const targetId = header.getAttribute('data-bs-target') || '#beta-cat-' + header.closest('.beta-category-sortable-item')?.dataset.categoryId;
-        const target = document.querySelector(targetId);
-        if (!target) return;
-
-        e.preventDefault();
-        target.classList.toggle('show');
-        const chevron = header.querySelector('.beta-nav-category-chevron');
+    // BootstrapのCollapseイベントにフックして、シェブロンの回転と状態保存を行う
+    vehicleListArea.addEventListener('hide.bs.collapse', function(e) {
+        if (!e.target.classList.contains('beta-nav-category-vehicles')) return;
+        const chevron = e.target.previousElementSibling?.querySelector('.beta-nav-category-chevron');
         if (chevron) {
-            chevron.style.transform = target.classList.contains('show') ? '' : 'rotate(-90deg)';
+            chevron.style.transform = 'rotate(-90deg)';
         }
-        saveCategoryStates();
+        // collapseイベント直後は一時的に無理やり状態を作るわけではないため、setTimeoutで保存
+        setTimeout(saveCategoryStates, 350);
+    });
+
+    vehicleListArea.addEventListener('show.bs.collapse', function(e) {
+        if (!e.target.classList.contains('beta-nav-category-vehicles')) return;
+        const chevron = e.target.previousElementSibling?.querySelector('.beta-nav-category-chevron');
+        if (chevron) {
+            chevron.style.transform = '';
+        }
+        setTimeout(saveCategoryStates, 350);
+    });
+
+    // --- 編集ボタンクリック時にBootstrapのCollapseが反応しないようにする ---
+    vehicleListArea.addEventListener('click', function(e) {
+        const editActions = e.target.closest('.beta-category-edit-actions');
+        if (editActions) {
+            // Collapseの発火を防ぐ
+            e.preventDefault();
+            e.stopPropagation();
+        }
     });
 })();
 </script>
