@@ -1428,6 +1428,12 @@ body.beta-ui-body ::-webkit-scrollbar-thumb:hover {
         color: var(--beta-text-primary);
     }
 
+    /* サイドバーが開いている時はボトムバーを隠す */
+    .beta-sidebar.active ~ .beta-bottom-bar,
+    .beta-sidebar.active + .beta-mobile-overlay + .beta-main-content + .beta-bottom-bar {
+        display: none !important;
+    }
+
     /* Mobile menu toggle - ボトムバーの「メニュー」から開けるため非表示 */
     .beta-mobile-toggle {
         display: none !important;
