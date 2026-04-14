@@ -56,11 +56,15 @@ def get_announcements():
     return announcements_for_modal, important_notice_content
 
 def get_latest_total_distance(motorcycle_id, offset_val):
-    # ... (unchanged) ...
+    # ODO保留中 (is_odo_pending=True) のレコードは最大距離計算から除外
     latest_fuel_dist = db.session.query(db.func.max(FuelEntry.total_distance)).filter(
-        FuelEntry.motorcycle_id == motorcycle_id).scalar() or 0
+        FuelEntry.motorcycle_id == motorcycle_id,
+        FuelEntry.is_odo_pending == False
+    ).scalar() or 0
     latest_maint_dist = db.session.query(db.func.max(MaintenanceEntry.total_distance_at_maintenance)).filter(
-        MaintenanceEntry.motorcycle_id == motorcycle_id).scalar() or 0
+        MaintenanceEntry.motorcycle_id == motorcycle_id,
+        MaintenanceEntry.is_odo_pending == False
+    ).scalar() or 0
     return max(latest_fuel_dist, latest_maint_dist, offset_val if offset_val is not None else 0)
 
 
@@ -389,8 +393,8 @@ def get_dashboard_stats(user_motorcycles_all, user_motorcycle_ids_public, target
                 stats['non_cost_label'] = target_vehicle_for_stats.name
         else: # 公道車（個別）
             vehicle_id = target_vehicle_for_stats.id
-            fuel_q = db.session.query(FuelEntry.total_distance.label('distance')).filter(FuelEntry.motorcycle_id == vehicle_id)
-            maint_q = db.session.query(MaintenanceEntry.total_distance_at_maintenance.label('distance')).filter(MaintenanceEntry.motorcycle_id == vehicle_id)
+            fuel_q = db.session.query(FuelEntry.total_distance.label('distance')).filter(FuelEntry.motorcycle_id == vehicle_id, FuelEntry.is_odo_pending == False)
+            maint_q = db.session.query(MaintenanceEntry.total_distance_at_maintenance.label('distance')).filter(MaintenanceEntry.motorcycle_id == vehicle_id, MaintenanceEntry.is_odo_pending == False)
             if start_date:
                 fuel_q = fuel_q.filter(FuelEntry.entry_date.between(start_date, end_date))
                 maint_q = maint_q.filter(MaintenanceEntry.maintenance_date.between(start_date, end_date))
@@ -434,8 +438,8 @@ def get_dashboard_stats(user_motorcycles_all, user_motorcycle_ids_public, target
         # 走行距離
         total_running_distance = 0
         if user_motorcycle_ids_public:
-            fuel_dist_q = db.session.query(FuelEntry.motorcycle_id.label('mc_id'), FuelEntry.total_distance.label('distance')).filter(FuelEntry.motorcycle_id.in_(user_motorcycle_ids_public))
-            maint_dist_q = db.session.query(MaintenanceEntry.motorcycle_id.label('mc_id'), MaintenanceEntry.total_distance_at_maintenance.label('distance')).filter(MaintenanceEntry.motorcycle_id.in_(user_motorcycle_ids_public))
+            fuel_dist_q = db.session.query(FuelEntry.motorcycle_id.label('mc_id'), FuelEntry.total_distance.label('distance')).filter(FuelEntry.motorcycle_id.in_(user_motorcycle_ids_public), FuelEntry.is_odo_pending == False)
+            maint_dist_q = db.session.query(MaintenanceEntry.motorcycle_id.label('mc_id'), MaintenanceEntry.total_distance_at_maintenance.label('distance')).filter(MaintenanceEntry.motorcycle_id.in_(user_motorcycle_ids_public), MaintenanceEntry.is_odo_pending == False)
             if start_date:
                 fuel_dist_q = fuel_dist_q.filter(FuelEntry.entry_date.between(start_date, end_date))
                 maint_dist_q = maint_dist_q.filter(MaintenanceEntry.maintenance_date.between(start_date, end_date))
@@ -491,19 +495,25 @@ def get_latest_log_info_for_vehicles(motorcycles):
 
     motorcycle_ids = [m.id for m in motorcycles]
 
-    # 給油記録から必要な情報を選択
+    # 給油記録から必要な情報を選択 (ODO保留中のレコードは除外)
     fuel_q = db.session.query(
         FuelEntry.motorcycle_id.label('motorcycle_id'),
         FuelEntry.odometer_reading.label('odo'),
         FuelEntry.entry_date.label('log_date')
-    ).filter(FuelEntry.motorcycle_id.in_(motorcycle_ids))
+    ).filter(
+        FuelEntry.motorcycle_id.in_(motorcycle_ids),
+        FuelEntry.is_odo_pending == False
+    )
 
-    # 整備記録から必要な情報を選択
+    # 整備記録から必要な情報を選択 (ODO保留中のレコードは除外)
     maint_q = db.session.query(
         MaintenanceEntry.motorcycle_id.label('motorcycle_id'),
         MaintenanceEntry.odometer_reading_at_maintenance.label('odo'),
         MaintenanceEntry.maintenance_date.label('log_date')
-    ).filter(MaintenanceEntry.motorcycle_id.in_(motorcycle_ids))
+    ).filter(
+        MaintenanceEntry.motorcycle_id.in_(motorcycle_ids),
+        MaintenanceEntry.is_odo_pending == False
+    )
 
     # 2つのクエリをUNIONで結合
     combined_q = union_all(fuel_q, maint_q).subquery()
