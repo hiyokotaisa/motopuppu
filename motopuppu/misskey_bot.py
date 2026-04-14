@@ -45,6 +45,27 @@ def _get_applicable_tier(days_until_event):
     return None
 
 
+def _get_best_tier_for_days(days_until_event):
+    """
+    残日数に最も近いティアを返す（初回通知用）。
+    まだ一度も通知されていないイベントが、ティアの隙間に入っている場合に使用。
+    次に来る直近のティアのプレフィックスを採用する。
+    """
+    if days_until_event < 0:
+        return None
+    if days_until_event == 0:
+        return 'today', '🏁 本日開催！'
+
+    # 残日数に最も近い「次の」ティアを探す
+    # 例: 40日 → 次は30daysティア → "📢 イベントのお知らせ" として投稿
+    best = None
+    for tier_type, upper, lower, prefix in NOTIFICATION_TIERS:
+        if days_until_event >= lower:
+            best = (f'initial_{tier_type}', '📢 イベントのお知らせ')
+            break
+    return best
+
+
 def _build_note_text(event, prefix, app_base_url):
     """投稿文を生成する"""
     # JST変換して表示用の日時文字列を作る
@@ -176,14 +197,29 @@ def post_upcoming_events(dry_run=False):
 
         # 該当する通知タイプを判定
         tier_result = _get_applicable_tier(days_until)
+
         if tier_result is None:
-            # このイベントは現時点でどの通知スパンにも該当しない
-            continue
+            # 定期ティアに該当しない → まだ一度も通知されていないイベントなら初回通知
+            # キー形式: event_{event_id}_{type} なので前方一致で安全に検索
+            has_any_notification = BotNotificationLog.query.filter(
+                BotNotificationLog.notification_type.like(f'event_{event.id}_%')
+            ).first()
 
-        notification_type, prefix = tier_result
+            if has_any_notification:
+                # 既に何らかの通知済み → 次のティアを待つ
+                continue
 
-        # notification_typeにevent_idを含めて一意性を確保
-        notification_key = f'event_{notification_type}_{event.id}'
+            # 初回通知を試みる
+            initial_result = _get_best_tier_for_days(days_until)
+            if initial_result is None:
+                continue
+            notification_type, prefix = initial_result
+        else:
+            notification_type, prefix = tier_result
+
+        # notification_keyにevent_idを先頭に含めて一意性を確保
+        # 形式: event_{event_id}_{notification_type}
+        notification_key = f'event_{event.id}_{notification_type}'
 
         # 既に投稿済みかチェック
         existing = BotNotificationLog.query.filter_by(

@@ -26,7 +26,79 @@
 * ファイル添付 (整備記録、計画中)
 * 詳細な統計・レポート表示（グラフなど）(計画中)
 * 消耗品（タイヤ、オイル）交換記録 (計画中)
+* Misskey Bot 自動投稿（イベント告知・リーダーボード新記録通知）
 * （将来的に: カスタマイズ、データエクスポート/インポートなど）
+
+## Misskey Bot 自動投稿
+
+公式Misskeyアカウント (`@motopuppu@misskey.io`) から、以下の情報を自動投稿する機能です。
+Render Cron Job（または手動CLI実行）で毎日定時に実行されます。
+
+### 機能一覧
+
+#### 1. 公開イベント段階的告知
+
+`is_public=True` の公開イベントについて、開催日までの残日数に応じた7段階の告知を投稿します。
+
+| 通知タイミング | 残日数 | 投稿プレフィックス |
+|---------------|--------|-------------------|
+| 2ヶ月前 | 56〜60日前 | 📢 2ヶ月後に開催！ |
+| 1ヶ月前 | 28〜30日前 | 📢 1ヶ月後に開催！ |
+| 2週間前 | 13〜14日前 | 📢 2週間後に開催！ |
+| 1週間前 | 6〜7日前 | 📢 来週開催！ |
+| 3日前 | 2〜3日前 | 📢 まもなく開催！ |
+| 前日 | 1日前 | 📢 明日開催！ |
+| 当日 | 0日 | 🏁 本日開催！ |
+
+#### 2. リーダーボード新記録通知
+
+各サーキットのリーダーボードでコースレコード（全体1位）が更新された場合に告知を投稿します。
+
+### CLIコマンド
+
+| コマンド | 説明 |
+|---------|------|
+| `flask post-misskey-bot` | **推奨（Cron Job用）** — 全自動投稿を一括実行（イベント告知 + リーダーボード通知） |
+| `flask post-upcoming-events` | イベント告知のみ実行 |
+| `flask post-leaderboard-records` | リーダーボード新記録通知のみ実行 |
+
+すべてのコマンドに `--dry-run` オプションがあり、実際に投稿せず内容をプレビューできます。
+
+```bash
+# ドライラン（プレビュー）
+podman-compose exec web flask post-misskey-bot --dry-run
+
+# 実際に投稿
+podman-compose exec web flask post-misskey-bot
+```
+
+### 環境変数
+
+| 変数名 | 必須 | 説明 |
+|--------|------|------|
+| `MISSKEY_BOT_API_TOKEN` | ✅ | 公式アカウントのAPIトークン (`write:notes` 権限) |
+| `MISSKEY_INSTANCE_URL` | — | Misskeyインスタンス URL（デフォルト: `https://misskey.io`） |
+
+> **APIトークンの取得方法:**
+> Misskey.io に公式アカウントでログイン → **設定 → API** → `write:notes` 権限のアクセストークンを生成
+
+### Render Cron Job 設定
+
+本番環境では Render の Cron Job サービスとして定期実行します。
+
+| 項目 | 設定値 |
+|------|--------|
+| **Docker Command** | `flask --app motopuppu post-misskey-bot` |
+| **Schedule** | `0 0 * * *`（毎日 0:00 UTC = 9:00 JST） |
+| **Instance Type** | Starter（最小で十分） |
+| **環境変数** | `DATABASE_URI`, `SECRET_KEY`, `SECRET_CRYPTO_KEY`, `MISSKEY_BOT_API_TOKEN`, `FLASK_APP=motopuppu` |
+
+### 重複防止の仕組み
+
+`bot_notification_logs` テーブルに投稿記録を保存し、同じ通知を2回投稿しないようにしています。
+通知タイプのキー例：
+- イベント告知: `event_60days_123`（イベントID=123の2ヶ月前通知）
+- リーダーボード: `leaderboard_record_456`（セッションID=456のコースレコード）
 
 ## 技術スタック
 
