@@ -1,6 +1,7 @@
 {# motopuppu/templates/beta/_beta_layout_head.html #}
 {# Beta UI共通の<head>追加要素 - stylesブロック内でincludeする #}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/beta_ui.css') }}">
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
 <script>
 // テーマとモードをページ描画前に即座に適用（FOUC防止）
 (function() {

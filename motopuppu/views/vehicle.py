@@ -12,7 +12,7 @@ from flask_login import login_required, current_user
 # ▼▼▼【ここから変更】削除対象のモデルをインポート ▼▼▼
 from ..models import (
     db, User, Motorcycle, MaintenanceReminder, OdoResetLog, MaintenanceEntry, ActivityLog,
-    GeneralNote, Event, FuelEntry, SessionLog, TouringLog, SettingSheet
+    GeneralNote, Event, FuelEntry, SessionLog, TouringLog, SettingSheet, VehicleCategory
 )
 # ▲▲▲【変更はここまで】▲▲▲
 from ..forms import VehicleForm, OdoResetLogForm
@@ -731,3 +731,162 @@ def _build_vehicle_timeline(motorcycle, fuels, maintenances, notes, activities, 
         
     timeline_items.sort(key=lambda x: x['date'], reverse=True)
     return timeline_items[:30]
+
+
+# --- 車両カテゴリ管理API ---
+
+@vehicle_bp.route('/categories', methods=['POST'])
+@limiter.limit("30 per hour")
+@login_required
+def create_category():
+    """車両カテゴリを新規作成する"""
+    data = request.get_json()
+    if not data or not data.get('name', '').strip():
+        return jsonify({'status': 'error', 'message': 'カテゴリ名は必須です。'}), 400
+
+    name = data['name'].strip()
+    if len(name) > 50:
+        return jsonify({'status': 'error', 'message': 'カテゴリ名は50文字以内で入力してください。'}), 400
+
+    # 重複チェック
+    existing = VehicleCategory.query.filter_by(user_id=current_user.id, name=name).first()
+    if existing:
+        return jsonify({'status': 'error', 'message': '同じ名前のカテゴリが既に存在します。'}), 409
+
+    # 最大順番を取得して末尾に追加
+    max_order = db.session.query(db.func.max(VehicleCategory.display_order)).filter_by(
+        user_id=current_user.id
+    ).scalar() or 0
+
+    try:
+        new_category = VehicleCategory(
+            user_id=current_user.id,
+            name=name,
+            display_order=max_order + 1
+        )
+        db.session.add(new_category)
+        db.session.commit()
+        return jsonify({
+            'status': 'success',
+            'category': {'id': new_category.id, 'name': new_category.name, 'display_order': new_category.display_order}
+        }), 201
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error creating vehicle category: {e}", exc_info=True)
+        return jsonify({'status': 'error', 'message': 'カテゴリの作成に失敗しました。'}), 500
+
+
+@vehicle_bp.route('/categories/<int:category_id>', methods=['PUT'])
+@limiter.limit("30 per hour")
+@login_required
+def update_category(category_id):
+    """車両カテゴリ名を変更する"""
+    category = VehicleCategory.query.filter_by(id=category_id, user_id=current_user.id).first_or_404()
+    data = request.get_json()
+    if not data or not data.get('name', '').strip():
+        return jsonify({'status': 'error', 'message': 'カテゴリ名は必須です。'}), 400
+
+    name = data['name'].strip()
+    if len(name) > 50:
+        return jsonify({'status': 'error', 'message': 'カテゴリ名は50文字以内で入力してください。'}), 400
+
+    # 重複チェック (自分自身を除く)
+    existing = VehicleCategory.query.filter(
+        VehicleCategory.user_id == current_user.id,
+        VehicleCategory.name == name,
+        VehicleCategory.id != category_id
+    ).first()
+    if existing:
+        return jsonify({'status': 'error', 'message': '同じ名前のカテゴリが既に存在します。'}), 409
+
+    try:
+        category.name = name
+        db.session.commit()
+        return jsonify({'status': 'success', 'category': {'id': category.id, 'name': category.name}})
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error updating vehicle category {category_id}: {e}", exc_info=True)
+        return jsonify({'status': 'error', 'message': 'カテゴリの更新に失敗しました。'}), 500
+
+
+@vehicle_bp.route('/categories/<int:category_id>', methods=['DELETE'])
+@limiter.limit("30 per hour")
+@login_required
+def delete_category(category_id):
+    """車両カテゴリを削除する (所属車両は未分類に移動)"""
+    category = VehicleCategory.query.filter_by(id=category_id, user_id=current_user.id).first_or_404()
+
+    try:
+        # 所属車両を未分類に移動
+        Motorcycle.query.filter_by(vehicle_category_id=category_id).update(
+            {'vehicle_category_id': None}, synchronize_session='fetch'
+        )
+        db.session.delete(category)
+        db.session.commit()
+        return jsonify({'status': 'success', 'message': f'カテゴリ「{category.name}」を削除しました。'})
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error deleting vehicle category {category_id}: {e}", exc_info=True)
+        return jsonify({'status': 'error', 'message': 'カテゴリの削除に失敗しました。'}), 500
+
+
+@vehicle_bp.route('/reorder', methods=['POST'])
+@limiter.limit("30 per hour")
+@login_required
+def reorder_vehicles():
+    """
+    車両の並び順とカテゴリ所属を一括保存する。
+    リクエストボディ:
+    {
+      "uncategorized": [vehicle_id, ...],
+      "categories": [
+        {"id": category_id, "vehicle_ids": [vehicle_id, ...]},
+        ...
+      ]
+    }
+    """
+    data = request.get_json()
+    if not data:
+        return jsonify({'status': 'error', 'message': 'リクエストデータがありません。'}), 400
+
+    try:
+        # ユーザーの全車両IDを取得してバリデーション用に保持
+        user_vehicle_ids = {v.id for v in Motorcycle.query.filter_by(user_id=current_user.id, is_archived=False).all()}
+        user_category_ids = {c.id for c in VehicleCategory.query.filter_by(user_id=current_user.id).all()}
+
+        # 未分類車両の並び順を更新
+        uncategorized = data.get('uncategorized', [])
+        for order, vehicle_id in enumerate(uncategorized):
+            if vehicle_id in user_vehicle_ids:
+                Motorcycle.query.filter_by(id=vehicle_id, user_id=current_user.id).update(
+                    {'vehicle_category_id': None, 'display_order': order},
+                    synchronize_session='fetch'
+                )
+
+        # カテゴリ順序と所属車両の並び順を更新
+        categories = data.get('categories', [])
+        for cat_order, cat_data in enumerate(categories):
+            cat_id = cat_data.get('id')
+            if cat_id not in user_category_ids:
+                continue
+
+            # カテゴリの表示順を更新
+            VehicleCategory.query.filter_by(id=cat_id, user_id=current_user.id).update(
+                {'display_order': cat_order}, synchronize_session='fetch'
+            )
+
+            # カテゴリ内車両の並び順を更新
+            vehicle_ids = cat_data.get('vehicle_ids', [])
+            for v_order, vehicle_id in enumerate(vehicle_ids):
+                if vehicle_id in user_vehicle_ids:
+                    Motorcycle.query.filter_by(id=vehicle_id, user_id=current_user.id).update(
+                        {'vehicle_category_id': cat_id, 'display_order': v_order},
+                        synchronize_session='fetch'
+                    )
+
+        db.session.commit()
+        return jsonify({'status': 'success', 'message': '車両の並び順を保存しました。'})
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error reordering vehicles: {e}", exc_info=True)
+        return jsonify({'status': 'error', 'message': '並び替えの保存に失敗しました。'}), 500

@@ -499,6 +499,255 @@ body.beta-ui-body.beta-light .beta-sidebar-brand-icon {
     white-space: nowrap;
 }
 
+/* --- Vehicle Category & Sort Mode --- */
+.beta-nav-section-label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.beta-vehicle-sort-toggle {
+    background: none;
+    border: none;
+    color: var(--beta-text-muted);
+    cursor: pointer;
+    padding: 0.15rem 0.35rem;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    transition: var(--beta-transition);
+    opacity: 0.6;
+}
+
+.beta-vehicle-sort-toggle:hover,
+.beta-vehicle-sort-toggle.active {
+    opacity: 1;
+    color: var(--beta-accent);
+    background: var(--beta-accent-glow);
+}
+
+/* Sort controls bar */
+.beta-vehicle-sort-controls {
+    padding: 0.5rem 0.5rem 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.beta-sort-actions {
+    display: flex;
+    gap: 0.35rem;
+}
+
+.beta-sort-btn {
+    flex: 1;
+    padding: 0.35rem 0.5rem;
+    border-radius: var(--beta-radius-sm);
+    border: 1px solid var(--beta-border);
+    background: var(--beta-bg-card);
+    color: var(--beta-text-secondary);
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--beta-transition);
+    text-align: center;
+}
+
+.beta-sort-btn:hover {
+    border-color: var(--beta-accent);
+    color: var(--beta-text-primary);
+}
+
+.beta-sort-save {
+    background: var(--beta-accent);
+    color: #fff;
+    border-color: var(--beta-accent);
+}
+
+.beta-sort-save:hover {
+    filter: brightness(1.15);
+    color: #fff;
+}
+
+.beta-sort-cancel:hover {
+    border-color: var(--beta-accent-red);
+    color: var(--beta-accent-red);
+}
+
+.beta-sort-add-cat {
+    border-style: dashed;
+    border-color: var(--beta-accent);
+    color: var(--beta-accent);
+    opacity: 0.8;
+}
+
+.beta-sort-add-cat:hover {
+    opacity: 1;
+    background: var(--beta-accent-glow);
+}
+
+/* Category wrapper */
+.beta-nav-category-wrapper {
+    margin-top: 0.25rem;
+}
+
+/* Category header */
+.beta-nav-category-header {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.45rem 0.75rem;
+    padding-left: 1rem;
+    border-radius: var(--beta-radius-sm);
+    cursor: pointer;
+    transition: var(--beta-transition);
+    user-select: none;
+    font-size: 0.75rem;
+    color: var(--beta-text-muted);
+}
+
+.beta-nav-category-header:hover {
+    background: rgba(148, 163, 184, 0.06);
+    color: var(--beta-text-secondary);
+}
+
+.beta-nav-category-chevron {
+    font-size: 0.55rem;
+    transition: transform 0.2s ease;
+    width: 12px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.beta-nav-category-name {
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.beta-nav-category-count {
+    font-size: 0.6rem;
+    font-weight: 600;
+    background: rgba(148, 163, 184, 0.1);
+    color: var(--beta-text-muted);
+    padding: 0.1rem 0.35rem;
+    border-radius: 10px;
+    min-width: 16px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+/* Category vehicles container */
+.beta-nav-category-vehicles {
+    min-height: 4px;
+}
+
+.beta-nav-category-vehicles:not(.show) {
+    display: none;
+}
+
+/* Category edit actions (only visible in sort mode) */
+.beta-category-edit-actions {
+    display: none;
+    gap: 0.2rem;
+    flex-shrink: 0;
+}
+
+.beta-category-edit-btn {
+    background: none;
+    border: none;
+    color: var(--beta-text-muted);
+    cursor: pointer;
+    padding: 0.15rem 0.3rem;
+    border-radius: 3px;
+    font-size: 0.65rem;
+    transition: var(--beta-transition);
+}
+
+.beta-category-edit-btn:hover {
+    color: var(--beta-text-primary);
+    background: rgba(148, 163, 184, 0.1);
+}
+
+.beta-cat-delete:hover {
+    color: var(--beta-accent-red);
+    background: rgba(239, 68, 68, 0.1);
+}
+
+/* Drag handles (hidden by default, visible in sort mode) */
+.beta-vehicle-drag-handle,
+.beta-category-drag-handle {
+    display: none;
+    cursor: grab;
+    color: var(--beta-text-muted);
+    font-size: 0.7rem;
+    padding: 0.15rem;
+    flex-shrink: 0;
+    opacity: 0.5;
+    transition: var(--beta-transition);
+}
+
+.beta-vehicle-drag-handle:hover,
+.beta-category-drag-handle:hover {
+    opacity: 1;
+    color: var(--beta-accent);
+}
+
+/* Sort mode active state */
+.beta-sidebar-sort-mode .beta-vehicle-drag-handle,
+.beta-sidebar-sort-mode .beta-category-drag-handle {
+    display: inline-flex;
+}
+
+.beta-sidebar-sort-mode .beta-category-edit-actions {
+    display: flex;
+}
+
+.beta-sidebar-sort-mode .beta-nav-category-count {
+    display: none;
+}
+
+.beta-sidebar-sort-mode .beta-nav-category-header {
+    background: rgba(148, 163, 184, 0.04);
+}
+
+.beta-sidebar-sort-mode .beta-vehicle-sortable-group {
+    min-height: 24px;
+    border: 1px dashed transparent;
+    border-radius: var(--beta-radius-sm);
+    transition: border-color 0.2s ease;
+    padding: 2px 0;
+}
+
+.beta-sidebar-sort-mode .beta-vehicle-sortable-group:empty {
+    border-color: var(--beta-border);
+}
+
+/* SortableJS ghost & drag styles */
+.beta-vehicle-sortable-ghost {
+    opacity: 0.3;
+    background: var(--beta-accent-glow) !important;
+    border-radius: var(--beta-radius-sm);
+}
+
+.beta-vehicle-sortable-chosen {
+    background: rgba(148, 163, 184, 0.08);
+    border-radius: var(--beta-radius-sm);
+}
+
+.beta-vehicle-sortable-drag {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3) !important;
+    border-radius: var(--beta-radius-sm);
+}
+
+.beta-category-sortable-ghost {
+    opacity: 0.3;
+    border: 2px dashed var(--beta-accent) !important;
+    border-radius: var(--beta-radius-sm);
+}
+
 /* Sidebar User Section */
 .beta-sidebar-user {
     padding: 1rem 1.25rem;

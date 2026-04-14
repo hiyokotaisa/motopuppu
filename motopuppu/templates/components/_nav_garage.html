@@ -1,5 +1,6 @@
 {% if g.user_motorcycles %}
-{% for motorcycle in g.user_motorcycles %}
+{% set uncategorized_vehicles = g.user_motorcycles | rejectattr('vehicle_category_id') | list %}
+{% for motorcycle in uncategorized_vehicles %}
 <li>
     <a class="dropdown-item d-flex align-items-center py-2 hover-primary" href="{{ url_for('vehicle.dashboard', vehicle_id=motorcycle.id) }}" title="{{ motorcycle.name }}のダッシュボードを開く">
         {% if motorcycle.image_url %}
@@ -13,6 +14,32 @@
         <i class="fas fa-angle-right ms-2 text-muted small"></i>
     </a>
 </li>
+{% endfor %}
+{% for cat in g.vehicle_categories %}
+{% set cat_vehicles = cat.motorcycles | rejectattr('is_archived') | list %}
+{% if cat_vehicles %}
+<li><hr class="dropdown-divider"></li>
+<li>
+    <span class="dropdown-item-text text-muted py-1 small">
+        <i class="fas fa-folder fa-fw me-1"></i>{{ cat.name }}
+    </span>
+</li>
+{% for motorcycle in cat_vehicles %}
+<li>
+    <a class="dropdown-item d-flex align-items-center py-2 hover-primary" href="{{ url_for('vehicle.dashboard', vehicle_id=motorcycle.id) }}" title="{{ motorcycle.name }}のダッシュボードを開く">
+        {% if motorcycle.image_url %}
+        <img src="{{ motorcycle.image_url }}" alt="{{ motorcycle.name }}" class="rounded-circle me-3 border" style="width: 32px; height: 32px; object-fit: cover;">
+        {% else %}
+        <div class="bg-light rounded-circle d-flex align-items-center justify-content-center me-3 border" style="width: 32px; height: 32px;">
+            <i class="fas fa-motorcycle text-secondary"></i>
+        </div>
+        {% endif %}
+        <span class="text-truncate flex-grow-1 fw-bold">{{ motorcycle.name }}</span>
+        <i class="fas fa-angle-right ms-2 text-muted small"></i>
+    </a>
+</li>
+{% endfor %}
+{% endif %}
 {% endfor %}
 {% else %}
 <li>

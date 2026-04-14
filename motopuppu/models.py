@@ -49,6 +49,27 @@ class User(UserMixin, db.Model):
         return f'<User id={self.id} username={self.misskey_username}>'
 
 
+class VehicleCategory(db.Model):
+    """車両カテゴリ（ユーザー定義のフォルダ的グルーピング）"""
+    __tablename__ = 'vehicle_categories'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+    name = db.Column(db.String(50), nullable=False, comment="カテゴリ名 (例: サーキット用, オフロード)")
+    display_order = db.Column(db.Integer, nullable=False, default=0, server_default='0', comment="カテゴリの表示順序")
+    created_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
+
+    # リレーション
+    owner = db.relationship('User', backref=db.backref('vehicle_categories', lazy='dynamic', cascade="all, delete-orphan"))
+    motorcycles = db.relationship('Motorcycle', backref='category', lazy=True, order_by='Motorcycle.display_order')
+
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'name', name='uq_user_vehicle_category_name'),
+    )
+
+    def __repr__(self):
+        return f'<VehicleCategory id={self.id} name="{self.name}">'
+
+
 class Motorcycle(db.Model):
     __tablename__ = 'motorcycles'
     id = db.Column(db.Integer, primary_key=True)
@@ -61,6 +82,9 @@ class Motorcycle(db.Model):
     is_racer = db.Column(db.Boolean, nullable=False, default=False, server_default='false')
     is_archived = db.Column(db.Boolean, nullable=False, default=False, server_default='false', comment="アーカイブされた車両")
     total_operating_hours = db.Column(db.Numeric(8, 2), nullable=True, default=0.00)
+
+    vehicle_category_id = db.Column(db.Integer, db.ForeignKey('vehicle_categories.id', ondelete='SET NULL'), nullable=True, index=True, comment="所属カテゴリID (NULLは未分類)")
+    display_order = db.Column(db.Integer, nullable=False, default=0, server_default='0', comment="カテゴリ内の表示順序")
 
     image_url = db.Column(db.String(2048), nullable=True, comment="車両画像のURL")
     custom_details = db.Column(db.Text, nullable=True, comment="カスタム箇所のメモ")

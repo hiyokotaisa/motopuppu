@@ -11,24 +11,87 @@
     {# Navigation #}
     <nav class="beta-sidebar-nav">
         <div class="beta-nav-section">
-            <div class="beta-nav-section-label">メイン</div>
+            <div class="beta-nav-section-label">
+                メイン
+                <button class="beta-vehicle-sort-toggle" id="beta-vehicle-sort-toggle" title="車両の並び替え・カテゴリ管理">
+                    <i class="fas fa-sliders-h"></i>
+                </button>
+            </div>
             <a href="{{ url_for('main.dashboard') }}" class="beta-nav-item {{ 'active' if beta_nav_active == 'dashboard' }}">
                 <i class="fas fa-tachometer-alt"></i> ダッシュボード
             </a>
             <a href="{{ url_for('vehicle.vehicle_list') }}" class="beta-nav-item {{ 'active' if beta_nav_active == 'garage' }}">
                 <i class="fas fa-motorcycle"></i> マイガレージ
             </a>
-            {# 各車両へのリンク #}
-            {% for mc in g.user_motorcycles %}
-            <a href="{{ url_for('vehicle.dashboard', vehicle_id=mc.id) }}" class="beta-nav-item beta-nav-sub-item" title="{{ mc.name }}">
-                {% if mc.image_url %}
-                <img src="{{ mc.image_url }}" alt="" class="beta-nav-vehicle-img">
-                {% else %}
-                <i class="fas fa-motorcycle beta-nav-vehicle-icon"></i>
-                {% endif %}
-                <span class="beta-nav-vehicle-name">{{ mc.name }}</span>
-            </a>
-            {% endfor %}
+
+            {# --- 並び替えモード用コントロール --- #}
+            <div class="beta-vehicle-sort-controls" id="beta-vehicle-sort-controls" style="display: none;">
+                <div class="beta-sort-actions">
+                    <button class="beta-sort-btn beta-sort-save" id="beta-sort-save">
+                        <i class="fas fa-check me-1"></i>保存
+                    </button>
+                    <button class="beta-sort-btn beta-sort-cancel" id="beta-sort-cancel">
+                        <i class="fas fa-times me-1"></i>キャンセル
+                    </button>
+                </div>
+                <button class="beta-sort-btn beta-sort-add-cat" id="beta-sort-add-category">
+                    <i class="fas fa-folder-plus me-1"></i>カテゴリ追加
+                </button>
+            </div>
+
+            {# --- 車両リスト (カテゴリ対応) --- #}
+            <div id="beta-vehicle-list-area">
+                {# 未分類の車両 #}
+                <div class="beta-vehicle-sortable-group" id="beta-uncategorized-vehicles" data-category-id="uncategorized">
+                    {% set uncategorized_vehicles = g.user_motorcycles | rejectattr('vehicle_category_id') | list %}
+                    {% for mc in uncategorized_vehicles %}
+                    <a href="{{ url_for('vehicle.dashboard', vehicle_id=mc.id) }}" class="beta-nav-item beta-nav-sub-item beta-sidebar-vehicle" title="{{ mc.name }}" data-vehicle-id="{{ mc.id }}">
+                        <span class="beta-vehicle-drag-handle" title="ドラッグして並び替え"><i class="fas fa-grip-vertical"></i></span>
+                        {% if mc.image_url %}
+                        <img src="{{ mc.image_url }}" alt="" class="beta-nav-vehicle-img">
+                        {% else %}
+                        <i class="fas fa-motorcycle beta-nav-vehicle-icon"></i>
+                        {% endif %}
+                        <span class="beta-nav-vehicle-name">{{ mc.name }}</span>
+                    </a>
+                    {% endfor %}
+                </div>
+
+                {# カテゴリごとの車両 #}
+                {% for cat in g.vehicle_categories %}
+                <div class="beta-nav-category-wrapper beta-category-sortable-item" data-category-id="{{ cat.id }}">
+                    <div class="beta-nav-category-header" data-bs-toggle="collapse" data-bs-target="#beta-cat-{{ cat.id }}" aria-expanded="true">
+                        <span class="beta-category-drag-handle" title="カテゴリをドラッグして並び替え"><i class="fas fa-grip-vertical"></i></span>
+                        <i class="fas fa-chevron-down beta-nav-category-chevron"></i>
+                        <span class="beta-nav-category-name">{{ cat.name }}</span>
+                        <span class="beta-nav-category-count">{{ cat.motorcycles | selectattr('is_archived', 'false') | list | length }}</span>
+                        <div class="beta-category-edit-actions">
+                            <button class="beta-category-edit-btn beta-cat-rename" data-category-id="{{ cat.id }}" title="名前を変更">
+                                <i class="fas fa-pen"></i>
+                            </button>
+                            <button class="beta-category-edit-btn beta-cat-delete" data-category-id="{{ cat.id }}" data-category-name="{{ cat.name }}" title="削除">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="collapse show beta-vehicle-sortable-group beta-nav-category-vehicles" id="beta-cat-{{ cat.id }}" data-category-id="{{ cat.id }}">
+                        {% for mc in cat.motorcycles %}
+                        {% if not mc.is_archived %}
+                        <a href="{{ url_for('vehicle.dashboard', vehicle_id=mc.id) }}" class="beta-nav-item beta-nav-sub-item beta-sidebar-vehicle" title="{{ mc.name }}" data-vehicle-id="{{ mc.id }}">
+                            <span class="beta-vehicle-drag-handle" title="ドラッグして並び替え"><i class="fas fa-grip-vertical"></i></span>
+                            {% if mc.image_url %}
+                            <img src="{{ mc.image_url }}" alt="" class="beta-nav-vehicle-img">
+                            {% else %}
+                            <i class="fas fa-motorcycle beta-nav-vehicle-icon"></i>
+                            {% endif %}
+                            <span class="beta-nav-vehicle-name">{{ mc.name }}</span>
+                        </a>
+                        {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
         </div>
 
         <div class="beta-nav-section">
@@ -101,3 +164,339 @@
         </a>
     </div>
 </aside>
+
+{# --- 車両並び替え用JavaScript --- #}
+<script>
+(function() {
+    const sortToggle = document.getElementById('beta-vehicle-sort-toggle');
+    const sortControls = document.getElementById('beta-vehicle-sort-controls');
+    const saveBtn = document.getElementById('beta-sort-save');
+    const cancelBtn = document.getElementById('beta-sort-cancel');
+    const addCatBtn = document.getElementById('beta-sort-add-category');
+    const vehicleListArea = document.getElementById('beta-vehicle-list-area');
+    const sidebar = document.getElementById('beta-sidebar');
+
+    if (!sortToggle || !vehicleListArea) return;
+
+    let isSortMode = false;
+    let originalHTML = '';
+    let vehicleSortables = [];
+    let categorySortable = null;
+
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
+    // --- 並び替えモード開始 ---
+    function enterSortMode() {
+        isSortMode = true;
+        originalHTML = vehicleListArea.innerHTML;
+        sidebar.classList.add('beta-sidebar-sort-mode');
+        sortControls.style.display = 'block';
+        sortToggle.classList.add('active');
+
+        // 車両リンクをクリック無効化
+        vehicleListArea.querySelectorAll('.beta-sidebar-vehicle').forEach(el => {
+            el.addEventListener('click', preventClick, true);
+        });
+
+        // カテゴリヘッダーの折りたたみを無効化
+        vehicleListArea.querySelectorAll('.beta-nav-category-header').forEach(el => {
+            el.removeAttribute('data-bs-toggle');
+        });
+
+        // SortableJSで各グループをソート可能に
+        initSortables();
+    }
+
+    function preventClick(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    // --- 並び替えモード終了 ---
+    function exitSortMode(restore) {
+        isSortMode = false;
+        sidebar.classList.remove('beta-sidebar-sort-mode');
+        sortControls.style.display = 'none';
+        sortToggle.classList.remove('active');
+
+        destroySortables();
+
+        if (restore) {
+            vehicleListArea.innerHTML = originalHTML;
+        }
+
+        // リンクのクリックを再有効化
+        vehicleListArea.querySelectorAll('.beta-sidebar-vehicle').forEach(el => {
+            el.removeEventListener('click', preventClick, true);
+        });
+
+        // カテゴリヘッダーの折りたたみを復帰
+        vehicleListArea.querySelectorAll('.beta-nav-category-header').forEach(el => {
+            el.setAttribute('data-bs-toggle', 'collapse');
+        });
+    }
+
+    // --- SortableJS初期化 ---
+    function initSortables() {
+        destroySortables();
+
+        // 車両グループ（未分類 + 各カテゴリ）
+        vehicleListArea.querySelectorAll('.beta-vehicle-sortable-group').forEach(container => {
+            const s = new Sortable(container, {
+                group: 'vehicles',
+                animation: 150,
+                handle: '.beta-vehicle-drag-handle',
+                ghostClass: 'beta-vehicle-sortable-ghost',
+                chosenClass: 'beta-vehicle-sortable-chosen',
+                dragClass: 'beta-vehicle-sortable-drag',
+                delay: 150,
+                delayOnTouchOnly: true,
+                touchStartThreshold: 5,
+                fallbackTolerance: 3,
+            });
+            vehicleSortables.push(s);
+        });
+
+        // カテゴリの順序ソート（カテゴリラッパー全体を並び替え）
+        const categoryWrappers = vehicleListArea.querySelectorAll('.beta-category-sortable-item');
+        if (categoryWrappers.length > 0) {
+            categorySortable = new Sortable(vehicleListArea, {
+                group: { name: 'categories', pull: false, put: false },
+                animation: 150,
+                handle: '.beta-category-drag-handle',
+                ghostClass: 'beta-category-sortable-ghost',
+                draggable: '.beta-category-sortable-item',
+                delay: 150,
+                delayOnTouchOnly: true,
+                touchStartThreshold: 5,
+                fallbackTolerance: 3,
+            });
+        }
+    }
+
+    function destroySortables() {
+        vehicleSortables.forEach(s => s.destroy());
+        vehicleSortables = [];
+        if (categorySortable) { categorySortable.destroy(); categorySortable = null; }
+    }
+
+    // --- 並び順の収集 ---
+    function collectOrder() {
+        const uncategorized = [];
+        const uncatContainer = document.getElementById('beta-uncategorized-vehicles');
+        if (uncatContainer) {
+            uncatContainer.querySelectorAll('.beta-sidebar-vehicle').forEach(el => {
+                uncategorized.push(parseInt(el.dataset.vehicleId));
+            });
+        }
+
+        const categories = [];
+        vehicleListArea.querySelectorAll('.beta-category-sortable-item').forEach(catWrapper => {
+            const catId = parseInt(catWrapper.dataset.categoryId);
+            const vehicleIds = [];
+            const vehicleContainer = catWrapper.querySelector('.beta-vehicle-sortable-group');
+            if (vehicleContainer) {
+                vehicleContainer.querySelectorAll('.beta-sidebar-vehicle').forEach(el => {
+                    vehicleIds.push(parseInt(el.dataset.vehicleId));
+                });
+            }
+            categories.push({ id: catId, vehicle_ids: vehicleIds });
+        });
+
+        return { uncategorized, categories };
+    }
+
+    // --- 保存 ---
+    saveBtn.addEventListener('click', async function() {
+        const orderData = collectOrder();
+        try {
+            const res = await fetch("{{ url_for('vehicle.reorder_vehicles') }}", {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                body: JSON.stringify(orderData)
+            });
+            const data = await res.json();
+            if (data.status === 'success') {
+                exitSortMode(false);
+                window.location.reload();
+            } else {
+                alert(data.message || '保存に失敗しました。');
+            }
+        } catch {
+            alert('通信エラーが発生しました。');
+        }
+    });
+
+    // --- キャンセル ---
+    cancelBtn.addEventListener('click', function() {
+        exitSortMode(true);
+    });
+
+    // --- 並び替えモードトグル ---
+    sortToggle.addEventListener('click', function() {
+        if (isSortMode) {
+            exitSortMode(true);
+        } else {
+            enterSortMode();
+        }
+    });
+
+    // --- カテゴリ追加 ---
+    addCatBtn.addEventListener('click', async function() {
+        const name = prompt('新しいカテゴリ名を入力してください:');
+        if (!name || !name.trim()) return;
+
+        try {
+            const res = await fetch("{{ url_for('vehicle.create_category') }}", {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                body: JSON.stringify({ name: name.trim() })
+            });
+            const data = await res.json();
+            if (data.status === 'success') {
+                // 新しいカテゴリのHTMLを動的に追加
+                const cat = data.category;
+                const wrapper = document.createElement('div');
+                wrapper.className = 'beta-nav-category-wrapper beta-category-sortable-item';
+                wrapper.dataset.categoryId = cat.id;
+                wrapper.innerHTML = `
+                    <div class="beta-nav-category-header" aria-expanded="true">
+                        <span class="beta-category-drag-handle" title="カテゴリをドラッグして並び替え"><i class="fas fa-grip-vertical"></i></span>
+                        <i class="fas fa-chevron-down beta-nav-category-chevron"></i>
+                        <span class="beta-nav-category-name">${cat.name}</span>
+                        <span class="beta-nav-category-count">0</span>
+                        <div class="beta-category-edit-actions">
+                            <button class="beta-category-edit-btn beta-cat-rename" data-category-id="${cat.id}" title="名前を変更"><i class="fas fa-pen"></i></button>
+                            <button class="beta-category-edit-btn beta-cat-delete" data-category-id="${cat.id}" data-category-name="${cat.name}" title="削除"><i class="fas fa-trash-alt"></i></button>
+                        </div>
+                    </div>
+                    <div class="show beta-vehicle-sortable-group beta-nav-category-vehicles" id="beta-cat-${cat.id}" data-category-id="${cat.id}"></div>
+                `;
+                vehicleListArea.appendChild(wrapper);
+
+                // SortableJSを再初期化
+                initSortables();
+            } else {
+                alert(data.message || 'カテゴリの作成に失敗しました。');
+            }
+        } catch {
+            alert('通信エラーが発生しました。');
+        }
+    });
+
+    // --- カテゴリの名前変更・削除 (イベント委任) ---
+    vehicleListArea.addEventListener('click', async function(e) {
+        if (!isSortMode) return;
+
+        const renameBtn = e.target.closest('.beta-cat-rename');
+        const deleteBtn = e.target.closest('.beta-cat-delete');
+
+        if (renameBtn) {
+            e.preventDefault();
+            e.stopPropagation();
+            const catId = renameBtn.dataset.categoryId;
+            const currentName = renameBtn.closest('.beta-nav-category-header').querySelector('.beta-nav-category-name').textContent;
+            const newName = prompt('新しいカテゴリ名:', currentName);
+            if (!newName || !newName.trim() || newName.trim() === currentName) return;
+
+            try {
+                const res = await fetch(`/vehicles/categories/${catId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                    body: JSON.stringify({ name: newName.trim() })
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    renameBtn.closest('.beta-nav-category-header').querySelector('.beta-nav-category-name').textContent = data.category.name;
+                } else {
+                    alert(data.message || '名前の変更に失敗しました。');
+                }
+            } catch {
+                alert('通信エラーが発生しました。');
+            }
+        }
+
+        if (deleteBtn) {
+            e.preventDefault();
+            e.stopPropagation();
+            const catId = deleteBtn.dataset.categoryId;
+            const catName = deleteBtn.dataset.categoryName;
+            if (!confirm(`カテゴリ「${catName}」を削除しますか？\n所属する車両は未分類に移動します。`)) return;
+
+            try {
+                const res = await fetch(`/vehicles/categories/${catId}`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken }
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    const wrapper = deleteBtn.closest('.beta-category-sortable-item');
+                    // カテゴリ内の車両を未分類に移動
+                    const vehiclesInCat = wrapper.querySelectorAll('.beta-sidebar-vehicle');
+                    const uncatContainer = document.getElementById('beta-uncategorized-vehicles');
+                    vehiclesInCat.forEach(v => uncatContainer.appendChild(v));
+                    wrapper.remove();
+                    initSortables();
+                } else {
+                    alert(data.message || 'カテゴリの削除に失敗しました。');
+                }
+            } catch {
+                alert('通信エラーが発生しました。');
+            }
+        }
+    });
+
+    // --- カテゴリ折りたたみ状態のLocalStorage管理 ---
+    const CAT_STATE_KEY = 'betaSidebarCategoryStates';
+
+    function saveCategoryStates() {
+        const states = {};
+        vehicleListArea.querySelectorAll('.beta-nav-category-vehicles').forEach(el => {
+            const catId = el.dataset.categoryId;
+            states[catId] = el.classList.contains('show');
+        });
+        localStorage.setItem(CAT_STATE_KEY, JSON.stringify(states));
+    }
+
+    function applyCategoryStates() {
+        try {
+            const saved = JSON.parse(localStorage.getItem(CAT_STATE_KEY));
+            if (!saved) return;
+            vehicleListArea.querySelectorAll('.beta-nav-category-vehicles').forEach(el => {
+                const catId = el.dataset.categoryId;
+                if (catId in saved) {
+                    const chevron = el.previousElementSibling?.querySelector('.beta-nav-category-chevron');
+                    if (saved[catId]) {
+                        el.classList.add('show');
+                        if (chevron) chevron.style.transform = '';
+                    } else {
+                        el.classList.remove('show');
+                        if (chevron) chevron.style.transform = 'rotate(-90deg)';
+                    }
+                }
+            });
+        } catch { localStorage.removeItem(CAT_STATE_KEY); }
+    }
+
+    applyCategoryStates();
+
+    // カテゴリヘッダーのクリックで折りたたみをトグル
+    vehicleListArea.addEventListener('click', function(e) {
+        if (isSortMode) return;
+        const header = e.target.closest('.beta-nav-category-header');
+        if (!header || e.target.closest('.beta-category-edit-actions')) return;
+
+        const targetId = header.getAttribute('data-bs-target') || '#beta-cat-' + header.closest('.beta-category-sortable-item')?.dataset.categoryId;
+        const target = document.querySelector(targetId);
+        if (!target) return;
+
+        e.preventDefault();
+        target.classList.toggle('show');
+        const chevron = header.querySelector('.beta-nav-category-chevron');
+        if (chevron) {
+            chevron.style.transform = target.classList.contains('show') ? '' : 'rotate(-90deg)';
+        }
+        saveCategoryStates();
+    });
+})();
+</script>

@@ -141,10 +141,21 @@ def create_app(config_name=None):
         if not hasattr(g, '_user_motorcycles'):
             if current_user.is_authenticated:
                 from .models import Motorcycle
-                g._user_motorcycles = Motorcycle.query.filter_by(user_id=current_user.id, is_archived=False).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
+                g._user_motorcycles = Motorcycle.query.filter_by(user_id=current_user.id, is_archived=False).order_by(Motorcycle.display_order.asc(), Motorcycle.name).all()
             else:
                 g._user_motorcycles = []
         return g._user_motorcycles
+
+    def get_vehicle_categories():
+        if not hasattr(g, '_vehicle_categories'):
+            if current_user.is_authenticated:
+                from .models import VehicleCategory
+                g._vehicle_categories = VehicleCategory.query.filter_by(
+                    user_id=current_user.id
+                ).order_by(VehicleCategory.display_order.asc()).all()
+            else:
+                g._vehicle_categories = []
+        return g._vehicle_categories
 
     def get_user_teams():
         if not hasattr(g, '_user_teams'):
@@ -163,6 +174,7 @@ def create_app(config_name=None):
         """
         g.user_motorcycles = LocalProxy(get_user_motorcycles)
         g.user_teams = LocalProxy(get_user_teams)
+        g.vehicle_categories = LocalProxy(get_vehicle_categories)
 
     try:
         # Blueprintのインポート
@@ -233,7 +245,7 @@ def create_app(config_name=None):
     @app.shell_context_processor
     def make_shell_context():
         from .models import db, User, Motorcycle, FuelEntry, MaintenanceEntry, MaintenanceReminder, GeneralNote, OdoResetLog, AchievementDefinition, UserAchievement
-        from .models import SettingSheet, ActivityLog, SessionLog, Event, EventParticipant, TouringLog, TouringSpot, TouringScrapbookEntry, MaintenanceSpecSheet, Team
+        from .models import SettingSheet, ActivityLog, SessionLog, Event, EventParticipant, TouringLog, TouringSpot, TouringScrapbookEntry, MaintenanceSpecSheet, Team, VehicleCategory
         return {
             'db': db, 'User': User, 'Motorcycle': Motorcycle, 'FuelEntry': FuelEntry,
             'MaintenanceEntry': MaintenanceEntry, 'MaintenanceReminder': MaintenanceReminder,
@@ -242,7 +254,7 @@ def create_app(config_name=None):
             'SettingSheet': SettingSheet, 'ActivityLog': ActivityLog, 'SessionLog': SessionLog,
             'Event': Event, 'EventParticipant': EventParticipant,
             'TouringLog': TouringLog, 'TouringSpot': TouringSpot, 'TouringScrapbookEntry': TouringScrapbookEntry,
-            'MaintenanceSpecSheet': MaintenanceSpecSheet, 'Team': Team
+            'MaintenanceSpecSheet': MaintenanceSpecSheet, 'Team': Team, 'VehicleCategory': VehicleCategory
         }
 
     try:
