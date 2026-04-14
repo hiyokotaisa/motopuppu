@@ -91,13 +91,14 @@ def notes_log():
     
     is_filter_active = bool(request_args_dict)
 
-    return render_template('notes_log.html',
+    template_name = 'beta/notes_log_beta.html' if current_user.use_beta_ui else 'notes_log.html'
+    return render_template(template_name,
                            entries=entries, pagination=pagination,
                            motorcycles=user_motorcycles, request_args=request_args_dict,
                            allowed_categories_for_template=[{'value': val, 'display': disp} for val, disp in NOTE_CATEGORIES],
                            selected_category=category_filter,
                            is_filter_active=is_filter_active,
-                           summary_stats=summary_stats) # 統計情報を追加
+                           summary_stats=summary_stats)
 
 @notes_bp.route('/add', methods=['GET', 'POST'])
 @limiter.limit("30 per hour")
@@ -159,13 +160,14 @@ def add_note():
     elif request.method == 'POST': 
         form.motorcycle_id.choices = [(0, '-- 車両に紐付けない --')] + [(m.id, m.name) for m in user_motorcycles]
 
-    return render_template('note_form.html',
+    template_name = 'beta/note_form_beta.html' if current_user.use_beta_ui else 'note_form.html'
+    return render_template(template_name,
                            form=form,
                            form_action='add',
                            motorcycles=user_motorcycles,
                            today_iso=date.today().isoformat(),
                            MAX_TODO_ITEMS=MAX_TODO_ITEMS,
-                           note_id=None 
+                           note_id=None
                            )
 
 @notes_bp.route('/<int:note_id>/edit', methods=['GET', 'POST'])
@@ -227,7 +229,8 @@ def edit_note(note_id):
     elif request.method == 'POST': 
         form.motorcycle_id.choices = [(0, '-- 車両に紐付けない --')] + [(m.id, f"{m.name} (アーカイブ)" if m.is_archived else m.name) for m in user_motorcycles]
 
-    return render_template('note_form.html',
+    template_name = 'beta/note_form_beta.html' if current_user.use_beta_ui else 'note_form.html'
+    return render_template(template_name,
                            form=form,
                            form_action='edit',
                            note_id=note.id,

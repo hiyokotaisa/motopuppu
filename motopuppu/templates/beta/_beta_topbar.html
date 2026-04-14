@@ -1,0 +1,47 @@
+{# motopuppu/templates/beta/_beta_topbar.html #}
+{# Beta UI共通トップバー - beta_topbar_title でページタイトルを制御 #}
+<div class="beta-topbar">
+    <div>
+        <button class="beta-btn beta-mobile-toggle me-2" id="beta-menu-toggle" style="display: none;">
+            <i class="fas fa-bars"></i>
+        </button>
+        <div class="beta-greeting">
+            {{ beta_topbar_title | default('') }}
+        </div>
+        {% if beta_topbar_subtitle is defined and beta_topbar_subtitle %}
+        <div class="beta-greeting-sub">
+            {{ beta_topbar_subtitle }}
+        </div>
+        {% endif %}
+    </div>
+    <div class="beta-topbar-actions">
+        {# テーマ選択ドロップダウン #}
+        <div class="dropdown">
+            <button class="beta-theme-toggle" id="beta-theme-dropdown" data-bs-toggle="dropdown" aria-expanded="false" title="テーマを選択">
+                <i class="fas fa-palette"></i>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="beta-theme-dropdown" style="min-width: 200px;">
+                <li><h6 class="dropdown-header"><i class="fas fa-palette me-1"></i> カラーテーマ</h6></li>
+                <li><button class="dropdown-item beta-theme-option" data-theme="nord"><span class="beta-theme-dot" style="background: #88c0d0;"></span> Nord</button></li>
+                <li><button class="dropdown-item beta-theme-option" data-theme="dracula"><span class="beta-theme-dot" style="background: #bd93f9;"></span> Dracula</button></li>
+                <li><button class="dropdown-item beta-theme-option" data-theme="tokyo-night"><span class="beta-theme-dot" style="background: #7aa2f7;"></span> Tokyo Night</button></li>
+                <li><button class="dropdown-item beta-theme-option" data-theme="catppuccin"><span class="beta-theme-dot" style="background: #89b4fa;"></span> Catppuccin</button></li>
+                <li><button class="dropdown-item beta-theme-option" data-theme="solarized"><span class="beta-theme-dot" style="background: #2aa198;"></span> Solarized</button></li>
+                <li><button class="dropdown-item beta-theme-option" data-theme="gruvbox"><span class="beta-theme-dot" style="background: #8ec07c;"></span> Gruvbox</button></li>
+                <li><button class="dropdown-item beta-theme-option" data-theme="minimal"><span class="beta-theme-dot" style="background: #6ea8fe;"></span> Minimal</button></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><h6 class="dropdown-header"><i class="fas fa-adjust me-1"></i> 明るさ</h6></li>
+                <li><button class="dropdown-item beta-mode-option" data-mode="dark"><i class="fas fa-moon fa-fw me-1"></i> ダーク</button></li>
+                <li><button class="dropdown-item beta-mode-option" data-mode="light"><i class="fas fa-sun fa-fw me-1"></i> ライト</button></li>
+            </ul>
+        </div>
+        {# ページ固有のアクションボタン挿入用 #}
+        {% block beta_topbar_extra %}{% endblock %}
+        <form method="POST" action="{{ url_for('main.toggle_beta_ui') }}" class="d-inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="beta-btn" title="通常版UIに戻す">
+                <i class="fas fa-undo me-1"></i>通常版に戻す
+            </button>
+        </form>
+    </div>
+</div>

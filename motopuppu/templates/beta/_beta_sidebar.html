@@ -1,0 +1,103 @@
+{# motopuppu/templates/beta/_beta_sidebar.html #}
+{# Beta UI共通サイドバー - beta_nav_active 変数でアクティブ項目を制御 #}
+<aside class="beta-sidebar" id="beta-sidebar">
+    {# Brand #}
+    <div class="beta-sidebar-brand">
+        <i class="fas fa-motorcycle beta-sidebar-brand-icon"></i>
+        <span class="beta-sidebar-brand-text">もとぷっぷー</span>
+        <span class="beta-sidebar-brand-badge">BETA</span>
+    </div>
+
+    {# Navigation #}
+    <nav class="beta-sidebar-nav">
+        <div class="beta-nav-section">
+            <div class="beta-nav-section-label">メイン</div>
+            <a href="{{ url_for('main.dashboard') }}" class="beta-nav-item {{ 'active' if beta_nav_active == 'dashboard' }}">
+                <i class="fas fa-tachometer-alt"></i> ダッシュボード
+            </a>
+            <a href="{{ url_for('vehicle.vehicle_list') }}" class="beta-nav-item {{ 'active' if beta_nav_active == 'garage' }}">
+                <i class="fas fa-motorcycle"></i> マイガレージ
+            </a>
+            {# 各車両へのリンク #}
+            {% for mc in g.user_motorcycles %}
+            <a href="{{ url_for('vehicle.dashboard', vehicle_id=mc.id) }}" class="beta-nav-item beta-nav-sub-item" title="{{ mc.name }}">
+                {% if mc.image_url %}
+                <img src="{{ mc.image_url }}" alt="" class="beta-nav-vehicle-img">
+                {% else %}
+                <i class="fas fa-motorcycle beta-nav-vehicle-icon"></i>
+                {% endif %}
+                <span class="beta-nav-vehicle-name">{{ mc.name }}</span>
+            </a>
+            {% endfor %}
+        </div>
+
+        <div class="beta-nav-section">
+            <div class="beta-nav-section-label">記録</div>
+            <a href="{{ url_for('fuel.fuel_log') }}" class="beta-nav-item {{ 'active' if beta_nav_active == 'fuel' }}">
+                <i class="fas fa-gas-pump"></i> 給油記録
+            </a>
+            <a href="{{ url_for('maintenance.maintenance_log') }}" class="beta-nav-item {{ 'active' if beta_nav_active == 'maintenance' }}">
+                <i class="fas fa-tools"></i> 整備記録
+            </a>
+            <a href="{{ url_for('notes.notes_log') }}" class="beta-nav-item {{ 'active' if beta_nav_active == 'notes' }}">
+                <i class="fas fa-sticky-note"></i> ノート
+            </a>
+        </div>
+
+        <div class="beta-nav-section">
+            <div class="beta-nav-section-label">活動</div>
+            <a href="{{ url_for('activity.activity_log') }}" class="beta-nav-item {{ 'active' if beta_nav_active == 'activity' }}">
+                <i class="fas fa-flag-checkered"></i> 活動ログ
+            </a>
+            <a href="{{ url_for('circuit_dashboard.index') }}" class="beta-nav-item {{ 'active' if beta_nav_active == 'circuit' }}">
+                <i class="fas fa-chart-line"></i> サーキット
+            </a>
+            <a href="{{ url_for('event.public_events_list') }}" class="beta-nav-item {{ 'active' if beta_nav_active == 'event' }}">
+                <i class="fas fa-calendar-alt"></i> イベント
+            </a>
+            {% if g.user_motorcycles|length > 0 %}
+            <a href="{{ url_for('touring.list_logs', vehicle_id=g.user_motorcycles[0].id) }}" class="beta-nav-item {{ 'active' if beta_nav_active == 'touring' }}">
+                <i class="fas fa-map-signs"></i> ツーリング
+            </a>
+            {% endif %}
+        </div>
+
+        <div class="beta-nav-section">
+            <div class="beta-nav-section-label">コミュニティ</div>
+            <a href="{{ url_for('team.list_teams') }}" class="beta-nav-item {{ 'active' if beta_nav_active == 'team' }}">
+                <i class="fas fa-users"></i> チーム
+            </a>
+            <a href="{{ url_for('leaderboard.index') }}" class="beta-nav-item {{ 'active' if beta_nav_active == 'leaderboard' }}">
+                <i class="fas fa-trophy"></i> リーダーボード
+            </a>
+        </div>
+
+        <div class="beta-nav-section">
+            <div class="beta-nav-section-label">設定</div>
+            <a href="{{ url_for('profile.settings') }}" class="beta-nav-item {{ 'active' if beta_nav_active == 'profile' }}">
+                <i class="fas fa-user-cog"></i> プロフィール
+            </a>
+            <a href="{{ url_for('achievements.index') }}" class="beta-nav-item {{ 'active' if beta_nav_active == 'achievements' }}">
+                <i class="fas fa-medal"></i> 実績
+            </a>
+            <a href="{{ url_for('help.index') }}" class="beta-nav-item {{ 'active' if beta_nav_active == 'help' }}">
+                <i class="fas fa-question-circle"></i> ヘルプ
+            </a>
+        </div>
+    </nav>
+
+    {# User section #}
+    <div class="beta-sidebar-user">
+        {% if current_user.avatar_url %}
+        <img src="{{ current_user.avatar_url }}" alt="" class="beta-sidebar-user-avatar">
+        {% else %}
+        <div class="beta-sidebar-user-avatar-placeholder">
+            <i class="fas fa-user"></i>
+        </div>
+        {% endif %}
+        <span class="beta-sidebar-user-name">{{ current_user.display_name or current_user.misskey_username }}</span>
+        <a href="{{ url_for('auth.logout') }}" class="beta-btn" title="ログアウト" style="padding: 0.25rem 0.5rem;">
+            <i class="fas fa-sign-out-alt"></i>
+        </a>
+    </div>
+</aside>

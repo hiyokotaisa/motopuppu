@@ -1,0 +1,68 @@
+{# motopuppu/templates/beta/_beta_scripts.html #}
+{# Beta UI共通JavaScript - テーマ/モード切替、モバイルメニュートグル #}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // --- Theme & Color Scheme Management ---
+    const COLOR_THEME_KEY = 'betaColorTheme';
+    const MODE_KEY = 'betaMode';
+    const body = document.body;
+
+    const applyColorTheme = (theme) => {
+        body.setAttribute('data-theme', theme);
+        document.querySelectorAll('.beta-theme-option').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.theme === theme);
+        });
+    };
+
+    const applyMode = (mode) => {
+        if (mode === 'light') {
+            body.classList.add('beta-light');
+        } else {
+            body.classList.remove('beta-light');
+        }
+        document.documentElement.classList.remove('beta-light-preload');
+        document.querySelectorAll('.beta-mode-option').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.mode === mode);
+        });
+    };
+
+    // 保存済みの設定を適用
+    const savedTheme = localStorage.getItem(COLOR_THEME_KEY) || 'nord';
+    const savedMode = localStorage.getItem(MODE_KEY) || 'dark';
+    applyColorTheme(savedTheme);
+    applyMode(savedMode);
+
+    // カラーテーマ選択
+    document.querySelectorAll('.beta-theme-option').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const theme = btn.dataset.theme;
+            localStorage.setItem(COLOR_THEME_KEY, theme);
+            applyColorTheme(theme);
+        });
+    });
+
+    // ダーク/ライトモード選択
+    document.querySelectorAll('.beta-mode-option').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const mode = btn.dataset.mode;
+            localStorage.setItem(MODE_KEY, mode);
+            applyMode(mode);
+        });
+    });
+
+    // --- Mobile menu ---
+    const sidebar = document.getElementById('beta-sidebar');
+    const overlay = document.getElementById('beta-mobile-overlay');
+    const menuToggle = document.getElementById('beta-menu-toggle');
+    const bottomMore = document.getElementById('beta-bottom-more');
+
+    const toggleMenu = () => {
+        sidebar.classList.toggle('active');
+        overlay.classList.toggle('active');
+    };
+
+    if (menuToggle) menuToggle.addEventListener('click', toggleMenu);
+    if (bottomMore) bottomMore.addEventListener('click', function(e) { e.preventDefault(); toggleMenu(); });
+    if (overlay) overlay.addEventListener('click', toggleMenu);
+});
+</script>

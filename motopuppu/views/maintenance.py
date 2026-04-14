@@ -305,14 +305,15 @@ def maintenance_log():
     
     upload_form = MaintenanceCsvUploadForm()
 
-    return render_template('maintenance_log.html',
+    template_name = 'beta/maintenance_log_beta.html' if current_user.use_beta_ui else 'maintenance_log.html'
+    return render_template(template_name,
                            entries=entries, pagination=pagination,
                            motorcycles=user_motorcycles_for_maintenance,
                            request_args=active_filters,
                            current_sort_by=current_sort_by, current_order=current_order,
                            is_filter_active=is_filter_active,
                            upload_form=upload_form,
-                           summary_stats=summary_stats) # 統計情報を渡す
+                           summary_stats=summary_stats)
 
 @maintenance_bp.route('/add', methods=['GET', 'POST'])
 @limiter.limit("60 per hour")
@@ -340,7 +341,8 @@ def add_maintenance():
         motorcycle = Motorcycle.query.filter_by(id=form.motorcycle_id.data, user_id=current_user.id).first()
         if not motorcycle:
             flash('選択された車両が見つからないか、有効でありません。再度お試しください。', 'danger')
-            return render_template('maintenance_form.html', form_action='add', form=form, category_options=MAINTENANCE_CATEGORIES)
+            template_name = 'beta/maintenance_form_beta.html' if current_user.use_beta_ui else 'maintenance_form.html'
+            return render_template(template_name, form_action='add', form=form, category_options=MAINTENANCE_CATEGORIES)
 
         previous_mainte = get_previous_maintenance_entry(motorcycle.id, form.maintenance_date.data)
         
@@ -383,7 +385,8 @@ def add_maintenance():
         
         if form.errors:
             flash('入力内容にエラーがあります。ご確認ください。', 'danger')
-            return render_template('maintenance_form.html', form_action='add', form=form, category_options=MAINTENANCE_CATEGORIES)
+            template_name = 'beta/maintenance_form_beta.html' if current_user.use_beta_ui else 'maintenance_form.html'
+            return render_template(template_name, form_action='add', form=form, category_options=MAINTENANCE_CATEGORIES)
 
         new_entry = MaintenanceEntry(
             motorcycle_id=motorcycle.id, maintenance_date=form.maintenance_date.data,
@@ -417,7 +420,8 @@ def add_maintenance():
     elif request.method == 'POST':
         flash('入力内容にエラーがあります。ご確認ください。', 'danger')
 
-    return render_template('maintenance_form.html', form_action='add', form=form, category_options=MAINTENANCE_CATEGORIES)
+    template_name = 'beta/maintenance_form_beta.html' if current_user.use_beta_ui else 'maintenance_form.html'
+    return render_template(template_name, form_action='add', form=form, category_options=MAINTENANCE_CATEGORIES)
 
 @maintenance_bp.route('/<int:entry_id>/edit', methods=['GET', 'POST'])
 @limiter.limit("60 per hour")
@@ -441,7 +445,8 @@ def edit_maintenance(entry_id):
         motorcycle = Motorcycle.query.filter_by(id=form.motorcycle_id.data, user_id=current_user.id).first()
         if not motorcycle:
             flash('選択された車両が見つからないか、有効でありません。再度お試しください。', 'danger')
-            return render_template('maintenance_form.html', form_action='edit', form=form, entry_id=entry.id, category_options=MAINTENANCE_CATEGORIES)
+            template_name = 'beta/maintenance_form_beta.html' if current_user.use_beta_ui else 'maintenance_form.html'
+            return render_template(template_name, form_action='edit', form=form, entry_id=entry.id, category_options=MAINTENANCE_CATEGORIES)
 
         previous_mainte = get_previous_maintenance_entry(motorcycle.id, form.maintenance_date.data, entry.id)
 
@@ -484,7 +489,8 @@ def edit_maintenance(entry_id):
         
         if form.errors:
             flash('入力内容にエラーがあります。ご確認ください。', 'danger')
-            return render_template('maintenance_form.html', form_action='edit', form=form, entry_id=entry.id, category_options=MAINTENANCE_CATEGORIES)
+            template_name = 'beta/maintenance_form_beta.html' if current_user.use_beta_ui else 'maintenance_form.html'
+            return render_template(template_name, form_action='edit', form=form, entry_id=entry.id, category_options=MAINTENANCE_CATEGORIES)
 
         entry.motorcycle_id = motorcycle.id
         entry.maintenance_date = form.maintenance_date.data
@@ -512,7 +518,8 @@ def edit_maintenance(entry_id):
     elif request.method == 'POST':
         flash('入力内容にエラーがあります。ご確認ください。', 'danger')
 
-    return render_template('maintenance_form.html', form_action='edit', form=form, entry_id=entry.id, category_options=MAINTENANCE_CATEGORIES)
+    template_name = 'beta/maintenance_form_beta.html' if current_user.use_beta_ui else 'maintenance_form.html'
+    return render_template(template_name, form_action='edit', form=form, entry_id=entry.id, category_options=MAINTENANCE_CATEGORIES)
 
 
 @maintenance_bp.route('/<int:entry_id>/delete', methods=['POST'])

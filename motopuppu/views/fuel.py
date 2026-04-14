@@ -421,7 +421,8 @@ def fuel_log():
     is_filter_active = bool(active_filters)
     upload_form = FuelCsvUploadForm()
 
-    return render_template('fuel_log.html',
+    template_name = 'beta/fuel_log_beta.html' if current_user.use_beta_ui else 'fuel_log.html'
+    return render_template(template_name,
                            entries=fuel_entries, pagination=pagination,
                            motorcycles=user_motorcycles_for_fuel,
                            request_args=active_filters,
@@ -463,7 +464,8 @@ def add_fuel():
         motorcycle = Motorcycle.query.filter_by(id=form.motorcycle_id.data, user_id=current_user.id, is_racer=False).first()
         if not motorcycle:
             flash('選択された車両が見つからないか、給油記録の対象外です。再度お試しください。', 'danger')
-            return render_template('fuel_form.html', form_action='add', form=form, gas_station_brands=GAS_STATION_BRANDS, start_fuel_tutorial=False)
+            beta_form = 'beta/fuel_form_beta.html' if current_user.use_beta_ui else 'fuel_form.html'
+            return render_template(beta_form, form_action='add', form=form, gas_station_brands=GAS_STATION_BRANDS, start_fuel_tutorial=False)
 
         previous_fuel = get_previous_fuel_entry(motorcycle.id, form.entry_date.data)
 
@@ -484,7 +486,8 @@ def add_fuel():
 
         if form.errors:
             flash('入力内容にエラーがあります。ご確認ください。', 'danger')
-            return render_template('fuel_form.html', form_action='add', form=form, gas_station_brands=GAS_STATION_BRANDS, start_fuel_tutorial=False)
+            beta_form = 'beta/fuel_form_beta.html' if current_user.use_beta_ui else 'fuel_form.html'
+            return render_template(beta_form, form_action='add', form=form, gas_station_brands=GAS_STATION_BRANDS, start_fuel_tutorial=False)
 
         # ODO保留でない場合のみオフセット計算と総走行距離を算出
         if not form.is_odo_pending.data:
@@ -544,7 +547,8 @@ def add_fuel():
         if not has_existing_fuel_logs and not current_user.completed_tutorials.get('fuel_form', False):
             start_fuel_tutorial = True
     
-    return render_template('fuel_form.html', 
+    beta_form = 'beta/fuel_form_beta.html' if current_user.use_beta_ui else 'fuel_form.html'
+    return render_template(beta_form, 
                            form_action='add', 
                            form=form, 
                            gas_station_brands=GAS_STATION_BRANDS, 
@@ -575,7 +579,8 @@ def edit_fuel(entry_id):
         new_motorcycle = Motorcycle.query.filter_by(id=form.motorcycle_id.data, user_id=current_user.id, is_racer=False).first()
         if not new_motorcycle:
             flash('選択された車両が見つからないか、給油記録の対象外です。再度お試しください。', 'danger')
-            return render_template('fuel_form.html', form_action='edit', form=form, entry_id=entry.id, gas_station_brands=GAS_STATION_BRANDS, start_fuel_tutorial=False)
+            beta_form = 'beta/fuel_form_beta.html' if current_user.use_beta_ui else 'fuel_form.html'
+            return render_template(beta_form, form_action='edit', form=form, entry_id=entry.id, gas_station_brands=GAS_STATION_BRANDS, start_fuel_tutorial=False)
 
         vehicle_changed = entry.motorcycle_id != new_motorcycle.id
         if vehicle_changed:
@@ -600,7 +605,8 @@ def edit_fuel(entry_id):
 
         if form.errors:
             flash('入力内容にエラーがあります。ご確認ください。', 'danger')
-            return render_template('fuel_form.html', form_action='edit', form=form, entry_id=entry.id, gas_station_brands=GAS_STATION_BRANDS, start_fuel_tutorial=False)
+            beta_form = 'beta/fuel_form_beta.html' if current_user.use_beta_ui else 'fuel_form.html'
+            return render_template(beta_form, form_action='edit', form=form, entry_id=entry.id, gas_station_brands=GAS_STATION_BRANDS, start_fuel_tutorial=False)
 
         # ODO保留でない場合のみオフセット計算と総走行距離を算出
         if not form.is_odo_pending.data:
@@ -653,7 +659,8 @@ def edit_fuel(entry_id):
                 'odo': f"{previous_fuel.odometer_reading:,}km"
             }
     start_fuel_tutorial = False
-    return render_template('fuel_form.html', 
+    beta_form = 'beta/fuel_form_beta.html' if current_user.use_beta_ui else 'fuel_form.html'
+    return render_template(beta_form, 
                            form_action='edit', 
                            form=form, 
                            entry_id=entry.id, 

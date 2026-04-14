@@ -1,0 +1,15 @@
+{# motopuppu/templates/beta/_beta_layout_head.html #}
+{# Beta UI共通の<head>追加要素 - stylesブロック内でincludeする #}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/beta_ui.css') }}">
+<script>
+// テーマとモードをページ描画前に即座に適用（FOUC防止）
+(function() {
+    var theme = localStorage.getItem('betaColorTheme') || 'nord';
+    var mode = localStorage.getItem('betaMode') || 'dark';
+    document.documentElement.setAttribute('data-preload-theme', theme);
+    if (mode === 'light') document.documentElement.classList.add('beta-light-preload');
+})();
+</script>
+<style>
+    html.beta-light-preload body.beta-ui-body { background: #eceff4; }
+</style>

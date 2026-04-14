@@ -7,131 +7,20 @@
 
 {% block styles %}
 {{ super() }}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/beta_ui.css') }}">
-<script>
-// テーマとモードをページ描画前に即座に適用（FOUC防止）
-(function() {
-    var theme = localStorage.getItem('betaColorTheme') || 'nord';
-    var mode = localStorage.getItem('betaMode') || 'dark';
-    document.documentElement.setAttribute('data-preload-theme', theme);
-    if (mode === 'light') document.documentElement.classList.add('beta-light-preload');
-})();
-</script>
-<style>
-    html.beta-light-preload body.beta-ui-body { background: #eceff4; }
-</style>
+{% include 'beta/_beta_layout_head.html' %}
 {% endblock %}
 
 {% block content %}
 {# base.htmlのcontainerを無効化するため、ネガティブマージンで打ち消し #}
 <style>.beta-ui-body #main-content > .container { max-width: 100%; padding: 0; }</style>
 
+{% set beta_nav_active = 'dashboard' %}
 <div class="beta-dashboard-wrapper">
     {# ===== Mobile Overlay ===== #}
     <div class="beta-mobile-overlay" id="beta-mobile-overlay"></div>
 
     {# ===== Left Sidebar ===== #}
-    <aside class="beta-sidebar" id="beta-sidebar">
-        {# Brand #}
-        <div class="beta-sidebar-brand">
-            <i class="fas fa-motorcycle beta-sidebar-brand-icon"></i>
-            <span class="beta-sidebar-brand-text">もとぷっぷー</span>
-            <span class="beta-sidebar-brand-badge">BETA</span>
-        </div>
-
-        {# Navigation #}
-        <nav class="beta-sidebar-nav">
-            <div class="beta-nav-section">
-                <div class="beta-nav-section-label">メイン</div>
-                <a href="{{ url_for('main.dashboard') }}" class="beta-nav-item active">
-                    <i class="fas fa-tachometer-alt"></i> ダッシュボード
-                </a>
-                <a href="{{ url_for('vehicle.vehicle_list') }}" class="beta-nav-item">
-                    <i class="fas fa-motorcycle"></i> マイガレージ
-                </a>
-                {# 各車両へのリンク #}
-                {% for mc in motorcycles %}
-                <a href="{{ url_for('vehicle.dashboard', vehicle_id=mc.id) }}" class="beta-nav-item beta-nav-sub-item" title="{{ mc.name }}">
-                    {% if mc.image_url %}
-                    <img src="{{ mc.image_url }}" alt="" class="beta-nav-vehicle-img">
-                    {% else %}
-                    <i class="fas fa-motorcycle beta-nav-vehicle-icon"></i>
-                    {% endif %}
-                    <span class="beta-nav-vehicle-name">{{ mc.name }}</span>
-                </a>
-                {% endfor %}
-            </div>
-
-            <div class="beta-nav-section">
-                <div class="beta-nav-section-label">記録</div>
-                <a href="{{ url_for('fuel.add_fuel') }}" class="beta-nav-item">
-                    <i class="fas fa-gas-pump"></i> 給油記録
-                </a>
-                <a href="{{ url_for('maintenance.add_maintenance') }}" class="beta-nav-item">
-                    <i class="fas fa-tools"></i> 整備記録
-                </a>
-                <a href="{{ url_for('notes.add_note') }}" class="beta-nav-item">
-                    <i class="fas fa-sticky-note"></i> ノート
-                </a>
-            </div>
-
-            <div class="beta-nav-section">
-                <div class="beta-nav-section-label">活動</div>
-                <a href="{{ url_for('activity.activity_log') }}" class="beta-nav-item">
-                    <i class="fas fa-flag-checkered"></i> 活動ログ
-                </a>
-                <a href="{{ url_for('circuit_dashboard.index') }}" class="beta-nav-item">
-                    <i class="fas fa-chart-line"></i> サーキット
-                </a>
-                <a href="{{ url_for('event.public_events_list') }}" class="beta-nav-item">
-                    <i class="fas fa-calendar-alt"></i> イベント
-                </a>
-                {% if motorcycles %}
-                <a href="{{ url_for('touring.list_logs', vehicle_id=motorcycles[0].id) }}" class="beta-nav-item">
-                    <i class="fas fa-map-signs"></i> ツーリング
-                </a>
-                {% endif %}
-            </div>
-
-            <div class="beta-nav-section">
-                <div class="beta-nav-section-label">コミュニティ</div>
-                <a href="{{ url_for('team.list_teams') }}" class="beta-nav-item">
-                    <i class="fas fa-users"></i> チーム
-                </a>
-                <a href="{{ url_for('leaderboard.index') }}" class="beta-nav-item">
-                    <i class="fas fa-trophy"></i> リーダーボード
-                </a>
-            </div>
-
-            <div class="beta-nav-section">
-                <div class="beta-nav-section-label">設定</div>
-                <a href="{{ url_for('profile.settings') }}" class="beta-nav-item">
-                    <i class="fas fa-user-cog"></i> プロフィール
-                </a>
-                <a href="{{ url_for('achievements.index') }}" class="beta-nav-item">
-                    <i class="fas fa-medal"></i> 実績
-                </a>
-                <a href="{{ url_for('help.index') }}" class="beta-nav-item">
-                    <i class="fas fa-question-circle"></i> ヘルプ
-                </a>
-            </div>
-        </nav>
-
-        {# User section #}
-        <div class="beta-sidebar-user">
-            {% if current_user.avatar_url %}
-            <img src="{{ current_user.avatar_url }}" alt="" class="beta-sidebar-user-avatar">
-            {% else %}
-            <div class="beta-sidebar-user-avatar-placeholder">
-                <i class="fas fa-user"></i>
-            </div>
-            {% endif %}
-            <span class="beta-sidebar-user-name">{{ current_user.display_name or current_user.misskey_username }}</span>
-            <a href="{{ url_for('auth.logout') }}" class="beta-btn" title="ログアウト" style="padding: 0.25rem 0.5rem;">
-                <i class="fas fa-sign-out-alt"></i>
-            </a>
-        </div>
-    </aside>
+    {% include 'beta/_beta_sidebar.html' %}
 
     {# ===== Main Content ===== #}
     <main class="beta-main-content">
@@ -162,6 +51,7 @@
                         <li><button class="dropdown-item beta-theme-option" data-theme="catppuccin"><span class="beta-theme-dot" style="background: #89b4fa;"></span> Catppuccin</button></li>
                         <li><button class="dropdown-item beta-theme-option" data-theme="solarized"><span class="beta-theme-dot" style="background: #2aa198;"></span> Solarized</button></li>
                         <li><button class="dropdown-item beta-theme-option" data-theme="gruvbox"><span class="beta-theme-dot" style="background: #8ec07c;"></span> Gruvbox</button></li>
+                        <li><button class="dropdown-item beta-theme-option" data-theme="minimal"><span class="beta-theme-dot" style="background: #6ea8fe;"></span> Minimal</button></li>
                         <li><hr class="dropdown-divider"></li>
                         <li><h6 class="dropdown-header"><i class="fas fa-adjust me-1"></i> 明るさ</h6></li>
                         <li><button class="dropdown-item beta-mode-option" data-mode="dark"><i class="fas fa-moon fa-fw me-1"></i> ダーク</button></li>
@@ -349,28 +239,7 @@
     </main>
 
     {# ===== Mobile Bottom Bar ===== #}
-    <nav class="beta-bottom-bar">
-        <a href="{{ url_for('main.dashboard') }}" class="beta-bottom-item active">
-            <i class="fas fa-tachometer-alt"></i>
-            <span>ホーム</span>
-        </a>
-        <a href="{{ url_for('vehicle.vehicle_list') }}" class="beta-bottom-item">
-            <i class="fas fa-motorcycle"></i>
-            <span>車両</span>
-        </a>
-        <a href="{{ url_for('fuel.add_fuel') }}" class="beta-bottom-item">
-            <i class="fas fa-gas-pump"></i>
-            <span>給油</span>
-        </a>
-        <a href="{{ url_for('maintenance.add_maintenance') }}" class="beta-bottom-item">
-            <i class="fas fa-tools"></i>
-            <span>整備</span>
-        </a>
-        <a href="#" class="beta-bottom-item" id="beta-bottom-more">
-            <i class="fas fa-bars"></i>
-            <span>メニュー</span>
-        </a>
-    </nav>
+    {% include 'beta/_beta_bottombar.html' %}
 </div>
 
 {# Timeline Detail Modal - beta-dashboard-wrapperの外に配置（スタッキングコンテキスト問題回避） #}

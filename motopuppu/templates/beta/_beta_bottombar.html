@@ -1,0 +1,24 @@
+{# motopuppu/templates/beta/_beta_bottombar.html #}
+{# Beta UI共通モバイルボトムバー #}
+<nav class="beta-bottom-bar">
+    <a href="{{ url_for('main.dashboard') }}" class="beta-bottom-item {{ 'active' if beta_nav_active == 'dashboard' }}">
+        <i class="fas fa-tachometer-alt"></i>
+        <span>ホーム</span>
+    </a>
+    <a href="{{ url_for('vehicle.vehicle_list') }}" class="beta-bottom-item {{ 'active' if beta_nav_active == 'garage' }}">
+        <i class="fas fa-motorcycle"></i>
+        <span>車両</span>
+    </a>
+    <a href="{{ url_for('fuel.fuel_log') }}" class="beta-bottom-item {{ 'active' if beta_nav_active == 'fuel' }}">
+        <i class="fas fa-gas-pump"></i>
+        <span>給油</span>
+    </a>
+    <a href="{{ url_for('maintenance.maintenance_log') }}" class="beta-bottom-item {{ 'active' if beta_nav_active == 'maintenance' }}">
+        <i class="fas fa-tools"></i>
+        <span>整備</span>
+    </a>
+    <a href="#" class="beta-bottom-item" id="beta-bottom-more">
+        <i class="fas fa-bars"></i>
+        <span>メニュー</span>
+    </a>
+</nav>

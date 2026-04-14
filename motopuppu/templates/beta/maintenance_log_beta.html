@@ -1,0 +1,431 @@
+{# motopuppu/templates/beta/maintenance_log_beta.html #}
+{% extends "base.html" %}
+
+{% block title %}整備記録 - もとぷっぷー{% endblock %}
+
+{% block body_attributes %}beta-ui-body{% endblock %}
+
+{% block styles %}
+{{ super() }}
+{% include 'beta/_beta_layout_head.html' %}
+{% endblock %}
+
+{% block content %}
+<style>.beta-ui-body #main-content > .container { max-width: 100%; padding: 0; }</style>
+
+{% set beta_nav_active = 'maintenance' %}
+<div class="beta-dashboard-wrapper">
+    <div class="beta-mobile-overlay" id="beta-mobile-overlay"></div>
+    {% include 'beta/_beta_sidebar.html' %}
+
+    <main class="beta-main-content">
+        {% set beta_topbar_title = '整備記録' %}
+        {% set beta_topbar_subtitle = '愛車のメンテナンスとコストを管理' %}
+        {% include 'beta/_beta_topbar.html' %}
+
+        {# Flash Messages #}
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show" role="alert" style="animation: betaFadeIn 0.3s ease;">
+            {{ message | safe }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        {# Quick Actions #}
+        <div class="beta-quick-actions mb-4">
+            <a href="{{ url_for('maintenance.add_maintenance', vehicle_id=request_args.get('vehicle_id') if request_args.get('vehicle_id') else '') }}" class="beta-quick-btn maintenance">
+                <i class="fas fa-plus me-1"></i> 記録追加
+            </a>
+            <div class="btn-group" role="group">
+                <input type="radio" class="btn-check" name="viewMode" id="viewModeDashboard" autocomplete="off">
+                <label class="beta-btn" for="viewModeDashboard" title="ダッシュボード表示"><i class="fas fa-stream"></i></label>
+                <input type="radio" class="btn-check" name="viewMode" id="viewModeTable" autocomplete="off">
+                <label class="beta-btn" for="viewModeTable" title="テーブル表示"><i class="fas fa-table"></i></label>
+            </div>
+        </div>
+
+        {# Vehicle Switcher #}
+        <div class="d-flex flex-wrap gap-2 mb-4">
+            <a href="{{ url_for('maintenance.maintenance_log') }}" class="beta-btn {{ 'beta-btn-solid' if not request_args.get('vehicle_id') }}">
+                <i class="fas fa-layer-group me-1"></i> すべて
+            </a>
+            {% for motorcycle in motorcycles %}
+            <a href="{{ url_for('maintenance.maintenance_log', vehicle_id=motorcycle.id) }}"
+               class="beta-btn {{ 'beta-btn-solid' if request_args.get('vehicle_id')|string == motorcycle.id|string }}">
+                <i class="fas fa-motorcycle me-1"></i> {{ motorcycle.name }}
+            </a>
+            {% endfor %}
+        </div>
+
+        {# Filter Panel #}
+        <div class="mb-3">
+            <button class="beta-btn" type="button" data-bs-toggle="collapse" data-bs-target="#filterCollapse"
+                aria-expanded="{{ 'true' if is_filter_active else 'false' }}">
+                <i class="fas fa-filter me-1"></i> 絞り込み検索
+                {% if is_filter_active %}<span class="badge bg-primary rounded-pill ms-1">ON</span>{% endif %}
+            </button>
+        </div>
+
+        <div class="collapse {% if is_filter_active %}show{% endif %} mb-4" id="filterCollapse">
+            <div class="beta-widget-card">
+                <div class="beta-widget-body" style="padding: 1rem;">
+                    <form method="GET" action="{{ url_for('maintenance.maintenance_log') }}" class="row g-2 align-items-end" id="maintenance-filter-form">
+                        <div class="col-md-2">
+                            <label class="form-label small beta-text-muted">開始日</label>
+                            <input type="date" class="form-control form-control-sm" name="start_date" value="{{ request_args.get('start_date', '') }}">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small beta-text-muted">終了日</label>
+                            <input type="date" class="form-control form-control-sm" name="end_date" value="{{ request_args.get('end_date', '') }}">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small beta-text-muted">車両</label>
+                            <select class="form-select form-select-sm" name="vehicle_id">
+                                <option value="">すべての車両</option>
+                                {% for motorcycle in motorcycles %}
+                                <option value="{{ motorcycle.id }}" {% if request_args.get('vehicle_id')|string==motorcycle.id|string %}selected{% endif %}>{{ motorcycle.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small beta-text-muted">カテゴリ</label>
+                            <input type="text" class="form-control form-control-sm" name="category" value="{{ request_args.get('category', '') }}" placeholder="カテゴリ名">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small beta-text-muted">キーワード</label>
+                            <input type="text" class="form-control form-control-sm" name="q" value="{{ request_args.get('q', '') }}" placeholder="内容, 場所, メモ">
+                        </div>
+                        <div class="col-md-2 text-end mt-2">
+                            <button type="submit" class="beta-btn beta-btn-solid">適用</button>
+                            <a href="{{ url_for('maintenance.maintenance_log') }}" class="beta-btn">リセット</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        {# ================================================================= #}
+        {# VIEW MODE 1: DASHBOARD (タイムライン) #}
+        {# ================================================================= #}
+        <div id="view-dashboard-container" class="d-none">
+
+            {# Hero Stats #}
+            <div class="beta-stats-grid mb-4" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem;">
+                <div class="beta-widget-card">
+                    <div class="beta-widget-body" style="padding: 1rem;">
+                        <div class="d-flex align-items-center">
+                            <div class="beta-widget-icon me-3" style="background: rgba(16, 185, 129, 0.15); color: var(--beta-accent-emerald); width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.25rem;">
+                                <i class="fas fa-yen-sign"></i>
+                            </div>
+                            <div>
+                                <div class="beta-text-muted small fw-bold text-uppercase" style="font-size: 0.65rem;">整備費合計 (表示中)</div>
+                                <div class="fw-bold fs-4 beta-text-primary">{{ "{:,}".format(summary_stats.total_cost|int) }}<span class="fs-6 beta-text-muted ms-1">円</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="beta-widget-card">
+                    <div class="beta-widget-body" style="padding: 1rem;">
+                        <div class="d-flex align-items-center">
+                            <div class="beta-widget-icon me-3" style="background: rgba(59, 130, 246, 0.15); color: var(--beta-accent-blue); width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.25rem;">
+                                <i class="fas fa-clipboard-check"></i>
+                            </div>
+                            <div>
+                                <div class="beta-text-muted small fw-bold text-uppercase" style="font-size: 0.65rem;">整備回数 (表示中)</div>
+                                <div class="fw-bold fs-4 beta-text-primary">{{ "{:,}".format(summary_stats.total_count) }}<span class="fs-6 beta-text-muted ms-1">回</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {# Timeline List #}
+            <div class="beta-timeline">
+                {% for entry in entries %}
+                <div class="beta-timeline-item">
+                    <div class="beta-timeline-marker maintenance"><i class="fas fa-tools"></i></div>
+                    <div class="beta-timeline-content">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <span class="fw-bold beta-text-primary">{{ entry.maintenance_date.strftime('%Y/%m/%d') }}</span>
+                                <span class="beta-badge beta-badge-teal ms-2">{{ entry.motorcycle.name }}</span>
+                                {% if entry.category %}
+                                <span class="beta-badge beta-badge-blue ms-1">{{ entry.category }}</span>
+                                {% endif %}
+                            </div>
+                            <div class="text-end">
+                                <span class="fw-bold beta-text-mono fs-5 beta-text-primary">
+                                    {% if entry.total_cost is not none %}{{ "{:,}".format(entry.total_cost|round|int) }}{% else %}-{% endif %}
+                                </span>
+                                <span class="beta-text-muted small">円</span>
+                            </div>
+                        </div>
+
+                        <div class="fw-bold beta-text-secondary mb-2">{{ entry.description }}</div>
+
+                        <div class="row g-2 mt-1">
+                            <div class="col-6 col-sm-3">
+                                <div class="small beta-text-muted mb-1"><i class="fas fa-tachometer-alt me-1"></i>ODO</div>
+                                <div class="fw-bold beta-text-secondary distance-value-cell"
+                                     data-is-racer="{{ 'true' if entry.motorcycle.is_racer else 'false' }}"
+                                     data-is-pending="{{ 'true' if entry.is_odo_pending else 'false' }}"
+                                     data-odo-value="{{ entry.odometer_reading_at_maintenance }}"
+                                     data-hours-value="{{ entry.operating_hours_at_maintenance }}"
+                                     data-actual-value="{{ entry.total_distance_at_maintenance if entry.total_distance_at_maintenance is not none else entry.odometer_reading_at_maintenance }}">
+                                    {% if entry.is_odo_pending %}
+                                    <span class="beta-badge beta-badge-amber"><i class="bi bi-hourglass-split me-1"></i>保留中</span>
+                                    {% elif entry.motorcycle.is_racer %}
+                                    {{ entry.operating_hours_at_maintenance }} H
+                                    {% else %}
+                                    {{ "{:,}".format(entry.odometer_reading_at_maintenance) }} km
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-6 col-sm-3">
+                                <div class="small beta-text-muted mb-1"><i class="fas fa-cogs me-1"></i>部品代</div>
+                                <div class="fw-bold beta-text-secondary">{{ "{:,}".format(entry.parts_cost|int) if entry.parts_cost is not none else '0' }} 円</div>
+                            </div>
+                            <div class="col-6 col-sm-3">
+                                <div class="small beta-text-muted mb-1"><i class="fas fa-wrench me-1"></i>工賃</div>
+                                <div class="fw-bold beta-text-secondary">{{ "{:,}".format(entry.labor_cost|int) if entry.labor_cost is not none else '0' }} 円</div>
+                            </div>
+                            <div class="col-6 col-sm-3">
+                                <div class="small beta-text-muted mb-1"><i class="fas fa-map-marker-alt me-1"></i>場所</div>
+                                <div class="text-truncate beta-text-secondary" title="{{ entry.location }}">{{ entry.location or '-' }}</div>
+                            </div>
+                        </div>
+
+                        {% if entry.notes %}
+                        <div class="mt-2 p-2 rounded small beta-text-muted" style="background: rgba(148, 163, 184, 0.08); white-space: pre-wrap;">
+                            <i class="fas fa-sticky-note me-1"></i>{{ entry.notes }}
+                        </div>
+                        {% endif %}
+
+                        <div class="d-flex justify-content-end align-items-center mt-2 pt-2" style="border-top: 1px solid var(--beta-border);">
+                            <a href="{{ url_for('maintenance.edit_maintenance', entry_id=entry.id) }}" class="beta-btn" style="font-size: 0.7rem; padding: 0.2rem 0.5rem;">編集</a>
+                            <form action="{{ url_for('maintenance.delete_maintenance', entry_id=entry.id) }}" method="POST" class="d-inline ms-1" onsubmit="return confirm('この整備記録を削除してもよろしいですか？');">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                <button type="submit" class="beta-btn" style="font-size: 0.7rem; padding: 0.2rem 0.5rem; color: var(--beta-accent-red);">削除</button>
+                            </form>
+                            <button class="beta-btn btn-share-misskey ms-1" style="font-size: 0.7rem; padding: 0.2rem 0.5rem;"
+                                data-type="maintenance" data-vehicle-name="{{ entry.motorcycle.name }}"
+                                data-date="{{ entry.maintenance_date.isoformat() }}"
+                                data-odo="{% if entry.motorcycle.is_racer %}{{ entry.operating_hours_at_maintenance }}H{% else %}{{ entry.odometer_reading_at_maintenance }}{% endif %}"
+                                data-total-distance="{{ entry.total_distance_at_maintenance if entry.total_distance_at_maintenance is not none else '' }}"
+                                data-category="{{ entry.category or '' }}" data-description="{{ entry.description }}"
+                                data-cost="{{ entry.total_cost|round|int if entry.total_cost else '' }}"
+                                data-location="{{ entry.location or '' }}">
+                                <i class="fas fa-share-alt"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <div class="text-center py-5 beta-text-muted">
+                    <i class="fas fa-tools fa-3x mb-3" style="opacity: 0.3;"></i>
+                    <p>表示できる整備記録がありません。</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+
+        {# ================================================================= #}
+        {# VIEW MODE 2: TABLE #}
+        {# ================================================================= #}
+        <div id="view-table-container" class="d-none">
+            <div class="table-responsive beta-widget-card" style="border-radius: var(--beta-radius);">
+                <table class="table table-hover table-sm mb-0 align-middle">
+                    <thead>
+                        <tr>
+                            {% macro sortable_th(sort_key, display_text, current_sort, current_order, request_args, th_class="", th_id="") %}
+                            {% set current_request_args = request_args.copy() %}
+                            {% set sort_order = 'asc' %}
+                            {% set sort_icon_html = '<i class="fas fa-sort fa-fw beta-text-muted ms-1"></i>' %}
+                            {% if current_sort == sort_key %}
+                            {% if current_order == 'asc' %}
+                            {% set sort_order = 'desc' %}
+                            {% set sort_icon_html = '<i class="fas fa-sort-up fa-fw ms-1"></i>' %}
+                            {% else %}
+                            {% set sort_icon_html = '<i class="fas fa-sort-down fa-fw ms-1"></i>' %}
+                            {% endif %}
+                            {% endif %}
+                            {% set _ = current_request_args.update({'sort_by': sort_key, 'order': sort_order, 'page': 1}) %}
+                            <th class="{{ th_class }}" {% if th_id %}id="{{ th_id }}"{% endif %}>
+                                <a href="{{ url_for('maintenance.maintenance_log', **current_request_args) }}" class="text-decoration-none beta-text-secondary">
+                                    <span class="header-text">{{ display_text|safe }}</span>
+                                    <span class="sort-icon">{{ sort_icon_html|safe }}</span>
+                                </a>
+                            </th>
+                            {% endmacro %}
+
+                            {{ sortable_th('date', '日付', current_sort_by, current_order, request_args, "ps-3") }}
+                            {{ sortable_th('vehicle', '車両', current_sort_by, current_order, request_args) }}
+                            {{ sortable_th('odo_reading', 'ODO', current_sort_by, current_order, request_args, "text-end", "distance_header") }}
+                            {{ sortable_th('category', 'カテゴリ', current_sort_by, current_order, request_args) }}
+                            <th>内容</th>
+                            <th class="text-end">費用</th>
+                            <th class="text-center">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for entry in entries %}
+                        <tr>
+                            <td class="ps-3">{{ entry.maintenance_date.strftime('%Y-%m-%d') }}</td>
+                            <td><a href="{{ url_for('maintenance.edit_maintenance', entry_id=entry.id) }}" class="text-decoration-none beta-text-primary">{{ entry.motorcycle.name }}</a></td>
+                            <td class="text-end beta-text-mono distance-value-cell"
+                                data-is-racer="{{ 'true' if entry.motorcycle.is_racer else 'false' }}"
+                                data-is-pending="{{ 'true' if entry.is_odo_pending else 'false' }}"
+                                data-odo-value="{{ entry.odometer_reading_at_maintenance }}"
+                                data-hours-value="{{ entry.operating_hours_at_maintenance }}"
+                                data-actual-value="{{ entry.total_distance_at_maintenance if entry.total_distance_at_maintenance is not none else entry.odometer_reading_at_maintenance }}">
+                                {% if entry.is_odo_pending %}
+                                <span class="beta-badge beta-badge-amber"><i class="bi bi-hourglass-split me-1"></i>保留中</span>
+                                {% elif entry.motorcycle.is_racer %}{{ entry.operating_hours_at_maintenance }}
+                                {% else %}{{ "{:,}".format(entry.odometer_reading_at_maintenance) }}{% endif %}
+                            </td>
+                            <td>{{ entry.category if entry.category else '-' }}</td>
+                            <td><span title="{{ entry.description }}" data-bs-toggle="tooltip">{{ entry.description|truncate(30) }}</span></td>
+                            <td class="text-end beta-text-mono">{% if entry.total_cost is not none %}{{ "{:,}".format(entry.total_cost|round|int) }}{% else %}-{% endif %}</td>
+                            <td class="text-center text-nowrap">
+                                <a href="{{ url_for('maintenance.edit_maintenance', entry_id=entry.id) }}" class="beta-btn" style="font-size: 0.7rem; padding: 0.15rem 0.4rem;"><i class="fas fa-edit"></i></a>
+                                <form action="{{ url_for('maintenance.delete_maintenance', entry_id=entry.id) }}" method="POST" class="d-inline" onsubmit="return confirm('削除しますか？');">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                    <button type="submit" class="beta-btn" style="font-size: 0.7rem; padding: 0.15rem 0.4rem; color: var(--beta-accent-red);"><i class="fas fa-trash"></i></button>
+                                </form>
+                                <button class="beta-btn btn-share-misskey ms-1" style="font-size: 0.7rem; padding: 0.15rem 0.4rem;"
+                                    data-type="maintenance" data-vehicle-name="{{ entry.motorcycle.name }}"
+                                    data-date="{{ entry.maintenance_date.isoformat() }}"
+                                    data-odo="{% if entry.motorcycle.is_racer %}{{ entry.operating_hours_at_maintenance }}H{% else %}{{ entry.odometer_reading_at_maintenance }}{% endif %}"
+                                    data-total-distance="{{ entry.total_distance_at_maintenance if entry.total_distance_at_maintenance is not none else '' }}"
+                                    data-category="{{ entry.category or '' }}" data-description="{{ entry.description }}"
+                                    data-cost="{{ entry.total_cost|round|int if entry.total_cost else '' }}"
+                                    data-location="{{ entry.location or '' }}" title="Misskeyで共有">
+                                    <i class="fa-solid fa-share-nodes fa-fw"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="7" class="text-center py-4 beta-text-muted">記録がありません</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {# CSV Buttons #}
+            <div class="mt-3 d-flex justify-content-between align-items-center">
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="odoDisplayToggle" role="switch" checked>
+                    <label class="form-check-label small beta-text-muted" for="odoDisplayToggle" id="odoDisplayToggleLabel">ODOメーター値を表示</label>
+                </div>
+                <div>
+                    {% if request_args.get('vehicle_id') %}
+                    <button type="button" class="beta-btn" data-bs-toggle="modal" data-bs-target="#csvImportModal"><i class="fas fa-file-import me-1"></i> CSVインポート</button>
+                    <a href="{{ url_for('maintenance.export_maintenance_logs_csv', motorcycle_id=request_args.get('vehicle_id')) }}" class="beta-btn"><i class="fas fa-download me-1"></i> CSVエクスポート</a>
+                    {% elif motorcycles|length > 0 %}
+                    <a href="{{ url_for('maintenance.export_all_maintenance_logs_csv') }}" class="beta-btn"><i class="fas fa-download me-1"></i> 全車両CSVエクスポート</a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        {# Pagination #}
+        {% if pagination.pages > 1 %}
+        <nav aria-label="Page navigation" class="mt-4">
+            <ul class="pagination justify-content-center">
+                <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}"><a class="page-link" href="{{ url_for('maintenance.maintenance_log', page=pagination.prev_num, **request_args) }}">&laquo;</a></li>
+                {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=1) %}
+                {% if page_num %}<li class="page-item {% if page_num == pagination.page %}active{% endif %}"><a class="page-link" href="{{ url_for('maintenance.maintenance_log', page=page_num, **request_args) }}">{{ page_num }}</a></li>
+                {% else %}<li class="page-item disabled"><span class="page-link">...</span></li>{% endif %}
+                {% endfor %}
+                <li class="page-item {% if not pagination.has_next %}disabled{% endif %}"><a class="page-link" href="{{ url_for('maintenance.maintenance_log', page=pagination.next_num, **request_args) }}">&raquo;</a></li>
+            </ul>
+        </nav>
+        {% endif %}
+
+    </main>
+    {% include 'beta/_beta_bottombar.html' %}
+</div>
+{% endblock %}
+
+{% block modals %}
+{{ super() }}
+{% if request_args.get('vehicle_id') %}
+{% set selected_vehicle_id = request_args.get('vehicle_id')|int %}
+{% set selected_vehicle = motorcycles|selectattr('id', 'equalto', selected_vehicle_id)|first %}
+{% if selected_vehicle %}
+<div class="modal fade" id="csvImportModal" tabindex="-1" aria-labelledby="csvImportModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('maintenance.import_maintenance_logs_csv', vehicle_id=selected_vehicle_id) }}" enctype="multipart/form-data" novalidate>
+                {{ upload_form.hidden_tag() }}
+                <div class="modal-header"><h5 class="modal-title" id="csvImportModalLabel"><i class="fas fa-file-import me-2"></i>整備記録のCSVインポート ({{ selected_vehicle.name }})</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+                <div class="modal-body">
+                    <p>指定された形式のCSVファイルをアップロードすることで、整備記録を一括登録できます。</p>
+                    <ol><li>下のボタンからテンプレートファイルをダウンロードします。</li><li>テンプレートに従って整備記録を入力します。（文字コードはUTF-8）</li><li>完成したCSVファイルを選択し、インポートボタンを押してください。</li></ol>
+                    <p class="small beta-text-muted"><strong>必須項目:</strong> <code>maintenance_date</code>, <code>odometer_reading_at_maintenance</code>, <code>description</code><br><strong>日付形式:</strong> <code>YYYY-MM-DD</code></p>
+                    <div class="mb-3"><a href="{{ url_for('maintenance.download_maintenance_import_template') }}" class="beta-btn"><i class="fas fa-download me-1"></i> テンプレート</a></div>
+                    <hr style="border-color: var(--beta-border);">
+                    <div class="mb-3">
+                        {{ upload_form.csv_file.label(class="form-label") }}
+                        {{ upload_form.csv_file(class="form-control" + (" is-invalid" if upload_form.csv_file.errors else "")) }}
+                        {% if upload_form.csv_file.errors %}<div class="invalid-feedback">{% for error in upload_form.csv_file.errors %}<span>{{ error }}</span><br>{% endfor %}</div>{% endif %}
+                    </div>
+                </div>
+                <div class="modal-footer"><button type="button" class="beta-btn" data-bs-dismiss="modal">閉じる</button>{{ upload_form.submit_upload(class="beta-btn beta-btn-solid") }}</div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+{% include 'beta/_beta_scripts.html' %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.map(el => new bootstrap.Tooltip(el));
+
+    const dashboardRadio = document.getElementById('viewModeDashboard');
+    const tableRadio = document.getElementById('viewModeTable');
+    const dashboardContainer = document.getElementById('view-dashboard-container');
+    const tableContainer = document.getElementById('view-table-container');
+    const STORAGE_KEY = 'motopuppu_maintenance_view_pref';
+
+    function setViewMode(mode) {
+        if (mode === 'dashboard') { dashboardContainer.classList.remove('d-none'); tableContainer.classList.add('d-none'); dashboardRadio.checked = true; }
+        else { dashboardContainer.classList.add('d-none'); tableContainer.classList.remove('d-none'); tableRadio.checked = true; }
+        localStorage.setItem(STORAGE_KEY, mode);
+    }
+    setViewMode(localStorage.getItem(STORAGE_KEY) || 'dashboard');
+    if (dashboardRadio) dashboardRadio.addEventListener('change', () => setViewMode('dashboard'));
+    if (tableRadio) tableRadio.addEventListener('change', () => setViewMode('table'));
+
+    // ODO Toggle
+    const odoToggle = document.getElementById('odoDisplayToggle');
+    if (odoToggle) {
+        const toggleDistDisplay = () => {
+            const isOdo = odoToggle.checked;
+            document.querySelectorAll('.distance-value-cell').forEach(cell => {
+                if (cell.dataset.isPending === 'true' || cell.querySelector('.beta-badge')) return;
+                const isRacer = cell.dataset.isRacer === 'true';
+                if (isRacer) { const val = cell.dataset.hoursValue; if (val && val !== 'None') { cell.textContent = parseFloat(val).toFixed(2); if (cell.classList.contains('fw-bold')) cell.textContent += ' H'; } }
+                else { const val = isOdo ? cell.dataset.odoValue : cell.dataset.actualValue; if (val && val !== 'None' && val !== '0') { cell.textContent = parseInt(val).toLocaleString(); if (cell.classList.contains('fw-bold')) cell.textContent += ' km'; } }
+            });
+            const distHeader = document.getElementById('distance_header');
+            if (distHeader) { const span = distHeader.querySelector('.header-text'); if (span) span.innerHTML = '<i class="bi bi-speedometer2 me-2"></i>' + (isOdo ? 'ODO' : '実走行'); }
+        };
+        odoToggle.addEventListener('change', toggleDistDisplay);
+        toggleDistDisplay();
+    }
+});
+</script>
+<script src="{{ url_for('static', filename='js/filter_persistence.js') }}"></script>
+{% endblock %}
