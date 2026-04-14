@@ -10,7 +10,7 @@
                 {% for notice in announcements %}
                 <div class="mb-3 pb-2 {% if not loop.last %}border-bottom{% endif %}">
                     <h6 class="mb-1 fw-bold">{{ notice.title }}</h6>
-                    <p class="mb-0 small text-muted">{{ notice.content | replace('\n', '<br>') | safe }}</p>
+                    <div class="mb-0 small text-muted">{{ notice.content | simple_markdown }}</div>
                 </div>
                 {% else %}
                 <p>現在、表示できるお知らせはありません。</p>

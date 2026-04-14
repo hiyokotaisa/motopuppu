@@ -116,6 +116,58 @@ def create_app(config_name=None):
     app.jinja_env.filters['nl2br'] = nl2br_filter
 
     import re as _re
+
+    def simple_markdown_filter(value):
+        """
+        簡易Markdownフィルタ: **太字**, - リスト, 改行をHTMLに変換する。
+        announcements.json のお知らせコンテンツ用。
+        """
+        if not value:
+            return ""
+        from markupsafe import Markup, escape
+
+        # まずHTMLエスケープ（XSS対策）
+        text = str(escape(value))
+
+        # **太字** → <strong>
+        text = _re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', text)
+
+        # 行単位で処理してリスト変換
+        lines = text.split('\n')
+        result_lines = []
+        in_list = False
+
+        for line in lines:
+            stripped = line.strip()
+
+            # "- " で始まる行はリストアイテム
+            if stripped.startswith('- '):
+                if not in_list:
+                    result_lines.append('<ul style="padding-left: 1.5rem; margin: 0.3rem 0;">')
+                    in_list = True
+                item_content = stripped[2:]  # "- " を除去
+                result_lines.append(f'<li>{item_content}</li>')
+            else:
+                if in_list:
+                    result_lines.append('</ul>')
+                    in_list = False
+
+                if stripped == '':
+                    result_lines.append('<br>')
+                else:
+                    result_lines.append(stripped + '<br>')
+
+        if in_list:
+            result_lines.append('</ul>')
+
+        html = '\n'.join(result_lines)
+
+        # 末尾の余分な <br> を除去
+        html = _re.sub(r'(<br>\s*)+$', '', html)
+
+        return Markup(html)
+
+    app.jinja_env.filters['simple_markdown'] = simple_markdown_filter
     def is_part_number_filter(value):
         """
         文字列が部品の品番パターン（英数字・ハイフン・スラッシュのみ、2文字以上）かどうかを判定する
