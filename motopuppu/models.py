@@ -445,8 +445,27 @@ class Event(db.Model):
     
     participants = db.relationship('EventParticipant', backref='event', lazy='dynamic', cascade="all, delete-orphan")
     activity_logs = db.relationship('ActivityLog', backref='origin_event', lazy='dynamic', order_by="desc(ActivityLog.activity_date)")
+    notifications = db.relationship('EventNotification', backref='event', lazy='dynamic', cascade="all, delete-orphan")
     def __repr__(self):
         return f'<Event id={self.id} title="{self.title}">'
+
+
+class EventNotification(db.Model):
+    """イベント告知投稿の記録（重複防止用）"""
+    __tablename__ = 'event_notifications'
+    id = db.Column(db.Integer, primary_key=True)
+    event_id = db.Column(db.Integer, db.ForeignKey('events.id', ondelete='CASCADE'), nullable=False, index=True)
+    notification_type = db.Column(db.String(50), nullable=False, comment="通知タイプ (例: '60days', '30days', '14days', '7days', '3days', '1day', 'today')")
+    misskey_note_id = db.Column(db.String(32), nullable=True, comment="投稿のノートID")
+    posted_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
+
+    __table_args__ = (
+        db.UniqueConstraint('event_id', 'notification_type', name='uq_event_notification_type'),
+    )
+
+    def __repr__(self):
+        return f'<EventNotification id={self.id} event_id={self.event_id} type="{self.notification_type}">'
+
 
 class EventParticipant(db.Model):
     __tablename__ = 'event_participants'

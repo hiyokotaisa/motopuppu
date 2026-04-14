@@ -713,6 +713,17 @@ def merge_duplicate_achievements_command(dry_run):
             db.session.rollback()
             click.echo(click.style(f"\nError during commit: {e}", fg='red'))
 
+@click.command('post-upcoming-events')
+@with_appcontext
+@click.option('--dry-run', is_flag=True, help='実際には投稿せず、投稿内容をプレビューします。')
+def post_upcoming_events_command(dry_run):
+    """直近の公開イベントをMisskey公式アカウントで段階的に告知投稿します。"""
+    from .misskey_bot import post_upcoming_events
+    result = post_upcoming_events(dry_run=dry_run)
+    if result.get('error'):
+        raise SystemExit(1)
+
+
 # --- アプリケーションへのコマンド登録 ---
 def register_commands(app):
     """FlaskアプリケーションインスタンスにCLIコマンドを登録する"""
@@ -725,4 +736,5 @@ def register_commands(app):
     app.cli.add_command(seed_achievements_command)
     app.cli.add_command(list_achievements_command)
     app.cli.add_command(merge_duplicate_achievements_command)
+    app.cli.add_command(post_upcoming_events_command)
     # ▲▲▲ 登録ここまで ▲▲▲

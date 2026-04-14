@@ -60,7 +60,8 @@ def create_app(config_name=None):
         SESSION_COOKIE_SECURE=True if os.environ.get('FLASK_ENV') == 'production' else False,
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE='Lax',
-        GOOGLE_MAPS_API_KEY=os.environ.get('GOOGLE_PLACES_API_KEY')
+        GOOGLE_MAPS_API_KEY=os.environ.get('GOOGLE_PLACES_API_KEY'),
+        MISSKEY_BOT_API_TOKEN=os.environ.get('MISSKEY_BOT_API_TOKEN'),
     )
     # ▲▲▲ 修正ここまで ▲▲▲
 
@@ -245,14 +246,14 @@ def create_app(config_name=None):
     @app.shell_context_processor
     def make_shell_context():
         from .models import db, User, Motorcycle, FuelEntry, MaintenanceEntry, MaintenanceReminder, GeneralNote, OdoResetLog, AchievementDefinition, UserAchievement
-        from .models import SettingSheet, ActivityLog, SessionLog, Event, EventParticipant, TouringLog, TouringSpot, TouringScrapbookEntry, MaintenanceSpecSheet, Team, VehicleCategory
+        from .models import SettingSheet, ActivityLog, SessionLog, Event, EventParticipant, EventNotification, TouringLog, TouringSpot, TouringScrapbookEntry, MaintenanceSpecSheet, Team, VehicleCategory
         return {
             'db': db, 'User': User, 'Motorcycle': Motorcycle, 'FuelEntry': FuelEntry,
             'MaintenanceEntry': MaintenanceEntry, 'MaintenanceReminder': MaintenanceReminder,
             'GeneralNote': GeneralNote, 'OdoResetLog': OdoResetLog,
             'AchievementDefinition': AchievementDefinition, 'UserAchievement': UserAchievement,
             'SettingSheet': SettingSheet, 'ActivityLog': ActivityLog, 'SessionLog': SessionLog,
-            'Event': Event, 'EventParticipant': EventParticipant,
+            'Event': Event, 'EventParticipant': EventParticipant, 'EventNotification': EventNotification,
             'TouringLog': TouringLog, 'TouringSpot': TouringSpot, 'TouringScrapbookEntry': TouringScrapbookEntry,
             'MaintenanceSpecSheet': MaintenanceSpecSheet, 'Team': Team, 'VehicleCategory': VehicleCategory
         }
