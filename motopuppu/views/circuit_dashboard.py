@@ -428,8 +428,9 @@ def index():
     heatmap_data = {d.isoformat(): c for d, c in heatmap_query}
     # ▲▲▲【追加】ヒートマップここまで ▲▲▲
 
+    template_name = 'beta/circuit_dashboard_beta.html' if current_user.use_beta_ui else 'circuit_dashboard/index.html'
     return render_template(
-        'circuit_dashboard/index.html',
+        template_name,
         summary_stats=summary_stats,
         circuit_data=circuit_data,
         format_seconds_to_time=format_seconds_to_time,
