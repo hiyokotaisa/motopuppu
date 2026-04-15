@@ -144,11 +144,11 @@
             </div>
 
             {# Timeline List #}
-            <div class="beta-timeline">
+            <div class="beta-log-timeline">
                 {% for entry in entries %}
-                <div class="beta-timeline-item">
-                    <div class="beta-timeline-marker maintenance"><i class="fas fa-tools"></i></div>
-                    <div class="beta-timeline-content">
+                <div class="beta-log-timeline-item">
+                    <div class="beta-log-timeline-marker maintenance"><i class="fas fa-tools"></i></div>
+                    <div class="beta-log-timeline-content">
                         <div class="d-flex justify-content-between align-items-start mb-2">
                             <div>
                                 <span class="fw-bold beta-text-primary">{{ entry.maintenance_date.strftime('%Y/%m/%d') }}</span>
@@ -200,8 +200,8 @@
                         </div>
 
                         {% if entry.notes %}
-                        <div class="mt-2 p-2 rounded small beta-text-muted" style="background: rgba(148, 163, 184, 0.08); white-space: pre-wrap;">
-                            <i class="fas fa-sticky-note me-1"></i>{{ entry.notes }}
+                        <div class="mt-2 p-2 rounded small beta-text-muted" style="background: rgba(148, 163, 184, 0.08);">
+                            <i class="fas fa-sticky-note me-1"></i><span style="white-space: pre-wrap;">{{ entry.notes }}</span>
                         </div>
                         {% endif %}
 

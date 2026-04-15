@@ -82,7 +82,8 @@ def settings():
         profile_form.use_lite_dashboard.data = current_user.use_lite_dashboard
         # ▲▲▲【変更はここまで】▲▲▲
 
-    return render_template('profile/settings.html',
+    template_name = 'beta/profile_settings_beta.html' if current_user.use_beta_ui else 'profile/settings.html'
+    return render_template(template_name,
                            title='プロフィール設定',
                            profile_form=profile_form,
                            delete_form=delete_form)

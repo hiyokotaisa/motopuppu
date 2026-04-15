@@ -181,11 +181,11 @@
             {% endif %}
 
             {# Timeline List #}
-            <div class="beta-timeline">
+            <div class="beta-log-timeline">
                 {% for entry in entries %}
-                <div class="beta-timeline-item">
-                    <div class="beta-timeline-marker fuel"><i class="fas fa-gas-pump"></i></div>
-                    <div class="beta-timeline-content">
+                <div class="beta-log-timeline-item">
+                    <div class="beta-log-timeline-marker fuel"><i class="fas fa-gas-pump"></i></div>
+                    <div class="beta-log-timeline-content">
                         <div class="d-flex justify-content-between align-items-start mb-2">
                             <div>
                                 <span class="fw-bold beta-text-primary">{{ entry.entry_date.strftime('%Y/%m/%d') }}</span>

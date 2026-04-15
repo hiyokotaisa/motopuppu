@@ -1,0 +1,131 @@
+{# motopuppu/templates/beta/touring_list_beta.html #}
+{% extends "base.html" %}
+
+{% block title %}ツーリングログ ({{ motorcycle.name }}) - もとぷっぷー{% endblock %}
+
+{% block body_attributes %}beta-ui-body{% endblock %}
+
+{% block styles %}
+{{ super() }}
+{% include 'beta/_beta_layout_head.html' %}
+{% endblock %}
+
+{% block content %}
+<style>.beta-ui-body #main-content > .container { max-width: 100%; padding: 0; }</style>
+
+{% set beta_nav_active = 'touring' %}
+<div class="beta-dashboard-wrapper">
+    <div class="beta-mobile-overlay" id="beta-mobile-overlay"></div>
+    {% include 'beta/_beta_sidebar.html' %}
+
+    <main class="beta-main-content">
+        {# Top Bar #}
+        {% set beta_topbar_title = 'ツーリングログ' %}
+        {% set beta_topbar_subtitle = motorcycle.name ~ ' の思い出を記録' %}
+        {% include 'beta/_beta_topbar.html' %}
+
+        {# Flash Messages #}
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show" role="alert" style="animation: betaFadeIn 0.3s ease;">
+            {{ message | safe }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        {# Quick Actions #}
+        <div class="beta-quick-actions mb-4">
+            <a href="{{ url_for('touring.create_log', vehicle_id=motorcycle.id) }}" class="beta-quick-btn activity">
+                <i class="fas fa-plus me-1"></i> 新規ログ作成
+            </a>
+        </div>
+
+        {# Vehicle Switcher #}
+        <div class="d-flex flex-wrap gap-2 mb-4">
+            {% for mc in g.user_motorcycles %}
+            <a href="{{ url_for('touring.list_logs', vehicle_id=mc.id) }}"
+               class="beta-btn {{ 'beta-btn-solid' if mc.id == motorcycle.id }}">
+                <i class="fas fa-motorcycle me-1"></i> {{ mc.name }}
+            </a>
+            {% endfor %}
+        </div>
+
+        {% if logs_with_counts %}
+        {# Card Grid #}
+        <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4">
+            {% for log, spot_count, scrapbook_count in logs_with_counts %}
+            <div class="col">
+                <a href="{{ url_for('touring.detail_log', log_id=log.id) }}" class="text-decoration-none" style="color: inherit;">
+                    <div class="beta-widget-card h-100" style="transition: transform 0.2s ease, box-shadow 0.2s ease; cursor: pointer;">
+                        <div class="beta-widget-body" style="padding: 1.25rem;">
+                            {# 日付 #}
+                            <div class="d-flex align-items-center mb-3">
+                                <div class="beta-widget-icon me-3" style="background: rgba(16, 185, 129, 0.15); color: var(--beta-accent-emerald); width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0;">
+                                    <i class="far fa-calendar-alt"></i>
+                                </div>
+                                <div class="beta-text-muted small fw-bold text-uppercase" style="font-size: 0.7rem; letter-spacing: 0.05em;">
+                                    {{ log.touring_date.strftime('%Y.%m.%d (%a)') }}
+                                </div>
+                            </div>
+
+                            {# タイトル #}
+                            <h5 class="fw-bold mb-3 d-block text-truncate beta-text-primary" title="{{ log.title }}" style="font-size: 1.1rem;">
+                                {{ log.title }}
+                            </h5>
+
+                            {# メモ #}
+                            {% if log.memo %}
+                            <p class="beta-text-secondary small mb-3" style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+                                {{ log.memo }}
+                            </p>
+                            {% endif %}
+
+                            {# Footer: スポット数 / スクラップ数 #}
+                            <div class="mt-auto pt-3 d-flex gap-2" style="border-top: 1px solid var(--beta-border);">
+                                <span class="beta-badge beta-badge-teal" title="立ち寄りスポット数">
+                                    <i class="fas fa-map-marker-alt me-1"></i> {{ spot_count or 0 }}
+                                </span>
+                                <span class="beta-badge beta-badge-blue" title="Misskeyスクラップ数">
+                                    <i class="fas fa-comments me-1"></i> {{ scrapbook_count or 0 }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        {# 空状態 #}
+        <div class="text-center py-5 my-5">
+            <div class="mb-4">
+                <i class="fas fa-map-signs fa-4x beta-text-muted" style="opacity: 0.3;"></i>
+            </div>
+            <h4 class="fw-bold beta-text-primary">まだツーリングログがありません</h4>
+            <p class="beta-text-muted mb-4">最初のツーリングの思い出を記録してみましょう！</p>
+            <a href="{{ url_for('touring.create_log', vehicle_id=motorcycle.id) }}" class="beta-btn beta-btn-solid">
+                <i class="fas fa-plus me-1"></i> 最初のログを作成
+            </a>
+        </div>
+        {% endif %}
+
+    </main>
+
+    {% include 'beta/_beta_bottombar.html' %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+{% include 'beta/_beta_scripts.html' %}
+
+<style>
+    .beta-widget-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    }
+</style>
+{% endblock %}

@@ -56,7 +56,10 @@ def public_events_list():
     
     events_pagination = events_query.paginate(page=page, per_page=15, error_out=False)
     
-    return render_template('event/public_list_events.html', events_pagination=events_pagination)
+    template_name = 'event/public_list_events.html'
+    if current_user.is_authenticated and current_user.use_beta_ui:
+        template_name = 'beta/public_list_events_beta.html'
+    return render_template(template_name, events_pagination=events_pagination)
 
 
 @event_bp.route('/')

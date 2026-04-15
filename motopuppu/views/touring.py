@@ -57,7 +57,8 @@ def list_logs(vehicle_id):
     .outerjoin(scrapbook_count_subq, TouringLog.id == scrapbook_count_subq.c.touring_log_id)\
     .order_by(TouringLog.touring_date.desc()).all()
 
-    return render_template('touring/list_logs.html', motorcycle=motorcycle, logs_with_counts=logs_with_counts)
+    template_name = 'beta/touring_list_beta.html' if current_user.use_beta_ui else 'touring/list_logs.html'
+    return render_template(template_name, motorcycle=motorcycle, logs_with_counts=logs_with_counts)
 
 
 @touring_bp.route('/<int:vehicle_id>/create', methods=['GET', 'POST'])
@@ -88,7 +89,8 @@ def create_log(vehicle_id):
             current_app.logger.error(f"Error creating touring log: {e}", exc_info=True)
             flash('ツーリングログの作成中にエラーが発生しました。', 'danger')
 
-    return render_template('touring/touring_log_form.html', form=form, motorcycle=motorcycle, form_action='add')
+    template_name = 'beta/touring_form_beta.html' if current_user.use_beta_ui else 'touring/touring_log_form.html'
+    return render_template(template_name, form=form, motorcycle=motorcycle, form_action='add')
 
 
 @touring_bp.route('/<int:log_id>/edit', methods=['GET', 'POST'])
@@ -122,7 +124,8 @@ def edit_log(log_id):
         note_ids = [entry.misskey_note_id for entry in log.scrapbook_entries]
         form.scrapbook_note_ids.data = json.dumps(note_ids)
 
-    return render_template('touring/touring_log_form.html', form=form, motorcycle=motorcycle, log=log, form_action='edit')
+    template_name = 'beta/touring_form_beta.html' if current_user.use_beta_ui else 'touring/touring_log_form.html'
+    return render_template(template_name, form=form, motorcycle=motorcycle, log=log, form_action='edit')
 
 
 def process_spots_and_scrapbook(log, form):
@@ -216,7 +219,8 @@ def detail_log(log_id):
             emojis_json = emoji_cache["data"] if emoji_cache["data"] else '[]'
     # ▲▲▲ 変更ここまで ▲▲▲
 
-    return render_template('touring/detail_log.html', log=log, emojis_json=emojis_json)
+    template_name = 'beta/touring_detail_beta.html' if current_user.use_beta_ui else 'touring/detail_log.html'
+    return render_template(template_name, log=log, emojis_json=emojis_json)
 
 
 @touring_bp.route('/api/misskey_notes')

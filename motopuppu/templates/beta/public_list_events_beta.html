@@ -1,0 +1,172 @@
+{# motopuppu/templates/beta/public_list_events_beta.html #}
+{% extends "base.html" %}
+
+{% block title %}開催予定のイベント一覧 - もとぷっぷー{% endblock %}
+
+{% block body_attributes %}beta-ui-body{% endblock %}
+
+{% block styles %}
+{{ super() }}
+{% include 'beta/_beta_layout_head.html' %}
+{% endblock %}
+
+{% block content %}
+<style>.beta-ui-body #main-content > .container { max-width: 100%; padding: 0; }</style>
+
+{% set beta_nav_active = 'event' %}
+<div class="beta-dashboard-wrapper">
+    <div class="beta-mobile-overlay" id="beta-mobile-overlay"></div>
+    {% include 'beta/_beta_sidebar.html' %}
+
+    <main class="beta-main-content">
+        {# Top Bar #}
+        {% set beta_topbar_title = '開催予定のイベント一覧' %}
+        {% set beta_topbar_subtitle = 'Scheduled Events' %}
+        {% include 'beta/_beta_topbar.html' %}
+
+        {# Flash Messages #}
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show" role="alert" style="animation: betaFadeIn 0.3s ease;">
+            {{ message | safe }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        {% if events_pagination.items %}
+
+        {# Event Cards Grid #}
+        <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4">
+            {% for event, attending_count, tentative_count in events_pagination.items %}
+            <div class="col">
+                <a href="{{ url_for('event.public_event_view', public_id=event.public_id) }}"
+                    class="text-decoration-none" style="color: inherit;">
+                    <div class="beta-widget-card h-100" style="transition: transform 0.2s ease, box-shadow 0.2s ease; cursor: pointer;">
+                        <div class="beta-widget-body" style="padding: 1.25rem;">
+                            {# --- 日時 --- #}
+                            <div class="d-flex align-items-center mb-3">
+                                <div class="beta-widget-icon me-3" style="background: rgba(99, 102, 241, 0.15); color: var(--beta-accent-indigo, #818cf8); width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0;">
+                                    <i class="far fa-clock"></i>
+                                </div>
+                                <div class="beta-text-muted small fw-bold text-uppercase" style="font-size: 0.7rem; letter-spacing: 0.05em;">
+                                    {{ event.start_datetime | to_jst('%Y.%m.%d (%a) %H:%M') }}
+                                </div>
+                            </div>
+
+                            {# --- イベントタイトル --- #}
+                            <h5 class="fw-bold mb-3 d-block text-truncate beta-text-primary" title="{{ event.title }}" style="font-size: 1.1rem;">
+                                {{ event.title }}
+                            </h5>
+
+                            {# --- 場所 --- #}
+                            {% if event.location %}
+                            <div class="mb-3">
+                                <small class="beta-text-muted d-block mb-1" style="font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.05em;">Location</small>
+                                <div class="d-flex align-items-center text-truncate beta-text-secondary">
+                                    <i class="fas fa-map-marker-alt me-2" style="color: var(--beta-accent-red);"></i>
+                                    <span class="text-truncate" title="{{ event.location }}">{{ event.location }}</span>
+                                </div>
+                            </div>
+                            {% endif %}
+
+                            <div class="mt-auto pt-3" style="border-top: 1px solid var(--beta-border);">
+                                {# --- 主催者と参加者数の表示 --- #}
+                                <div class="d-flex justify-content-between align-items-center">
+                                    {# 主催者情報 #}
+                                    <div class="d-flex align-items-center">
+                                        {% if event.owner and event.owner.avatar_url %}
+                                        <img src="{{ event.owner.avatar_url }}"
+                                            alt="{{ event.owner.display_name or event.owner.misskey_username }}"
+                                            class="rounded-circle me-2"
+                                            style="width: 28px; height: 28px; object-fit: cover; border: 2px solid var(--beta-border);">
+                                        {% else %}
+                                        <i class="fas fa-user-circle fa-lg me-2 beta-text-muted"></i>
+                                        {% endif %}
+                                        <div class="d-flex flex-column" style="line-height: 1.2;">
+                                            <small class="beta-text-muted" style="font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.05em;">Organizer</small>
+                                            <small class="fw-bold text-truncate beta-text-secondary" style="max-width: 100px;">{{
+                                                event.owner.display_name or event.owner.misskey_username }}</small>
+                                        </div>
+                                    </div>
+
+                                    {# 参加者数・保留者数 #}
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span title="参加者" class="d-flex align-items-center">
+                                            <span class="beta-badge beta-badge-green" style="font-size: 0.7rem;">
+                                                <i class="fas fa-check-circle me-1"></i>{{ attending_count }}
+                                            </span>
+                                        </span>
+                                        <span title="保留者" class="d-flex align-items-center">
+                                            <span class="beta-badge beta-badge-amber" style="font-size: 0.7rem;">
+                                                <i class="fas fa-question-circle me-1"></i>{{ tentative_count }}
+                                            </span>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+
+        {# --- ページネーション --- #}
+        {% if events_pagination.pages > 1 %}
+        <nav aria-label="Page navigation" class="mt-4">
+            <ul class="pagination justify-content-center">
+                <li class="page-item {% if not events_pagination.has_prev %}disabled{% endif %}">
+                    <a class="page-link" href="{{ url_for('event.public_events_list', page=events_pagination.prev_num) if events_pagination.has_prev else '#' }}">&laquo;</a>
+                </li>
+                {% for page_num in events_pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                {% if page_num %}
+                <li class="page-item {% if page_num == events_pagination.page %}active{% endif %}">
+                    <a class="page-link" href="{{ url_for('event.public_events_list', page=page_num) }}">{{ page_num }}</a>
+                </li>
+                {% else %}
+                <li class="page-item disabled"><span class="page-link">...</span></li>
+                {% endif %}
+                {% endfor %}
+                <li class="page-item {% if not events_pagination.has_next %}disabled{% endif %}">
+                    <a class="page-link" href="{{ url_for('event.public_events_list', page=events_pagination.next_num) if events_pagination.has_next else '#' }}">&raquo;</a>
+                </li>
+            </ul>
+        </nav>
+        {% endif %}
+
+        {% else %}
+        {# --- 空状態 --- #}
+        <div class="text-center py-5 my-5">
+            <div class="mb-4">
+                <i class="fas fa-calendar-times fa-4x beta-text-muted" style="opacity: 0.3;"></i>
+            </div>
+            <h4 class="fw-bold beta-text-primary">No Events Scheduled</h4>
+            <p class="beta-text-muted mb-4">現在、開催予定の公開イベントはありません。</p>
+            {% if current_user.is_authenticated %}
+            <a href="{{ url_for('event.add_event') }}" class="beta-btn beta-btn-solid">
+                <i class="fas fa-plus me-1"></i> イベントを作成する
+            </a>
+            {% endif %}
+        </div>
+        {% endif %}
+
+    </main>
+
+    {% include 'beta/_beta_bottombar.html' %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+{% include 'beta/_beta_scripts.html' %}
+
+<style>
+    .beta-widget-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    }
+</style>
+{% endblock %}

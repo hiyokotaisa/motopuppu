@@ -1,0 +1,422 @@
+{# motopuppu/templates/beta/touring_form_beta.html #}
+{% extends "base.html" %}
+
+{% set page_title = "ツーリングログの追加" if form_action == 'add' else "ツーリングログの編集" %}
+{% block title %}{{ page_title }} ({{ motorcycle.name }}) - もとぷっぷー{% endblock %}
+
+{% block body_attributes %}beta-ui-body{% endblock %}
+
+{% block styles %}
+{{ super() }}
+{% include 'beta/_beta_layout_head.html' %}
+{% endblock %}
+
+{% block content %}
+<style>.beta-ui-body #main-content > .container { max-width: 100%; padding: 0; }</style>
+
+{% set beta_nav_active = 'touring' %}
+<div class="beta-dashboard-wrapper">
+    <div class="beta-mobile-overlay" id="beta-mobile-overlay"></div>
+    {% include 'beta/_beta_sidebar.html' %}
+
+    <main class="beta-main-content">
+        {# Top Bar #}
+        {% set beta_topbar_title = page_title %}
+        {% set beta_topbar_subtitle = motorcycle.name %}
+        {% include 'beta/_beta_topbar.html' %}
+
+        {# Flash Messages #}
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show" role="alert" style="animation: betaFadeIn 0.3s ease;">
+            {{ message | safe }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        {# Back Button #}
+        <div class="mb-4">
+            <a href="{{ url_for('touring.list_logs', vehicle_id=motorcycle.id) }}" class="beta-btn">
+                <i class="fas fa-arrow-left me-1"></i> 一覧に戻る
+            </a>
+        </div>
+
+        <form method="POST" id="touring-log-form" action="{{ url_for('touring.create_log', vehicle_id=motorcycle.id) if form_action == 'add' else url_for('touring.edit_log', log_id=log.id) }}">
+            {{ form.hidden_tag() }}
+
+            <div class="row g-4">
+                <div class="col-lg-8">
+                    {# 基本情報 #}
+                    <div class="beta-widget-card mb-4">
+                        <div class="beta-widget-header">
+                            <div class="beta-widget-header-left">
+                                <div class="beta-widget-icon" style="background: rgba(20, 184, 166, 0.15); color: var(--beta-accent-teal);"><i class="fas fa-info-circle"></i></div>
+                                <span class="beta-widget-title">基本情報</span>
+                            </div>
+                        </div>
+                        <div class="beta-widget-body" style="padding: 1.25rem;">
+                            <div class="mb-3">
+                                {{ form.title.label(class="form-label small beta-text-muted") }}
+                                {{ form.title(class="form-control" + (" is-invalid" if form.title.errors else ""), placeholder="例: 春の伊豆スカイラインツーリング") }}
+                                {% if form.title.errors %}<div class="invalid-feedback">{{ form.title.errors[0] }}</div>{% endif %}
+                            </div>
+                            <div class="mb-3">
+                                {{ form.touring_date.label(class="form-label small beta-text-muted") }}
+                                {{ form.touring_date(class="form-control" + (" is-invalid" if form.touring_date.errors else "")) }}
+                                {% if form.touring_date.errors %}<div class="invalid-feedback">{{ form.touring_date.errors[0] }}</div>{% endif %}
+                            </div>
+                            <div>
+                                {{ form.memo.label(class="form-label small beta-text-muted") }}
+                                {{ form.memo(class="form-control" + (" is-invalid" if form.memo.errors else ""), placeholder="ツーリング全体の思い出や総括など") }}
+                                {% if form.memo.errors %}<div class="invalid-feedback">{{ form.memo.errors[0] }}</div>{% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    {# 立ち寄りスポット #}
+                    <div class="beta-widget-card mb-4">
+                        <div class="beta-widget-header">
+                            <div class="beta-widget-header-left">
+                                <div class="beta-widget-icon" style="background: rgba(16, 185, 129, 0.15); color: var(--beta-accent-emerald);"><i class="fas fa-map-marker-alt"></i></div>
+                                <span class="beta-widget-title">立ち寄りスポット</span>
+                            </div>
+                            <button type="button" id="add-spot-btn" class="beta-btn beta-btn-solid" style="font-size: 0.8rem; padding: 0.3rem 0.6rem;">
+                                <i class="fas fa-plus me-1"></i> スポットを追加
+                            </button>
+                        </div>
+                        <div class="beta-widget-body" style="padding: 1.25rem;">
+                            <div id="spots-container">
+                                {# ここに動的にスポットが追加される #}
+                            </div>
+                            <div id="no-spots-message" class="beta-text-muted small text-center py-3" style="display: none;">
+                                <i class="fas fa-map-marker-alt me-1"></i> まだスポットがありません。
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-4">
+                    {# Misskey スクラップブック #}
+                    <div class="beta-widget-card" style="position: sticky; top: 80px;">
+                        <div class="beta-widget-header">
+                            <div class="beta-widget-header-left">
+                                <div class="beta-widget-icon" style="background: rgba(99, 102, 241, 0.15); color: var(--beta-accent-indigo, #818cf8);"><i class="fab fa-misskey"></i></div>
+                                <span class="beta-widget-title">スクラップブック</span>
+                            </div>
+                            <button type="button" class="beta-btn beta-btn-solid" id="open-misskey-modal-btn" style="font-size: 0.8rem; padding: 0.3rem 0.6rem;">
+                                <i class="fas fa-cloud-download-alt me-1"></i> ノートを取り込む
+                            </button>
+                        </div>
+                        <div class="beta-widget-body" style="padding: 1rem; max-height: 400px; overflow-y: auto;">
+                            <div id="scrapbook-preview-container" class="row row-cols-2 g-2">
+                                 {# ここに選択したノートのプレビューが表示される #}
+                            </div>
+                            <div id="no-scrapbook-message" class="beta-text-muted small text-center py-3" style="display: none;">
+                                <i class="fas fa-comments me-1"></i> まだノートが選択されていません。
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-4 d-flex gap-2">
+                <button type="submit" class="beta-btn beta-btn-solid">{{ form.submit.label.text }}</button>
+                <a href="{{ url_for('touring.list_logs', vehicle_id=motorcycle.id) }}" class="beta-btn">キャンセル</a>
+            </div>
+        </form>
+
+    </main>
+
+    {% include 'beta/_beta_bottombar.html' %}
+</div>
+
+{# --- 立ち寄りスポットのテンプレート --- #}
+<template id="spot-item-template">
+    <div class="spot-item rounded p-3 mb-3" style="background: rgba(148, 163, 184, 0.06); border: 1px solid var(--beta-border);">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h6 class="mb-0 handle beta-text-secondary" style="cursor: move;" title="ドラッグして並び替え"><i class="bi bi-grip-vertical"></i> スポット</h6>
+            <button type="button" class="btn-close remove-spot-btn" aria-label="このスポットを削除"></button>
+        </div>
+        <div class="mb-2">
+            <label class="form-label small beta-text-muted">スポット名 <span style="color: var(--beta-accent-red);">*</span></label>
+            <input type="text" class="form-control form-control-sm spot-name" placeholder="例：道の駅どうし">
+        </div>
+        <div class="mb-2">
+            <label class="form-label small beta-text-muted">メモ</label>
+            <textarea class="form-control form-control-sm spot-memo" rows="2" placeholder="特記事項など"></textarea>
+        </div>
+        <div>
+            <label class="form-label small beta-text-muted">写真URL (任意)</label>
+            <input type="url" class="form-control form-control-sm spot-photo" placeholder="https://...">
+        </div>
+    </div>
+</template>
+
+{# --- Misskeyノート選択モーダル --- #}
+<div class="modal fade" id="misskey-notes-modal" tabindex="-1" aria-labelledby="misskeyNotesModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="misskeyNotesModalLabel">Misskeyノートの選択</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="misskey-notes-loader" class="text-center" style="display: none;">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p>ノートを読み込んでいます...</p>
+                </div>
+                <div id="misskey-notes-container">
+                    {# ここにAPIから取得したノートがリスト表示される #}
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                <button type="button" id="select-notes-btn" class="btn btn-primary">選択したノートを決定</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# --- Misskey連携同意モーダル --- #}
+<div class="modal fade" id="misskey-consent-modal" tabindex="-1" aria-labelledby="misskeyConsentModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="misskeyConsentModalLabel"><i class="fab fa-misskey me-2"></i>Misskey連携の許可</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>スクラップブック機能を利用するには、Misskeyアカウントとの追加連携が必要です。</p>
+                <div class="alert alert-info mb-3">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>以下の権限を許可します：</strong>
+                    <ul class="mb-0 mt-2">
+                        <li>アカウント情報の読み取り</li>
+                        <li>ノート（投稿）の読み取り</li>
+                    </ul>
+                </div>
+                <p class="text-muted small mb-0">
+                    <i class="fas fa-lock me-1"></i>アクセストークンは暗号化してサーバーに保存されます。
+                    この連携はMisskeyの設定画面からいつでも解除できます。
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                <a href="{{ url_for('auth.authorize_scrapbook', next=request.path) }}" class="btn btn-primary">
+                    <i class="fab fa-misskey me-1"></i>連携する
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+{% include 'beta/_beta_scripts.html' %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const touringForm = document.getElementById('touring-log-form');
+    // --- スポット管理 ---
+    const spotsContainer = document.getElementById('spots-container');
+    const addSpotBtn = document.getElementById('add-spot-btn');
+    const spotTemplate = document.getElementById('spot-item-template');
+    const noSpotsMessage = document.getElementById('no-spots-message');
+    const spotsDataInput = document.querySelector('input[name="spots_data"]');
+    
+    if (typeof Sortable !== 'undefined') {
+        new Sortable(spotsContainer, { animation: 150, handle: '.handle' });
+    }
+
+    function updateNoSpotsMessage() {
+        noSpotsMessage.style.display = spotsContainer.children.length === 0 ? 'block' : 'none';
+    }
+
+    function addSpot(data = { spot_name: '', memo: '', photo_link_url: '' }) {
+        const clone = spotTemplate.content.cloneNode(true);
+        clone.querySelector('.spot-name').value = data.spot_name;
+        clone.querySelector('.spot-memo').value = data.memo;
+        clone.querySelector('.spot-photo').value = data.photo_link_url;
+        spotsContainer.appendChild(clone);
+        updateNoSpotsMessage();
+    }
+
+    addSpotBtn.addEventListener('click', () => addSpot());
+
+    spotsContainer.addEventListener('click', e => {
+        if (e.target.closest('.remove-spot-btn')) {
+            e.target.closest('.spot-item').remove();
+            updateNoSpotsMessage();
+        }
+    });
+
+    // --- スクラップブック管理 ---
+    const openModalBtn = document.getElementById('open-misskey-modal-btn');
+    const scrapbookPreviewContainer = document.getElementById('scrapbook-preview-container');
+    const scrapbookNoteIdsInput = document.querySelector('input[name="scrapbook_note_ids"]');
+    const misskeyNotesModalEl = document.getElementById('misskey-notes-modal');
+    const misskeyNotesModal = new bootstrap.Modal(misskeyNotesModalEl);
+    const misskeyNotesContainer = document.getElementById('misskey-notes-container');
+    const misskeyNotesLoader = document.getElementById('misskey-notes-loader');
+    const selectNotesBtn = document.getElementById('select-notes-btn');
+    const noScrapbookMessage = document.getElementById('no-scrapbook-message');
+    
+    let allFetchedNotes = new Map();
+    let selectedNoteIds = new Set();
+
+    function updateNoScrapbookMessage() {
+        noScrapbookMessage.style.display = scrapbookPreviewContainer.children.length === 0 ? 'block' : 'none';
+    }
+    
+    const hasMisskeyToken = {{ 'true' if current_user.encrypted_misskey_api_token else 'false' }};
+
+    openModalBtn.addEventListener('click', async () => {
+        if (!hasMisskeyToken) {
+            const consentModal = new bootstrap.Modal(document.getElementById('misskey-consent-modal'));
+            consentModal.show();
+            return;
+        }
+
+        const touringDate = document.querySelector('input[name="touring_date"]').value;
+        if (!touringDate) {
+            alert('先にツーリングの日付を選択してください。');
+            return;
+        }
+
+        misskeyNotesModal.show();
+        misskeyNotesLoader.style.display = 'block';
+        misskeyNotesContainer.style.display = 'none';
+        misskeyNotesContainer.innerHTML = '';
+        
+        try {
+            const response = await fetch(`{{ url_for('touring.fetch_misskey_notes_api') }}?date=${touringDate}`);
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to fetch notes.');
+            }
+            
+            const notes = await response.json();
+            notes.forEach(note => allFetchedNotes.set(note.id, note));
+
+            if (notes.length === 0) {
+                 misskeyNotesContainer.innerHTML = '<p class="text-muted">この日付の投稿は見つかりませんでした。</p>';
+            } else {
+                notes.forEach(note => {
+                    const isChecked = selectedNoteIds.has(note.id) ? 'checked' : '';
+                    const fileHtml = note.files && note.files.length > 0 ? `<img src="${note.files[0].thumbnailUrl}" class="img-thumbnail ms-2" style="max-width: 80px; max-height: 80px; object-fit: cover;">` : '';
+                    const noteText = note.text ? note.text.substring(0, 150) + (note.text.length > 150 ? '...' : '') : '(本文なし)';
+                    misskeyNotesContainer.innerHTML += `
+                        <div class="form-check border-bottom py-2 d-flex align-items-center">
+                          <input class="form-check-input" type="checkbox" value="${note.id}" id="note-${note.id}" ${isChecked}>
+                          <label class="form-check-label ms-2 flex-grow-1" for="note-${note.id}">
+                            <p class="mb-1 small">${noteText}</p>
+                            <small class="text-muted">${new Date(note.createdAt).toLocaleString()}</small>
+                          </label>
+                          ${fileHtml}
+                        </div>`;
+                });
+            }
+        } catch (error) {
+            console.error(error);
+            misskeyNotesContainer.innerHTML = `<p class="text-danger">ノートの読み込みに失敗しました: ${error.message}</p>`;
+        } finally {
+            misskeyNotesLoader.style.display = 'none';
+            misskeyNotesContainer.style.display = 'block';
+        }
+    });
+
+    selectNotesBtn.addEventListener('click', () => {
+        const checkedBoxes = misskeyNotesContainer.querySelectorAll('input[type="checkbox"]:checked');
+        selectedNoteIds = new Set(Array.from(checkedBoxes).map(cb => cb.value));
+        renderScrapbookPreview();
+        misskeyNotesModal.hide();
+    });
+
+    async function renderScrapbookPreview() {
+        scrapbookPreviewContainer.innerHTML = '';
+        if (selectedNoteIds.size === 0) {
+            updateNoScrapbookMessage();
+            return;
+        }
+
+        const idsToFetch = Array.from(selectedNoteIds).filter(id => !allFetchedNotes.has(id));
+
+        if (idsToFetch.length > 0) {
+            try {
+                const response = await fetch("{{ url_for('touring.fetch_note_details_api') }}", {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token() }}' },
+                    body: JSON.stringify({ note_ids: idsToFetch })
+                });
+                const details = await response.json();
+                for (const id in details) {
+                    if (details[id]) allFetchedNotes.set(id, details[id]);
+                }
+            } catch (error) {
+                console.error("Failed to fetch details for saved notes:", error);
+            }
+        }
+
+        selectedNoteIds.forEach(noteId => {
+            const noteData = allFetchedNotes.get(noteId);
+            if(noteData) {
+                const fileHtml = noteData.files && noteData.files.length > 0 ? `<img src="${noteData.files[0].thumbnailUrl}" style="width: 100%; border-radius: var(--beta-radius) var(--beta-radius) 0 0; max-height: 120px; object-fit: cover;">` : '';
+                const noteText = noteData.text ? noteData.text.substring(0, 50) + (noteData.text.length > 50 ? '...' : '') : '(本文なし)';
+                scrapbookPreviewContainer.innerHTML += `
+                    <div class="col">
+                        <div class="beta-widget-card h-100" style="border: 1px solid var(--beta-border);">
+                            ${fileHtml}
+                            <div style="padding: 0.5rem;">
+                                <p class="small mb-0 beta-text-secondary" style="font-size: 0.75em;">${noteText}</p>
+                            </div>
+                        </div>
+                    </div>`;
+            }
+        });
+        updateNoScrapbookMessage();
+    }
+    
+    touringForm.addEventListener('submit', () => {
+        const spots = Array.from(spotsContainer.querySelectorAll('.spot-item')).map((item, index) => ({
+            order: index,
+            spot_name: item.querySelector('.spot-name').value,
+            memo: item.querySelector('.spot-memo').value,
+            photo_link_url: item.querySelector('.spot-photo').value,
+        }));
+        spotsDataInput.value = JSON.stringify(spots.filter(s => s.spot_name && s.spot_name.trim()));
+        scrapbookNoteIdsInput.value = JSON.stringify(Array.from(selectedNoteIds));
+    });
+
+    // --- 初期化処理 ---
+    function initializeForm() {
+        if (spotsDataInput.value) {
+            try {
+                const spots = JSON.parse(spotsDataInput.value);
+                spots.forEach(spot => addSpot(spot));
+            } catch(e) { console.error("Could not parse spots data", e); }
+        }
+
+        if (scrapbookNoteIdsInput.value) {
+            try {
+                const noteIds = JSON.parse(scrapbookNoteIdsInput.value);
+                if (Array.isArray(noteIds) && noteIds.length > 0) {
+                    selectedNoteIds = new Set(noteIds);
+                    renderScrapbookPreview();
+                }
+            } catch(e) { console.error("Could not parse scrapbook data", e); }
+        }
+
+        updateNoSpotsMessage();
+        updateNoScrapbookMessage();
+    }
+
+    initializeForm();
+});
+</script>
+{% endblock %}

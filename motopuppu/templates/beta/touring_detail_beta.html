@@ -1,0 +1,337 @@
+{# motopuppu/templates/beta/touring_detail_beta.html #}
+{% extends "base.html" %}
+
+{% block title %}{{ log.title }} - ツーリングログ - もとぷっぷー{% endblock %}
+
+{% block body_attributes %}beta-ui-body{% endblock %}
+
+{% block styles %}
+{{ super() }}
+{% include 'beta/_beta_layout_head.html' %}
+{% endblock %}
+
+{% block content %}
+<style>.beta-ui-body #main-content > .container { max-width: 100%; padding: 0; }</style>
+
+{% set beta_nav_active = 'touring' %}
+<div class="beta-dashboard-wrapper">
+    <div class="beta-mobile-overlay" id="beta-mobile-overlay"></div>
+    {% include 'beta/_beta_sidebar.html' %}
+
+    <main class="beta-main-content">
+        {# Top Bar #}
+        {% set beta_topbar_title = log.title %}
+        {% set beta_topbar_subtitle = log.touring_date.strftime('%Y年%m月%d日') ~ ' / ' ~ log.motorcycle.name %}
+        {% include 'beta/_beta_topbar.html' %}
+
+        {# Flash Messages #}
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show" role="alert" style="animation: betaFadeIn 0.3s ease;">
+            {{ message | safe }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        {# Actions #}
+        <div class="beta-quick-actions mb-4">
+            <a href="{{ url_for('touring.list_logs', vehicle_id=log.motorcycle.id) }}" class="beta-btn">
+                <i class="fas fa-arrow-left me-1"></i> 一覧に戻る
+            </a>
+            <a href="{{ url_for('touring.edit_log', log_id=log.id) }}" class="beta-quick-btn activity">
+                <i class="fas fa-edit me-1"></i> 編集
+            </a>
+            <button class="beta-btn btn-share-misskey"
+                    data-type="touring"
+                    data-title="{{ log.title }}"
+                    data-date="{{ log.touring_date.isoformat() }}"
+                    data-vehicle-name="{{ log.motorcycle.name }}"
+                    data-spots-json='{{ log.spots | map(attribute="spot_name") | list | tojson }}'
+                    title="Misskeyで共有">
+                <i class="fa-solid fa-share-nodes fa-fw me-1"></i> 共有
+            </button>
+            <button type="button" class="beta-btn" data-bs-toggle="modal" data-bs-target="#deleteModal" style="color: var(--beta-accent-red);">
+                <i class="fas fa-trash me-1"></i> 削除
+            </button>
+        </div>
+
+        {# メモセクション #}
+        {% if log.memo %}
+        <div class="beta-widget-card mb-4">
+            <div class="beta-widget-header">
+                <div class="beta-widget-header-left">
+                    <div class="beta-widget-icon" style="background: rgba(148, 163, 184, 0.15); color: var(--beta-text-muted);"><i class="far fa-sticky-note"></i></div>
+                    <span class="beta-widget-title">ツーリングメモ</span>
+                </div>
+            </div>
+            <div class="beta-widget-body" style="padding: 1.25rem;">
+                <p class="beta-text-secondary mb-0" style="white-space: pre-wrap;">{{ log.memo }}</p>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="row g-4">
+            {# 立ち寄りスポット #}
+            <div class="col-lg-5">
+                <div class="beta-widget-card">
+                    <div class="beta-widget-header">
+                        <div class="beta-widget-header-left">
+                            <div class="beta-widget-icon" style="background: rgba(20, 184, 166, 0.15); color: var(--beta-accent-teal);"><i class="fas fa-map-marker-alt"></i></div>
+                            <span class="beta-widget-title">立ち寄りスポット</span>
+                        </div>
+                        {% if log.spots %}
+                        <span class="beta-badge beta-badge-teal">{{ log.spots | length }}</span>
+                        {% endif %}
+                    </div>
+                    <div class="beta-widget-body" style="padding: 1rem;">
+                        {% if log.spots %}
+                        <div class="beta-log-timeline">
+                            {% for spot in log.spots %}
+                            <div class="beta-log-timeline-item">
+                                <div class="beta-log-timeline-marker activity"><i class="fas fa-map-pin"></i></div>
+                                <div class="beta-log-timeline-content">
+                                    <div class="d-flex justify-content-between align-items-start mb-1">
+                                        <span class="fw-bold beta-text-primary">{{ spot.spot_name }}</span>
+                                        <span class="beta-badge" style="background: rgba(148,163,184,0.15); color: var(--beta-text-muted); border: 1px solid rgba(148,163,184,0.3); font-size: 0.65rem;">#{{ loop.index }}</span>
+                                    </div>
+                                    {% if spot.memo %}
+                                    <p class="mb-1 small beta-text-secondary" style="white-space: pre-wrap;">{{ spot.memo }}</p>
+                                    {% endif %}
+                                    {% if spot.photo_link_url %}
+                                    <a href="{{ spot.photo_link_url }}" target="_blank" rel="noopener noreferrer" class="small" style="color: var(--beta-accent-teal);">
+                                        <i class="fas fa-external-link-alt fa-xs me-1"></i>写真を見る
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <div class="text-center py-4 beta-text-muted">
+                            <i class="fas fa-map-marker-alt fa-2x mb-2" style="opacity: 0.3;"></i>
+                            <p class="mb-0 small">登録されているスポットはありません。</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            {# Misskey スクラップブック #}
+            <div class="col-lg-7">
+                <div class="beta-widget-card">
+                    <div class="beta-widget-header">
+                        <div class="beta-widget-header-left">
+                            <div class="beta-widget-icon" style="background: rgba(99, 102, 241, 0.15); color: var(--beta-accent-indigo, #818cf8);"><i class="fas fa-comments"></i></div>
+                            <span class="beta-widget-title">Misskey スクラップブック</span>
+                        </div>
+                        {% if log.scrapbook_entries %}
+                        <span class="beta-badge beta-badge-blue">{{ log.scrapbook_entries | length }}</span>
+                        {% endif %}
+                    </div>
+                    <div class="beta-widget-body" style="padding: 1rem;">
+                        <div class="row row-cols-1 row-cols-md-2 g-3" id="scrapbook-notes-container">
+                        {% if log.scrapbook_entries %}
+                            {% for entry in log.scrapbook_entries %}
+                            <div class="col" data-note-id="{{ entry.misskey_note_id }}">
+                                <div class="beta-widget-card misskey-note-card-placeholder" style="border: 1px solid var(--beta-border);">
+                                    <div class="beta-widget-body text-center d-flex align-items-center justify-content-center" style="padding: 2rem;">
+                                        <div>
+                                            <div class="spinner-border spinner-border-sm beta-text-muted" role="status">
+                                                <span class="visually-hidden">Loading...</span>
+                                            </div>
+                                            <p class="small mt-2 mb-0 beta-text-muted">ノートを読み込み中...</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="col-12">
+                                <div class="text-center py-4 beta-text-muted">
+                                    <i class="fas fa-comments fa-2x mb-2" style="opacity: 0.3;"></i>
+                                    <p class="mb-0 small">関連付けられたMisskeyノートはありません。</p>
+                                </div>
+                            </div>
+                        {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    {% include 'beta/_beta_bottombar.html' %}
+</div>
+
+{# 削除確認モーダル #}
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="deleteModalLabel">削除の確認</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        このツーリングログ「{{ log.title }}」を本当に削除しますか？
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+        <form action="{{ url_for('touring.delete_log', log_id=log.id) }}" method="POST" class="d-inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-danger">削除する</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+{% include 'beta/_beta_scripts.html' %}
+
+<script>
+    // Pythonから渡されたインスタンス全体の絵文字リストをJavaScript変数に格納
+    const instanceEmojis = {{ emojis_json | safe }};
+
+    // パフォーマンス向上のため、最初に絵文字名とURLのマップを作成
+    const emojiMap = instanceEmojis.reduce((map, emoji) => {
+        map[emoji.name] = emoji.url;
+        return map;
+    }, {});
+
+    // MisskeyのMFMを簡易的にHTMLに変換する処理
+    function parseMfm(text) {
+        if (!text) return '';
+        let processedText = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        const instanceDomain = "{{ misskey_instance_domain }}";
+        processedText = processedText.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" style="color: var(--beta-accent-teal);">$1</a>');
+        processedText = processedText.replace(/#([\w\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF_]+)/g, `<a href="https://${instanceDomain}/tags/$1" target="_blank" rel="noopener noreferrer" style="color: var(--beta-accent-teal);">#$1</a>`);
+        processedText = processedText.replace(/\n/g, '<br>');
+        processedText = processedText.replace(/:([\w\-\+]+):/g, (match, name) => {
+            if (emojiMap[name]) {
+                return `<img src="${emojiMap[name]}" alt="${match}" class="custom-emoji" title="${match}">`;
+            }
+            return match;
+        });
+        return processedText;
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const container = document.getElementById('scrapbook-notes-container');
+        const notePlaceholders = container.querySelectorAll('.misskey-note-card-placeholder');
+
+        if (notePlaceholders.length > 0) {
+            const noteIds = Array.from(notePlaceholders).map(el => el.parentElement.dataset.noteId);
+            const authorizeScrapbookUrl = "{{ url_for('auth.authorize_scrapbook', next=request.path) }}";
+
+            fetch("{{ url_for('touring.fetch_note_details_api') }}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify({ note_ids: noteIds })
+            })
+            .then(response => {
+                if (response.status === 403) {
+                    container.innerHTML = `
+                        <div class="col-12">
+                            <div class="text-center py-4 beta-text-muted">
+                                <i class="fab fa-misskey fa-2x mb-2" style="opacity: 0.5;"></i>
+                                <p class="mb-2">スクラップブックのノートを表示するにはMisskey連携が必要です。</p>
+                                <a href="${authorizeScrapbookUrl}" class="beta-btn beta-btn-solid">
+                                    <i class="fab fa-misskey me-1"></i>連携する
+                                </a>
+                            </div>
+                        </div>`;
+                    return null;
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data === null) return;
+                for (const noteId in data) {
+                    const note = data[noteId];
+                    const placeholderWrapper = container.querySelector(`[data-note-id="${noteId}"]`);
+                    if (!placeholderWrapper) continue;
+
+                    let cardHtml = '';
+                    if (note && note.user) {
+                        const imageHtml = note.files && note.files.length > 0
+                            ? `<a href="${note.files[0].url}" target="_blank" rel="noopener noreferrer"><img src="${note.files[0].thumbnailUrl}" style="width: 100%; border-radius: var(--beta-radius) var(--beta-radius) 0 0; max-height: 200px; object-fit: cover;" alt="Note Image"></a>` : '';
+
+                        const textHtml = note.text ? `<div class="small mfm-content beta-text-secondary">${parseMfm(note.text)}</div>` : '';
+
+                        const noteUrl = `{{ url_for('main.misskey_redirect', note_id='__NOTE_ID__') }}`.replace('__NOTE_ID__', note.id);
+                        const userProfileUrl = `{{ misskey_instance_url }}/@${note.user.username}`;
+
+                        const cardHeaderHtml = `
+                            <div class="d-flex align-items-center p-2" style="border-bottom: 1px solid var(--beta-border);">
+                               <a href="${userProfileUrl}" target="_blank" rel="noopener noreferrer">
+                                   <img src="${note.user.avatarUrl}" alt="${note.user.name}" class="rounded-circle me-2" width="28" height="28" style="border: 2px solid var(--beta-border);">
+                               </a>
+                               <div class="flex-grow-1">
+                                   <a href="${userProfileUrl}" class="text-decoration-none fw-bold small beta-text-primary">${parseMfm(note.user.name || note.user.username)}</a>
+                                   <div class="beta-text-muted" style="font-size: 0.7rem;">
+                                       <a href="${noteUrl}" target="_blank" rel="noopener noreferrer" class="text-decoration-none beta-text-muted">
+                                           ${new Date(note.createdAt).toLocaleString()}
+                                       </a>
+                                   </div>
+                               </div>
+                            </div>`;
+
+                        cardHtml = `
+                            <div class="beta-widget-card h-100" style="border: 1px solid var(--beta-border);">
+                                ${cardHeaderHtml}
+                                ${imageHtml}
+                                <div style="padding: 0.75rem;">
+                                    ${textHtml}
+                                </div>
+                            </div>`;
+
+                    } else {
+                        cardHtml = `
+                            <div class="beta-widget-card h-100" style="border: 1px solid var(--beta-border);">
+                                <div class="d-flex align-items-center justify-content-center" style="padding: 2rem; color: var(--beta-accent-red);">
+                                    <p class="small mb-0">ノートの読み込みに失敗しました。</p>
+                                </div>
+                            </div>`;
+                    }
+                    placeholderWrapper.innerHTML = cardHtml;
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching note details:', error);
+                notePlaceholders.forEach(ph => {
+                    ph.parentElement.innerHTML = `
+                        <div class="beta-widget-card h-100" style="border: 1px solid var(--beta-border);">
+                            <div class="d-flex align-items-center justify-content-center" style="padding: 2rem; color: var(--beta-accent-red);">
+                                <p class="small mb-0">エラーが発生しました。</p>
+                            </div>
+                        </div>`;
+                });
+            });
+        }
+    });
+</script>
+<style>
+/* Misskeyカード内のテキストが長すぎる場合にスクロールさせる */
+.mfm-content {
+    max-height: 150px;
+    overflow-y: auto;
+    word-wrap: break-word;
+}
+/* カスタム絵文字のスタイル */
+.custom-emoji {
+    height: 1.2em;
+    width: auto;
+    vertical-align: middle;
+    margin: 0 0.1em;
+}
+</style>
+{% endblock %}

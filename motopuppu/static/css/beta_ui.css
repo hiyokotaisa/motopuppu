@@ -2456,52 +2456,54 @@ body.beta-ui-body .table thead th {
     box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
 }
 
-/* --- Timeline (Fuel Log) --- */
-.beta-timeline {
-    position: relative;
-    padding-left: 2.5rem;
-}
-
-.beta-timeline::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: 16px;
-    width: 2px;
-    background: var(--beta-border);
-}
-
-.beta-timeline-item {
-    position: relative;
-    margin-bottom: 1.5rem;
+/* --- Timeline (Fuel/Maintenance Log — activity-timeline と同じアプローチ) --- */
+.beta-log-timeline { display: flex; flex-direction: column; }
+.beta-log-timeline-item {
+    display: flex; align-items: flex-start; gap: 0.75rem;
+    padding-bottom: 1.25rem; position: relative;
     animation: betaFadeIn 0.3s ease;
 }
-
-.beta-timeline-marker {
-    position: absolute;
-    left: -2.5rem;
-    top: 1rem;
-    width: 34px;
-    height: 34px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.8rem;
-    z-index: 1;
+.beta-log-timeline-item:last-child { padding-bottom: 0; }
+.beta-log-timeline-marker {
+    flex-shrink: 0; width: 36px; height: 36px;
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-size: 0.8rem; margin-top: 0.75rem; position: relative; z-index: 1;
 }
-
-.beta-timeline-marker.fuel {
+/* マーカー間を結ぶ縦線 */
+.beta-log-timeline-item:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    left: 18px; /* マーカー中心: 36px / 2 */
+    top: calc(0.75rem + 36px); /* マーカー下端 */
+    bottom: calc(-0.75rem); /* 次のマーカー上端まで延長 */
+    width: 2px;
+    transform: translateX(-50%);
+    background: var(--beta-border);
+    z-index: 0;
+}
+.beta-log-timeline-marker.fuel {
     background: rgba(16, 185, 129, 0.15);
     color: var(--beta-accent-emerald);
     border: 2px solid var(--beta-accent-emerald);
 }
-
-.beta-timeline-marker.maintenance {
+.beta-log-timeline-marker.maintenance {
     background: rgba(59, 130, 246, 0.15);
     color: var(--beta-accent-blue);
     border: 2px solid var(--beta-accent-blue);
+}
+.beta-log-timeline-content {
+    flex: 1; min-width: 0;
+    background: var(--beta-bg-card);
+    backdrop-filter: blur(var(--beta-glass-blur));
+    border: 1px solid var(--beta-border);
+    border-radius: var(--beta-radius);
+    padding: 1rem;
+    transition: all 0.2s ease;
+}
+.beta-log-timeline-content:hover {
+    border-color: var(--beta-border-glow);
+    box-shadow: var(--beta-shadow);
+    transform: translateY(-2px);
 }
 
 .beta-quick-btn.maintenance {
@@ -2522,20 +2524,6 @@ body.beta-ui-body .table thead th {
 .beta-quick-btn.note:hover {
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
-}
-
-.beta-timeline-content {
-    background: var(--beta-bg-card);
-    backdrop-filter: blur(var(--beta-glass-blur));
-    border: 1px solid var(--beta-border);
-    border-radius: var(--beta-radius);
-    padding: 1rem;
-    transition: all 0.2s ease;
-}
-
-.beta-timeline-content:hover {
-    border-color: var(--beta-border-glow);
-    box-shadow: var(--beta-shadow);
 }
 
 /* --- Utility Classes --- */

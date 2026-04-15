@@ -916,26 +916,27 @@
         activeContainer.addEventListener('shown.bs.collapse', saveWidgetStates);
         activeContainer.addEventListener('hidden.bs.collapse', saveWidgetStates);
 
-        const costToggle = document.getElementById('cost-display-toggle');
-        if (costToggle) {
-            costToggle.addEventListener('change', function () {
+        // --- Cost toggle (イベント委譲: HTMXで遅延ロードされるウィジェット内の要素に対応) ---
+        document.addEventListener('change', function (e) {
+            if (e.target && e.target.id === 'cost-display-toggle') {
+                const toggle = e.target;
                 const csrfTokenEl = document.querySelector('meta[name="csrf-token"]');
                 if (!csrfTokenEl) { alert('エラー: CSRFトークンが見つかりません。'); return; }
                 const csrfToken = csrfTokenEl.getAttribute('content');
-                this.disabled = true;
+                toggle.disabled = true;
                 fetch("{{ url_for('main.toggle_dashboard_cost_display') }}", {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken }
                 })
                     .then(response => {
                         if (response.ok) { window.location.reload(); }
-                        else { this.checked = !this.checked; this.disabled = false; alert('設定の変更に失敗しました。ページを再読み込みしてください。'); }
+                        else { toggle.checked = !toggle.checked; toggle.disabled = false; alert('設定の変更に失敗しました。ページを再読み込みしてください。'); }
                     })
                     .catch(error => {
-                        this.checked = !this.checked; this.disabled = false; alert('通信エラーが発生しました。');
+                        toggle.checked = !toggle.checked; toggle.disabled = false; alert('通信エラーが発生しました。');
                     });
-            });
-        }
+            }
+        });
 
         const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 

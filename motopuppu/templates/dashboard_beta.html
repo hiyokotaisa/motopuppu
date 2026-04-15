@@ -563,18 +563,18 @@ document.addEventListener('DOMContentLoaded', function () {
     activeContainer.addEventListener('shown.bs.collapse', saveWidgetStates);
     activeContainer.addEventListener('hidden.bs.collapse', saveWidgetStates);
 
-    // --- Cost toggle ---
-    const costToggle = document.getElementById('cost-display-toggle');
-    if (costToggle) {
-        costToggle.addEventListener('change', function () {
+    // --- Cost toggle (イベント委譲: HTMXで遅延ロードされるウィジェット内の要素に対応) ---
+    document.addEventListener('change', function (e) {
+        if (e.target && e.target.id === 'cost-display-toggle') {
+            const toggle = e.target;
             const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
-            this.disabled = true;
+            toggle.disabled = true;
             fetch("{{ url_for('main.toggle_dashboard_cost_display') }}", {
                 method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken }
-            }).then(r => { if (r.ok) window.location.reload(); else { this.checked = !this.checked; this.disabled = false; } })
-              .catch(() => { this.checked = !this.checked; this.disabled = false; });
-        });
-    }
+            }).then(r => { if (r.ok) window.location.reload(); else { toggle.checked = !toggle.checked; toggle.disabled = false; } })
+              .catch(() => { toggle.checked = !toggle.checked; toggle.disabled = false; });
+        }
+    });
 
     // --- Tutorial ---
     const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
