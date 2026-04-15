@@ -120,7 +120,8 @@ def create_app(config_name=None):
     def simple_markdown_filter(value):
         """
         簡易Markdownフィルタ: **太字**, - リスト, 改行をHTMLに変換する。
-        announcements.json のお知らせコンテンツ用。
+        Misskeyノートのお知らせコンテンツ用。
+        MFMで使われる安全なHTMLタグ (<b>, <i>, <s>, <small>) も許可する。
         """
         if not value:
             return ""
@@ -128,6 +129,12 @@ def create_app(config_name=None):
 
         # まずHTMLエスケープ（XSS対策）
         text = str(escape(value))
+
+        # 安全なHTMLタグをエスケープ後に復元（許可リスト方式）
+        safe_tags = ['b', 'i', 's', 'small', 'strong', 'em']
+        for tag in safe_tags:
+            text = text.replace(f'&lt;{tag}&gt;', f'<{tag}>')
+            text = text.replace(f'&lt;/{tag}&gt;', f'</{tag}>')
 
         # **太字** → <strong>
         text = _re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', text)
