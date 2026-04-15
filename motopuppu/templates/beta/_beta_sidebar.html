@@ -149,6 +149,25 @@
         </div>
     </nav>
 
+    {# Footer info section #}
+    <div class="beta-sidebar-footer-info">
+        <div class="beta-sidebar-footer-links">
+            <a href="{{ url_for('main.privacy_policy') }}">プライバシーポリシー</a>
+            <a href="{{ url_for('main.terms_of_service') }}">利用規約</a>
+            <a href="https://www.amazon.jp/hz/wishlist/ls/XAG2DQB43S80?ref_=wl_share" target="_blank" rel="noopener noreferrer">
+                <i class="fas fa-gift fa-fw me-1"></i>支援する
+            </a>
+        </div>
+        <div class="beta-sidebar-footer-version">
+            &copy; {% if current_year %}{{ current_year }}{% else %}{{ now.year if now else '2025' }}{% endif %} もとぷっぷー
+            {% if g.git_commit_hash %}
+                <span class="ms-1">{{ g.git_commit_hash[:7] }}</span>
+            {% elif build_version %}
+                <span class="ms-1">v{{ build_version }}</span>
+            {% endif %}
+        </div>
+    </div>
+
     {# User section #}
     <div class="beta-sidebar-user">
         {% if current_user.avatar_url %}

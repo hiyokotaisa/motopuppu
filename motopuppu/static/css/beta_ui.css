@@ -748,6 +748,36 @@ body.beta-ui-body.beta-light .beta-sidebar-brand-icon {
     border-radius: var(--beta-radius-sm);
 }
 
+/* Sidebar Footer Info */
+.beta-sidebar-footer-info {
+    padding: 0.75rem 1.25rem;
+    border-top: 1px solid var(--beta-border);
+}
+
+.beta-sidebar-footer-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 0.75rem;
+    margin-bottom: 0.4rem;
+}
+
+.beta-sidebar-footer-links a {
+    font-size: 0.68rem;
+    color: var(--beta-text-muted);
+    text-decoration: none;
+    transition: var(--beta-transition);
+}
+
+.beta-sidebar-footer-links a:hover {
+    color: var(--beta-accent);
+}
+
+.beta-sidebar-footer-version {
+    font-size: 0.62rem;
+    color: var(--beta-text-muted);
+    opacity: 0.7;
+}
+
 /* Sidebar User Section */
 .beta-sidebar-user {
     padding: 1rem 1.25rem;

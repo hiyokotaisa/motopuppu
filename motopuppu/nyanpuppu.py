@@ -67,6 +67,9 @@ def get_advice(user, motorcycles):
                 ("ガレージ設定から、君だけの公開プロフィールページを作れるにゃ。テーマも色々選べるにゃん！", "blobcatuwu.png"),
                 ("各記録の一覧画面にあるCSVエクスポート機能で、データのバックアップもバッチリにゃ。", None),
                 ("もとぷっぷーは個人開発・個人運営・広告ゼロで運営されてるにゃ。[ここ](https://www.amazon.co.jp/hz/wishlist/ls/XAG2DQB43S80)からなにか送ってくれると、今後のもとぷっぷー開発の励みになるにゃ！", "blobcat_daisuki.webp"),
+                ("もとぷっぷーは完全無料・広告なしで運営してるにゃ。[Amazonの欲しい物リスト](https://www.amazon.co.jp/hz/wishlist/ls/XAG2DQB43S80)から応援してくれると、開発者がとっても喜ぶにゃん！", "blobcat_daisuki.webp"),
+                ("にゃんぷっぷーからのお願いにゃ！もとぷっぷーの開発を[ここ](https://www.amazon.co.jp/hz/wishlist/ls/XAG2DQB43S80)から応援してくれると嬉しいにゃん...！", "blobcataww.png"),
+                ("サーバー代もドメイン代も、全部開発者の自腹にゃ...。[欲しい物リスト](https://www.amazon.co.jp/hz/wishlist/ls/XAG2DQB43S80)からなにか届くと、涙が出るほど嬉しいにゃん！", "blobcat_tereru.png"),
             ]
             advice_pool.extend(app_tips)
 
