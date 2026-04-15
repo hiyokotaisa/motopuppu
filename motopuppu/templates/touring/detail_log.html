@@ -171,6 +171,8 @@
         if (notePlaceholders.length > 0) {
             const noteIds = Array.from(notePlaceholders).map(el => el.parentElement.dataset.noteId);
 
+            const authorizeScrapbookUrl = "{{ url_for('auth.authorize_scrapbook', next=request.path) }}";
+
             fetch("{{ url_for('touring.fetch_note_details_api') }}", {
                 method: 'POST',
                 headers: {
@@ -179,8 +181,24 @@
                 },
                 body: JSON.stringify({ note_ids: noteIds })
             })
-            .then(response => response.json())
+            .then(response => {
+                if (response.status === 403) {
+                    container.innerHTML = `
+                        <div class="col-12">
+                            <div class="text-center p-4 border rounded bg-light">
+                                <i class="fab fa-misskey fa-2x mb-2 text-muted"></i>
+                                <p class="text-muted mb-2">スクラップブックのノートを表示するにはMisskey連携が必要です。</p>
+                                <a href="${authorizeScrapbookUrl}" class="btn btn-sm btn-outline-primary">
+                                    <i class="fab fa-misskey me-1"></i>連携する
+                                </a>
+                            </div>
+                        </div>`;
+                    return null;
+                }
+                return response.json();
+            })
             .then(data => {
+                if (data === null) return;
                 for (const noteId in data) {
                     const note = data[noteId];
                     const placeholderWrapper = container.querySelector(`[data-note-id="${noteId}"]`);

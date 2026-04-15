@@ -6,7 +6,7 @@ import os
 from flask import (
     Blueprint, flash, g, redirect, render_template, request, session, url_for, current_app
 )
-from flask_login import login_user, logout_user, current_user
+from flask_login import login_user, logout_user, current_user, login_required
 from .. import db
 from ..models import User
 from functools import wraps
@@ -128,20 +128,11 @@ def miauth_callback():
 
     user = db.session.scalar(db.select(User).filter_by(misskey_user_id=misskey_user_id))
     
-    try:
-        crypto_service = CryptoService()
-        encrypted_token = crypto_service.encrypt(token)
-    except Exception as e:
-        current_app.logger.error(f"Failed to initialize CryptoService or encrypt token for user {misskey_username}: {e}")
-        flash('セキュリティトークンの処理中にエラーが発生しました。設定を確認してください。', 'danger')
-        return redirect(url_for('main.index'))
-
     if not user:
         user = User(
             misskey_user_id=misskey_user_id,
             misskey_username=misskey_username,
             avatar_url=avatar_url,
-            encrypted_misskey_api_token=encrypted_token,
             is_admin=False
         )
         db.session.add(user)
@@ -162,9 +153,7 @@ def miauth_callback():
         if user.avatar_url != avatar_url:
             user.avatar_url = avatar_url
             needs_commit = True
-        if user.encrypted_misskey_api_token != encrypted_token:
-            user.encrypted_misskey_api_token = encrypted_token
-            needs_commit = True
+
         
         if needs_commit:
             try:
@@ -220,3 +209,85 @@ def login_page():
 @auth_bp.route('/delete_account_complete')
 def delete_account_complete():
     return render_template('auth/delete_account_complete.html', title="退会完了")
+
+
+@auth_bp.route('/authorize_scrapbook')
+@login_required
+@limiter.limit("5 per minute")
+def authorize_scrapbook():
+    """スクラップブック機能のためのMisskey連携を開始する"""
+    next_url = request.args.get('next')
+    if next_url:
+        session['scrapbook_auth_next'] = next_url
+
+    miauth_session_id = str(uuid.uuid4())
+    session['scrapbook_miauth_session_id'] = miauth_session_id
+
+    misskey_instance_url = current_app.config.get('MISSKEY_INSTANCE_URL', 'https://misskey.io')
+    app_name = "motopuppu (スクラップブック連携)"
+    permissions = "read:account,read:notes"
+    callback_url = url_for('auth.scrapbook_callback', _external=True)
+
+    from urllib.parse import urlencode
+    params = {'name': app_name, 'permission': permissions, 'callback': callback_url}
+    auth_url = f"{misskey_instance_url}/miauth/{miauth_session_id}?{urlencode(params)}"
+    current_app.logger.info(f"Redirecting to MiAuth for scrapbook authorization (user {current_user.id})")
+    return redirect(auth_url)
+
+
+@auth_bp.route('/scrapbook/callback', methods=['GET'])
+def scrapbook_callback():
+    """スクラップブック用MiAuth認証のコールバック"""
+    if not current_user.is_authenticated:
+        flash('ログインが必要です。', 'error')
+        return redirect(url_for('auth.login_page'))
+
+    received_session_id = request.args.get('session')
+    expected_session_id = session.get('scrapbook_miauth_session_id')
+
+    if not received_session_id or not expected_session_id or expected_session_id != received_session_id:
+        flash('認証セッションが無効です。もう一度お試しください。', 'error')
+        next_url = session.pop('scrapbook_auth_next', None)
+        return redirect(next_url or url_for('main.dashboard'))
+
+    session.pop('scrapbook_miauth_session_id', None)
+
+    misskey_instance_url = current_app.config.get('MISSKEY_INSTANCE_URL', 'https://misskey.io')
+    check_url = f"{misskey_instance_url}/api/miauth/{received_session_id}/check"
+
+    try:
+        check_response = requests.post(check_url, timeout=10)
+        check_response.raise_for_status()
+        check_data = check_response.json()
+
+        if not check_data.get('ok') or not check_data.get('token'):
+            raise ValueError(f"Invalid response from MiAuth check endpoint. Response: {check_data}")
+
+        token = check_data['token']
+        current_app.logger.info(
+            f"Scrapbook MiAuth check successful for user {current_user.id}. "
+            f"Token (masked): {token[:5]}..."
+        )
+
+        crypto_service = CryptoService()
+        encrypted_token = crypto_service.encrypt(token)
+
+        current_user.encrypted_misskey_api_token = encrypted_token
+        db.session.commit()
+        current_app.logger.info(f"Scrapbook API token saved for user {current_user.id}")
+        flash('Misskey連携が完了しました。スクラップブック機能をご利用いただけます。', 'success')
+
+    except requests.exceptions.RequestException as e:
+        current_app.logger.error(f"Scrapbook MiAuth /check request failed for user {current_user.id}: {e}")
+        flash('Misskey APIへのアクセスに失敗しました。もう一度お試しください。', 'error')
+    except Exception as e:
+        current_app.logger.error(f"Scrapbook MiAuth callback failed for user {current_user.id}: {e}")
+        flash('Misskey連携処理中にエラーが発生しました。', 'error')
+
+    next_url = session.pop('scrapbook_auth_next', None)
+    if next_url:
+        from urllib.parse import urlparse
+        parsed = urlparse(next_url)
+        if not parsed.scheme and not parsed.netloc and next_url.startswith('/'):
+            return redirect(next_url)
+    return redirect(url_for('main.dashboard'))

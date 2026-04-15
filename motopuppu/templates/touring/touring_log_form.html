@@ -62,7 +62,7 @@
             <div class="card sticky-top" style="top: 80px;">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <span><i class="fab fa-misskey me-2"></i>スクラップブック</span>
-                    <button type="button" class="btn btn-sm btn-info" data-bs-toggle="modal" data-bs-target="#misskey-notes-modal" id="open-misskey-modal-btn">
+                    <button type="button" class="btn btn-sm btn-info" id="open-misskey-modal-btn">
                         <i class="fas fa-cloud-download-alt me-1"></i> ノートを取り込む
                     </button>
                 </div>
@@ -130,6 +130,39 @@
         </div>
     </div>
 </div>
+
+{# --- Misskey連携同意モーダル --- #}
+<div class="modal fade" id="misskey-consent-modal" tabindex="-1" aria-labelledby="misskeyConsentModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="misskeyConsentModalLabel"><i class="fab fa-misskey me-2"></i>Misskey連携の許可</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>スクラップブック機能を利用するには、Misskeyアカウントとの追加連携が必要です。</p>
+                <div class="alert alert-info mb-3">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>以下の権限を許可します：</strong>
+                    <ul class="mb-0 mt-2">
+                        <li>アカウント情報の読み取り</li>
+                        <li>ノート（投稿）の読み取り</li>
+                    </ul>
+                </div>
+                <p class="text-muted small mb-0">
+                    <i class="fas fa-lock me-1"></i>アクセストークンは暗号化してサーバーに保存されます。
+                    この連携はMisskeyの設定画面からいつでも解除できます。
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                <a href="{{ url_for('auth.authorize_scrapbook', next=request.path) }}" class="btn btn-primary">
+                    <i class="fab fa-misskey me-1"></i>連携する
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -189,13 +222,24 @@ document.addEventListener('DOMContentLoaded', function() {
         noScrapbookMessage.style.display = scrapbookPreviewContainer.children.length === 0 ? 'block' : 'none';
     }
     
+    const hasMisskeyToken = {{ 'true' if current_user.encrypted_misskey_api_token else 'false' }};
+
     openModalBtn.addEventListener('click', async () => {
+        // トークン未保持の場合は連携同意モーダルを表示
+        if (!hasMisskeyToken) {
+            const consentModal = new bootstrap.Modal(document.getElementById('misskey-consent-modal'));
+            consentModal.show();
+            return;
+        }
+
         const touringDate = document.querySelector('input[name="touring_date"]').value;
         if (!touringDate) {
             alert('先にツーリングの日付を選択してください。');
-            misskeyNotesModal.hide();
             return;
         }
+
+        // ノート選択モーダルを表示
+        misskeyNotesModal.show();
 
         misskeyNotesLoader.style.display = 'block';
         misskeyNotesContainer.style.display = 'none';
