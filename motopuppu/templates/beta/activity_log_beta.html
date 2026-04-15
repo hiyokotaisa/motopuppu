@@ -1,0 +1,496 @@
+{# motopuppu/templates/beta/activity_log_beta.html #}
+{% extends "base.html" %}
+
+{% block title %}走行ログ一覧 - もとぷっぷー{% endblock %}
+
+{% block body_attributes %}beta-ui-body{% endblock %}
+
+{% block styles %}
+{{ super() }}
+{% include 'beta/_beta_layout_head.html' %}
+{% endblock %}
+
+{% block content %}
+<style>
+.beta-ui-body #main-content > .container { max-width: 100%; padding: 0; }
+
+/* 走行ログ専用タイムライン（beta_ui.cssの共通スタイルとの衝突を回避） */
+.activity-timeline { display: flex; flex-direction: column; }
+.activity-timeline-item {
+    display: flex; align-items: flex-start; gap: 0.75rem;
+    padding-bottom: 1.25rem; position: relative;
+}
+.activity-timeline-item:last-child { padding-bottom: 0; }
+.activity-timeline-marker {
+    flex-shrink: 0; width: 36px; height: 36px;
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-size: 0.8rem; margin-top: 0.75rem; position: relative; z-index: 1;
+}
+/* マーカー間を結ぶ縦線（アイテムの::afterで描画） */
+.activity-timeline-item:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    left: 18px; /* マーカー中心: 36px / 2 */
+    top: calc(0.75rem + 36px); /* マーカー下端 */
+    bottom: calc(-0.75rem); /* 次のマーカー上端まで延長 */
+    width: 2px;
+    transform: translateX(-50%);
+    background: var(--beta-border);
+    z-index: 0;
+}
+.activity-timeline-marker.activity { background: linear-gradient(135deg, #dc3545, #fd7e14); color: #fff; }
+.activity-timeline-marker.touring { background: linear-gradient(135deg, #198754, #20c997); color: #fff; }
+.activity-timeline-content {
+    flex: 1; min-width: 0;
+    background: var(--beta-bg-card); border: 1px solid var(--beta-border);
+    border-radius: var(--beta-radius); padding: 1rem; transition: all 0.2s ease;
+}
+.activity-timeline-content:hover { border-color: var(--beta-border-glow); box-shadow: var(--beta-shadow); transform: translateY(-2px); }
+</style>
+
+{% set beta_nav_active = 'activity' %}
+<div class="beta-dashboard-wrapper">
+    <div class="beta-mobile-overlay" id="beta-mobile-overlay"></div>
+    {% include 'beta/_beta_sidebar.html' %}
+
+    <main class="beta-main-content">
+        {% set beta_topbar_title = '走行ログ一覧' %}
+        {% set beta_topbar_subtitle = 'サーキット走行とツーリングの記録をまとめて管理' %}
+        {% include 'beta/_beta_topbar.html' %}
+
+        {# Flash Messages #}
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show" role="alert" style="animation: betaFadeIn 0.3s ease;">
+            {{ message | safe }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        {# Quick Actions #}
+        <div class="beta-quick-actions mb-4">
+            {% if g.user_motorcycles|length > 0 %}
+                {% if g.user_motorcycles|length == 1 %}
+                <a href="{{ url_for('activity.add_activity', vehicle_id=g.user_motorcycles[0].id) }}" class="beta-quick-btn note">
+                    <i class="fas fa-plus me-1"></i> 走行ログを追加
+                </a>
+                <a href="{{ url_for('touring.create_log', vehicle_id=g.user_motorcycles[0].id) }}" class="beta-quick-btn fuel">
+                    <i class="fas fa-plus me-1"></i> ツーリングログを追加
+                </a>
+                {% else %}
+                <div class="dropdown">
+                    <button class="beta-quick-btn note dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fas fa-plus me-1"></i> 走行ログを追加
+                    </button>
+                    <ul class="dropdown-menu">
+                        {% for mc in motorcycles %}
+                        {% if not mc.is_archived %}
+                        <li>
+                            <a class="dropdown-item" href="{{ url_for('activity.add_activity', vehicle_id=mc.id) }}">
+                                {% if mc.image_url %}
+                                <img src="{{ mc.image_url }}" alt="" style="width: 20px; height: 20px; object-fit: cover; border-radius: 50%; margin-right: 0.5rem;">
+                                {% else %}
+                                <i class="fas fa-motorcycle me-2 text-muted"></i>
+                                {% endif %}
+                                {{ mc.name }}
+                            </a>
+                        </li>
+                        {% endif %}
+                        {% endfor %}
+                    </ul>
+                </div>
+                <div class="dropdown">
+                    <button class="beta-quick-btn fuel dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fas fa-plus me-1"></i> ツーリングログを追加
+                    </button>
+                    <ul class="dropdown-menu">
+                        {% for mc in motorcycles %}
+                        {% if not mc.is_archived %}
+                        <li>
+                            <a class="dropdown-item" href="{{ url_for('touring.create_log', vehicle_id=mc.id) }}">
+                                {% if mc.image_url %}
+                                <img src="{{ mc.image_url }}" alt="" style="width: 20px; height: 20px; object-fit: cover; border-radius: 50%; margin-right: 0.5rem;">
+                                {% else %}
+                                <i class="fas fa-motorcycle me-2 text-muted"></i>
+                                {% endif %}
+                                {{ mc.name }}
+                            </a>
+                        </li>
+                        {% endif %}
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+            {% endif %}
+            <div class="btn-group" role="group">
+                <input type="radio" class="btn-check" name="viewMode" id="viewModeTimeline" autocomplete="off">
+                <label class="beta-btn" for="viewModeTimeline" title="タイムライン表示"><i class="fas fa-stream"></i></label>
+                <input type="radio" class="btn-check" name="viewMode" id="viewModeTable" autocomplete="off">
+                <label class="beta-btn" for="viewModeTable" title="テーブル表示"><i class="fas fa-table"></i></label>
+            </div>
+        </div>
+
+        {# Vehicle Switcher #}
+        <div class="d-flex flex-wrap gap-2 mb-4">
+            <a href="{{ url_for('activity.activity_log') }}" class="beta-btn {{ 'beta-btn-solid' if not request_args.get('vehicle_id') and not request_args.get('log_type') }}">
+                <i class="fas fa-layer-group me-1"></i> すべて
+            </a>
+            <a href="{{ url_for('activity.activity_log', log_type='activity') }}" class="beta-btn {{ 'beta-btn-solid' if request_args.get('log_type') == 'activity' }}" style="{% if request_args.get('log_type') == 'activity' %}background: rgba(220, 53, 69, 0.15); color: #dc3545; border-color: rgba(220, 53, 69, 0.3);{% endif %}">
+                <i class="fas fa-stopwatch me-1"></i> サーキット
+            </a>
+            <a href="{{ url_for('activity.activity_log', log_type='touring') }}" class="beta-btn {{ 'beta-btn-solid' if request_args.get('log_type') == 'touring' }}" style="{% if request_args.get('log_type') == 'touring' %}background: rgba(25, 135, 84, 0.15); color: #198754; border-color: rgba(25, 135, 84, 0.3);{% endif %}">
+                <i class="fas fa-map-marked-alt me-1"></i> ツーリング
+            </a>
+            <span class="beta-text-muted d-flex align-items-center mx-1" style="font-size: 0.7rem;">|</span>
+            {% for motorcycle in motorcycles %}
+            <a href="{{ url_for('activity.activity_log', vehicle_id=motorcycle.id) }}"
+               class="beta-btn {{ 'beta-btn-solid' if request_args.get('vehicle_id')|string == motorcycle.id|string }}">
+                <i class="fas fa-motorcycle me-1"></i> {{ motorcycle.name }}
+            </a>
+            {% endfor %}
+        </div>
+
+        {# Filter Panel #}
+        <div class="mb-3">
+            <button class="beta-btn" type="button" data-bs-toggle="collapse" data-bs-target="#filterCollapse"
+                aria-expanded="{{ 'true' if is_filter_active else 'false' }}">
+                <i class="fas fa-filter me-1"></i> 絞り込み検索
+                {% if is_filter_active %}<span class="badge bg-primary rounded-pill ms-1">ON</span>{% endif %}
+            </button>
+        </div>
+
+        <div class="collapse {% if is_filter_active %}show{% endif %} mb-4" id="filterCollapse">
+            <div class="beta-widget-card">
+                <div class="beta-widget-body" style="padding: 1rem;">
+                    <form method="GET" action="{{ url_for('activity.activity_log') }}" class="row g-2 align-items-end" id="activity-filter-form">
+                        <div class="col-md-2">
+                            <label class="form-label small beta-text-muted">開始日</label>
+                            <input type="date" class="form-control form-control-sm" name="start_date" value="{{ request_args.get('start_date', '') }}">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small beta-text-muted">終了日</label>
+                            <input type="date" class="form-control form-control-sm" name="end_date" value="{{ request_args.get('end_date', '') }}">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small beta-text-muted">車両</label>
+                            <select class="form-select form-select-sm" name="vehicle_id">
+                                <option value="">すべての車両</option>
+                                {% for motorcycle in motorcycles %}
+                                <option value="{{ motorcycle.id }}" {% if request_args.get('vehicle_id')|string==motorcycle.id|string %}selected{% endif %}>{{ motorcycle.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small beta-text-muted">種別</label>
+                            <select class="form-select form-select-sm" name="log_type">
+                                <option value="">すべて</option>
+                                <option value="activity" {% if request_args.get('log_type')=='activity' %}selected{% endif %}>サーキット</option>
+                                <option value="touring" {% if request_args.get('log_type')=='touring' %}selected{% endif %}>ツーリング</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="q" class="form-label small beta-text-muted">キーワード</label>
+                            <input type="text" class="form-control form-control-sm" id="q" name="q" value="{{ request_args.get('q', '') }}" placeholder="タイトル, 場所, メモ">
+                        </div>
+                        <div class="col-md-12 text-end mt-2">
+                            <button type="submit" class="beta-btn beta-btn-solid">適用</button>
+                            <a href="{{ url_for('activity.activity_log') }}" class="beta-btn">リセット</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+
+        {# ================================================================= #}
+        {# VIEW MODE 1: TIMELINE #}
+        {# ================================================================= #}
+        <div id="view-timeline-container" class="d-none">
+
+            {# Stats #}
+            <div class="beta-stats-grid mb-4" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;">
+                <div class="beta-widget-card">
+                    <div class="beta-widget-body" style="padding: 1rem;">
+                        <div class="d-flex align-items-center">
+                            <div class="beta-widget-icon me-3" style="background: rgba(59, 130, 246, 0.15); color: var(--beta-accent-blue); width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.25rem;">
+                                <i class="fas fa-list"></i>
+                            </div>
+                            <div>
+                                <div class="beta-text-muted small fw-bold text-uppercase" style="font-size: 0.65rem;">全ログ数</div>
+                                <div class="fw-bold fs-4 beta-text-primary">{{ summary_stats.total_count }}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="beta-widget-card">
+                    <div class="beta-widget-body" style="padding: 1rem;">
+                        <div class="d-flex align-items-center">
+                            <div class="beta-widget-icon me-3" style="background: rgba(220, 53, 69, 0.15); color: #dc3545; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.25rem;">
+                                <i class="fas fa-stopwatch"></i>
+                            </div>
+                            <div>
+                                <div class="beta-text-muted small fw-bold text-uppercase" style="font-size: 0.65rem;">サーキット走行</div>
+                                <div class="fw-bold fs-4 beta-text-primary">{{ summary_stats.activity_count }}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="beta-widget-card">
+                    <div class="beta-widget-body" style="padding: 1rem;">
+                        <div class="d-flex align-items-center">
+                            <div class="beta-widget-icon me-3" style="background: rgba(25, 135, 84, 0.15); color: #198754; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.25rem;">
+                                <i class="fas fa-map-marked-alt"></i>
+                            </div>
+                            <div>
+                                <div class="beta-text-muted small fw-bold text-uppercase" style="font-size: 0.65rem;">ツーリング</div>
+                                <div class="fw-bold fs-4 beta-text-primary">{{ summary_stats.touring_count }}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {# Stats responsive #}
+            <style>
+            @media (max-width: 768px) { .beta-stats-grid { grid-template-columns: 1fr !important; } }
+            </style>
+
+            {# Timeline List #}
+            <div class="activity-timeline">
+                {% for log in logs %}
+                <div class="activity-timeline-item type-{{ log.type }}">
+                    <div class="activity-timeline-marker {{ log.type }}">
+                        {% if log.type == 'activity' %}
+                        <i class="fas fa-stopwatch"></i>
+                        {% else %}
+                        <i class="fas fa-map-marked-alt"></i>
+                        {% endif %}
+                    </div>
+                    <div class="activity-timeline-content">
+                        {# Header #}
+                        <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                            <span class="fw-bold beta-text-primary">{{ log.date.strftime('%Y/%m/%d') }}</span>
+                            <span class="beta-badge beta-badge-teal">{{ log.vehicle.name }}</span>
+                            {% if log.type == 'activity' %}
+                            <span class="beta-badge" style="background: rgba(220, 53, 69, 0.15); color: #dc3545; border: 1px solid rgba(220, 53, 69, 0.3);">
+                                <i class="fas fa-stopwatch me-1"></i>Circuit
+                            </span>
+                            {% else %}
+                            <span class="beta-badge" style="background: rgba(25, 135, 84, 0.15); color: #198754; border: 1px solid rgba(25, 135, 84, 0.3);">
+                                <i class="fas fa-map-marked-alt me-1"></i>Touring
+                            </span>
+                            {% endif %}
+                        </div>
+
+                        <h6 class="fw-bold beta-text-secondary mb-2">
+                            {% if log.type == 'activity' %}
+                            <a href="{{ url_for('activity.detail_activity', activity_id=log.obj.id) }}"
+                                class="text-decoration-none beta-text-primary">
+                                {{ log.title }}
+                            </a>
+                            {% else %}
+                            <a href="{{ url_for('touring.detail_log', log_id=log.obj.id) }}"
+                                class="text-decoration-none beta-text-primary">
+                                {{ log.title }}
+                            </a>
+                            {% endif %}
+                        </h6>
+
+                        {# Detail Data #}
+                        <div class="row g-2 mt-1">
+                            {% if log.type == 'activity' %}
+                            <div class="col-6 col-sm-4">
+                                <div class="small beta-text-muted mb-1"><i class="fas fa-map-marker-alt me-1"></i>場所</div>
+                                <div class="beta-text-secondary text-truncate">{{ log.details.location or '-' }}</div>
+                            </div>
+                            <div class="col-6 col-sm-4">
+                                <div class="small beta-text-muted mb-1"><i class="fas fa-trophy me-1"></i>Best Lap</div>
+                                <div class="fw-bold beta-text-mono beta-text-primary">{{ log.details.best_lap or '-' }}</div>
+                            </div>
+                            <div class="col-6 col-sm-4">
+                                <div class="small beta-text-muted mb-1"><i class="fas fa-cloud-sun me-1"></i>天気</div>
+                                <div class="beta-text-secondary">{{ log.details.weather or '-' }}</div>
+                            </div>
+                            {% else %}
+                            <div class="col-6 col-sm-4">
+                                <div class="small beta-text-muted mb-1"><i class="fas fa-map-pin me-1"></i>スポット数</div>
+                                <div class="fw-bold beta-text-primary">{{ log.details.spot_count }} か所</div>
+                            </div>
+                            <div class="col-6 col-sm-4">
+                                <div class="small beta-text-muted mb-1"><i class="fas fa-images me-1"></i>スクラップブック</div>
+                                <div class="fw-bold beta-text-primary">{{ log.details.scrapbook_count }} 件</div>
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        {# Actions #}
+                        <div class="d-flex justify-content-end align-items-center mt-2 pt-2" style="border-top: 1px solid var(--beta-border);">
+                            {% if log.type == 'activity' %}
+                            <a href="{{ url_for('activity.edit_activity', activity_id=log.obj.id) }}"
+                                class="beta-btn" style="font-size: 0.7rem; padding: 0.2rem 0.5rem;">編集</a>
+                            {% else %}
+                            <a href="{{ url_for('touring.edit_log', log_id=log.obj.id) }}"
+                                class="beta-btn" style="font-size: 0.7rem; padding: 0.2rem 0.5rem;">編集</a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <div class="text-center py-5 beta-text-muted">
+                    <i class="fas fa-clipboard-list fa-3x mb-3" style="opacity: 0.3;"></i>
+                    <p>表示できるログがありません。</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+
+        {# ================================================================= #}
+        {# VIEW MODE 2: TABLE #}
+        {# ================================================================= #}
+        <div id="view-table-container" class="d-none">
+            <div class="table-responsive beta-widget-card" style="border-radius: var(--beta-radius);">
+                <table class="table table-hover table-sm mb-0 align-middle">
+                    <thead>
+                        <tr>
+                            {% macro sortable_th(sort_key, display_text, current_sort, current_order, request_args, th_class="", th_id="") %}
+                            {% set current_request_args = request_args.copy() %}
+                            {% set sort_order = 'asc' %}
+                            {% set sort_icon_html = '<i class="fas fa-sort fa-fw beta-text-muted ms-1"></i>' %}
+                            {% if current_sort == sort_key %}
+                            {% if current_order == 'asc' %}
+                            {% set sort_order = 'desc' %}
+                            {% set sort_icon_html = '<i class="fas fa-sort-up fa-fw ms-1"></i>' %}
+                            {% else %}
+                            {% set sort_icon_html = '<i class="fas fa-sort-down fa-fw ms-1"></i>' %}
+                            {% endif %}
+                            {% endif %}
+                            {% set _ = current_request_args.update({'sort_by': sort_key, 'order': sort_order, 'page': 1}) %}
+                            <th class="{{ th_class }}" {% if th_id %}id="{{ th_id }}"{% endif %}>
+                                <a href="{{ url_for('activity.activity_log', **current_request_args) }}" class="text-decoration-none beta-text-secondary">
+                                    <span class="header-text">{{ display_text|safe }}</span>
+                                    <span class="sort-icon">{{ sort_icon_html|safe }}</span>
+                                </a>
+                            </th>
+                            {% endmacro %}
+
+                            {{ sortable_th('date', '<i class="bi bi-calendar-event me-2"></i>日付', current_sort_by, current_order, request_args, "ps-3") }}
+                            <th class="text-center">種別</th>
+                            {{ sortable_th('vehicle', '<i class="bi bi-bicycle me-2"></i>車両', current_sort_by, current_order, request_args) }}
+                            <th>タイトル / 場所</th>
+                            <th>詳細</th>
+                            <th class="text-center">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in logs %}
+                        <tr>
+                            <td class="ps-3 text-nowrap">{{ log.date.strftime('%Y-%m-%d') }}</td>
+                            <td class="text-center">
+                                {% if log.type == 'activity' %}
+                                <span class="beta-badge" style="background: rgba(220, 53, 69, 0.15); color: #dc3545; border: 1px solid rgba(220, 53, 69, 0.3);" title="サーキット走行">
+                                    <i class="fas fa-stopwatch"></i>
+                                </span>
+                                {% else %}
+                                <span class="beta-badge" style="background: rgba(25, 135, 84, 0.15); color: #198754; border: 1px solid rgba(25, 135, 84, 0.3);" title="ツーリング">
+                                    <i class="fas fa-map-marked-alt"></i>
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td>{{ log.vehicle.name }}</td>
+                            <td>
+                                {% if log.type == 'activity' %}
+                                <a href="{{ url_for('activity.detail_activity', activity_id=log.obj.id) }}"
+                                    class="text-decoration-none fw-bold beta-text-primary">
+                                    {{ log.title }}
+                                </a>
+                                <div class="small beta-text-muted">{{ log.details.location }}</div>
+                                {% else %}
+                                <a href="{{ url_for('touring.detail_log', log_id=log.obj.id) }}"
+                                    class="text-decoration-none fw-bold beta-text-primary">
+                                    {{ log.title }}
+                                </a>
+                                {% endif %}
+                            </td>
+                            <td class="small">
+                                {% if log.type == 'activity' %}
+                                {% if log.details.best_lap %}
+                                <span class="beta-text-muted">Best:</span> <span class="beta-text-mono fw-bold beta-text-primary">{{ log.details.best_lap }}</span>
+                                {% else %}
+                                <span class="beta-text-muted">-</span>
+                                {% endif %}
+                                {% else %}
+                                <span class="beta-text-muted">Spots:</span> {{ log.details.spot_count }}
+                                {% endif %}
+                            </td>
+                            <td class="text-center text-nowrap">
+                                {% if log.type == 'activity' %}
+                                <a href="{{ url_for('activity.edit_activity', activity_id=log.obj.id) }}"
+                                    class="beta-btn" style="font-size: 0.7rem; padding: 0.15rem 0.4rem;"><i class="fas fa-edit"></i></a>
+                                {% else %}
+                                <a href="{{ url_for('touring.edit_log', log_id=log.obj.id) }}"
+                                    class="beta-btn" style="font-size: 0.7rem; padding: 0.15rem 0.4rem;"><i class="fas fa-edit"></i></a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="6" class="text-center py-4 beta-text-muted">ログがありません</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        {# Pagination #}
+        {% if pagination.pages > 1 %}
+        <nav aria-label="Page navigation" class="mt-4">
+            <ul class="pagination justify-content-center">
+                <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}"><a class="page-link" href="{{ url_for('activity.activity_log', page=pagination.prev_num, **request_args) }}">&laquo;</a></li>
+                {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=1) %}
+                {% if page_num %}<li class="page-item {% if page_num == pagination.page %}active{% endif %}"><a class="page-link" href="{{ url_for('activity.activity_log', page=page_num, **request_args) }}">{{ page_num }}</a></li>
+                {% else %}<li class="page-item disabled"><span class="page-link">...</span></li>{% endif %}
+                {% endfor %}
+                <li class="page-item {% if not pagination.has_next %}disabled{% endif %}"><a class="page-link" href="{{ url_for('activity.activity_log', page=pagination.next_num, **request_args) }}">&raquo;</a></li>
+            </ul>
+        </nav>
+        {% endif %}
+
+    </main>
+    {% include 'beta/_beta_bottombar.html' %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+{% include 'beta/_beta_scripts.html' %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const timelineRadio = document.getElementById('viewModeTimeline');
+    const tableRadio = document.getElementById('viewModeTable');
+    const timelineContainer = document.getElementById('view-timeline-container');
+    const tableContainer = document.getElementById('view-table-container');
+    const STORAGE_KEY = 'motopuppu_activity_view_pref';
+
+    function setViewMode(mode) {
+        if (mode === 'timeline') {
+            timelineContainer.classList.remove('d-none');
+            tableContainer.classList.add('d-none');
+            timelineRadio.checked = true;
+        } else {
+            timelineContainer.classList.add('d-none');
+            tableContainer.classList.remove('d-none');
+            tableRadio.checked = true;
+        }
+        localStorage.setItem(STORAGE_KEY, mode);
+    }
+
+    setViewMode(localStorage.getItem(STORAGE_KEY) || 'timeline');
+    if (timelineRadio) timelineRadio.addEventListener('change', () => setViewMode('timeline'));
+    if (tableRadio) tableRadio.addEventListener('change', () => setViewMode('table'));
+});
+</script>
+<script src="{{ url_for('static', filename='js/filter_persistence.js') }}"></script>
+{% endblock %}

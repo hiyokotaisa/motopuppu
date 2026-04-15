@@ -80,7 +80,37 @@
 
     {# --- アクションボタン群 --- #}
     <div class="d-flex gap-2">
-        {# 車両IDが指定されている場合はその車両の追加画面へ、そうでなければ車両選択が必要なのでここでは汎用的なボタンにはしない #}
+        {# --- 走行ログ追加ボタン --- #}
+        {% if g.user_motorcycles|length > 0 %}
+            {% if g.user_motorcycles|length == 1 %}
+            <a href="{{ url_for('activity.add_activity', vehicle_id=g.user_motorcycles[0].id) }}"
+                class="btn btn-success">
+                <i class="fas fa-plus me-1"></i> 走行ログを追加
+            </a>
+            {% else %}
+            <div class="dropdown">
+                <button class="btn btn-success dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="fas fa-plus me-1"></i> 走行ログを追加
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    {% for mc in motorcycles %}
+                    {% if not mc.is_archived %}
+                    <li>
+                        <a class="dropdown-item" href="{{ url_for('activity.add_activity', vehicle_id=mc.id) }}">
+                            {% if mc.image_url %}
+                            <img src="{{ mc.image_url }}" alt="" style="width: 20px; height: 20px; object-fit: cover; border-radius: 50%; margin-right: 0.5rem;">
+                            {% else %}
+                            <i class="fas fa-motorcycle me-2 text-muted"></i>
+                            {% endif %}
+                            {{ mc.name }}
+                        </a>
+                    </li>
+                    {% endif %}
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+        {% endif %}
 
         {# --- 表示モード切替トグル --- #}
         <div class="btn-group" role="group" aria-label="View Mode Toggle">

@@ -17,43 +17,101 @@ from .utils.lap_time_utils import format_seconds_to_time
 
 # --- データ取得・計算ヘルパー ---
 
+# --- お知らせ用キャッシュ ---
+_announcement_cache = {
+    'data': None,
+    'expires_at': None,
+}
+_ANNOUNCEMENT_CACHE_TTL_SECONDS = 30 * 60  # 30分
+
 def get_announcements():
     """
-    announcements.json からお知らせデータを読み込み、パースして返す共通関数。
+    Misskey.io の @motopuppu 公式アカウントのノートを取得し、お知らせとして返す。
+    API呼び出しの負荷を減らすため、30分間のインメモリキャッシュを使用する。
     
     :return: (announcements_for_modal, important_notice_content) のタプル。
-             announcements_for_modal: モーダル表示用のお知らせリスト（id降順ソート済み）
-             important_notice_content: id==1 の重要なお知らせ（または None）
+             announcements_for_modal: モーダル表示用のノートリスト（新しい順）
+             important_notice_content: None（廃止）
     """
-    import os
+    import requests as http_requests
+    from datetime import datetime, timezone
+
+    # キャッシュが有効な場合はキャッシュから返す
+    now = datetime.now(timezone.utc)
+    if (_announcement_cache['data'] is not None
+            and _announcement_cache['expires_at'] is not None
+            and now < _announcement_cache['expires_at']):
+        return _announcement_cache['data'], None
+
     announcements_for_modal = []
-    important_notice_content = None
+    misskey_instance_url = current_app.config.get('MISSKEY_INSTANCE_URL', 'https://misskey.io')
+    misskey_account_username = 'motopuppu'
+
     try:
-        announcement_file = os.path.join(
-            current_app.root_path, '..', 'announcements.json')
-        if os.path.exists(announcement_file):
-            with open(announcement_file, 'r', encoding='utf-8') as f:
-                all_announcements_data = json.load(f)
+        # 1. ユーザーIDを取得
+        user_show_url = f"{misskey_instance_url}/api/users/show"
+        user_resp = http_requests.post(
+            user_show_url,
+            json={'username': misskey_account_username},
+            timeout=10
+        )
+        user_resp.raise_for_status()
+        user_data = user_resp.json()
+        user_id = user_data.get('id')
 
-            temp_modal_announcements = []
-            for item in all_announcements_data:
-                if item.get('active', False):
-                    if item.get('id') == 1:
-                        important_notice_content = item
-                    else:
-                        temp_modal_announcements.append(item)
-
-            temp_modal_announcements.sort(
-                key=lambda x: x.get('id', 0), reverse=True)
-            announcements_for_modal = temp_modal_announcements
-        else:
+        if not user_id:
             current_app.logger.warning(
-                f"announcements.json not found at {announcement_file}")
+                f"Could not find Misskey user ID for @{misskey_account_username}")
+            _announcement_cache['data'] = []
+            _announcement_cache['expires_at'] = now + timedelta(seconds=_ANNOUNCEMENT_CACHE_TTL_SECONDS)
+            return [], None
+
+        # 2. ユーザーのノートを取得（最新10件、リプライ・リノートを除外）
+        notes_url = f"{misskey_instance_url}/api/users/notes"
+        notes_resp = http_requests.post(
+            notes_url,
+            json={
+                'userId': user_id,
+                'limit': 10,
+                'includeReplies': False,
+                'includeMyRenotes': False,
+                'withRenotes': False,
+            },
+            timeout=10
+        )
+        notes_resp.raise_for_status()
+        notes_data = notes_resp.json()
+
+        for note in notes_data:
+            if not note.get('text'):
+                continue
+            announcements_for_modal.append({
+                'id': note.get('id', ''),
+                'text': note.get('text', ''),
+                'createdAt': note.get('createdAt', ''),
+                'user': note.get('user', {}),
+            })
+
+        # キャッシュを更新
+        _announcement_cache['data'] = announcements_for_modal
+        _announcement_cache['expires_at'] = now + timedelta(seconds=_ANNOUNCEMENT_CACHE_TTL_SECONDS)
+
+        current_app.logger.info(
+            f"Fetched {len(announcements_for_modal)} notes from @{misskey_account_username}")
+
+    except http_requests.exceptions.RequestException as e:
+        current_app.logger.error(
+            f"Failed to fetch Misskey notes for @{misskey_account_username}: {e}")
+        # エラー時はキャッシュが残っていればそれを使い、なければ空リスト
+        if _announcement_cache['data'] is not None:
+            return _announcement_cache['data'], None
     except Exception as e:
         current_app.logger.error(
-            f"An unexpected error occurred loading announcements: {e}", exc_info=True)
-    
-    return announcements_for_modal, important_notice_content
+            f"Unexpected error fetching Misskey announcements: {e}", exc_info=True)
+        if _announcement_cache['data'] is not None:
+            return _announcement_cache['data'], None
+
+    return announcements_for_modal, None
 
 def get_latest_total_distance(motorcycle_id, offset_val):
     # ODO保留中 (is_odo_pending=True) のレコードは最大距離計算から除外

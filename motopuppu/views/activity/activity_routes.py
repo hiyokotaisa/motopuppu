@@ -247,7 +247,9 @@ def activity_log():
 
     is_filter_active = bool(active_filters)
 
-    return render_template('activity/activity_log.html',
+    template_name = 'beta/activity_log_beta.html' if current_user.use_beta_ui else 'activity/activity_log.html'
+
+    return render_template(template_name,
                            logs=paginated_logs,
                            pagination=pagination,
                            motorcycles=user_motorcycles,

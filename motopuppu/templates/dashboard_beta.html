@@ -68,6 +68,12 @@
                     <button id="reset-layout-btn" type="button" class="beta-btn beta-btn-teal"><i class="fas fa-undo me-1"></i>リセット</button>
                     <button id="cancel-layout-btn" type="button" class="beta-btn"><i class="fas fa-times me-1"></i>キャンセル</button>
                 </div>
+                <button class="beta-btn" title="お知らせ"
+                    hx-get="{{ url_for('main.announcements_modal_api') }}"
+                    hx-target="#global-modal-container"
+                    hx-swap="innerHTML">
+                    <i class="fas fa-bullhorn"></i>
+                </button>
                 <form method="POST" action="{{ url_for('main.toggle_beta_ui') }}" class="d-inline">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button type="submit" class="beta-btn" title="通常版UIに戻す">

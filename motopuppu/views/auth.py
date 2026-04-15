@@ -212,11 +212,10 @@ def login_page():
         return redirect(url_for('main.dashboard'))
 
     from ..services import get_announcements
-    announcements_for_modal, important_notice_content = get_announcements()
+    announcements_for_modal, _ = get_announcements()
 
     return render_template('index.html', 
-                           announcements=announcements_for_modal,
-                           important_notice=important_notice_content)
+                           announcements=announcements_for_modal)
 
 @auth_bp.route('/delete_account_complete')
 def delete_account_complete():

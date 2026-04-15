@@ -76,9 +76,9 @@ def index():
     if current_user.is_authenticated:
         return redirect(url_for('main.dashboard'))
 
-    announcements_for_modal, important_notice_content = services.get_announcements()
+    announcements_for_modal, _ = services.get_announcements()
 
-    return render_template('index.html', announcements=announcements_for_modal, important_notice=important_notice_content)
+    return render_template('index.html', announcements=announcements_for_modal)
 
 
 @main_bp.route('/api/announcements/modal')

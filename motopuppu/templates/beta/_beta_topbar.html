@@ -37,6 +37,12 @@
         </div>
         {# ページ固有のアクションボタン挿入用 #}
         {% block beta_topbar_extra %}{% endblock %}
+        <button class="beta-btn" title="お知らせ"
+            hx-get="{{ url_for('main.announcements_modal_api') }}"
+            hx-target="#global-modal-container"
+            hx-swap="innerHTML">
+            <i class="fas fa-bullhorn"></i>
+        </button>
         <form method="POST" action="{{ url_for('main.toggle_beta_ui') }}" class="d-inline">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="submit" class="beta-btn" title="通常版UIに戻す">

@@ -170,6 +170,40 @@
         {% set beta_topbar_subtitle = 'あなたのサーキット走行実績と成長記録' %}
         {% include 'beta/_beta_topbar.html' %}
 
+        {# --- 走行ログ追加ボタン --- #}
+        {% if g.user_motorcycles|length > 0 %}
+        <div class="d-flex justify-content-end mb-3">
+            {% if g.user_motorcycles|length == 1 %}
+            <a href="{{ url_for('activity.add_activity', vehicle_id=g.user_motorcycles[0].id, location_type='circuit') }}"
+                class="beta-btn beta-btn-solid">
+                <i class="fas fa-plus me-1"></i> 走行ログを追加
+            </a>
+            {% else %}
+            <div class="dropdown">
+                <button class="beta-btn beta-btn-solid dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="fas fa-plus me-1"></i> 走行ログを追加
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    {% for mc in g.user_motorcycles %}
+                    {% if not mc.is_archived %}
+                    <li>
+                        <a class="dropdown-item" href="{{ url_for('activity.add_activity', vehicle_id=mc.id, location_type='circuit') }}">
+                            {% if mc.image_url %}
+                            <img src="{{ mc.image_url }}" alt="" style="width: 20px; height: 20px; object-fit: cover; border-radius: 50%; margin-right: 0.5rem;">
+                            {% else %}
+                            <i class="fas fa-motorcycle me-2 text-muted"></i>
+                            {% endif %}
+                            {{ mc.name }}
+                        </a>
+                    </li>
+                    {% endif %}
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
         {# Flash Messages #}
         {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
@@ -639,9 +673,15 @@
             </div>
             <h4 class="fw-bold beta-text-primary">No Data Yet</h4>
             <p class="beta-text-muted mb-4">サーキット走行ログを記録すると、ここにあなたのキャリアが表示されます。</p>
-            <a href="{{ url_for('vehicle.vehicle_list') }}" class="beta-btn beta-btn-solid px-4">
+            {% if g.user_motorcycles|length > 0 %}
+            <a href="{{ url_for('activity.add_activity', vehicle_id=g.user_motorcycles[0].id, location_type='circuit') }}" class="beta-btn beta-btn-solid px-4">
                 <i class="fas fa-plus me-1"></i> 最初のログを記録する
             </a>
+            {% else %}
+            <a href="{{ url_for('vehicle.vehicle_list') }}" class="beta-btn beta-btn-solid px-4">
+                <i class="fas fa-motorcycle me-1"></i> まず車両を登録する
+            </a>
+            {% endif %}
         </div>
         {% endif %}
 
