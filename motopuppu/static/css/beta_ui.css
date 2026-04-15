@@ -756,9 +756,9 @@ body.beta-ui-body.beta-light .beta-sidebar-brand-icon {
 
 .beta-sidebar-footer-links {
     display: flex;
-    flex-wrap: wrap;
-    gap: 0.25rem 0.75rem;
-    margin-bottom: 0.4rem;
+    flex-direction: column;
+    gap: 0.3rem;
+    margin-bottom: 0.5rem;
 }
 
 .beta-sidebar-footer-links a {
