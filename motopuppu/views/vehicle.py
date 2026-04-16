@@ -54,7 +54,8 @@ def vehicle_list():
             motorcycle.avg_kpl = None
         user_motorcycles.append(motorcycle)
 
-    return render_template('vehicles.html', motorcycles=user_motorcycles)
+    template_name = 'beta/vehicles_beta.html' if current_user.use_beta_ui else 'vehicles.html'
+    return render_template(template_name, motorcycles=user_motorcycles)
 
 @vehicle_bp.route('/add', methods=['GET', 'POST'])
 @limiter.limit("30 per hour")
@@ -184,7 +185,8 @@ def add_vehicle():
 
     start_vehicle_tutorial = not current_user.completed_tutorials.get('vehicle_form', False)
     
-    return render_template('vehicle_form.html',
+    template_name = 'beta/vehicle_form_beta.html' if current_user.use_beta_ui else 'vehicle_form.html'
+    return render_template(template_name,
                            form_action='add',
                            form=form,
                            current_year=current_year_for_validation,
@@ -293,7 +295,8 @@ def edit_vehicle(vehicle_id):
     start_vehicle_tutorial = not current_user.completed_tutorials.get('vehicle_form', False)
     # ▲▲▲【修正はここまで】▲▲▲
 
-    return render_template('vehicle_form.html',
+    template_name = 'beta/vehicle_form_beta.html' if current_user.use_beta_ui else 'vehicle_form.html'
+    return render_template(template_name,
                            form_action='edit',
                            form=form,
                            odo_form=odo_form,
@@ -302,9 +305,7 @@ def edit_vehicle(vehicle_id):
                            current_year=current_year_for_validation,
                            now_date_iso=today_jst_iso,
                            is_racer_vehicle=motorcycle.is_racer,
-                           # ▼▼▼【ここから修正】テンプレートに変数を渡す ▼▼▼
                            start_vehicle_tutorial=start_vehicle_tutorial)
-                           # ▲▲▲【修正はここまで】▲▲▲
 
 @vehicle_bp.route('/<int:vehicle_id>/delete', methods=['POST'])
 @limiter.limit("30 per hour")
@@ -631,7 +632,8 @@ def dashboard(vehicle_id):
     
     avg_kpl = services.calculate_average_kpl(motorcycle) if not motorcycle.is_racer else None
     
-    return render_template('vehicle_dashboard.html',
+    template_name = 'beta/vehicle_dashboard_beta.html' if current_user.use_beta_ui else 'vehicle_dashboard.html'
+    return render_template(template_name,
                            vehicle=motorcycle,
                            timeline=timeline_items,
                            fuels=recent_fuels,

@@ -1,0 +1,209 @@
+{# motopuppu/templates/beta/vehicles_beta.html #}
+{% extends "base.html" %}
+
+{% block title %}車両管理 - もとぷっぷー{% endblock %}
+
+{% block body_attributes %}beta-ui-body{% endblock %}
+
+{% block styles %}
+{{ super() }}
+{% include 'beta/_beta_layout_head.html' %}
+{% endblock %}
+
+{% block content %}
+<style>.beta-ui-body #main-content > .container { max-width: 100%; padding: 0; }</style>
+
+{% set beta_nav_active = 'garage' %}
+<div class="beta-dashboard-wrapper">
+    <div class="beta-mobile-overlay" id="beta-mobile-overlay"></div>
+    {% include 'beta/_beta_sidebar.html' %}
+
+    <main class="beta-main-content">
+        {# Top Bar #}
+        {% set beta_topbar_title = 'マイガレージ' %}
+        {% set beta_topbar_subtitle = '登録車両の管理・閲覧' %}
+        {% include 'beta/_beta_topbar.html' %}
+
+        {# Flash Messages #}
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show" role="alert" style="animation: betaFadeIn 0.3s ease;">
+            {{ message | safe }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        {# Quick Actions #}
+        <div class="beta-quick-actions mb-4">
+            <a href="{{ url_for('vehicle.add_vehicle') }}" class="beta-quick-btn fuel">
+                <i class="fas fa-plus me-1"></i> 新しい車両を追加
+            </a>
+            <a href="{{ url_for('garage_settings.settings') }}" class="beta-quick-btn note">
+                <i class="fas fa-id-card me-1"></i> ガレージ設定
+            </a>
+        </div>
+
+        {% if motorcycles %}
+        {# Vehicle Cards Grid #}
+        <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4">
+            {% for motorcycle in motorcycles %}
+            <div class="col">
+                <div class="beta-widget-card h-100 {% if motorcycle.is_archived %}beta-vehicle-archived{% endif %}" style="position: relative;">
+                    {# アクセントライン #}
+                    {% if motorcycle.is_default %}
+                    <div style="position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, var(--beta-accent-amber), var(--beta-accent-amber)); border-radius: 12px 12px 0 0;"></div>
+                    {% elif motorcycle.is_archived %}
+                    <div style="position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--beta-text-muted); opacity: 0.3; border-radius: 12px 12px 0 0;"></div>
+                    {% else %}
+                    <div style="position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, var(--beta-accent), var(--beta-accent-emerald)); border-radius: 12px 12px 0 0;"></div>
+                    {% endif %}
+
+                    <div class="beta-widget-body" style="padding: 1.25rem;">
+                        {# ヘッダー: 車両名、ステータス #}
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <div class="d-flex align-items-center" style="max-width: 80%;">
+                                {% if motorcycle.image_url %}
+                                <img src="{{ motorcycle.image_url }}" alt="{{ motorcycle.name }}" class="beta-vehicle-img me-2" style="width: 36px; height: 36px;">
+                                {% else %}
+                                <div class="beta-widget-icon me-2" style="background: rgba(20, 184, 166, 0.15); color: var(--beta-accent); width: 36px; height: 36px; border-radius: 8px;">
+                                    <i class="fas fa-motorcycle"></i>
+                                </div>
+                                {% endif %}
+                                <div class="text-truncate">
+                                    <a href="{{ url_for('vehicle.dashboard', vehicle_id=motorcycle.id) }}" class="text-decoration-none fw-bold beta-text-primary" style="font-size: 1rem;">{{ motorcycle.name }}</a>
+                                    <div class="d-flex gap-1 mt-1">
+                                        {% if motorcycle.is_default %}
+                                        <span class="beta-badge beta-badge-amber"><i class="fas fa-star me-1"></i>デフォルト</span>
+                                        {% endif %}
+                                        {% if motorcycle.is_archived %}
+                                        <span class="beta-badge" style="background: rgba(148, 163, 184, 0.2); color: var(--beta-text-muted);"><i class="fas fa-archive me-1"></i>アーカイブ</span>
+                                        {% endif %}
+                                        {% if motorcycle.is_racer %}
+                                        <span class="beta-badge beta-badge-racer"><i class="fas fa-flag-checkered me-1"></i>レーサー</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            {# アクションドロップダウン #}
+                            <div class="dropdown" style="z-index: 10;">
+                                <button class="beta-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="padding: 0.2rem 0.5rem;">
+                                    <i class="fas fa-ellipsis-v"></i>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                                    <li><a class="dropdown-item" href="{{ url_for('vehicle.edit_vehicle', vehicle_id=motorcycle.id) }}"><i class="fas fa-edit fa-fw me-2"></i>編集</a></li>
+                                    <li><a class="dropdown-item" href="{{ url_for('vehicle.dashboard', vehicle_id=motorcycle.id) }}"><i class="fas fa-tachometer-alt fa-fw me-2"></i>ダッシュボード</a></li>
+                                    {% if not motorcycle.is_default %}
+                                    <li><hr class="dropdown-divider"></li>
+                                    {% if not motorcycle.is_archived %}
+                                    <li>
+                                        <form action="{{ url_for('vehicle.set_default_vehicle', vehicle_id=motorcycle.id) }}" method="POST" class="m-0 p-0">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                            <button type="submit" class="dropdown-item" style="color: var(--beta-accent-amber);"><i class="fas fa-star fa-fw me-2"></i>デフォルトに設定</button>
+                                        </form>
+                                    </li>
+                                    <li>
+                                        <form action="{{ url_for('vehicle.archive_vehicle', vehicle_id=motorcycle.id) }}" method="POST" class="m-0 p-0" onsubmit="return confirm('本当に「{{ motorcycle.name }}」をアーカイブしますか？\n\nアーカイブすると、統計情報や各種一覧から除外されますが、過去の記録は保持されます。');">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                            <button type="submit" class="dropdown-item beta-text-muted"><i class="fas fa-archive fa-fw me-2"></i>アーカイブ</button>
+                                        </form>
+                                    </li>
+                                    {% else %}
+                                    <li>
+                                        <form action="{{ url_for('vehicle.unarchive_vehicle', vehicle_id=motorcycle.id) }}" method="POST" class="m-0 p-0" onsubmit="return confirm('「{{ motorcycle.name }}」をアーカイブから復元しますか？');">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                            <button type="submit" class="dropdown-item" style="color: var(--beta-accent-emerald);"><i class="fas fa-box-open fa-fw me-2"></i>アーカイブ解除</button>
+                                        </form>
+                                    </li>
+                                    {% endif %}
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li>
+                                        <form action="{{ url_for('vehicle.delete_vehicle', vehicle_id=motorcycle.id) }}" method="POST" class="m-0 p-0" onsubmit="return confirm('本当に「{{ motorcycle.name }}」を削除してもよろしいですか？\n\n【警告】\nこの車両に紐づく全てのデータ（給油、整備、走行ログ、ツーリングログ、ノート等）が完全に削除されます。\nこの操作は元に戻すことができません。');">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                            <button type="submit" class="dropdown-item" style="color: var(--beta-accent-red);"><i class="fas fa-trash fa-fw me-2"></i>削除</button>
+                                        </form>
+                                    </li>
+                                    {% endif %}
+                                </ul>
+                            </div>
+                        </div>
+
+                        {# サマリー情報 #}
+                        <div class="d-flex flex-wrap gap-3 mb-3 small beta-text-secondary" style="{% if motorcycle.is_archived %}opacity: 0.6;{% endif %}">
+                            {% if motorcycle.maker %}
+                            <span><i class="fas fa-industry fa-fw me-1 beta-text-muted"></i>{{ motorcycle.maker }}</span>
+                            {% endif %}
+                            {% if motorcycle.year %}
+                            <span><i class="fas fa-calendar fa-fw me-1 beta-text-muted"></i>{{ motorcycle.year }}</span>
+                            {% endif %}
+                            {% if motorcycle.is_racer %}
+                            <span><i class="fas fa-stopwatch fa-fw me-1 beta-text-muted"></i><strong class="beta-text-primary">{{ "%.2f"|format(motorcycle.display_operating_hours if motorcycle.display_operating_hours is not none else 0) }} h</strong></span>
+                            {% else %}
+                            <span><i class="fas fa-road fa-fw me-1 beta-text-muted"></i><strong class="beta-text-primary">{{ "{:,.0f}".format(motorcycle.get_display_total_mileage() | int) }} km</strong></span>
+                            {% endif %}
+                            {% if not motorcycle.is_racer and motorcycle.avg_kpl is not none and motorcycle.avg_kpl > 0 %}
+                            <span><i class="fas fa-tachometer-alt fa-fw me-1 beta-text-muted"></i><strong class="beta-text-primary">{{ "%.1f"|format(motorcycle.avg_kpl) }} km/L</strong></span>
+                            {% endif %}
+                        </div>
+
+                        {# ナビゲーションリンク #}
+                        <div class="d-flex flex-wrap gap-2" style="{% if motorcycle.is_archived %}opacity: 0.6;{% endif %}">
+                            <a href="{{ url_for('activity.list_activities', vehicle_id=motorcycle.id) }}" class="beta-btn" style="font-size: 0.7rem;">
+                                <i class="fas fa-flag-checkered me-1"></i>走行 <span class="beta-badge beta-badge-teal ms-1">{{ motorcycle.activity_log_count }}</span>
+                            </a>
+                            <a href="{{ url_for('touring.list_logs', vehicle_id=motorcycle.id) }}" class="beta-btn" style="font-size: 0.7rem;">
+                                <i class="fas fa-map-signs me-1"></i>ツーリング
+                            </a>
+                            <a href="{{ url_for('maintenance.maintenance_log', motorcycle_id=motorcycle.id) }}" class="beta-btn" style="font-size: 0.7rem;">
+                                <i class="fas fa-tools me-1"></i>整備 <span class="beta-badge beta-badge-amber ms-1">{{ motorcycle.maintenance_entries.count() }}</span>
+                            </a>
+                            {% if not motorcycle.is_racer %}
+                            <a href="{{ url_for('fuel.fuel_log', vehicle_id=motorcycle.id) }}" class="beta-btn" style="font-size: 0.7rem;">
+                                <i class="fas fa-gas-pump me-1"></i>給油 <span class="beta-badge beta-badge-teal ms-1">{{ motorcycle.fuel_entries.count() }}</span>
+                            </a>
+                            {% endif %}
+                            <a href="{{ url_for('reminder.list_reminders', vehicle_id=motorcycle.id) }}" class="beta-btn" style="font-size: 0.7rem;">
+                                <i class="fas fa-bell me-1"></i>リマインダー <span class="beta-badge beta-badge-red ms-1">{{ motorcycle.maintenance_reminders|length }}</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        {% else %}
+        {# 空状態 #}
+        <div class="text-center py-5 my-5">
+            <div class="mb-4">
+                <i class="fas fa-motorcycle fa-4x beta-text-muted" style="opacity: 0.3;"></i>
+            </div>
+            <h4 class="fw-bold beta-text-primary">まだ車両が登録されていません</h4>
+            <p class="beta-text-muted mb-4">上の「新しい車両を追加」ボタンから、あなたの愛車を登録してください。</p>
+            <a href="{{ url_for('vehicle.add_vehicle') }}" class="beta-btn beta-btn-solid">
+                <i class="fas fa-plus me-1"></i> 新しい車両を追加
+            </a>
+        </div>
+        {% endif %}
+
+    </main>
+
+    {% include 'beta/_beta_bottombar.html' %}
+</div>
+
+<style>
+    .beta-vehicle-archived {
+        opacity: 0.65;
+    }
+    .beta-vehicle-archived:hover {
+        opacity: 0.9;
+    }
+</style>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+{% include 'beta/_beta_scripts.html' %}
+{% endblock %}

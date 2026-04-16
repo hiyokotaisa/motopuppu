@@ -1,0 +1,443 @@
+{# motopuppu/templates/beta/vehicle_form_beta.html #}
+{% extends "base.html" %}
+
+{% set page_title = "車両の追加" if form_action == 'add' else "車両の編集: " + (vehicle.name if vehicle and vehicle.name else '') %}
+{% block title %}{{ page_title }} - もとぷっぷー{% endblock %}
+
+{% block body_attributes %}beta-ui-body{% endblock %}
+
+{% block styles %}
+{{ super() }}
+{% include 'beta/_beta_layout_head.html' %}
+{% endblock %}
+
+{% block content %}
+<style>.beta-ui-body #main-content > .container { max-width: 100%; padding: 0; }</style>
+
+{% set beta_nav_active = 'garage' %}
+<div class="beta-dashboard-wrapper">
+    <div class="beta-mobile-overlay" id="beta-mobile-overlay"></div>
+    {% include 'beta/_beta_sidebar.html' %}
+
+    <main class="beta-main-content">
+        {# Top Bar #}
+        {% set beta_topbar_title = page_title %}
+        {% set beta_topbar_subtitle = '車両情報の設定' if form_action == 'add' else vehicle.name ~ ' の設定を管理' %}
+        {% include 'beta/_beta_topbar.html' %}
+
+        {# Flash Messages #}
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show" role="alert" style="animation: betaFadeIn 0.3s ease;">
+            {{ message | safe }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        <form method="POST" enctype="multipart/form-data" action="{{ url_for('vehicle.add_vehicle') if form_action == 'add' else url_for('vehicle.edit_vehicle', vehicle_id=vehicle.id) }}">
+            {{ form.hidden_tag() }}
+
+            <div class="row g-4">
+                <div class="col-lg-8">
+                    {# --- 基本情報カード --- #}
+                    <div class="beta-widget-card mb-4">
+                        <div class="beta-widget-header">
+                            <div class="beta-widget-header-left">
+                                <div class="beta-widget-icon" style="background: rgba(20, 184, 166, 0.15); color: var(--beta-accent);"><i class="fas fa-motorcycle"></i></div>
+                                <span class="beta-widget-title">基本情報</span>
+                            </div>
+                            <button type="button" id="restart-tutorial-btn" class="beta-btn" title="このページのチュートリアルを表示">
+                                <i class="fas fa-question"></i>
+                            </button>
+                        </div>
+                        <div class="beta-widget-body" style="padding: 1.25rem;">
+                            <div class="mb-3">
+                                {{ form.maker.label(class="form-label small beta-text-muted") }}
+                                {{ form.maker(class="form-control" + (" is-invalid" if form.maker.errors else ""), placeholder=(form.maker.render_kw.get("placeholder", "") if form.maker.render_kw else "")) }}
+                                {% if form.maker.errors %}<div class="invalid-feedback">{% for error in form.maker.errors %}<span>{{ error }}</span><br>{% endfor %}</div>{% endif %}
+                            </div>
+                            <div class="mb-3">
+                                {{ form.name.label(class="form-label small beta-text-muted") }} {% if form.name.flags.required %}<span style="color: var(--beta-accent-red);">*</span>{% endif %}
+                                {{ form.name(id="tutorial-vehicle-name", class="form-control" + (" is-invalid" if form.name.errors else ""), placeholder=(form.name.render_kw.get("placeholder", "") if form.name.render_kw else "")) }}
+                                {% if form.name.errors %}<div class="invalid-feedback">{% for error in form.name.errors %}<span>{{ error }}</span><br>{% endfor %}</div>{% endif %}
+                            </div>
+                            <div class="mb-3">
+                                {{ form.year.label(class="form-label small beta-text-muted") }}
+                                {{ form.year(class="form-control" + (" is-invalid" if form.year.errors else ""), min="1900", max=(current_year if current_year else (now.year + 1)), placeholder=(form.year.render_kw.get("placeholder", "") if form.year.render_kw else "")) }}
+                                {% if form.year.errors %}<div class="invalid-feedback">{% for error in form.year.errors %}<span>{{ error }}</span><br>{% endfor %}</div>{% else %}<div class="form-text beta-text-muted small">例: 2023</div>{% endif %}
+                            </div>
+
+                            <div class="mb-3" id="initial_odometer_field_container">
+                                {{ form.initial_odometer.label(class="form-label small beta-text-muted") }}
+                                {{ form.initial_odometer(id="tutorial-initial-odometer", class="form-control" + (" is-invalid" if form.initial_odometer.errors else ""), placeholder=(form.initial_odometer.render_kw.get("placeholder", "") if form.initial_odometer.render_kw else "")) }}
+                                {% if form.initial_odometer.errors %}<div class="invalid-feedback">{% for error in form.initial_odometer.errors %}<span>{{ error }}</span><br>{% endfor %}</div>{% else %}<div class="form-text beta-text-muted small">車両登録時点のODOメーター値を入力すると、最初の記録として登録されます。</div>{% endif %}
+                            </div>
+
+                            <div class="mb-3 form-check">
+                                {{ form.is_racer(class="form-check-input" + (" is-invalid" if form.is_racer.errors else ""), id="is_racer_checkbox", **({'disabled': 'disabled'} if form_action == 'edit' else {})) }}
+                                {{ form.is_racer.label(class="form-check-label beta-text-secondary") }}
+                                {% if form.is_racer.errors %}<div class="invalid-feedback d-block">{% for error in form.is_racer.errors %}<span>{{ error }}</span><br>{% endfor %}</div>{% endif %}
+                                <div class="form-text beta-text-muted small">
+                                    チェックするとレーサー車両として扱われ、総稼働時間で管理します。給油記録やODOメーター関連の機能は使用できません。
+                                    {% if form_action == 'add' %}<strong class="beta-text-amber">登録後に車両タイプを変更することはできません。</strong>{% endif %}
+                                </div>
+                            </div>
+
+                            <div class="mb-3" id="total_operating_hours_field_container" style="display: none;">
+                                {{ form.total_operating_hours.label(class="form-label small beta-text-muted") }}
+                                {{ form.total_operating_hours(class="form-control" + (" is-invalid" if form.total_operating_hours.errors else ""), step="0.01", placeholder=(form.total_operating_hours.render_kw.get("placeholder", "") if form.total_operating_hours.render_kw else "")) }}
+                                {% if form.total_operating_hours.errors %}<div class="invalid-feedback">{% for error in form.total_operating_hours.errors %}<span>{{ error }}</span><br>{% endfor %}</div>{% else %}<div class="form-text beta-text-muted small">レーサー車両の現在の総稼働時間を時間単位で入力 (例: 123.50 時間)。</div>{% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    {# --- 画像・ガレージ設定カード --- #}
+                    <div class="beta-widget-card mb-4">
+                        <div class="beta-widget-header">
+                            <div class="beta-widget-header-left">
+                                <div class="beta-widget-icon" style="background: rgba(59, 130, 246, 0.15); color: var(--beta-accent-blue);"><i class="fas fa-image"></i></div>
+                                <span class="beta-widget-title">車両画像・ガレージ設定</span>
+                            </div>
+                        </div>
+                        <div class="beta-widget-body" style="padding: 1.25rem;">
+                            <p class="beta-text-muted small mb-3">車両の画像やガレージ（公開プロフィール）に掲載する情報を設定します。</p>
+
+                            {# 画像プレビュー #}
+                            <div class="mb-3" id="vehicle_image_preview_area">
+                                <label class="form-label small fw-bold beta-text-muted">現在の画像</label>
+                                <div id="vehicle_image_preview_container" class="text-center p-3 rounded" style="border: 1px solid var(--beta-border); background: rgba(30, 41, 59, 0.3);">
+                                    {% if form_action == 'edit' and vehicle and vehicle.image_url %}
+                                    <img id="vehicle_image_preview" src="{{ vehicle.image_url }}" alt="車両画像プレビュー" class="img-fluid rounded shadow-sm" style="max-height: 200px;">
+                                    <div id="vehicle_image_no_preview" class="beta-text-muted py-3" style="display: none;">
+                                        <i class="fas fa-image fa-2x mb-2 d-block"></i>画像が設定されていません
+                                    </div>
+                                    {% else %}
+                                    <img id="vehicle_image_preview" src="" alt="車両画像プレビュー" class="img-fluid rounded shadow-sm" style="max-height: 200px; display: none;">
+                                    <div id="vehicle_image_no_preview" class="beta-text-muted py-3">
+                                        <i class="fas fa-image fa-2x mb-2 d-block"></i>画像が設定されていません
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                {% if form_action == 'edit' and vehicle and vehicle.image_url %}
+                                <div class="mt-2">
+                                    {% if 'storage.googleapis.com' in vehicle.image_url %}
+                                    <span class="beta-badge beta-badge-teal"><i class="fas fa-cloud-upload-alt me-1"></i>GCS</span>
+                                    {% else %}
+                                    <span class="beta-badge beta-badge-blue"><i class="fas fa-link me-1"></i>外部リンク</span>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            {# 画像アップロード #}
+                            <div class="mb-3 p-3 rounded" style="border: 1px solid var(--beta-border); background: rgba(20, 184, 166, 0.05);">
+                                {{ form.image_file.label(class="form-label small fw-bold", style="color: var(--beta-accent);") }}
+                                {{ form.image_file(class="form-control", id="vehicle_image_file_input") }}
+                                {% if form.image_file.errors %}<div class="invalid-feedback d-block">{% for error in form.image_file.errors %}<span>{{ error }}</span><br>{% endfor %}</div>{% endif %}
+                                <div class="form-text beta-text-muted small">画像をアップロードする場合はこちらを選択してください（URL欄より優先されます）。</div>
+                            </div>
+
+                            {# 画像URL #}
+                            <div class="mb-3">
+                                {{ form.image_url.label(class="form-label small beta-text-muted") }}
+                                {{ form.image_url(class="form-control" + (" is-invalid" if form.image_url.errors else ""), id="vehicle_image_url_input") }}
+                                {% if form.image_url.errors %}<div class="invalid-feedback">{% for error in form.image_url.errors %}<span>{{ error }}</span><br>{% endfor %}</div>{% else %}<div class="form-text beta-text-muted small">{{ form.image_url.description }}</div>{% endif %}
+                            </div>
+
+                            {# カスタム・メモ #}
+                            <div class="mb-3">
+                                {{ form.custom_details.label(class="form-label small beta-text-muted") }}
+                                {{ form.custom_details(class="form-control" + (" is-invalid" if form.custom_details.errors else ""), rows="4", placeholder="マフラー:ヨシムラ\nハンドル:ハリケーン\n...") }}
+                                {% if form.custom_details.errors %}<div class="invalid-feedback">{% for error in form.custom_details.errors %}<span>{{ error }}</span><br>{% endfor %}</div>{% else %}<div class="form-text beta-text-muted small">ガレージカードに掲載するカスタム内容やメモを記入できます。</div>{% endif %}
+                            </div>
+
+                            {# ガレージ掲載トグル #}
+                            <div class="form-check form-switch mb-0">
+                                {{ form.show_in_garage(class="form-check-input" + (" is-invalid" if form.show_in_garage.errors else "")) }}
+                                {{ form.show_in_garage.label(class="form-check-label beta-text-secondary") }}
+                                <div class="form-text beta-text-muted small">ONにすると、公開ガレージにこの車両が掲載されます。</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {# --- 駆動系データカード --- #}
+                    <div class="beta-widget-card mb-4">
+                        <div class="beta-widget-header">
+                            <div class="beta-widget-header-left">
+                                <div class="beta-widget-icon" style="background: rgba(245, 158, 11, 0.15); color: var(--beta-accent-amber);"><i class="fas fa-cogs"></i></div>
+                                <span class="beta-widget-title">駆動系データ</span>
+                            </div>
+                        </div>
+                        <div class="beta-widget-body" style="padding: 1.25rem;">
+                            <p class="beta-text-muted small mb-3" id="tutorial-drivetrain-data">ギアレシオチャート（速度グラフ）機能で使用する車両のスペック情報を入力します。不明な場合は空欄で構いません。</p>
+
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        {{ form.primary_ratio.label(class="form-label small beta-text-muted") }}
+                                        {{ form.primary_ratio(class="form-control" + (" is-invalid" if form.primary_ratio.errors else ""), placeholder=form.primary_ratio.render_kw.get("placeholder", "")) }}
+                                        {% if form.primary_ratio.errors %}<div class="invalid-feedback">{% for error in form.primary_ratio.errors %}<span>{{ error }}</span><br>{% endfor %}</div>{% endif %}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label small beta-text-muted">トランスミッションギア比</label>
+                                <div class="row g-2">
+                                    <div class="col-md-2 col-4">
+                                        {{ form.gear_ratio_1.label(class="form-label small beta-text-muted") }}
+                                        {{ form.gear_ratio_1(class="form-control form-control-sm" + (" is-invalid" if form.gear_ratio_1.errors else ""), placeholder="例: 2.846") }}
+                                    </div>
+                                    <div class="col-md-2 col-4">
+                                        {{ form.gear_ratio_2.label(class="form-label small beta-text-muted") }}
+                                        {{ form.gear_ratio_2(class="form-control form-control-sm" + (" is-invalid" if form.gear_ratio_2.errors else "")) }}
+                                    </div>
+                                    <div class="col-md-2 col-4">
+                                        {{ form.gear_ratio_3.label(class="form-label small beta-text-muted") }}
+                                        {{ form.gear_ratio_3(class="form-control form-control-sm" + (" is-invalid" if form.gear_ratio_3.errors else "")) }}
+                                    </div>
+                                    <div class="col-md-2 col-4">
+                                        {{ form.gear_ratio_4.label(class="form-label small beta-text-muted") }}
+                                        {{ form.gear_ratio_4(class="form-control form-control-sm" + (" is-invalid" if form.gear_ratio_4.errors else "")) }}
+                                    </div>
+                                    <div class="col-md-2 col-4">
+                                        {{ form.gear_ratio_5.label(class="form-label small beta-text-muted") }}
+                                        {{ form.gear_ratio_5(class="form-control form-control-sm" + (" is-invalid" if form.gear_ratio_5.errors else "")) }}
+                                    </div>
+                                    <div class="col-md-2 col-4">
+                                        {{ form.gear_ratio_6.label(class="form-label small beta-text-muted") }}
+                                        {{ form.gear_ratio_6(class="form-control form-control-sm" + (" is-invalid" if form.gear_ratio_6.errors else "")) }}
+                                    </div>
+                                    <div class="col-md-2 col-4">
+                                        {{ form.gear_ratio_7.label(class="form-label small beta-text-muted") }}
+                                        {{ form.gear_ratio_7(class="form-control form-control-sm" + (" is-invalid" if form.gear_ratio_7.errors else "")) }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {# --- 送信ボタン --- #}
+                    <div class="d-flex gap-2 mb-4">
+                        {{ form.submit(id="tutorial-vehicle-submit", class="beta-btn beta-btn-solid", value=('登録する' if form_action == 'add' else '更新する')) }}
+                        <a href="{{ url_for('vehicle.vehicle_list') }}" class="beta-btn">
+                            <i class="fas fa-times me-1"></i> キャンセル
+                        </a>
+                    </div>
+                </div>
+
+                {# --- 右カラム(編集時のみ): ガレージ設定リンク + ODOリセット --- #}
+                <div class="col-lg-4">
+                    {% if form_action == 'edit' and vehicle %}
+                    {# ガレージ全体設定リンク #}
+                    <div class="beta-widget-card mb-4">
+                        <div class="beta-widget-header">
+                            <div class="beta-widget-header-left">
+                                <div class="beta-widget-icon" style="background: rgba(148, 163, 184, 0.15); color: var(--beta-text-muted);"><i class="fas fa-id-card"></i></div>
+                                <span class="beta-widget-title">ガレージ全体設定</span>
+                            </div>
+                        </div>
+                        <div class="beta-widget-body" style="padding: 1.25rem;">
+                            <p class="beta-text-secondary small mb-3">ガレージの公開/非公開、デザインテーマ、表示項目設定などの全体的な設定はガレージ設定ページから行えます。</p>
+                            <a href="{{ url_for('garage_settings.settings') }}" class="beta-btn">
+                                <i class="fas fa-cog me-1"></i>ガレージ全体設定へ
+                            </a>
+                        </div>
+                    </div>
+
+                    {# ダッシュボードリンク #}
+                    <div class="beta-widget-card mb-4">
+                        <div class="beta-widget-header">
+                            <div class="beta-widget-header-left">
+                                <div class="beta-widget-icon" style="background: rgba(20, 184, 166, 0.15); color: var(--beta-accent);"><i class="fas fa-tachometer-alt"></i></div>
+                                <span class="beta-widget-title">車両ダッシュボード</span>
+                            </div>
+                        </div>
+                        <div class="beta-widget-body" style="padding: 1.25rem;">
+                            <a href="{{ url_for('vehicle.dashboard', vehicle_id=vehicle.id) }}" class="beta-btn beta-btn-teal">
+                                <i class="fas fa-chart-line me-1"></i>{{ vehicle.name }} のダッシュボードへ
+                            </a>
+                        </div>
+                    </div>
+
+                    {% if not vehicle.is_racer %}
+                    {# --- ODOメーターリセット管理カード --- #}
+                    <div class="beta-widget-card mb-4">
+                        <div class="beta-widget-header">
+                            <div class="beta-widget-header-left">
+                                <div class="beta-widget-icon" style="background: rgba(245, 158, 11, 0.15); color: var(--beta-accent-amber);"><i class="fas fa-history"></i></div>
+                                <span class="beta-widget-title">ODOリセット管理</span>
+                            </div>
+                        </div>
+                        <div class="beta-widget-body" style="padding: 1.25rem;">
+                            <p class="beta-text-muted small mb-2">バイク本体のODOメーターをリセットした場合に記録します。</p>
+                            <p class="small mb-3 beta-text-secondary">累積オフセット: <strong class="beta-text-primary">{{ "{:,}".format(vehicle.odometer_offset) }} km</strong></p>
+                        </div>
+                    </div>
+
+                    {# ODOリセットフォーム #}
+                    <div class="beta-widget-card mb-4">
+                        <div class="beta-widget-header">
+                            <div class="beta-widget-header-left">
+                                <div class="beta-widget-icon" style="background: rgba(16, 185, 129, 0.15); color: var(--beta-accent-emerald);"><i class="fas fa-plus"></i></div>
+                                <span class="beta-widget-title">リセット記録を追加</span>
+                            </div>
+                        </div>
+                        <div class="beta-widget-body" style="padding: 1.25rem;">
+                            <form method="POST" action="{{ url_for('vehicle.add_odo_reset_log', vehicle_id=vehicle.id) }}">
+                                {{ odo_form.hidden_tag() }}
+                                <div class="mb-3">
+                                    {{ odo_form.reset_date.label(class="form-label small beta-text-muted") }} {% if odo_form.reset_date.flags.required %}<span style="color: var(--beta-accent-red);">*</span>{% endif %}
+                                    {{ odo_form.reset_date(class="form-control form-control-sm" + (" is-invalid" if odo_form.reset_date.errors else "")) }}
+                                    {% if odo_form.reset_date.errors %}<div class="invalid-feedback">{% for error in odo_form.reset_date.errors %}<span>{{ error }}</span><br>{% endfor %}</div>{% endif %}
+                                </div>
+                                <div class="mb-3">
+                                    {{ odo_form.display_odo_before_reset.label(class="form-label small beta-text-muted") }} {% if odo_form.display_odo_before_reset.flags.required %}<span style="color: var(--beta-accent-red);">*</span>{% endif %}
+                                    {{ odo_form.display_odo_before_reset(class="form-control form-control-sm" + (" is-invalid" if odo_form.display_odo_before_reset.errors else ""), min="0") }}
+                                    {% if odo_form.display_odo_before_reset.errors %}<div class="invalid-feedback">{% for error in odo_form.display_odo_before_reset.errors %}<span>{{ error }}</span><br>{% endfor %}</div>{% else %}<div class="form-text beta-text-muted small">例: 30000</div>{% endif %}
+                                </div>
+                                <div class="mb-3">
+                                    {{ odo_form.display_odo_after_reset.label(class="form-label small beta-text-muted") }} {% if odo_form.display_odo_after_reset.flags.required %}<span style="color: var(--beta-accent-red);">*</span>{% endif %}
+                                    {{ odo_form.display_odo_after_reset(class="form-control form-control-sm" + (" is-invalid" if odo_form.display_odo_after_reset.errors else ""), min="0") }}
+                                    {% if odo_form.display_odo_after_reset.errors %}<div class="invalid-feedback">{% for error in odo_form.display_odo_after_reset.errors %}<span>{{ error }}</span><br>{% endfor %}</div>{% else %}<div class="form-text beta-text-muted small">通常は 0</div>{% endif %}
+                                </div>
+                                {{ odo_form.submit_odo_reset(class="beta-btn beta-btn-solid") }}
+                            </form>
+                            {% if odo_form.errors %}
+                                {% for field_name, error_list in odo_form.errors.items() %}
+                                    {% if field_name not in odo_form._fields or field_name == '__all__' or (field_name != 'reset_date' and field_name != 'display_odo_before_reset' and field_name != 'display_odo_after_reset') %}
+                                        {% for error in error_list %}
+                                            <div class="alert alert-danger mt-2 py-1 px-2 small" role="alert">{{ error }}</div>
+                                        {% endfor %}
+                                    {% endif %}
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    {# ODOリセット履歴 #}
+                    <div class="beta-widget-card mb-4">
+                        <div class="beta-widget-header">
+                            <div class="beta-widget-header-left">
+                                <div class="beta-widget-icon" style="background: rgba(148, 163, 184, 0.15); color: var(--beta-text-muted);"><i class="fas fa-list"></i></div>
+                                <span class="beta-widget-title">ODOリセット履歴</span>
+                            </div>
+                            <a href="{{ url_for('vehicle.add_odo_reset_log', vehicle_id=vehicle.id) }}" class="beta-btn" style="font-size: 0.65rem;">
+                                <i class="fas fa-plus me-1"></i>過去の履歴を追加
+                            </a>
+                        </div>
+                        <div class="beta-widget-body" style="padding: 0.75rem;">
+                            {% if odo_logs %}
+                            {% for log in odo_logs %}
+                            <div class="beta-reminder-item">
+                                <div style="flex: 1; min-width: 0;">
+                                    <div class="fw-bold beta-text-primary small">{{ log.reset_date.strftime('%Y-%m-%d') }}</div>
+                                    <div class="small beta-text-muted">{{ "{:,}".format(log.display_odo_before_reset) }} → {{ "{:,}".format(log.display_odo_after_reset) }} km</div>
+                                    <div class="small beta-text-muted">オフセット増分: +{{ "{:,}".format(log.offset_increment) }} km</div>
+                                </div>
+                                <div class="d-flex gap-1">
+                                    <a href="{{ url_for('vehicle.edit_odo_reset_log', log_id=log.id) }}" class="beta-btn" style="padding: 0.15rem 0.4rem;" title="編集"><i class="fas fa-edit" style="font-size: 0.7rem;"></i></a>
+                                    <form action="{{ url_for('vehicle.delete_odo_reset_log', log_id=log.id) }}" method="POST" class="d-inline" onsubmit="return confirm('このリセット履歴を削除してもよろしいですか？\n削除すると累積オフセット値も再計算されます。');">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                        <button type="submit" class="beta-btn" style="padding: 0.15rem 0.4rem; color: var(--beta-accent-red);" title="削除"><i class="fas fa-trash" style="font-size: 0.7rem;"></i></button>
+                                    </form>
+                                </div>
+                            </div>
+                            {% endfor %}
+                            {% else %}
+                            <div class="text-center py-3 beta-text-muted">
+                                <p class="small mb-0">ODOリセット履歴はありません。</p>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+        </form>
+
+    </main>
+
+    {% include 'beta/_beta_bottombar.html' %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script src="{{ url_for('static', filename='js/tutorial.js') }}"></script>
+{% include 'beta/_beta_scripts.html' %}
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // is_racer チェックボックスと関連フィールドの表示を切り替えるロジック
+    const isRacerCheckbox = document.getElementById('is_racer_checkbox');
+    const totalOperatingHoursFieldContainer = document.getElementById('total_operating_hours_field_container');
+    const initialOdometerFieldContainer = document.getElementById('initial_odometer_field_container');
+
+    function toggleVehicleSpecificFields() {
+        if (!isRacerCheckbox || !totalOperatingHoursFieldContainer || !initialOdometerFieldContainer) {
+            return;
+        }
+        if (isRacerCheckbox.checked) {
+            totalOperatingHoursFieldContainer.style.display = '';
+            initialOdometerFieldContainer.style.display = 'none';
+        } else {
+            totalOperatingHoursFieldContainer.style.display = 'none';
+            initialOdometerFieldContainer.style.display = '';
+        }
+    }
+
+    if (isRacerCheckbox) {
+        {% if form_action == 'edit' %}
+            isRacerCheckbox.disabled = true;
+            {% if vehicle and vehicle.is_racer and not form.is_racer.data %}
+                isRacerCheckbox.checked = true;
+            {% endif %}
+            if (initialOdometerFieldContainer) {
+                initialOdometerFieldContainer.style.display = 'none';
+            }
+        {% endif %}
+        isRacerCheckbox.addEventListener('change', toggleVehicleSpecificFields);
+        toggleVehicleSpecificFields();
+    }
+
+    // --- 画像ファイル選択時のプレビュー更新 ---
+    const imageFileInput = document.getElementById('vehicle_image_file_input');
+    const imagePreview = document.getElementById('vehicle_image_preview');
+    const noPreview = document.getElementById('vehicle_image_no_preview');
+
+    if (imageFileInput && imagePreview && noPreview) {
+        imageFileInput.addEventListener('change', function() {
+            if (this.files && this.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    imagePreview.src = e.target.result;
+                    imagePreview.style.display = '';
+                    noPreview.style.display = 'none';
+                };
+                reader.readAsDataURL(this.files[0]);
+            }
+        });
+    }
+
+    // --- チュートリアル関連のスクリプト ---
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+    const shouldStartTutorial = {{ start_vehicle_tutorial | default(false) | tojson }};
+    const restartBtn = document.getElementById('restart-tutorial-btn');
+
+    if (shouldStartTutorial) {
+        startVehicleFormTutorial(csrfToken);
+    }
+
+    if (restartBtn) {
+        restartBtn.addEventListener('click', function() {
+            startVehicleFormTutorial(csrfToken);
+        });
+    }
+});
+</script>
+{% endblock %}
