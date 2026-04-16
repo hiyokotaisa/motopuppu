@@ -731,8 +731,9 @@ def get_holidays_json():
         return '{}' # エラーが発生した場合は空のJSONを返す
 
 
-def get_calendar_events_for_user(user):
-    """指定されたユーザーのカレンダーイベントをすべて取得・整形して返す"""
+def get_calendar_events_for_user(user, start_date=None, end_date=None):
+    """指定されたユーザーのカレンダーイベントを取得・整形して返す。
+    start_date/end_dateが指定された場合はその期間に絞り込む。"""
     events = []
     user_id = user.id
     
@@ -746,9 +747,16 @@ def get_calendar_events_for_user(user):
 
     # 給油記録 (公道車のみ)
     if user_motorcycle_ids_public:
-        # --- 燃費の一括計算 ---
-        # カレンダー表示用にはフィルタリングがない(全件表示)ため、
-        # そのまま全公道車の全記録を取得して計算する
+        fuel_query = FuelEntry.query.options(db.joinedload(FuelEntry.motorcycle)).filter(
+            FuelEntry.motorcycle_id.in_(user_motorcycle_ids_public))
+        if start_date:
+            fuel_query = fuel_query.filter(FuelEntry.entry_date >= start_date)
+        if end_date:
+            fuel_query = fuel_query.filter(FuelEntry.entry_date <= end_date)
+        fuel_entries = fuel_query.all()
+
+        # 燃費計算用のIDリスト
+        fuel_entry_ids = [e.id for e in fuel_entries]
         all_fuel_entries_for_calc = db.session.query(
             FuelEntry.id, FuelEntry.motorcycle_id, FuelEntry.total_distance, 
             FuelEntry.fuel_volume, FuelEntry.is_full_tank
@@ -757,9 +765,6 @@ def get_calendar_events_for_user(user):
         ).order_by(FuelEntry.motorcycle_id, FuelEntry.total_distance).all()
         
         kpl_map = calculate_kpl_bulk(all_fuel_entries_for_calc)
-
-        fuel_entries = FuelEntry.query.options(db.joinedload(FuelEntry.motorcycle)).filter(
-            FuelEntry.motorcycle_id.in_(user_motorcycle_ids_public)).all()
             
         for entry in fuel_entries:
             # プロパティアクセスを回避
@@ -782,10 +787,15 @@ def get_calendar_events_for_user(user):
 
     # 整備記録 (公道車のみ)
     if user_motorcycle_ids_public:
-        maintenance_entries = MaintenanceEntry.query.options(db.joinedload(MaintenanceEntry.motorcycle)).filter(
+        maint_query = MaintenanceEntry.query.options(db.joinedload(MaintenanceEntry.motorcycle)).filter(
             MaintenanceEntry.motorcycle_id.in_(user_motorcycle_ids_public),
             MaintenanceEntry.category != '初期設定'
-        ).all()
+        )
+        if start_date:
+            maint_query = maint_query.filter(MaintenanceEntry.maintenance_date >= start_date)
+        if end_date:
+            maint_query = maint_query.filter(MaintenanceEntry.maintenance_date <= end_date)
+        maintenance_entries = maint_query.all()
         for entry in maintenance_entries:
             event_title_base = entry.category if entry.category else entry.description
             event_title = f"🔧 整備: {event_title_base[:15]}" + ("..." if len(event_title_base) > 15 else "")
@@ -805,8 +815,13 @@ def get_calendar_events_for_user(user):
 
     # 活動ログ (全車両対象)
     if user_motorcycle_ids_all:
-        activity_logs = ActivityLog.query.options(db.joinedload(ActivityLog.motorcycle)).filter(
-            ActivityLog.motorcycle_id.in_(user_motorcycle_ids_all)).all()
+        act_query = ActivityLog.query.options(db.joinedload(ActivityLog.motorcycle)).filter(
+            ActivityLog.motorcycle_id.in_(user_motorcycle_ids_all))
+        if start_date:
+            act_query = act_query.filter(ActivityLog.activity_date >= start_date)
+        if end_date:
+            act_query = act_query.filter(ActivityLog.activity_date <= end_date)
+        activity_logs = act_query.all()
         for entry in activity_logs:
             location_display = entry.activity_title or entry.location_name or '活動'
             event_title = f"🏁 {location_display[:15]}" + ("..." if len(location_display) > 15 else "")
@@ -837,8 +852,13 @@ def get_calendar_events_for_user(user):
             })
 
     # 一般ノート・タスク (全車両対象)
-    general_notes = GeneralNote.query.options(
-        db.joinedload(GeneralNote.motorcycle)).filter_by(user_id=user_id).all()
+    note_query = GeneralNote.query.options(
+        db.joinedload(GeneralNote.motorcycle)).filter_by(user_id=user_id)
+    if start_date:
+        note_query = note_query.filter(GeneralNote.note_date >= start_date)
+    if end_date:
+        note_query = note_query.filter(GeneralNote.note_date <= end_date)
+    general_notes = note_query.all()
     for note in general_notes:
         motorcycle_name = note.motorcycle.name if note.motorcycle else None
         note_title_display = note.title or ('タスク' if note.category == 'task' else 'メモ')

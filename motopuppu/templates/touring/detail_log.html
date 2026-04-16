@@ -131,14 +131,19 @@
 {% block scripts %}
 {{ super() }}
 <script>
-    // Pythonから渡されたインスタンス全体の絵文字リストをJavaScript変数に格納
-    const instanceEmojis = {{ emojis_json | safe }};
-
-    // パフォーマンス向上のため、最初に絵文字名とURLのマップを作成
-    const emojiMap = instanceEmojis.reduce((map, emoji) => {
-        map[emoji.name] = emoji.url;
-        return map;
-    }, {});
+    // 絵文字マップ（API経由で遅延取得）
+    let emojiMap = {};
+    
+    // 絵文字データをAPIから非同期で取得
+    fetch("{{ emoji_api_url }}")
+        .then(response => response.json())
+        .then(emojis => {
+            emojiMap = emojis.reduce((map, emoji) => {
+                map[emoji.name] = emoji.url;
+                return map;
+            }, {});
+        })
+        .catch(err => console.warn('絵文字データの取得に失敗:', err));
 
     // MisskeyのMFMを簡易的にHTMLに変換する処理（修正版）
     function parseMfm(text) {

@@ -80,7 +80,7 @@ def notes_log():
                 summary_stats['note_count'] = count
             elif cat == 'task':
                 summary_stats['task_count'] = count
-        summary_stats['total_count'] = summary_stats['note_count'] + summary_stats['task_count']
+        summary_stats['total_count'] = sum(count for _, count in stats_query)
     except Exception as e:
         current_app.logger.error(f"Error calculating notes summary: {e}")
 

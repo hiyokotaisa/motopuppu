@@ -21,49 +21,12 @@ from ...models import db, Motorcycle, ActivityLog, SessionLog, SettingSheet, Use
 from ...forms import ActivityLogForm, SessionLogForm, LapTimeImportForm
 from ... import limiter
 from ...utils.search_helpers import escape_like
+from ...utils.view_helpers import get_motorcycle_or_404
 
-# --- RDPアルゴリズム (Douglas-Peucker) のヘルパー関数 ---
-def _calculate_perpendicular_distance(point, start, end):
-    """点と直線の距離を計算する (平面近似)"""
-    if start == end:
-        return math.sqrt((point['lat'] - start['lat'])**2 + (point['lng'] - start['lng'])**2)
-    
-    x0, y0 = point['lng'], point['lat']
-    x1, y1 = start['lng'], start['lat']
-    x2, y2 = end['lng'], end['lat']
-    
-    nom = abs((y2 - y1) * x0 - (x2 - x1) * y0 + x2 * y1 - y2 * x1)
-    denom = math.sqrt((y2 - y1)**2 + (x2 - x1)**2)
-    
-    if denom == 0:
-        return 0
-    return nom / denom
-
-def _ramer_douglas_peucker(points, epsilon):
-    """RDPアルゴリズムによる点群の間引き"""
-    if len(points) < 3:
-        return points
-
-    dmax = 0
-    index = 0
-    end = len(points) - 1
-
-    for i in range(1, end):
-        d = _calculate_perpendicular_distance(points[i], points[0], points[end])
-        if d > dmax:
-            index = i
-            dmax = d
-
-    if dmax > epsilon:
-        rec_results1 = _ramer_douglas_peucker(points[:index+1], epsilon)
-        rec_results2 = _ramer_douglas_peucker(points[index:], epsilon)
-        return rec_results1[:-1] + rec_results2
-    else:
-        return [points[0], points[end]]
-
-def get_motorcycle_or_404(vehicle_id):
-    """指定されたIDの車両を取得し、所有者でなければ404を返す"""
-    return Motorcycle.query.filter_by(id=vehicle_id, user_id=current_user.id).first_or_404()
+# session_routes.py のRDP関数を遅延インポートで使用（循環インポート回避）
+def _get_rdp_func():
+    from .session_routes import _ramer_douglas_peucker
+    return _ramer_douglas_peucker
 
 
 @activity_bp.route('/')
@@ -577,7 +540,7 @@ def detail_activity(activity_id):
         pb_result = db.session.query(func.min(SessionLog.best_lap_seconds)).join(
             ActivityLog, SessionLog.activity_log_id == ActivityLog.id
         ).filter(
-            ActivityLog.user_id == current_user.id,
+            ActivityLog.user_id == activity.user_id,
             ActivityLog.circuit_name == activity.circuit_name,
             SessionLog.best_lap_seconds.isnot(None)
         ).scalar()
@@ -689,7 +652,7 @@ def public_gps_data(token):
     for lap in raw_laps:
         raw_track = lap.get('track', [])
         if len(raw_track) > 500:
-            simplified_track = _ramer_douglas_peucker(raw_track, 0.000003)
+            simplified_track = _get_rdp_func()(raw_track, 0.000003)
         else:
             simplified_track = raw_track
             

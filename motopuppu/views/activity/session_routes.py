@@ -20,7 +20,7 @@ from ...utils.lap_time_utils import (
 )
 from ...constants import SETTING_KEY_MAP
 
-from .activity_routes import get_motorcycle_or_404
+from ...utils.view_helpers import get_motorcycle_or_404
 from flask_login import login_required, current_user
 from ...models import db, ActivityLog, SessionLog
 from ...forms import SessionLogForm, LapTimeImportForm

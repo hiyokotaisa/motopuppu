@@ -62,6 +62,7 @@ def create_app(config_name=None):
         SESSION_COOKIE_SAMESITE='Lax',
         GOOGLE_MAPS_API_KEY=os.environ.get('GOOGLE_PLACES_API_KEY'),
         MISSKEY_BOT_API_TOKEN=os.environ.get('MISSKEY_BOT_API_TOKEN'),
+        GEMINI_API_KEY=os.environ.get('GEMINI_API_KEY'),
     )
     # ▲▲▲ 修正ここまで ▲▲▲
 

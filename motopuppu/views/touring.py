@@ -19,6 +19,7 @@ from ..services import CryptoService
 
 touring_bp = Blueprint('touring', __name__, url_prefix='/touring')
 
+from ..utils.view_helpers import get_motorcycle_or_404
 # ▼▼▼ 絵文字キャッシュ用の変数をグローバルスコープに定義 ▼▼▼
 emoji_cache = {
     "data": None,
@@ -26,12 +27,6 @@ emoji_cache = {
 }
 CACHE_DURATION_SECONDS = 86400  # 24時間 (60秒 * 60分 * 24時間)
 # ▲▲▲ 変更ここまで ▲▲▲
-
-def get_motorcycle_or_404(vehicle_id):
-    """指定されたIDの車両を取得し、所有者でなければ404を返す"""
-    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
-    return Motorcycle.query.filter_by(id=vehicle_id, user_id=current_user.id).first_or_404()
-    # ▲▲▲ 変更ここまで ▲▲▲
 
 @touring_bp.route('/<int:vehicle_id>')
 @login_required # ▼▼▼ デコレータを修正 ▼▼▼
@@ -134,12 +129,15 @@ def process_spots_and_scrapbook(log, form):
     TouringScrapbookEntry.query.filter_by(touring_log_id=log.id).delete()
     db.session.commit()
 
+    # スポットデータの処理（許可するキーをホワイトリストで制限）
+    ALLOWED_SPOT_KEYS = {'spot_name', 'memo', 'photo_link_url'}
     if form.spots_data.data:
         try:
             spots = json.loads(form.spots_data.data)
             for spot_data in spots:
                 if spot_data.get('spot_name'):
-                    new_spot = TouringSpot(touring_log_id=log.id, **spot_data)
+                    filtered = {k: v for k, v in spot_data.items() if k in ALLOWED_SPOT_KEYS}
+                    new_spot = TouringSpot(touring_log_id=log.id, **filtered)
                     db.session.add(new_spot)
         except json.JSONDecodeError:
             current_app.logger.warning(f"Failed to decode spots_data JSON for log {log.id}")
@@ -184,43 +182,9 @@ def detail_log(log_id):
         subqueryload(TouringLog.spots),
         subqueryload(TouringLog.scrapbook_entries)
     ).filter_by(id=log_id, user_id=current_user.id).first_or_404()
-    # ▲▲▲ 変更ここまで ▲▲▲
-    
-    # ▼▼▼ Misskey絵文字の取得処理をキャッシュ対応に変更 ▼▼▼
-    current_time = time.time()
-    
-    # キャッシュが有効期限切れかチェック
-    if emoji_cache["data"] and (current_time - emoji_cache["timestamp"] < CACHE_DURATION_SECONDS):
-        # キャッシュが有効な場合はキャッシュからデータを取得
-        emojis_json = emoji_cache["data"]
-        current_app.logger.info("Using cached Misskey emojis.")
-    else:
-        # キャッシュがない、または期限切れの場合はAPIから取得
-        current_app.logger.info("Fetching new Misskey emojis from API.")
-        try:
-            misskey_instance_url = current_app.config.get('MISSKEY_INSTANCE_URL', 'https://misskey.io')
-            # /api/emojis は POST リクエストを必要とする場合があるため、空のjsonを送信
-            response = requests.post(f"{misskey_instance_url}/api/emojis", json={}, timeout=10)
-            response.raise_for_status()
-            # レスポンスが {"emojis": [...]} という形式であることを想定
-            emojis_data = response.json().get("emojis", [])
-            emojis_json = json.dumps(emojis_data)
-            
-            # 取得したデータと現在時刻をキャッシュに保存
-            emoji_cache["data"] = emojis_json
-            emoji_cache["timestamp"] = current_time
-            
-        except requests.RequestException as e:
-            current_app.logger.error(f"Failed to fetch Misskey emojis: {e}")
-            # エラー発生時は、もし古いキャッシュがあればそれを使う (なければ空)
-            emojis_json = emoji_cache["data"] if emoji_cache["data"] else '[]'
-        except Exception as e:
-            current_app.logger.error(f"An unexpected error occurred while fetching emojis: {e}", exc_info=True)
-            emojis_json = emoji_cache["data"] if emoji_cache["data"] else '[]'
-    # ▲▲▲ 変更ここまで ▲▲▲
-
     template_name = 'beta/touring_detail_beta.html' if current_user.use_beta_ui else 'touring/detail_log.html'
-    return render_template(template_name, log=log, emojis_json=emojis_json)
+    emoji_api_url = url_for('touring.fetch_emojis_api')
+    return render_template(template_name, log=log, emoji_api_url=emoji_api_url)
 
 
 @touring_bp.route('/api/misskey_notes')
@@ -328,3 +292,36 @@ def fetch_note_details_api():
             note_details[note_id] = None
 
     return jsonify(note_details)
+
+
+@touring_bp.route('/api/emojis')
+@login_required
+def fetch_emojis_api():
+    """絵文字データを返すAPIエンドポイント（キャッシュ付き）"""
+    current_time = time.time()
+    
+    if emoji_cache["data"] and (current_time - emoji_cache["timestamp"] < CACHE_DURATION_SECONDS):
+        emojis_data = json.loads(emoji_cache["data"])
+    else:
+        try:
+            misskey_instance_url = current_app.config.get('MISSKEY_INSTANCE_URL', 'https://misskey.io')
+            response = requests.post(f"{misskey_instance_url}/api/emojis", json={}, timeout=10)
+            response.raise_for_status()
+            emojis_data = response.json().get("emojis", [])
+            emoji_cache["data"] = json.dumps(emojis_data)
+            emoji_cache["timestamp"] = current_time
+        except Exception as e:
+            current_app.logger.error(f"Failed to fetch Misskey emojis: {e}")
+            if emoji_cache["data"]:
+                emojis_data = json.loads(emoji_cache["data"])
+            else:
+                emojis_data = []
+    
+    # 検索フィルタ（オプショナル）
+    query = request.args.get('q', '').strip().lower()
+    if query:
+        emojis_data = [e for e in emojis_data if query in e.get('name', '').lower() or any(query in alias.lower() for alias in e.get('aliases', []))]
+    
+    resp = jsonify(emojis_data)
+    resp.headers['Cache-Control'] = 'public, max-age=3600'
+    return resp

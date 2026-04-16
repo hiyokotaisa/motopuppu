@@ -6,12 +6,11 @@ from datetime import date, datetime, timezone, timedelta
 from dateutil.relativedelta import relativedelta
 from zoneinfo import ZoneInfo
 from sqlalchemy import func
-# ▼▼▼ インポート文を修正 ▼▼▼
 from flask_login import login_required, current_user
-# ▲▲▲ 変更ここまで ▲▲▲
 from ..models import db, Motorcycle, MaintenanceReminder, MaintenanceEntry
 from ..forms import ReminderForm
 from .. import limiter
+from ..utils.view_helpers import safe_redirect_url
 
 
 reminder_bp = Blueprint('reminder', __name__, url_prefix='/reminders')
@@ -114,7 +113,8 @@ def add_reminder(vehicle_id):
         flash('入力内容にエラーがあります。ご確認ください。', 'danger')
 
     category_suggestions = [
-        cat[0] for cat in db.session.query(MaintenanceEntry.category).filter(
+        cat[0] for cat in db.session.query(MaintenanceEntry.category).join(Motorcycle).filter(
+            Motorcycle.user_id == current_user.id,
             MaintenanceEntry.category.isnot(None),
             MaintenanceEntry.category != ''
         ).distinct().all()
@@ -189,7 +189,8 @@ def edit_reminder(reminder_id):
         flash('入力内容にエラーがあります。ご確認ください。', 'danger')
 
     category_suggestions = [
-        cat[0] for cat in db.session.query(MaintenanceEntry.category).filter(
+        cat[0] for cat in db.session.query(MaintenanceEntry.category).join(Motorcycle).filter(
+            Motorcycle.user_id == current_user.id,
             MaintenanceEntry.category.isnot(None),
             MaintenanceEntry.category != ''
         ).distinct().all()
@@ -266,7 +267,7 @@ def snooze_reminder(reminder_id):
         flash('リマインダーのスヌーズ処理中にエラーが発生しました。', 'danger')
         current_app.logger.error(f"Error snoozing reminder {reminder_id}: {e}", exc_info=True)
         
-    return redirect(request.referrer or url_for('main.dashboard'))
+    return redirect(safe_redirect_url(url_for('main.dashboard')))
 
 
 @reminder_bp.route('/<int:reminder_id>/dismiss', methods=['POST'])
@@ -288,7 +289,7 @@ def dismiss_reminder(reminder_id):
         flash('リマインダーの非表示処理中にエラーが発生しました。', 'danger')
         current_app.logger.error(f"Error dismissing reminder {reminder_id}: {e}", exc_info=True)
         
-    return redirect(request.referrer or url_for('main.dashboard'))
+    return redirect(safe_redirect_url(url_for('main.dashboard')))
 
 
 # ▼▼▼【ここから追記】▼▼▼

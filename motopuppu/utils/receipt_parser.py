@@ -28,7 +28,7 @@ def parse_receipt_image(image_bytes, mime_type='image/jpeg'):
                   'error': str (optional)
               }
     """
-    api_key = current_app.config.get('GEMINI_API_KEY') or os.environ.get('GEMINI_API_KEY')
+    api_key = current_app.config.get('GEMINI_API_KEY')
     
     if not api_key:
         return {'success': False, 'error': 'API key is not configured.'}

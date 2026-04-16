@@ -86,7 +86,7 @@ def global_search():
             'category': '給油記録',
             'title': f"[{item.motorcycle.name}] {item.entry_date.strftime('%Y-%m-%d')} の給油",
             'url': url_for('fuel.edit_fuel', entry_id=item.id),
-            'text': f"スタンド: {item.station_name or '未記録'}, メモ: {item.notes[:20] if item.notes else 'なし'}..."
+            'text': f"スタンド: {item.station_name or '未記録'}, メモ: {(item.notes[:20] + '...') if item.notes else 'なし'}"
         })
 
     # 4. ノート (GeneralNote)

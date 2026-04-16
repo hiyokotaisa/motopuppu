@@ -472,7 +472,7 @@ def export_ics(event_id):
     
     description = ""
     if event.description:
-        description += event.description + "\\n\\n"
+        description += event.description + "\n\n"
     
     public_url = url_for('event.public_event_view', public_id=event.public_id, _external=True)
     description += f"イベントページ: {public_url}"

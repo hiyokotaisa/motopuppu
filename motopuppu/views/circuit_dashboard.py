@@ -158,6 +158,7 @@ def index():
         circuit_name = best_session.activity.circuit_name
         
         # 2a. 車両ごとのベストラップと統計を取得
+        # NOTE: この個別クエリはfirst_value + partitionの関係で一括化が難しいため維持する
         best_session_id_subq = db.session.query(
             ActivityLog.motorcycle_id,
             func.first_value(SessionLog.id).over(
@@ -251,22 +252,23 @@ def index():
         leaderboard_info = get_leaderboard_rankings(circuit_name, current_user.id)
         
         # 2d. 最新セッションを取得 (直近の調子判定用)
-        latest_session_row = base_query.filter(
-            ActivityLog.circuit_name == circuit_name
-        ).order_by(ActivityLog.activity_date.desc(), SessionLog.id.desc()).first()
-        
-        latest_session_obj = latest_session_row.SessionLog if latest_session_row else None
-        
-        # ログ作成リンク用の車両IDを取得 (最新セッションの車両、またはデフォルト車両)
+        # all_sessions_for_graphから該当サーキットの最新を取得（追加クエリを回避）
+        latest_session_obj = None
         latest_vehicle_id = None
-        if latest_session_obj:
-            latest_vehicle_id = latest_session_obj.activity.motorcycle_id
-        elif vehicle_data:
-            latest_vehicle_id = vehicle_data[0]['id'] # データがあれば最初の車両
-        else:
-            first_bike = Motorcycle.query.filter_by(user_id=current_user.id).first()
-            if first_bike:
-                latest_vehicle_id = first_bike.id
+        for activity, session in reversed(all_sessions_for_graph):
+            if activity.circuit_name == circuit_name:
+                latest_session_obj = session
+                latest_vehicle_id = activity.motorcycle_id
+                break
+        
+        # ログ作成リンク用の車両IDフォールバック
+        if not latest_vehicle_id:
+            if vehicle_data:
+                latest_vehicle_id = vehicle_data[0]['id']
+            else:
+                first_bike = Motorcycle.query.filter_by(user_id=current_user.id).first()
+                if first_bike:
+                    latest_vehicle_id = first_bike.id
 
         # 目標タイムとフォームをデータに追加
         target_lap_seconds = targets_map.get(circuit_name)

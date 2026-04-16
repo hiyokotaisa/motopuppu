@@ -7,23 +7,10 @@ from sqlalchemy import func, desc
 
 from ..models import db, ActivityLog, SessionLog, User, Motorcycle
 from ..constants import CIRCUITS_BY_REGION, JAPANESE_CIRCUITS
+from ..utils.lap_time_utils import format_seconds_to_time
 
 # リーダーボード機能のBlueprintを作成
 leaderboard_bp = Blueprint('leaderboard', __name__, url_prefix='/leaderboard')
-
-def format_seconds_to_time(total_seconds):
-    """ 秒(Decimal)を "M:SS.fff" 形式の文字列に変換するヘルパー関数 """
-    if total_seconds is None:
-        return "N/A"
-    
-    # float等の場合もDecimalに変換して精度を維持
-    if not isinstance(total_seconds, decimal.Decimal):
-        total_seconds = decimal.Decimal(str(total_seconds))
-    
-    minutes = int(total_seconds // 60)
-    seconds = total_seconds % 60
-    # 秒を小数点以下3桁まで表示し、秒が10未満の場合は0でパディング
-    return f"{minutes}:{seconds:06.3f}"
 
 
 @leaderboard_bp.route('/')

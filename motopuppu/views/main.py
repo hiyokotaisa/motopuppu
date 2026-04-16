@@ -330,7 +330,20 @@ def dashboard_vehicles_widget():
 @main_bp.route('/api/dashboard/events')
 @login_required
 def dashboard_events_api():
-    calendar_events = services.get_calendar_events_for_user(current_user)
+    from datetime import date
+    start_date_str = request.args.get('start')
+    end_date_str = request.args.get('end')
+    start_date = None
+    end_date = None
+    try:
+        if start_date_str:
+            start_date = date.fromisoformat(start_date_str[:10])
+        if end_date_str:
+            end_date = date.fromisoformat(end_date_str[:10])
+    except (ValueError, TypeError):
+        pass  # パラメータが不正な場合は全件取得にフォールバック
+
+    calendar_events = services.get_calendar_events_for_user(current_user, start_date=start_date, end_date=end_date)
     
     return jsonify(calendar_events)
 

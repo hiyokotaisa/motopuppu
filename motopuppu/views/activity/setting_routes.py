@@ -9,7 +9,7 @@ from flask import (
 from . import activity_bp
 
 # ▼▼▼ インポート文を修正 ▼▼▼
-from .activity_routes import get_motorcycle_or_404
+from ...utils.view_helpers import get_motorcycle_or_404
 from flask_login import login_required, current_user
 # ▲▲▲ 変更ここまで ▲▲▲
 from ...models import db, SettingSheet

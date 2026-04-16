@@ -11,6 +11,7 @@ from ..forms import MaintenanceSpecSheetForm
 # ▼▼▼ インポート文を修正 ▼▼▼
 from flask_login import login_required, current_user
 # ▲▲▲ 変更ここまで ▲▲▲
+from ..utils.view_helpers import get_motorcycle_or_404
 
 spec_sheet_bp = Blueprint('spec_sheet', __name__, url_prefix='/spec_sheet')
 
@@ -22,12 +23,6 @@ SPEC_SHEET_CATEGORIES = {
     'suspension': {'title': 'サスペンション', 'icon': 'fa-sliders-h'},
     'other': {'title': 'その他', 'icon': 'fa-info-circle'}
 }
-
-def get_motorcycle_or_404(vehicle_id):
-    """指定されたIDの車両を取得し、所有者でなければ404を返すヘルパー関数"""
-    # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
-    return Motorcycle.query.filter_by(id=vehicle_id, user_id=current_user.id).first_or_404()
-    # ▲▲▲ 変更ここまで ▲▲▲
 
 # --- ルート定義 ---
 
