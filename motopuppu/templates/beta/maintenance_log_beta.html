@@ -218,7 +218,8 @@
                                 data-total-distance="{{ entry.total_distance_at_maintenance if entry.total_distance_at_maintenance is not none else '' }}"
                                 data-category="{{ entry.category or '' }}" data-description="{{ entry.description }}"
                                 data-cost="{{ entry.total_cost|round|int if entry.total_cost else '' }}"
-                                data-location="{{ entry.location or '' }}">
+                                data-location="{{ entry.location or '' }}"
+                                data-notes="{{ entry.notes or '' }}">
                                 <i class="fas fa-share-alt"></i>
                             </button>
                         </div>
@@ -304,7 +305,8 @@
                                     data-total-distance="{{ entry.total_distance_at_maintenance if entry.total_distance_at_maintenance is not none else '' }}"
                                     data-category="{{ entry.category or '' }}" data-description="{{ entry.description }}"
                                     data-cost="{{ entry.total_cost|round|int if entry.total_cost else '' }}"
-                                    data-location="{{ entry.location or '' }}" title="Misskeyで共有">
+                                    data-location="{{ entry.location or '' }}"
+                                    data-notes="{{ entry.notes or '' }}" title="Misskeyで共有">
                                     <i class="fa-solid fa-share-nodes fa-fw"></i>
                                 </button>
                             </td>

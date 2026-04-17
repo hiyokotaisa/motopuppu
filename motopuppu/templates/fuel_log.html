@@ -330,7 +330,8 @@
                                 data-date="{{ entry.entry_date.isoformat() }}" data-odo="{{ entry.odometer_reading }}"
                                 data-volume="{{ entry.fuel_volume }}" data-kpl="{{ kpl if kpl is not none else '' }}"
                                 data-cost="{{ entry.total_cost|round|int if entry.total_cost is not none else '' }}"
-                                data-station="{{ entry.station_name or '' }}">
+                                data-station="{{ entry.station_name or '' }}"
+                                data-notes="{{ entry.notes or '' }}">
                                 <i class="fas fa-share-alt"></i>
                             </button>
                         </div>
@@ -445,7 +446,8 @@
                             data-total-distance="{{ entry.total_distance if entry.total_distance is not none else '' }}"
                             data-volume="{{ entry.fuel_volume }}" data-kpl="{{ kpl if kpl is not none else '' }}"
                             data-cost="{{ entry.total_cost|round|int if entry.total_cost is not none else '' }}"
-                            data-station="{{ entry.station_name or '' }}" title="Misskeyで共有">
+                            data-station="{{ entry.station_name or '' }}"
+                            data-notes="{{ entry.notes or '' }}" title="Misskeyで共有">
                             <i class="fa-solid fa-share-nodes fa-fw"></i>
                         </button>
                     </td>

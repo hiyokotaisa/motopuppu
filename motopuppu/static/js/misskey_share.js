@@ -76,6 +76,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const kpl = dataset.kpl;
             const cost = dataset.cost;
             const station = dataset.station;
+            const notes = dataset.notes;
 
             shareText = `[${vehicleName}] 給油記録⛽\n` +
                         `日付: ${displayDate}\n` +
@@ -84,6 +85,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         (kpl ? `燃費: ${kpl} km/L\n` : '') +
                         (cost ? `費用: ${cost} 円\n` : '') +
                         (station ? `スタンド: ${station}\n` : '') +
+                        (notes ? `メモ: ${notes}\n` : '') +
                         baseHashtags + " #給油記録" + vehicleHashtag;
 
         } else if (recordType === 'maintenance') {
@@ -92,6 +94,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const description = dataset.description;
             const cost = dataset.cost;
             const location = dataset.location;
+            const notes = dataset.notes;
             const contentSummary = category ? category : (description ? description.substring(0, 30) + (description.length > 30 ? '...' : '') : '整備');
 
             shareText = `[${vehicleName}] 整備記録🔧\n` +
@@ -100,6 +103,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         `内容: ${contentSummary}\n` +
                         (cost ? `費用: ${cost} 円\n` : '') +
                         (location ? `場所: ${location}\n` : '') +
+                        (notes ? `メモ: ${notes}\n` : '') +
                         baseHashtags + " #バイク整備" + vehicleHashtag;
 
         } else if (recordType === 'note') {
