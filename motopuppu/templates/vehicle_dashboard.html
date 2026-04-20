@@ -295,14 +295,20 @@
                                             <i class="fas {{ item.icon }} text-white fa-sm"></i>
                                         </div>
                                         <div class="card border-0 shadow-sm mb-0">
-                                            <div class="card-body py-2 px-3 d-flex justify-content-between align-items-center">
+                                            <div class="card-body py-2 px-3 d-flex justify-content-between align-items-center"
+                                                role="button"
+                                                data-bs-toggle="modal" data-bs-target="#vehicleDetailModal"
+                                                data-modal-type="{{ item.type }}"
+                                                data-modal-title="{{ item.title }}"
+                                                data-modal-date="{{ item.date.strftime('%Y-%m-%d') }}"
+                                                data-modal-icon="{{ item.icon }}"
+                                                data-modal-link="{{ item.link }}"
+                                                data-modal-details='{{ item.details | tojson }}'>
                                                 <div>
                                                     <span class="d-block text-muted small fw-bold mb-1">{{ item.date.strftime('%Y-%m-%d') }}</span>
-                                                    <a href="{{ item.link }}" class="text-decoration-none text-dark fw-bold hover-lift d-inline-block">
-                                                        {{ item.title }}
-                                                    </a>
+                                                    <span class="text-dark fw-bold hover-lift d-inline-block">{{ item.title }}</span>
                                                 </div>
-                                                <a href="{{ item.link }}" class="btn btn-sm btn-light rounded-circle"><i class="fas fa-chevron-right text-muted"></i></a>
+                                                <i class="fas fa-chevron-right text-muted"></i>
                                             </div>
                                         </div>
                                     </div>
@@ -321,7 +327,14 @@
                             {% if upcoming_reminders %}
                                 <div class="list-group list-group-flush border rounded overflow-hidden">
                                     {% for reminder in upcoming_reminders %}
-                                    <a href="{{ url_for('reminder.edit_reminder', reminder_id=reminder['reminder_id']) }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center py-3">
+                                    <div role="button" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center py-3"
+                                        data-bs-toggle="modal" data-bs-target="#vehicleDetailModal"
+                                        data-modal-type="reminder"
+                                        data-modal-title="{{ reminder['task'] }}"
+                                        data-modal-date=""
+                                        data-modal-icon="fa-bell"
+                                        data-modal-link="{{ url_for('reminder.edit_reminder', reminder_id=reminder['reminder_id']) }}"
+                                        data-modal-details='{{ {"ステータス": "期限超過" if reminder["status"] == "danger" else "時期接近", "メッセージ": reminder["message"], "目安": reminder.get("due_info", "未設定"), "最終実施": reminder.get("last_done", "未実施")} | tojson }}'>
                                         <div>
                                             <h6 class="mb-1 fw-bold text-dark">{{ reminder['task'] }}</h6>
                                             <small class="{% if reminder['status'] == 'danger' %}text-danger{% else %}text-warning{% endif %} fw-bold">
@@ -333,7 +346,7 @@
                                             </small>
                                         </div>
                                         <i class="fas fa-angle-right text-muted"></i>
-                                    </a>
+                                    </div>
                                     {% endfor %}
                                     <div class="px-3 py-2 bg-light border-top text-center">
                                         <a href="{{ url_for('reminder.list_reminders', vehicle_id=vehicle.id) }}" class="small text-decoration-none fw-bold">すべてを見る</a>
@@ -459,13 +472,20 @@
                             {% if activities %}
                                 <div class="list-group list-group-flush border rounded shadow-sm">
                                     {% for a in activities %}
-                                    <a href="{{ url_for('activity.detail_activity', activity_id=a.id) }}" class="list-group-item list-group-item-action py-3">
+                                    <div role="button" class="list-group-item list-group-item-action py-3"
+                                        data-bs-toggle="modal" data-bs-target="#vehicleDetailModal"
+                                        data-modal-type="activity"
+                                        data-modal-title="{{ a.location_name_display or a.activity_title }}"
+                                        data-modal-date="{{ a.activity_date.strftime('%Y-%m-%d') }}"
+                                        data-modal-icon="fa-flag-checkered"
+                                        data-modal-link="{{ url_for('activity.detail_activity', activity_id=a.id) }}"
+                                        data-modal-details='{{ {"場所": a.location_name_display or "---", "天候": a.weather or "---"} | tojson }}'>
                                         <div class="d-flex justify-content-between w-100">
                                             <h6 class="mb-1 fw-bold text-dark">{{ a.location_name_display or a.activity_title }}</h6>
                                             <small class="text-muted">{{ a.activity_date.strftime('%Y-%m-%d') }}</small>
                                         </div>
                                         <p class="mb-1 text-muted small text-truncate">{{ a.circuit_name or a.custom_location or '' }}</p>
-                                    </a>
+                                    </div>
                                     {% endfor %}
                                 </div>
                             {% else %}
@@ -483,12 +503,19 @@
                             {% if tourings %}
                                 <div class="list-group list-group-flush border rounded shadow-sm">
                                     {% for t in tourings %}
-                                    <a href="{{ url_for('touring.detail_log', log_id=t.id) }}" class="list-group-item list-group-item-action py-3">
+                                    <div role="button" class="list-group-item list-group-item-action py-3"
+                                        data-bs-toggle="modal" data-bs-target="#vehicleDetailModal"
+                                        data-modal-type="touring"
+                                        data-modal-title="{{ t.title }}"
+                                        data-modal-date="{{ t.touring_date.strftime('%Y-%m-%d') }}"
+                                        data-modal-icon="fa-map-signs"
+                                        data-modal-link="{{ url_for('touring.detail_log', log_id=t.id) }}"
+                                        data-modal-details='{{ {"メモ": (t.memo[:200] ~ "..." if t.memo and t.memo|length > 200 else t.memo) or "なし"} | tojson }}'>
                                         <div class="d-flex justify-content-between w-100">
                                             <h6 class="mb-1 fw-bold text-dark">{{ t.title }}</h6>
                                             <small class="text-muted">{{ t.touring_date.strftime('%Y-%m-%d') }}</small>
                                         </div>
-                                    </a>
+                                    </div>
                                     {% endfor %}
                                 </div>
                             {% else %}
@@ -512,12 +539,19 @@
                             {% if settings %}
                                 <div class="list-group list-group-flush border rounded shadow-sm">
                                     {% for s in settings %}
-                                    <a href="{{ url_for('activity.edit_setting', setting_id=s.id) }}" class="list-group-item list-group-item-action py-3">
+                                    <div role="button" class="list-group-item list-group-item-action py-3"
+                                        data-bs-toggle="modal" data-bs-target="#vehicleDetailModal"
+                                        data-modal-type="setting"
+                                        data-modal-title="{{ s.sheet_name }}"
+                                        data-modal-date="{{ s.updated_at.strftime('%Y-%m-%d') if s.updated_at else '' }}"
+                                        data-modal-icon="fa-clipboard-list"
+                                        data-modal-link="{{ url_for('activity.edit_setting', setting_id=s.id) }}"
+                                        data-modal-details='{{ {"シート名": s.sheet_name, "更新日": s.updated_at.strftime("%Y-%m-%d") if s.updated_at else "---", "メモ": (s.notes[:200] ~ "..." if s.notes and s.notes|length > 200 else s.notes) or "なし"} | tojson }}'>
                                         <div class="d-flex justify-content-between w-100">
                                             <h6 class="mb-1 fw-bold text-dark">{{ s.sheet_name }}</h6>
                                             <small class="text-muted">{{ s.updated_at.strftime('%Y-%m-%d') if s.updated_at else '' }}</small>
                                         </div>
-                                    </a>
+                                    </div>
                                     {% endfor %}
                                 </div>
                             {% else %}
@@ -535,7 +569,14 @@
                             {% if notes %}
                                 <div class="list-group list-group-flush border rounded shadow-sm">
                                     {% for n in notes %}
-                                    <a href="{{ url_for('notes.edit_note', note_id=n.id) }}" class="list-group-item list-group-item-action py-3">
+                                    <div role="button" class="list-group-item list-group-item-action py-3"
+                                        data-bs-toggle="modal" data-bs-target="#vehicleDetailModal"
+                                        data-modal-type="note"
+                                        data-modal-title="{{ n.title or n.category }}"
+                                        data-modal-date="{{ n.note_date.strftime('%Y-%m-%d') }}"
+                                        data-modal-icon="fa-sticky-note"
+                                        data-modal-link="{{ url_for('notes.edit_note', note_id=n.id) }}"
+                                        data-modal-details='{{ {"カテゴリ": n.category or "---", "内容": (n.content[:200] ~ "..." if n.content and n.content|length > 200 else n.content) or "なし"} | tojson }}'>
                                         <div class="d-flex justify-content-between w-100">
                                             <h6 class="mb-1 fw-bold text-dark">{{ n.title or n.category }}</h6>
                                             <small class="text-muted">{{ n.note_date.strftime('%Y-%m-%d') }}</small>
@@ -543,7 +584,7 @@
                                         {% if n.content %}
                                         <p class="mb-0 text-muted small text-truncate">{{ n.content }}</p>
                                         {% endif %}
-                                    </a>
+                                    </div>
                                     {% endfor %}
                                 </div>
                             {% else %}
@@ -559,4 +600,103 @@
         </div>
     </div>
 </div>
+
+{# ===== 汎用詳細モーダル ===== #}
+<div class="modal fade" id="vehicleDetailModal" tabindex="-1" aria-labelledby="vehicleDetailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="vehicleDetailModalLabel">
+                    <span id="vdm-icon"></span>
+                    <span id="vdm-title"></span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="vdm-date-row" class="mb-3">
+                    <small class="text-muted fw-bold"><i class="fas fa-calendar-day me-1"></i><span id="vdm-date"></span></small>
+                </div>
+                <hr>
+                <dl class="row mb-0" id="vdm-details"></dl>
+            </div>
+            <div class="modal-footer">
+                <a href="#" id="vdm-edit-btn" class="btn btn-primary"><i class="fas fa-edit me-1"></i>編集する</a>
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">閉じる</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const modal = document.getElementById('vehicleDetailModal');
+    if (!modal) return;
+
+    // タイプごとのアイコンスタイル設定
+    const typeConfig = {
+        'fuel':        { color: '#0dcaf0', label: '給油記録詳細', editLabel: '編集する' },
+        'maintenance': { color: '#ffc107', label: '整備記録詳細', editLabel: '編集する' },
+        'note':        { color: '#6c757d', label: 'ノート詳細',   editLabel: '編集する' },
+        'activity':    { color: '#198754', label: '活動記録詳細', editLabel: '詳細を見る' },
+        'touring':     { color: '#0d6efd', label: 'ツーリング詳細', editLabel: '詳細を見る' },
+        'setting':     { color: '#212529', label: 'セッティング詳細', editLabel: '編集する' },
+        'reminder':    { color: '#dc3545', label: 'リマインダー詳細', editLabel: '設定を編集' },
+    };
+
+    modal.addEventListener('show.bs.modal', function (event) {
+        const trigger = event.relatedTarget;
+        if (!trigger) return;
+
+        const type = trigger.dataset.modalType || '';
+        const title = trigger.dataset.modalTitle || '';
+        const dateStr = trigger.dataset.modalDate || '';
+        const icon = trigger.dataset.modalIcon || '';
+        const link = trigger.dataset.modalLink || '#';
+        let details = {};
+        try { details = JSON.parse(trigger.dataset.modalDetails || '{}'); } catch (e) {}
+
+        const config = typeConfig[type] || { color: '#6c757d', label: '詳細', editLabel: '開く' };
+
+        // ヘッダー
+        document.getElementById('vdm-icon').innerHTML =
+            '<i class="fas ' + icon + ' me-2" style="color: ' + config.color + ';"></i>';
+        document.getElementById('vdm-title').textContent = config.label;
+
+        // 日付
+        const dateRow = document.getElementById('vdm-date-row');
+        if (dateStr) {
+            document.getElementById('vdm-date').textContent = dateStr;
+            dateRow.style.display = '';
+        } else {
+            dateRow.style.display = 'none';
+        }
+
+        // 詳細
+        const detailsContainer = document.getElementById('vdm-details');
+        detailsContainer.innerHTML = '';
+        for (const [key, value] of Object.entries(details)) {
+            const dt = document.createElement('dt');
+            dt.className = 'col-sm-4 text-muted';
+            dt.textContent = key;
+            const dd = document.createElement('dd');
+            dd.className = 'col-sm-8';
+            // メモや内容は改行を反映
+            if (key === 'メモ' || key === '内容') {
+                dd.style.whiteSpace = 'pre-wrap';
+            }
+            dd.textContent = value;
+            detailsContainer.appendChild(dt);
+            detailsContainer.appendChild(dd);
+        }
+
+        // 編集ボタン
+        const editBtn = document.getElementById('vdm-edit-btn');
+        editBtn.href = link;
+        editBtn.innerHTML = '<i class="fas fa-edit me-1"></i>' + config.editLabel;
+    });
+});
+</script>
 {% endblock %}

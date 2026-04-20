@@ -655,6 +655,16 @@ def _build_vehicle_timeline(motorcycle, fuels, maintenances, notes, activities, 
     timeline_items = []
     
     for f in fuels:
+        kpl = f.km_per_liter
+        details = {
+            '給油量': f'{f.fuel_volume} L',
+            '区間燃費': f'{kpl} km/L' if kpl else '---',
+            '費用': f'¥{f.total_cost:,.0f}' if f.total_cost else '---',
+            '単価': f'{f.price_per_liter} 円/L' if f.price_per_liter else '---',
+            'スタンド': f.station_name or '未記録',
+        }
+        if f.notes:
+            details['メモ'] = f.notes
         timeline_items.append({
             'date': f.entry_date,
             'type': 'fuel',
@@ -662,13 +672,24 @@ def _build_vehicle_timeline(motorcycle, fuels, maintenances, notes, activities, 
             'icon': 'fa-gas-pump',
             'bg_class': 'bg-info',
             'text_class': 'text-info',
-            'link': url_for('fuel.fuel_log', vehicle_id=motorcycle.id) + f"#record-{f.id}"
+            'link': url_for('fuel.edit_fuel', entry_id=f.id),
+            'details': details
         })
     for m in maintenances:
         try:
             desc = m.category or m.description
         except Exception:
             desc = m.description
+        details = {
+            'カテゴリ': m.category or '未分類',
+            '内容': m.description,
+            '部品代': f'¥{m.parts_cost:,.0f}' if m.parts_cost else '---',
+            '工賃': f'¥{m.labor_cost:,.0f}' if m.labor_cost else '---',
+            '合計費用': f'¥{(m.parts_cost or 0) + (m.labor_cost or 0):,.0f}',
+            '場所': m.location or '未記録',
+        }
+        if m.notes:
+            details['メモ'] = m.notes
         timeline_items.append({
             'date': m.maintenance_date,
             'type': 'maintenance',
@@ -676,13 +697,20 @@ def _build_vehicle_timeline(motorcycle, fuels, maintenances, notes, activities, 
             'icon': 'fa-tools',
             'bg_class': 'bg-warning text-dark',
             'text_class': 'text-warning text-dark',
-            'link': url_for('maintenance.edit_maintenance', entry_id=m.id)
+            'link': url_for('maintenance.edit_maintenance', entry_id=m.id),
+            'details': details
         })
     for n in notes:
         try:
             title = n.title or n.category
         except Exception:
             title = 'ノート'
+        details = {
+            'カテゴリ': n.category or '---',
+        }
+        if n.content:
+            content_preview = n.content[:200] + ('...' if len(n.content) > 200 else '')
+            details['内容'] = content_preview
         timeline_items.append({
             'date': n.note_date,
             'type': 'note',
@@ -690,10 +718,20 @@ def _build_vehicle_timeline(motorcycle, fuels, maintenances, notes, activities, 
             'icon': 'fa-sticky-note',
             'bg_class': 'bg-secondary',
             'text_class': 'text-secondary',
-            'link': url_for('notes.edit_note', note_id=n.id)
+            'link': url_for('notes.edit_note', note_id=n.id),
+            'details': details
         })
     for a in activities:
         title = a.location_name_display or a.activity_title
+        details = {
+            '場所': a.location_name_display or '---',
+            '天候': a.weather or '---',
+        }
+        if a.temperature is not None:
+            details['気温'] = f'{a.temperature}℃'
+        if a.notes:
+            notes_preview = a.notes[:200] + ('...' if len(a.notes) > 200 else '')
+            details['メモ'] = notes_preview
         timeline_items.append({
             'date': a.activity_date,
             'type': 'activity',
@@ -701,9 +739,19 @@ def _build_vehicle_timeline(motorcycle, fuels, maintenances, notes, activities, 
             'icon': 'fa-flag-checkered',
             'bg_class': 'bg-success',
             'text_class': 'text-success',
-            'link': url_for('activity.detail_activity', activity_id=a.id)
+            'link': url_for('activity.detail_activity', activity_id=a.id),
+            'details': details
         })
     for t in tourings:
+        details = {}
+        if t.memo:
+            memo_preview = t.memo[:200] + ('...' if len(t.memo) > 200 else '')
+            details['メモ'] = memo_preview
+        if hasattr(t, 'spots') and t.spots:
+            spot_names = ', '.join([s.spot_name for s in t.spots[:5]])
+            if len(t.spots) > 5:
+                spot_names += f' 他{len(t.spots) - 5}件'
+            details['スポット'] = spot_names
         timeline_items.append({
             'date': t.touring_date,
             'type': 'touring',
@@ -711,7 +759,8 @@ def _build_vehicle_timeline(motorcycle, fuels, maintenances, notes, activities, 
             'icon': 'fa-map-signs',
             'bg_class': 'bg-primary',
             'text_class': 'text-primary',
-            'link': url_for('touring.detail_log', log_id=t.id)
+            'link': url_for('touring.detail_log', log_id=t.id),
+            'details': details
         })
     for s in settings:
         if hasattr(s, 'created_at') and s.created_at:
@@ -720,7 +769,14 @@ def _build_vehicle_timeline(motorcycle, fuels, maintenances, notes, activities, 
             s_date = s.updated_at.date()
         else:
             s_date = datetime.now(timezone.utc).date()
-            
+        
+        details = {
+            'シート名': s.sheet_name,
+            '更新日': s.updated_at.strftime('%Y-%m-%d') if s.updated_at else '---',
+        }
+        if s.notes:
+            notes_preview = s.notes[:200] + ('...' if len(s.notes) > 200 else '')
+            details['メモ'] = notes_preview
         timeline_items.append({
             'date': s_date,
             'type': 'setting',
@@ -728,7 +784,8 @@ def _build_vehicle_timeline(motorcycle, fuels, maintenances, notes, activities, 
             'icon': 'fa-clipboard-list',
             'bg_class': 'bg-dark',
             'text_class': 'text-dark',
-            'link': url_for('activity.edit_setting', setting_id=s.id)
+            'link': url_for('activity.edit_setting', setting_id=s.id),
+            'details': details
         })
         
     timeline_items.sort(key=lambda x: x['date'], reverse=True)

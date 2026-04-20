@@ -141,7 +141,15 @@
                                 <div class="beta-timeline-marker {{ item.type }}">
                                     <i class="fas {{ item.icon }}"></i>
                                 </div>
-                                <a href="{{ item.link }}" class="beta-timeline-content text-decoration-none d-block">
+                                <div class="beta-timeline-content text-decoration-none d-block"
+                                    role="button"
+                                    data-bs-toggle="modal" data-bs-target="#vehicleDetailModal"
+                                    data-modal-type="{{ item.type }}"
+                                    data-modal-title="{{ item.title }}"
+                                    data-modal-date="{{ item.date.strftime('%Y-%m-%d') }}"
+                                    data-modal-icon="{{ item.icon }}"
+                                    data-modal-link="{{ item.link }}"
+                                    data-modal-details='{{ item.details | tojson }}'>
                                     <div class="d-flex justify-content-between align-items-center">
                                         <div>
                                             <div class="beta-text-muted small fw-bold mb-1" style="font-size: 0.7rem;">{{ item.date.strftime('%Y-%m-%d') }}</div>
@@ -149,7 +157,7 @@
                                         </div>
                                         <i class="fas fa-chevron-right beta-text-muted" style="font-size: 0.7rem;"></i>
                                     </div>
-                                </a>
+                                </div>
                             </li>
                             {% endfor %}
                         </ul>
@@ -178,7 +186,14 @@
                     <div class="beta-widget-body" style="padding: 0.75rem;">
                         {% if upcoming_reminders %}
                         {% for reminder in upcoming_reminders %}
-                        <a href="{{ url_for('reminder.edit_reminder', reminder_id=reminder['reminder_id']) }}" class="beta-reminder-item text-decoration-none">
+                        <div role="button" class="beta-reminder-item text-decoration-none"
+                            data-bs-toggle="modal" data-bs-target="#vehicleDetailModal"
+                            data-modal-type="reminder"
+                            data-modal-title="{{ reminder['task'] }}"
+                            data-modal-date=""
+                            data-modal-icon="fa-bell"
+                            data-modal-link="{{ url_for('reminder.edit_reminder', reminder_id=reminder['reminder_id']) }}"
+                            data-modal-details='{{ {"ステータス": "期限超過" if reminder["status"] == "danger" else "時期接近", "メッセージ": reminder["message"], "目安": reminder.get("due_info", "未設定"), "最終実施": reminder.get("last_done", "未実施")} | tojson }}'>
                             <div class="beta-reminder-icon {{ reminder['status'] }}">
                                 {% if reminder['status'] == 'danger' %}
                                 <i class="fas fa-exclamation-circle"></i>
@@ -192,7 +207,7 @@
                                     {{ reminder['message'] }}
                                 </div>
                             </div>
-                        </a>
+                        </div>
                         {% endfor %}
                         {% else %}
                         <div class="text-center py-3 beta-text-muted">
@@ -217,13 +232,20 @@
                     <div class="beta-widget-body" style="padding: 0.75rem;">
                         {% if settings %}
                         {% for s in settings[:5] %}
-                        <a href="{{ url_for('activity.edit_setting', setting_id=s.id) }}" class="beta-reminder-item text-decoration-none">
+                        <div role="button" class="beta-reminder-item text-decoration-none"
+                            data-bs-toggle="modal" data-bs-target="#vehicleDetailModal"
+                            data-modal-type="setting"
+                            data-modal-title="{{ s.sheet_name }}"
+                            data-modal-date="{{ s.updated_at.strftime('%Y-%m-%d') if s.updated_at else '' }}"
+                            data-modal-icon="fa-clipboard-list"
+                            data-modal-link="{{ url_for('activity.edit_setting', setting_id=s.id) }}"
+                            data-modal-details='{{ {"シート名": s.sheet_name, "更新日": s.updated_at.strftime("%Y-%m-%d") if s.updated_at else "---", "メモ": (s.notes[:200] ~ "..." if s.notes and s.notes|length > 200 else s.notes) or "なし"} | tojson }}'>
                             <div class="beta-reminder-icon info"><i class="fas fa-wrench"></i></div>
                             <div style="flex: 1; min-width: 0;">
                                 <div class="fw-bold beta-text-primary small text-truncate">{{ s.sheet_name }}</div>
                                 <div class="small beta-text-muted">{{ s.updated_at.strftime('%Y-%m-%d') if s.updated_at else '' }}</div>
                             </div>
-                        </a>
+                        </div>
                         {% endfor %}
                         {% else %}
                         <div class="text-center py-3 beta-text-muted">
@@ -351,13 +373,20 @@
                     <div class="beta-widget-body" style="padding: 0.75rem;">
                         {% if activities %}
                         {% for a in activities[:5] %}
-                        <a href="{{ url_for('activity.detail_activity', activity_id=a.id) }}" class="beta-reminder-item text-decoration-none">
+                        <div role="button" class="beta-reminder-item text-decoration-none"
+                            data-bs-toggle="modal" data-bs-target="#vehicleDetailModal"
+                            data-modal-type="activity"
+                            data-modal-title="{{ a.location_name_display or a.activity_title }}"
+                            data-modal-date="{{ a.activity_date.strftime('%Y-%m-%d') }}"
+                            data-modal-icon="fa-flag-checkered"
+                            data-modal-link="{{ url_for('activity.detail_activity', activity_id=a.id) }}"
+                            data-modal-details='{{ {"場所": a.location_name_display or "---", "天候": a.weather or "---"} | tojson }}'>
                             <div class="beta-reminder-icon" style="background: rgba(16, 185, 129, 0.15); color: var(--beta-accent-emerald);"><i class="fas fa-flag-checkered"></i></div>
                             <div style="flex: 1; min-width: 0;">
                                 <div class="fw-bold beta-text-primary small text-truncate">{{ a.location_name_display or a.activity_title }}</div>
                                 <div class="small beta-text-muted">{{ a.activity_date.strftime('%Y-%m-%d') }}</div>
                             </div>
-                        </a>
+                        </div>
                         {% endfor %}
                         {% else %}
                         <div class="text-center py-3 beta-text-muted"><p class="mb-0 small">走行ログがありません。</p></div>
@@ -381,13 +410,20 @@
                     <div class="beta-widget-body" style="padding: 0.75rem;">
                         {% if tourings %}
                         {% for t in tourings[:5] %}
-                        <a href="{{ url_for('touring.detail_log', log_id=t.id) }}" class="beta-reminder-item text-decoration-none">
+                        <div role="button" class="beta-reminder-item text-decoration-none"
+                            data-bs-toggle="modal" data-bs-target="#vehicleDetailModal"
+                            data-modal-type="touring"
+                            data-modal-title="{{ t.title }}"
+                            data-modal-date="{{ t.touring_date.strftime('%Y-%m-%d') }}"
+                            data-modal-icon="fa-map-signs"
+                            data-modal-link="{{ url_for('touring.detail_log', log_id=t.id) }}"
+                            data-modal-details='{{ {"メモ": (t.memo[:200] ~ "..." if t.memo and t.memo|length > 200 else t.memo) or "なし"} | tojson }}'>
                             <div class="beta-reminder-icon" style="background: rgba(59, 130, 246, 0.15); color: var(--beta-accent-blue);"><i class="fas fa-map-signs"></i></div>
                             <div style="flex: 1; min-width: 0;">
                                 <div class="fw-bold beta-text-primary small text-truncate">{{ t.title }}</div>
                                 <div class="small beta-text-muted">{{ t.touring_date.strftime('%Y-%m-%d') }}</div>
                             </div>
-                        </a>
+                        </div>
                         {% endfor %}
                         {% else %}
                         <div class="text-center py-3 beta-text-muted"><p class="mb-0 small">ツーリング記録がありません。</p></div>
@@ -411,13 +447,20 @@
                     <div class="beta-widget-body" style="padding: 0.75rem;">
                         {% if notes %}
                         {% for n in notes[:5] %}
-                        <a href="{{ url_for('notes.edit_note', note_id=n.id) }}" class="beta-reminder-item text-decoration-none">
+                        <div role="button" class="beta-reminder-item text-decoration-none"
+                            data-bs-toggle="modal" data-bs-target="#vehicleDetailModal"
+                            data-modal-type="note"
+                            data-modal-title="{{ n.title or n.category }}"
+                            data-modal-date="{{ n.note_date.strftime('%Y-%m-%d') }}"
+                            data-modal-icon="fa-sticky-note"
+                            data-modal-link="{{ url_for('notes.edit_note', note_id=n.id) }}"
+                            data-modal-details='{{ {"カテゴリ": n.category or "---", "内容": (n.content[:200] ~ "..." if n.content and n.content|length > 200 else n.content) or "なし"} | tojson }}'>
                             <div class="beta-reminder-icon" style="background: rgba(139, 92, 246, 0.15); color: var(--beta-accent-purple);"><i class="fas fa-sticky-note"></i></div>
                             <div style="flex: 1; min-width: 0;">
                                 <div class="fw-bold beta-text-primary small text-truncate">{{ n.title or n.category }}</div>
                                 <div class="small beta-text-muted">{{ n.note_date.strftime('%Y-%m-%d') }}</div>
                             </div>
-                        </a>
+                        </div>
                         {% endfor %}
                         {% else %}
                         <div class="text-center py-3 beta-text-muted"><p class="mb-0 small">ノートがありません。</p></div>
@@ -431,6 +474,32 @@
 
     {% include 'beta/_beta_bottombar.html' %}
 </div>
+
+{# 汎用詳細モーダル - beta-dashboard-wrapperの外に配置（スタッキングコンテキスト問題回避） #}
+<div class="modal fade" id="vehicleDetailModal" tabindex="-1" aria-labelledby="vehicleDetailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="vehicleDetailModalLabel">
+                    <span id="vdm-icon"></span>
+                    <span id="vdm-title"></span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="vdm-date-row" class="mb-3">
+                    <small class="text-muted fw-bold"><i class="fas fa-calendar-day me-1"></i><span id="vdm-date"></span></small>
+                </div>
+                <hr style="border-color: var(--beta-border);">
+                <dl class="row mb-0" id="vdm-details"></dl>
+            </div>
+            <div class="modal-footer">
+                <a href="#" id="vdm-edit-btn" class="beta-btn beta-btn-solid"><i class="fas fa-edit me-1"></i>編集する</a>
+                <button type="button" class="beta-btn" data-bs-dismiss="modal">閉じる</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -442,5 +511,75 @@
     .beta-timeline-marker.touring { color: var(--beta-accent-blue); border-color: var(--beta-accent-blue); }
     .beta-timeline-marker.note { color: var(--beta-accent-purple); border-color: var(--beta-accent-purple); }
     .beta-timeline-marker.setting { color: var(--beta-text-muted); border-color: var(--beta-text-muted); }
+    .beta-timeline-content[role="button"]:hover {
+        background: var(--beta-surface-hover, rgba(255,255,255,0.05));
+        border-radius: 0.5rem;
+    }
+    .beta-reminder-item[role="button"]:hover {
+        background: var(--beta-surface-hover, rgba(255,255,255,0.05));
+    }
 </style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const modal = document.getElementById('vehicleDetailModal');
+    if (!modal) return;
+
+    const typeConfig = {
+        'fuel':        { color: 'var(--beta-accent-teal, #14b8a6)', label: '給油記録詳細', editLabel: '編集する' },
+        'maintenance': { color: 'var(--beta-accent-amber, #f59e0b)', label: '整備記録詳細', editLabel: '編集する' },
+        'note':        { color: 'var(--beta-accent-purple, #8b5cf6)', label: 'ノート詳細',   editLabel: '編集する' },
+        'activity':    { color: 'var(--beta-accent-emerald, #10b981)', label: '活動記録詳細', editLabel: '詳細を見る' },
+        'touring':     { color: 'var(--beta-accent-blue, #3b82f6)', label: 'ツーリング詳細', editLabel: '詳細を見る' },
+        'setting':     { color: 'var(--beta-text-muted, #94a3b8)', label: 'セッティング詳細', editLabel: '編集する' },
+        'reminder':    { color: 'var(--beta-accent-red, #ef4444)', label: 'リマインダー詳細', editLabel: '設定を編集' },
+    };
+
+    modal.addEventListener('show.bs.modal', function (event) {
+        const trigger = event.relatedTarget;
+        if (!trigger) return;
+
+        const type = trigger.dataset.modalType || '';
+        const dateStr = trigger.dataset.modalDate || '';
+        const icon = trigger.dataset.modalIcon || '';
+        const link = trigger.dataset.modalLink || '#';
+        let details = {};
+        try { details = JSON.parse(trigger.dataset.modalDetails || '{}'); } catch (e) {}
+
+        const config = typeConfig[type] || { color: '#94a3b8', label: '詳細', editLabel: '開く' };
+
+        document.getElementById('vdm-icon').innerHTML =
+            '<i class="fas ' + icon + ' me-2" style="color: ' + config.color + ';"></i>';
+        document.getElementById('vdm-title').textContent = config.label;
+
+        const dateRow = document.getElementById('vdm-date-row');
+        if (dateStr) {
+            document.getElementById('vdm-date').textContent = dateStr;
+            dateRow.style.display = '';
+        } else {
+            dateRow.style.display = 'none';
+        }
+
+        const detailsContainer = document.getElementById('vdm-details');
+        detailsContainer.innerHTML = '';
+        for (const [key, value] of Object.entries(details)) {
+            const dt = document.createElement('dt');
+            dt.className = 'col-sm-4 text-muted';
+            dt.textContent = key;
+            const dd = document.createElement('dd');
+            dd.className = 'col-sm-8';
+            if (key === 'メモ' || key === '内容') {
+                dd.style.whiteSpace = 'pre-wrap';
+            }
+            dd.textContent = value;
+            detailsContainer.appendChild(dt);
+            detailsContainer.appendChild(dd);
+        }
+
+        const editBtn = document.getElementById('vdm-edit-btn');
+        editBtn.href = link;
+        editBtn.innerHTML = '<i class="fas fa-edit me-1"></i>' + config.editLabel;
+    });
+});
+</script>
 {% endblock %}
