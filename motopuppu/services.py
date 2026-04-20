@@ -127,17 +127,22 @@ def get_latest_total_distance(motorcycle_id, offset_val):
 
 
 def calculate_average_kpl(motorcycle: Motorcycle, start_date=None, end_date=None):
-    """車両の平均燃費を計算する。期間が指定されていれば、その期間で計算する。"""
+    """車両の平均燃費を計算する（加重平均方式: 総走行距離÷総消費燃料）。
+    
+    期間が指定されていれば、その期間内に終了した区間で計算する。
+    
+    除外フラグ (exclude_from_average) の仕様:
+    - 除外フラグは「その区間のkplを平均に含めるか」の判定にのみ使用する
+    - 燃料データ自体は、他の記録の燃費計算に引き続き使用される（常に加算）
+    - 満タン記録は除外フラグに関係なく、常に区間の境界として機能する
+    - 区間を平均に含めるかは、区間の終了記録（今回の満タン記録）の除外フラグのみで判定
+    """
     if motorcycle.is_racer:
         return None
 
     # 全エントリを一度に取得 (N+1対策)
     # 期間指定がある場合でも、前回の満タン給油からの消費量を計算するために
-    # 少し前のデータが必要になるため、単純化して(あるいは安全策として)
-    # ある程度広めに取るか、全件取得する。
-    # ここでは既存ロジックの安全性と整合性を保つため、全件取得してPython側でフィルタリングする方式をとる。
-    # レコード数が数千件レベルなら問題ない。
-    
+    # 過去の記録が必要なため、全件取得してPython側でフィルタリングする。
     query = FuelEntry.query.filter(
         FuelEntry.motorcycle_id == motorcycle.id
     ).order_by(FuelEntry.total_distance.asc())
@@ -153,14 +158,14 @@ def calculate_average_kpl(motorcycle: Motorcycle, start_date=None, end_date=None
     last_full_entry = None
     accumulated_fuel = 0.0
     
-    # 最初の有効な満タン給油を見つけるまでは、燃料を加算しても燃費計算には使えない
-    # ただし、ロジックとしては「満タン〜満タン」の区間ごとに
-    # 「走行距離」と「その間に給油した燃料の合計」を足し合わせる。
-    
     for entry in entries:
-        # 燃料を加算 (除外フラグがない場合)
-        if not entry.exclude_from_average:
-             accumulated_fuel += entry.fuel_volume
+        # ODO保留中の記録は燃費計算対象外（total_distance=0で不正な区間が生まれるため）
+        if entry.is_odo_pending:
+            continue
+
+        # 燃料は exclude_from_average に関係なく常に加算する。
+        # 除外記録の給油量も、区間内で実際に消費されているため。
+        accumulated_fuel += entry.fuel_volume
              
         if entry.is_full_tank:
             if last_full_entry:
@@ -172,20 +177,18 @@ def calculate_average_kpl(motorcycle: Motorcycle, start_date=None, end_date=None
                 if end_date and entry.entry_date > end_date:
                     is_within_period = False
                 
-                # 前回の満タンが除外対象でないかもチェック(既存ロジック準拠)
-                if not last_full_entry.exclude_from_average and not entry.exclude_from_average:
+                # 区間を平均に含めるかは、終了記録の除外フラグのみで判定する。
+                # 開始記録(last_full_entry)が除外でも、この区間自体は有効。
+                if not entry.exclude_from_average:
                     if is_within_period:
                         dist_diff = entry.total_distance - last_full_entry.total_distance
                         if dist_diff > 0 and accumulated_fuel > 0:
                             total_distance_sum += dist_diff
                             total_fuel_sum += accumulated_fuel
 
-            # 次の区間の開始点としてセット
+            # 次の区間の開始点としてセット（除外フラグに関係なく常にセット）
             last_full_entry = entry
             accumulated_fuel = 0.0
-        else:
-            # 満タンでない場合、accumulated_fuelは維持して次へ
-            pass
 
     if total_fuel_sum > 0 and total_distance_sum > 0:
         try:

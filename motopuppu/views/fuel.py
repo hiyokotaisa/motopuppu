@@ -357,8 +357,6 @@ def fuel_log():
     
     chart_labels = []
     chart_values = []
-    valid_efficiency_sum = 0
-    valid_efficiency_count = 0
 
     for e in all_filtered_entries:
         # km_per_literはモデルプロパティではなく、一括計算結果を使用
@@ -366,21 +364,40 @@ def fuel_log():
         if kpl is not None:
             chart_labels.append(e.entry_date.strftime('%Y/%m/%d'))
             chart_values.append(round(kpl, 2))
-            
-            # 平均計算用に集計
-            if not e.exclude_from_average:
-                valid_efficiency_sum += kpl
-                valid_efficiency_count += 1
     
     chart_data = {
         'labels': chart_labels,
         'data': chart_values
     }
 
-    # 平均燃費の計算
+    # 平均燃費の計算 (加重平均方式: 区間の総走行距離 ÷ 総消費燃料)
+    # services.py の calculate_average_kpl() と同じロジック
+    total_distance_for_avg = 0.0
+    total_fuel_for_avg = 0.0
+    last_full_entry_for_avg = None
+    accumulated_fuel_for_avg = 0.0
+
+    # フィルタリング対象の記録を total_distance 昇順でソートして処理
+    entries_sorted_by_dist = sorted(all_filtered_entries, key=lambda x: x.total_distance)
+    for e in entries_sorted_by_dist:
+        if e.is_odo_pending:
+            continue
+        # 燃料は除外フラグに関係なく常に加算
+        accumulated_fuel_for_avg += e.fuel_volume
+        if e.is_full_tank:
+            if last_full_entry_for_avg is not None:
+                # 区間を平均に含めるかは、終了記録の除外フラグのみで判定
+                if not e.exclude_from_average:
+                    dist_diff = e.total_distance - last_full_entry_for_avg.total_distance
+                    if dist_diff > 0 and accumulated_fuel_for_avg > 0:
+                        total_distance_for_avg += dist_diff
+                        total_fuel_for_avg += accumulated_fuel_for_avg
+            last_full_entry_for_avg = e
+            accumulated_fuel_for_avg = 0.0
+
     calculated_efficiency = 0
-    if valid_efficiency_count > 0:
-        calculated_efficiency = valid_efficiency_sum / valid_efficiency_count
+    if total_fuel_for_avg > 0 and total_distance_for_avg > 0:
+        calculated_efficiency = round(total_distance_for_avg / total_fuel_for_avg, 2)
 
     summary_stats = {
         'total_entries': stats_data.count,

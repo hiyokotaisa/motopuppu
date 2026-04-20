@@ -144,7 +144,11 @@ def migrate_activity_data_command():
 # ▼▼▼▼▼ ここから `recalculate-total-distance` コマンドを修正 ▼▼▼▼▼
 
 def _calculate_kpl_from_simulated_data(target_entry_sim, all_entries_sim):
-    """メモリ上のシミュレーションデータから燃費を計算するヘルパー関数"""
+    """メモリ上のシミュレーションデータから燃費を計算するヘルパー関数。
+    
+    calculate_kpl_bulk と同じロジックで、前回満タンから今回満タンまでの
+    区間内の全給油量（途中給油を含む）を合算して燃費を計算する。
+    """
     if not target_entry_sim['is_full_tank']:
         return None
 
@@ -159,9 +163,17 @@ def _calculate_kpl_from_simulated_data(target_entry_sim, all_entries_sim):
         return None
 
     distance_diff = target_entry_sim['total_distance'] - prev_entry_sim['total_distance']
-    fuel_consumed = target_entry_sim['fuel_volume']
+    
+    # 区間内の合計給油量を算出 (途中給油を含む)
+    # prev_entry_sim.total_distance < entry.total_distance <= target_entry_sim.total_distance
+    fuel_consumed = sum(
+        e['fuel_volume'] for e in all_entries_sim
+        if e['total_distance'] > prev_entry_sim['total_distance']
+        and e['total_distance'] <= target_entry_sim['total_distance']
+        and e['fuel_volume'] is not None
+    )
 
-    if fuel_consumed is not None and fuel_consumed > 0 and distance_diff > 0:
+    if fuel_consumed > 0 and distance_diff > 0:
         try:
             return round(float(distance_diff) / float(fuel_consumed), 2)
         except (ZeroDivisionError, TypeError):

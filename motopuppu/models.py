@@ -175,7 +175,8 @@ class FuelEntry(db.Model):
         prev_entry = FuelEntry.query.filter(
             FuelEntry.motorcycle_id == self.motorcycle_id,
             FuelEntry.total_distance < self.total_distance,
-            FuelEntry.is_full_tank == True
+            FuelEntry.is_full_tank == True,
+            FuelEntry.is_odo_pending == False
         ).order_by(FuelEntry.total_distance.desc()).first()
 
         if not prev_entry:
@@ -183,11 +184,12 @@ class FuelEntry(db.Model):
 
         distance_diff = self.total_distance - prev_entry.total_distance
         
-        # 区間内の合計給油量を算出 (途中給油を含む)
+        # 区間内の合計給油量を算出 (途中給油を含む、ODO保留記録は除外)
         fuel_consumed = db.session.query(func.sum(FuelEntry.fuel_volume)).filter(
             FuelEntry.motorcycle_id == self.motorcycle_id,
             FuelEntry.total_distance > prev_entry.total_distance,
-            FuelEntry.total_distance <= self.total_distance
+            FuelEntry.total_distance <= self.total_distance,
+            FuelEntry.is_odo_pending == False
         ).scalar()
 
         if fuel_consumed is not None and fuel_consumed > 0 and distance_diff > 0:
