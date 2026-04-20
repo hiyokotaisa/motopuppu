@@ -287,7 +287,7 @@ def fuel_log():
     # これにより、FuelEntry.km_per_liter プロパティへのアクセス(個別クエリ)を回避する
     all_entries_for_calc = db.session.query(
         FuelEntry.id, FuelEntry.motorcycle_id, FuelEntry.total_distance, 
-        FuelEntry.fuel_volume, FuelEntry.is_full_tank
+        FuelEntry.fuel_volume, FuelEntry.is_full_tank, FuelEntry.exclude_from_average
     ).filter(
         FuelEntry.motorcycle_id.in_(user_motorcycle_ids_for_fuel),
         FuelEntry.is_odo_pending == False  # ODO保留中の記録は燃費計算から除外
@@ -341,15 +341,17 @@ def fuel_log():
         func.max(FuelEntry.total_distance).label('max_dist')
     ).one()
 
-    # 総走行距離の計算 (最大ODO - 最小ODO)
+    # 総走行距離の計算 (車両ごとの最大ODO - 最小ODOの合計)
     # ODO保留中のレコードは除外して再計算
     total_distance_interval = 0
-    stats_non_pending = base_query.filter(FuelEntry.is_odo_pending == False).with_entities(
+    vehicle_distance_stats = base_query.filter(FuelEntry.is_odo_pending == False).with_entities(
+        FuelEntry.motorcycle_id,
         func.min(FuelEntry.total_distance).label('min_dist'),
         func.max(FuelEntry.total_distance).label('max_dist')
-    ).one()
-    if stats_non_pending.max_dist is not None and stats_non_pending.min_dist is not None:
-        total_distance_interval = stats_non_pending.max_dist - stats_non_pending.min_dist
+    ).group_by(FuelEntry.motorcycle_id).all()
+    for vd in vehicle_distance_stats:
+        if vd.max_dist is not None and vd.min_dist is not None and vd.max_dist != vd.min_dist:
+            total_distance_interval += vd.max_dist - vd.min_dist
 
     # --- 4. チャート用データ & 平均燃費の作成 (Pythonで処理) ---
     # すべての対象データを取得し、Python側で燃費プロパティにアクセスしてリスト化
@@ -371,29 +373,35 @@ def fuel_log():
     }
 
     # 平均燃費の計算 (加重平均方式: 区間の総走行距離 ÷ 総消費燃料)
-    # services.py の calculate_average_kpl() と同じロジック
+    # services.py の calculate_average_kpl() と同じロジックを車両ごとに適用
     total_distance_for_avg = 0.0
     total_fuel_for_avg = 0.0
-    last_full_entry_for_avg = None
-    accumulated_fuel_for_avg = 0.0
 
-    # フィルタリング対象の記録を total_distance 昇順でソートして処理
-    entries_sorted_by_dist = sorted(all_filtered_entries, key=lambda x: x.total_distance)
-    for e in entries_sorted_by_dist:
-        if e.is_odo_pending:
-            continue
-        # 燃料は除外フラグに関係なく常に加算
-        accumulated_fuel_for_avg += e.fuel_volume
-        if e.is_full_tank:
-            if last_full_entry_for_avg is not None:
-                # 区間を平均に含めるかは、終了記録の除外フラグのみで判定
-                if not e.exclude_from_average:
-                    dist_diff = e.total_distance - last_full_entry_for_avg.total_distance
-                    if dist_diff > 0 and accumulated_fuel_for_avg > 0:
-                        total_distance_for_avg += dist_diff
-                        total_fuel_for_avg += accumulated_fuel_for_avg
-            last_full_entry_for_avg = e
-            accumulated_fuel_for_avg = 0.0
+    # 車両ごとにグループ化して処理（車両をまたいだ計算を防ぐ）
+    from collections import defaultdict
+    entries_by_vehicle = defaultdict(list)
+    for e in all_filtered_entries:
+        if not e.is_odo_pending:
+            entries_by_vehicle[e.motorcycle_id].append(e)
+
+    for m_id, vehicle_entries in entries_by_vehicle.items():
+        vehicle_entries_sorted = sorted(vehicle_entries, key=lambda x: x.total_distance)
+        last_full_entry_for_avg = None
+        accumulated_fuel_for_avg = 0.0
+
+        for e in vehicle_entries_sorted:
+            # 燃料は除外フラグに関係なく常に加算
+            accumulated_fuel_for_avg += e.fuel_volume
+            if e.is_full_tank:
+                if last_full_entry_for_avg is not None:
+                    # 区間を平均に含めるかは、終了記録の除外フラグのみで判定
+                    if not e.exclude_from_average:
+                        dist_diff = e.total_distance - last_full_entry_for_avg.total_distance
+                        if dist_diff > 0 and accumulated_fuel_for_avg > 0:
+                            total_distance_for_avg += dist_diff
+                            total_fuel_for_avg += accumulated_fuel_for_avg
+                last_full_entry_for_avg = e
+                accumulated_fuel_for_avg = 0.0
 
     calculated_efficiency = 0
     if total_fuel_for_avg > 0 and total_distance_for_avg > 0:

@@ -214,7 +214,7 @@ def get_timeline_events(motorcycle_ids, start_date=None, end_date=None):
     # データ量が多くても、ID/Distance/Volume/IsFull だけなら軽量
     all_fuel_entries = db.session.query(
         FuelEntry.id, FuelEntry.motorcycle_id, FuelEntry.total_distance, 
-        FuelEntry.fuel_volume, FuelEntry.is_full_tank
+        FuelEntry.fuel_volume, FuelEntry.is_full_tank, FuelEntry.exclude_from_average
     ).filter(
         FuelEntry.motorcycle_id.in_(motorcycle_ids)
     ).order_by(FuelEntry.motorcycle_id, FuelEntry.total_distance).all()
@@ -762,7 +762,7 @@ def get_calendar_events_for_user(user, start_date=None, end_date=None):
         fuel_entry_ids = [e.id for e in fuel_entries]
         all_fuel_entries_for_calc = db.session.query(
             FuelEntry.id, FuelEntry.motorcycle_id, FuelEntry.total_distance, 
-            FuelEntry.fuel_volume, FuelEntry.is_full_tank
+            FuelEntry.fuel_volume, FuelEntry.is_full_tank, FuelEntry.exclude_from_average
         ).filter(
             FuelEntry.motorcycle_id.in_(user_motorcycle_ids_public)
         ).order_by(FuelEntry.motorcycle_id, FuelEntry.total_distance).all()
