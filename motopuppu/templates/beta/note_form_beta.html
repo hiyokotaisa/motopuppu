@@ -43,6 +43,18 @@
                     action="{{ url_for('notes.add_note') if form_action == 'add' else url_for('notes.edit_note', note_id=note_id if note_id else 0) }}">
                     {{ form.hidden_tag() }}
 
+                    {# イベント紐付け情報の表示 #}
+                    {% if linked_event %}
+                    <div class="alert d-flex align-items-center mb-3" role="alert" style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); color: var(--beta-text-secondary);">
+                        <i class="fas fa-calendar-check me-2" style="color: var(--beta-accent-blue);"></i>
+                        <div>
+                            <strong>イベント紐付け:</strong>
+                            <a href="{{ url_for('event.event_detail', event_id=linked_event.id) }}" style="color: var(--beta-accent-blue);">{{ linked_event.title }}</a>
+                            <span class="beta-text-muted small ms-1">({{ linked_event.start_datetime | to_jst('%Y/%m/%d') }})</span>
+                        </div>
+                    </div>
+                    {% endif %}
+
                     {# 関連車両 #}
                     <div class="mb-3">
                         <label for="{{ form.motorcycle_id.id }}" class="form-label beta-text-secondary">

@@ -419,6 +419,7 @@ class NoteForm(FlaskForm):
         validators=[Optional()],
         default=0
     )
+    event_id = HiddenField('Event ID', validators=[Optional()])
     note_date = DateField(
         '日付',
         validators=[DataRequired(message='日付は必須です。')],

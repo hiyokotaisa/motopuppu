@@ -34,6 +34,18 @@
     action="{{ url_for('notes.add_note') if form_action == 'add' else url_for('notes.edit_note', note_id=note_id if note_id else 0) }}">
     {{ form.hidden_tag() }} {# CSRFトークン等 (NoteForm) #}
 
+    {# イベント紐付け情報の表示 #}
+    {% if linked_event %}
+    <div class="alert alert-info d-flex align-items-center mb-3" role="alert">
+        <i class="fas fa-calendar-check me-2"></i>
+        <div>
+            <strong>イベント紐付け:</strong>
+            <a href="{{ url_for('event.event_detail', event_id=linked_event.id) }}" class="alert-link">{{ linked_event.title }}</a>
+            <span class="text-muted small ms-1">({{ linked_event.start_datetime | to_jst('%Y/%m/%d') }})</span>
+        </div>
+    </div>
+    {% endif %}
+
     {# 関連車両選択 #}
     <div class="mb-3">
         <label for="{{ form.motorcycle_id.id }}" class="form-label">

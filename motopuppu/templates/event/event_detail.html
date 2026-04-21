@@ -67,6 +67,68 @@
         </div>
         {% endif %}
 
+        {# --- 準備ノート・チェックリストセクション --- #}
+        {% if is_owner %}
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-clipboard-list me-2"></i>準備ノート</span>
+                <div class="btn-group btn-group-sm">
+                    <a href="{{ url_for('notes.add_note', event_id=event.id, category='task') }}" class="btn btn-outline-primary" title="チェックリストを追加">
+                        <i class="fas fa-tasks me-1"></i>チェックリスト
+                    </a>
+                    <a href="{{ url_for('notes.add_note', event_id=event.id, category='note') }}" class="btn btn-outline-secondary" title="メモを追加">
+                        <i class="fas fa-sticky-note me-1"></i>メモ
+                    </a>
+                </div>
+            </div>
+            {% if event_notes %}
+            <div class="list-group list-group-flush">
+                {% for note in event_notes %}
+                <div class="list-group-item">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div class="flex-grow-1">
+                            <div class="d-flex align-items-center mb-1">
+                                {% if note.category == 'task' %}
+                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle me-2" style="font-size: 0.7rem;">TASK</span>
+                                {% else %}
+                                <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle me-2" style="font-size: 0.7rem;">NOTE</span>
+                                {% endif %}
+                                {% if note.is_pinned %}
+                                <i class="fas fa-thumbtack text-warning me-1" title="ピン留め"></i>
+                                {% endif %}
+                                <a href="{{ url_for('notes.edit_note', note_id=note.id) }}" class="text-dark text-decoration-none fw-bold">
+                                    {{ note.title if note.title else '(タイトルなし)' }}
+                                </a>
+                            </div>
+                            {% if note.category == 'task' and note.todos %}
+                            {% set total = note.todos|length %}
+                            {% set done = note.todos|selectattr('checked')|list|length %}
+                            <div class="progress mb-1" style="height: 6px;">
+                                <div class="progress-bar {% if done == total %}bg-success{% else %}bg-primary{% endif %}" style="width: {{ (done / total * 100) if total > 0 else 0 }}%;"></div>
+                            </div>
+                            <small class="text-muted">{{ done }}/{{ total }} 完了</small>
+                            {% elif note.category == 'note' and note.content %}
+                            <p class="text-muted small mb-0" style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+                                {{ note.content | striptags | truncate(80) }}
+                            </p>
+                            {% endif %}
+                        </div>
+                        <a href="{{ url_for('notes.edit_note', note_id=note.id) }}" class="btn btn-sm btn-outline-secondary border-0 ms-2" title="編集">
+                            <i class="fas fa-pen fa-xs"></i>
+                        </a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="card-body text-center text-muted py-4">
+                <i class="fas fa-clipboard fa-2x mb-2 text-light"></i>
+                <p class="mb-0 small">まだ準備ノートはありません。<br>上のボタンからチェックリストやメモを追加しましょう。</p>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
         <h2 class="h4">参加者リスト</h2>
         <div class="accordion" id="participantsAccordion">
             {# --- 参加者 --- #}
@@ -218,10 +280,13 @@
                         <i class="fas fa-calendar-download me-1"></i> カレンダーに登録
                     </a>
                     {% endif %}
-                    {% if event.motorcycle %}
-                    <a href="{{ url_for('activity.add_activity', vehicle_id=event.motorcycle_id, event_id=event.id, activity_title=event.title, activity_date=(event.start_datetime|to_jst('%Y-%m-%d')), custom_location=event.location) }}" class="btn btn-outline-info">
+                    {% if is_owner %}
+                    {% set log_vehicle_id = event.motorcycle_id if event.motorcycle else (user_motorcycles[0].id if user_motorcycles else none) %}
+                    {% if log_vehicle_id %}
+                    <a href="{{ url_for('activity.add_activity', vehicle_id=log_vehicle_id, event_id=event.id, activity_title=event.title, activity_date=(event.start_datetime|to_jst('%Y-%m-%d')), custom_location=event.location) }}" class="btn btn-outline-info">
                         <i class="fas fa-flag-checkered me-1"></i> このイベントの活動ログを作成
                     </a>
+                    {% endif %}
                     {% endif %}
                 </div>
             </div>

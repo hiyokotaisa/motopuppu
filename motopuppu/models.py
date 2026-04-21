@@ -291,6 +291,7 @@ class GeneralNote(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     motorcycle_id = db.Column(db.Integer, db.ForeignKey('motorcycles.id', ondelete='SET NULL'), nullable=True)
+    event_id = db.Column(db.Integer, db.ForeignKey('events.id', ondelete='SET NULL'), nullable=True, index=True, comment="紐付けるイベントのID")
     note_date = db.Column(db.Date, nullable=False)
     title = db.Column(db.String(150), nullable=True)
     content = db.Column(db.Text, nullable=True)
@@ -299,6 +300,7 @@ class GeneralNote(db.Model):
     todos = db.Column(JSONB, nullable=True)
     created_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
     updated_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now(), onupdate=db.func.now())
+    event = db.relationship('Event', backref=db.backref('notes', lazy='dynamic', order_by='GeneralNote.is_pinned.desc(), GeneralNote.note_date.desc()'))
     def __repr__(self): return f'<GeneralNote id={self.id} user_id={self.user_id} title="{self.title[:20]}">'
 
 class OdoResetLog(db.Model):

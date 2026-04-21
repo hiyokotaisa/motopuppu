@@ -7,7 +7,7 @@ from sqlalchemy import or_, func
 import json
 
 from flask_login import login_required, current_user
-from ..models import db, Motorcycle, GeneralNote
+from ..models import db, Motorcycle, GeneralNote, Event
 from ..forms import NoteForm
 from ..constants import NOTE_CATEGORIES, MAX_TODO_ITEMS
 from ..achievement_evaluator import check_achievements_for_event, EVENT_ADD_NOTE
@@ -108,6 +108,12 @@ def add_note():
     form = NoteForm()
     form.motorcycle_id.choices = [(0, '-- 車両に紐付けない --')] + [(m.id, m.name) for m in user_motorcycles]
 
+    # イベント紐付け: URLパラメータまたはフォームからevent_idを取得
+    linked_event = None
+    event_id_param = request.args.get('event_id', type=int) if request.method == 'GET' else None
+    if event_id_param:
+        linked_event = Event.query.filter_by(id=event_id_param, user_id=current_user.id).first()
+
     if request.method == 'GET':
         default_vehicle = next((m for m in user_motorcycles if m.is_default), None)
         if default_vehicle: form.motorcycle_id.data = default_vehicle.id
@@ -117,6 +123,17 @@ def add_note():
         if preselected_motorcycle_id and any(m.id == preselected_motorcycle_id for m in user_motorcycles):
             form.motorcycle_id.data = preselected_motorcycle_id
 
+        # イベント紐付け時の初期値設定
+        if linked_event:
+            form.event_id.data = linked_event.id
+            # イベントに車両が設定されていればプリセット
+            if linked_event.motorcycle_id and any(m.id == linked_event.motorcycle_id for m in user_motorcycles):
+                form.motorcycle_id.data = linked_event.motorcycle_id
+            # カテゴリパラメータがあればセット（taskを指定してチェックリスト作成を促す）
+            category_param = request.args.get('category')
+            if category_param in ('note', 'task'):
+                form.category.data = category_param
+
     if form.validate_on_submit():
         new_note = GeneralNote(user_id=current_user.id)
         selected_motorcycle_id = form.motorcycle_id.data
@@ -125,6 +142,17 @@ def add_note():
         new_note.category = form.category.data
         new_note.title = form.title.data.strip() if form.title.data else None
         new_note.is_pinned = form.is_pinned.data
+
+        # イベント紐付け
+        submitted_event_id = form.event_id.data
+        if submitted_event_id:
+            try:
+                submitted_event_id = int(submitted_event_id)
+                # 権限チェック: 自分のイベントか確認
+                if Event.query.filter_by(id=submitted_event_id, user_id=current_user.id).first():
+                    new_note.event_id = submitted_event_id
+            except (ValueError, TypeError):
+                pass
 
         if new_note.category == 'note':
             new_note.content = form.content.data.strip() if form.content.data else None
@@ -151,6 +179,9 @@ def add_note():
             event_data_for_ach = {'new_note_id': new_note.id, 'category': new_note.category}
             check_achievements_for_event(current_user, EVENT_ADD_NOTE, event_data=event_data_for_ach)
 
+            # イベント紐付きの場合、イベント詳細ページにリダイレクト
+            if new_note.event_id:
+                return redirect(url_for('event.event_detail', event_id=new_note.event_id))
             return redirect(url_for('notes.notes_log'))
         except Exception as e:
             db.session.rollback()
@@ -159,6 +190,12 @@ def add_note():
 
     elif request.method == 'POST': 
         form.motorcycle_id.choices = [(0, '-- 車両に紐付けない --')] + [(m.id, m.name) for m in user_motorcycles]
+        # POST失敗時もlinked_eventを復元
+        if form.event_id.data:
+            try:
+                linked_event = Event.query.filter_by(id=int(form.event_id.data), user_id=current_user.id).first()
+            except (ValueError, TypeError):
+                pass
 
     template_name = 'beta/note_form_beta.html' if current_user.use_beta_ui else 'note_form.html'
     return render_template(template_name,
@@ -167,7 +204,8 @@ def add_note():
                            motorcycles=user_motorcycles,
                            today_iso=date.today().isoformat(),
                            MAX_TODO_ITEMS=MAX_TODO_ITEMS,
-                           note_id=None
+                           note_id=None,
+                           linked_event=linked_event
                            )
 
 @notes_bp.route('/<int:note_id>/edit', methods=['GET', 'POST'])
@@ -179,8 +217,12 @@ def edit_note(note_id):
     form = NoteForm(obj=note)
     form.motorcycle_id.choices = [(0, '-- 車両に紐付けない --')] + [(m.id, f"{m.name} (アーカイブ)" if m.is_archived else m.name) for m in user_motorcycles]
 
+    # 紐付きイベント情報の取得
+    linked_event = note.event if note.event_id else None
+
     if request.method == 'GET':
         form.motorcycle_id.data = note.motorcycle_id if note.motorcycle_id is not None else 0
+        form.event_id.data = note.event_id if note.event_id else ''
         if note.category == 'task' and note.todos:
             num_entries_to_pop = len(form.todos.entries)
             for _ in range(num_entries_to_pop):
@@ -201,6 +243,20 @@ def edit_note(note_id):
         note.title = form.title.data.strip() if form.title.data else None
         note.is_pinned = form.is_pinned.data
 
+        # イベント紐付けの更新
+        submitted_event_id = form.event_id.data
+        if submitted_event_id:
+            try:
+                submitted_event_id = int(submitted_event_id)
+                if Event.query.filter_by(id=submitted_event_id, user_id=current_user.id).first():
+                    note.event_id = submitted_event_id
+                else:
+                    note.event_id = None
+            except (ValueError, TypeError):
+                note.event_id = None
+        else:
+            note.event_id = None
+
         if note.category == 'note':
             note.content = form.content.data.strip() if form.content.data else None
             note.todos = None
@@ -220,6 +276,9 @@ def edit_note(note_id):
         try:
             db.session.commit()
             flash('ノートを更新しました。', 'success')
+            # イベント紐付きの場合、イベント詳細ページにリダイレクト
+            if note.event_id:
+                return redirect(url_for('event.event_detail', event_id=note.event_id))
             return redirect(url_for('notes.notes_log'))
         except Exception as e:
             db.session.rollback()
@@ -236,7 +295,8 @@ def edit_note(note_id):
                            note_id=note.id,
                            motorcycles=user_motorcycles,
                            today_iso=date.today().isoformat(),
-                           MAX_TODO_ITEMS=MAX_TODO_ITEMS
+                           MAX_TODO_ITEMS=MAX_TODO_ITEMS,
+                           linked_event=linked_event
                            )
 
 @notes_bp.route('/<int:note_id>/delete', methods=['POST'])
@@ -244,6 +304,7 @@ def edit_note(note_id):
 @login_required
 def delete_note(note_id):
     note = GeneralNote.query.filter_by(id=note_id, user_id=current_user.id).first_or_404()
+    event_id = note.event_id  # 削除前にイベントIDを保持
     try:
         db.session.delete(note)
         db.session.commit()
@@ -252,4 +313,7 @@ def delete_note(note_id):
         db.session.rollback()
         flash(f'ノートの削除中にエラーが発生しました: {e}', 'error')
         current_app.logger.error(f"Error deleting general note ID {note_id}: {e}", exc_info=True)
+    # イベント紐付きの場合、イベント詳細ページにリダイレクト
+    if event_id:
+        return redirect(url_for('event.event_detail', event_id=event_id))
     return redirect(url_for('notes.notes_log'))

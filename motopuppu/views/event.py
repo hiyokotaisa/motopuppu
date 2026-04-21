@@ -7,7 +7,7 @@ from datetime import datetime, timezone, date
 from sqlalchemy import func
 from flask_login import login_required, current_user
 from wtforms.validators import Optional
-from ..models import db, Event, EventParticipant, Motorcycle, ParticipationStatus, User, Team
+from ..models import db, Event, EventParticipant, Motorcycle, ParticipationStatus, User, Team, GeneralNote
 from ..forms import EventForm, ParticipantForm
 from ..utils.datetime_helpers import JST
 from .. import limiter
@@ -229,13 +229,29 @@ def event_detail(event_id):
     participants_tentative = event.participants.filter_by(status=ParticipationStatus.TENTATIVE).order_by(EventParticipant.created_at).all()
     participants_not_attending = event.participants.filter_by(status=ParticipationStatus.NOT_ATTENDING).order_by(EventParticipant.created_at).all()
 
+    # イベントに紐付いた準備ノートを取得
+    is_owner = (event.user_id == current_user.id)
+    event_notes = []
+    if is_owner:
+        event_notes = event.notes.all()
+
+    # 走行ログ作成用: 車両未設定でもボタンを表示できるようユーザーの車両リストを取得
+    user_motorcycles = []
+    if is_owner:
+        user_motorcycles = Motorcycle.query.filter_by(
+            user_id=current_user.id, is_archived=False
+        ).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
+
     return render_template(
         'event/event_detail.html', 
         event=event,
         participants_attending=participants_attending,
         participants_tentative=participants_tentative,
         participants_not_attending=participants_not_attending,
-        ical_available=ICALENDAR_AVAILABLE
+        ical_available=ICALENDAR_AVAILABLE,
+        event_notes=event_notes,
+        is_owner=is_owner,
+        user_motorcycles=user_motorcycles
     )
 
 

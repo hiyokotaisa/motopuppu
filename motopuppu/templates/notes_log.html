@@ -238,6 +238,13 @@
                         <i class="fas fa-thumbtack"></i>
                     </span>
                     {% endif %}
+
+                    {# イベント紐付けバッジ #}
+                    {% if note.event_id %}
+                    <span class="badge bg-info-subtle text-info border border-info-subtle ms-1" style="font-size: 0.7rem;" title="イベント: {{ note.event.title if note.event else '' }}">
+                        <i class="fas fa-calendar-check"></i>
+                    </span>
+                    {% endif %}
                 </div>
 
                 {# カードボディ: 内容プレビュー #}
