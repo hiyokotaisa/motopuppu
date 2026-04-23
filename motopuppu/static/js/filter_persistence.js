@@ -143,8 +143,9 @@ document.addEventListener('DOMContentLoaded', () => {
          * フォーム内のリセットボタンの挙動を上書きする
          */
         overrideResetButton() {
-            // テンプレート内のリセットボタンを特定
-            const resetButton = this.form.querySelector('a.btn-outline-secondary');
+            // テンプレート内のリセットボタンを特定 (Classic UI / Beta UI 両対応)
+            const resetButton = this.form.querySelector('a.btn-outline-secondary') ||
+                                this.form.querySelector('a.beta-btn:not(.beta-btn-solid)');
             if (resetButton) {
                 resetButton.addEventListener('click', (event) => {
                     // デフォルトのリンク遷移を一旦停止

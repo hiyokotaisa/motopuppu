@@ -50,7 +50,9 @@
 
         {# Vehicle Switcher #}
         <div class="d-flex flex-wrap gap-2 mb-4">
-            <a href="{{ url_for('maintenance.maintenance_log') }}" class="beta-btn {{ 'beta-btn-solid' if not request_args.get('vehicle_id') }}">
+            <a href="{{ url_for('maintenance.maintenance_log') }}"
+               onclick="['motopuppu_fuelLogFilters','motopuppu_maintenanceLogFilters','motopuppu_noteLogFilters'].forEach(function(k){localStorage.removeItem(k);});"
+               class="beta-btn {{ 'beta-btn-solid' if not request_args.get('vehicle_id') }}">
                 <i class="fas fa-layer-group me-1"></i> すべて
             </a>
             {% for motorcycle in motorcycles %}

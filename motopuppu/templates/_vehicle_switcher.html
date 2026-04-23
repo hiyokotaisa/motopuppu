@@ -130,6 +130,7 @@
     } else {
       // フィルターモード: URLパラメータを更新してリロード
       if (!val) {
+        ['motopuppu_fuelLogFilters','motopuppu_maintenanceLogFilters','motopuppu_noteLogFilters'].forEach(function(k){localStorage.removeItem(k);});
         var allUrl = this.dataset.allUrl;
         if (allUrl) { window.location.href = allUrl; }
         return;
