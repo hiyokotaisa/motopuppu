@@ -96,6 +96,8 @@ def ranking(circuit_name):
         User.misskey_username,
         User.display_name,
         User.avatar_url,
+        User.public_id,
+        User.is_garage_public,
         Motorcycle.name.label('motorcycle_name'),
         subquery.c.best_lap_seconds,
         subquery.c.activity_date
@@ -129,6 +131,11 @@ def ranking(circuit_name):
         days_since = (date.today() - row.activity_date).days
         is_fresh = days_since <= 14
 
+        # ガレージカードが公開されている場合はURLを生成
+        garage_url = None
+        if row.is_garage_public and row.public_id:
+            garage_url = url_for('garage.garage_detail', public_id=row.public_id)
+
         rankings.append({
             'rank': i + 1,
             'username': row.display_name or row.misskey_username,
@@ -143,6 +150,7 @@ def ranking(circuit_name):
             'gap_to_above': f"+{gap_to_above:.3f}" if gap_to_above is not None else None,
             'gap_to_above_raw': float(gap_to_above) if gap_to_above is not None else None,
             # ▲▲▲【追加】ここまで ▲▲▲
+            'garage_url': garage_url,
         })
 
     # ▼▼▼【追加】B-2: ログインユーザーIDをテンプレートに渡す ▼▼▼

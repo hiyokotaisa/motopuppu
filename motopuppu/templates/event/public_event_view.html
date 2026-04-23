@@ -37,7 +37,16 @@
                     {% endif %}
                     <div>
                         <small class="text-muted d-block" style="font-size: 0.75rem;">主催者</small>
+                        {% if event.owner.is_garage_public and event.owner.public_id %}
+                        <a href="{{ url_for('garage.garage_detail', public_id=event.owner.public_id) }}" class="fw-bold text-dark text-decoration-none" title="ガレージを見る"
+                            style="transition: color 0.2s;"
+                            onmouseover="this.style.color='#0d6efd'" onmouseout="this.style.color=''">
+                            {{ event.owner.display_name or event.owner.misskey_username }}
+                            <i class="fas fa-external-link-alt" style="font-size: 0.55rem; opacity: 0.5;"></i>
+                        </a>
+                        {% else %}
                         <span class="fw-bold">{{ event.owner.display_name or event.owner.misskey_username }}</span>
+                        {% endif %}
                     </div>
                 </div>
 
@@ -281,7 +290,15 @@
                     <div class="flex-grow-1">
                         <div class="d-flex justify-content-between align-items-center mb-1">
                             <span class="fw-bold text-dark">
+                                {% if p.user and p.user.is_garage_public and p.user.public_id %}
+                                <a href="{{ url_for('garage.garage_detail', public_id=p.user.public_id) }}" class="text-dark text-decoration-none" title="ガレージを見る" style="transition: color 0.2s;"
+                                    onmouseover="this.style.color='#0d6efd'" onmouseout="this.style.color=''">
+                                    {{ p.name }}
+                                    <i class="fas fa-external-link-alt" style="font-size: 0.55rem; opacity: 0.5;"></i>
+                                </a>
+                                {% else %}
                                 {{ p.name }}
+                                {% endif %}
                                 {% if p.user_id %}
                                 <i class="fas fa-check-circle text-primary small ms-1" title="認証済み"
                                     data-bs-toggle="tooltip"></i>

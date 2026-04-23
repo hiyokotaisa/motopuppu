@@ -36,6 +36,10 @@
     .avatar-img { border-radius: 50%; object-fit: cover; background-color: #fff; }
     .podium-time { font-family: 'Monaco', 'Consolas', monospace; font-weight: bold; font-size: 1.1rem; margin-top: 0.5rem; }
     .podium-user { font-weight: bold; margin-top: 0.5rem; display: block; text-decoration: none; color: #212529; }
+    .podium-user a { color: inherit; text-decoration: none; }
+    .podium-user a:hover { color: #0d6efd; text-decoration: underline; }
+    .garage-link { color: inherit; text-decoration: none; transition: color 0.2s; }
+    .garage-link:hover { color: #0d6efd; text-decoration: underline; }
     .podium-vehicle { font-size: 0.8rem; color: #6c757d; }
 
     /* テーブルスタイル */
@@ -132,7 +136,14 @@
                         <div class="rank-label">{{ item.rank }}</div>
                         <div class="mt-2">
                             <span class="podium-user text-truncate" style="max-width: 120px;">
+                                {% if item.garage_url %}
+                                <a href="{{ item.garage_url }}" title="ガレージを見る">
+                                    {{ item.username }}
+                                    <i class="fas fa-external-link-alt" style="font-size: 0.55rem; opacity: 0.5;"></i>
+                                </a>
+                                {% else %}
                                 {{ item.username }}
+                                {% endif %}
                                 {# ▼▼▼【追加】B-2: 自分マーカー ▼▼▼ #}
                                 {% if current_user_id and item.user_id == current_user_id %}
                                 <i class="fas fa-user-circle text-primary ms-1" title="あなた" style="font-size: 0.7rem;"></i>
@@ -208,7 +219,14 @@
                                 <div class="d-flex align-items-center">
                                     <img src="{{ item.avatar_url or url_for('static', filename='images/blobcat_8bit.webp') }}" alt="{{ item.username }}" class="rounded-circle me-2" style="width: 32px; height: 32px; object-fit: cover;">
                                     <div>
+                                        {% if item.garage_url %}
+                                        <a href="{{ item.garage_url }}" class="garage-link fw-bold" title="ガレージを見る">
+                                            {{ item.username }}
+                                            <i class="fas fa-external-link-alt" style="font-size: 0.55rem; opacity: 0.5;"></i>
+                                        </a>
+                                        {% else %}
                                         <span class="fw-bold text-dark">{{ item.username }}</span>
+                                        {% endif %}
                                         {# ▼▼▼【追加】B-2: 自分マーカー #}
                                         {% if current_user_id and item.user_id == current_user_id %}
                                         <span class="badge bg-primary ms-1" style="font-size: 0.6rem;">YOU</span>
