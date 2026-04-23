@@ -185,8 +185,17 @@
 
                             <hr style="border-color: var(--beta-border); margin: 0.5rem 0;">
 
-                            {# Content Preview #}
-                            <div style="min-height: 80px;">
+                            {# Content Preview (クリックでモーダル表示) #}
+                            <div class="note-clickable" style="min-height: 80px; cursor: pointer;"
+                                data-note-id="{{ note.id }}"
+                                data-note-title="{{ note.title | e }}"
+                                data-note-category="{{ note.category }}"
+                                data-note-date="{{ note.note_date.strftime('%Y/%m/%d') }}"
+                                data-note-vehicle="{{ note.motorcycle.name if note.motorcycle else '' }}"
+                                data-note-pinned="{{ 'true' if note.is_pinned else 'false' }}"
+                                data-note-content="{{ note.content | e if note.content else '' }}"
+                                data-note-todos='{{ note.todos | tojson | e if note.todos else "" }}'
+                                data-note-edit-url="{{ url_for('notes.edit_note', note_id=note.id) }}">
                                 {% if note.category == 'task' and note.todos %}
                                 <ul class="list-unstyled mb-0 small beta-text-secondary">
                                     {% for item in note.todos[:4] %}
@@ -256,14 +265,32 @@
                         <tr>
                             <td class="ps-3">{{ note.note_date.strftime('%Y-%m-%d') }}</td>
                             <td>{% if note.motorcycle %}<a href="{{ url_for('notes.edit_note', note_id=note.id) }}" class="text-decoration-none beta-text-primary">{{ note.motorcycle.name }}</a>{% else %}<span class="beta-text-muted small">--</span>{% endif %}</td>
-                            <td>
+                            <td class="note-clickable" style="cursor: pointer;"
+                                data-note-id="{{ note.id }}"
+                                data-note-title="{{ note.title | e }}"
+                                data-note-category="{{ note.category }}"
+                                data-note-date="{{ note.note_date.strftime('%Y/%m/%d') }}"
+                                data-note-vehicle="{{ note.motorcycle.name if note.motorcycle else '' }}"
+                                data-note-pinned="{{ 'true' if note.is_pinned else 'false' }}"
+                                data-note-content="{{ note.content | e if note.content else '' }}"
+                                data-note-todos='{{ note.todos | tojson | e if note.todos else "" }}'
+                                data-note-edit-url="{{ url_for('notes.edit_note', note_id=note.id) }}">
                                 <span class="me-1">{% if note.category == 'task' %}<i class="fas fa-check-square" style="color: var(--beta-accent-blue);"></i>{% else %}<i class="fas fa-sticky-note beta-text-muted"></i>{% endif %}</span>
-                                <a href="{{ url_for('notes.edit_note', note_id=note.id) }}" class="fw-bold beta-text-primary text-decoration-none">
+                                <span class="fw-bold beta-text-primary">
                                     {% if note.is_pinned %}<i class="fas fa-thumbtack" style="color: var(--beta-accent-amber);"></i> {% endif %}
                                     {{ note.title if note.title else '(タイトルなし)' }}
-                                </a>
+                                </span>
                             </td>
-                            <td>
+                            <td class="note-clickable" style="cursor: pointer;"
+                                data-note-id="{{ note.id }}"
+                                data-note-title="{{ note.title | e }}"
+                                data-note-category="{{ note.category }}"
+                                data-note-date="{{ note.note_date.strftime('%Y/%m/%d') }}"
+                                data-note-vehicle="{{ note.motorcycle.name if note.motorcycle else '' }}"
+                                data-note-pinned="{{ 'true' if note.is_pinned else 'false' }}"
+                                data-note-content="{{ note.content | e if note.content else '' }}"
+                                data-note-todos='{{ note.todos | tojson | e if note.todos else "" }}'
+                                data-note-edit-url="{{ url_for('notes.edit_note', note_id=note.id) }}">
                                 {% if note.category == 'task' and note.todos %}
                                 <ul class="list-unstyled mb-0 small" style="max-height: 80px; overflow-y: hidden;">
                                     {% for item in note.todos[:2] %}
@@ -315,6 +342,65 @@
     </main>
     {% include 'beta/_beta_bottombar.html' %}
 </div>
+
+{# --- ノートプレビュー モーダル --- #}
+<style>
+    #notePreviewModal .modal-content {
+        background: var(--beta-card-bg, #1e293b);
+        color: var(--beta-text-primary, #e2e8f0);
+        border: 1px solid var(--beta-border, rgba(148, 163, 184, 0.15));
+    }
+    #notePreviewModal .modal-header {
+        border-bottom: 1px solid var(--beta-border, rgba(148, 163, 184, 0.15));
+    }
+    #notePreviewModal .modal-footer {
+        border-top: 1px solid var(--beta-border, rgba(148, 163, 184, 0.15));
+    }
+    #notePreviewModal .btn-close {
+        filter: invert(1) grayscale(100%) brightness(200%);
+    }
+    #notePreviewModal .todo-full-list li {
+        position: relative;
+        padding-left: 1.75rem;
+        margin-bottom: 0.4rem;
+        line-height: 1.5;
+    }
+    #notePreviewModal .todo-full-list li i {
+        position: absolute;
+        left: 0;
+        top: 0.3rem;
+    }
+    #notePreviewModal .note-content-full {
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
+</style>
+<div class="modal fade" id="notePreviewModal" tabindex="-1" aria-labelledby="notePreviewModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <span id="notePreviewBadge" class="badge rounded-pill me-2"></span>
+                    <small id="notePreviewDate" class="beta-text-muted"></small>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <h5 id="notePreviewTitle" class="fw-bold mb-1"></h5>
+                <div id="notePreviewMeta" class="mb-3"></div>
+                <hr style="border-color: var(--beta-border); opacity: 0.3;">
+                <div id="notePreviewBody"></div>
+            </div>
+            <div class="modal-footer">
+                <a id="notePreviewEditBtn" href="#" class="btn btn-primary btn-sm">
+                    <i class="fas fa-pen me-1"></i> 編集
+                </a>
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">閉じる</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
@@ -336,6 +422,92 @@ document.addEventListener('DOMContentLoaded', function () {
     setViewMode(localStorage.getItem(STORAGE_KEY) || 'dashboard');
     if (dashboardRadio) dashboardRadio.addEventListener('change', () => setViewMode('dashboard'));
     if (tableRadio) tableRadio.addEventListener('change', () => setViewMode('table'));
+});
+</script>
+<script>
+// --- ノートプレビューモーダル ---
+document.addEventListener('DOMContentLoaded', function () {
+    const modalEl = document.getElementById('notePreviewModal');
+    if (!modalEl) return;
+    const bsModal = new bootstrap.Modal(modalEl);
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    function openNotePreview(el) {
+        const title = el.dataset.noteTitle || '(タイトルなし)';
+        const category = el.dataset.noteCategory;
+        const noteDate = el.dataset.noteDate;
+        const vehicle = el.dataset.noteVehicle;
+        const pinned = el.dataset.notePinned === 'true';
+        const content = el.dataset.noteContent || '';
+        const todosRaw = el.dataset.noteTodos;
+        const editUrl = el.dataset.noteEditUrl;
+
+        const badge = document.getElementById('notePreviewBadge');
+        if (category === 'task') {
+            badge.className = 'beta-badge beta-badge-blue';
+            badge.textContent = 'TASK';
+        } else {
+            badge.className = 'beta-badge';
+            badge.style.cssText = 'background: rgba(148,163,184,0.15); color: var(--beta-text-muted); border: 1px solid rgba(148,163,184,0.3);';
+            badge.textContent = 'NOTE';
+        }
+
+        document.getElementById('notePreviewDate').textContent = noteDate;
+
+        let titleHtml = escapeHtml(title);
+        if (pinned) titleHtml = '<i class="fas fa-thumbtack" style="color: var(--beta-accent-amber);" class="me-1"></i> ' + titleHtml;
+        document.getElementById('notePreviewTitle').innerHTML = titleHtml;
+
+        let metaHtml = '';
+        if (vehicle) {
+            metaHtml += '<span class="beta-badge beta-badge-teal"><i class="fas fa-motorcycle me-1"></i>' + escapeHtml(vehicle) + '</span>';
+        }
+        document.getElementById('notePreviewMeta').innerHTML = metaHtml;
+
+        const bodyEl = document.getElementById('notePreviewBody');
+        if (category === 'task' && todosRaw) {
+            try {
+                const todos = JSON.parse(todosRaw);
+                if (todos.length === 0) {
+                    bodyEl.innerHTML = '<p class="beta-text-muted fst-italic">TODOアイテムなし</p>';
+                } else {
+                    let html = '<ul class="list-unstyled todo-full-list">';
+                    todos.forEach(function(item) {
+                        const checked = item.checked;
+                        const cls = checked ? 'beta-text-muted' : '';
+                        const style = checked ? 'text-decoration: line-through;' : '';
+                        const icon = checked ? 'fa-check-square' : 'fa-square';
+                        html += '<li class="' + cls + '" style="' + style + '"><i class="far ' + icon + '"></i>' + escapeHtml(item.text) + '</li>';
+                    });
+                    html += '</ul>';
+                    bodyEl.innerHTML = html;
+                }
+            } catch(e) {
+                bodyEl.innerHTML = '<p class="beta-text-muted fst-italic">TODOアイテムなし</p>';
+            }
+        } else if (category === 'task') {
+            bodyEl.innerHTML = '<p class="beta-text-muted fst-italic">TODOアイテムなし</p>';
+        } else if (content) {
+            bodyEl.innerHTML = '<div class="note-content-full">' + escapeHtml(content) + '</div>';
+        } else {
+            bodyEl.innerHTML = '<p class="beta-text-muted fst-italic">本文なし</p>';
+        }
+
+        document.getElementById('notePreviewEditBtn').href = editUrl;
+        bsModal.show();
+    }
+
+    document.addEventListener('click', function(e) {
+        const clickable = e.target.closest('.note-clickable');
+        if (!clickable) return;
+        if (e.target.closest('a, button, form')) return;
+        openNotePreview(clickable);
+    });
 });
 </script>
 <script src="{{ url_for('static', filename='js/filter_persistence.js') }}"></script>

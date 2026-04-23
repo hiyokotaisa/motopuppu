@@ -40,6 +40,28 @@
         left: 0;
         top: 0.25rem;
     }
+
+    /* クリック可能エリア */
+    .note-clickable {
+        cursor: pointer;
+    }
+
+    /* モーダル内TODOリスト */
+    #notePreviewModal .todo-full-list li {
+        position: relative;
+        padding-left: 1.75rem;
+        margin-bottom: 0.4rem;
+        line-height: 1.5;
+    }
+    #notePreviewModal .todo-full-list li i {
+        position: absolute;
+        left: 0;
+        top: 0.3rem;
+    }
+    #notePreviewModal .note-content-full {
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
 </style>
 
 {# --- ヘッダーエリア --- #}
@@ -247,8 +269,17 @@
                     {% endif %}
                 </div>
 
-                {# カードボディ: 内容プレビュー #}
-                <div class="card-body pt-2 pb-0">
+                {# カードボディ: 内容プレビュー (クリックでモーダル表示) #}
+                <div class="card-body pt-2 pb-0 note-clickable"
+                    data-note-id="{{ note.id }}"
+                    data-note-title="{{ note.title | e }}"
+                    data-note-category="{{ note.category }}"
+                    data-note-date="{{ note.note_date.strftime('%Y/%m/%d') }}"
+                    data-note-vehicle="{{ note.motorcycle.name if note.motorcycle else '' }}"
+                    data-note-pinned="{{ 'true' if note.is_pinned else 'false' }}"
+                    data-note-content="{{ note.content | e if note.content else '' }}"
+                    data-note-todos='{{ note.todos | tojson | e if note.todos else "" }}'
+                    data-note-edit-url="{{ url_for('notes.edit_note', note_id=note.id) }}">
                     <hr class="my-2 opacity-25">
 
                     <div style="min-height: 80px;">
@@ -348,20 +379,37 @@
                         <span class="text-muted small">--</span>
                         {% endif %}
                     </td>
-                    <td>
+                    <td class="note-clickable"
+                        data-note-id="{{ note.id }}"
+                        data-note-title="{{ note.title | e }}"
+                        data-note-category="{{ note.category }}"
+                        data-note-date="{{ note.note_date.strftime('%Y/%m/%d') }}"
+                        data-note-vehicle="{{ note.motorcycle.name if note.motorcycle else '' }}"
+                        data-note-pinned="{{ 'true' if note.is_pinned else 'false' }}"
+                        data-note-content="{{ note.content | e if note.content else '' }}"
+                        data-note-todos='{{ note.todos | tojson | e if note.todos else "" }}'
+                        data-note-edit-url="{{ url_for('notes.edit_note', note_id=note.id) }}">
                         <span class="me-1" title="カテゴリー: {{ 'タスク' if note.category == 'task' else 'ノート' }}">
                             {% if note.category == 'task' %} <i class="fas fa-check-square text-primary"></i>
                             {% else %} <i class="fas fa-sticky-note text-secondary"></i> {% endif %}
                         </span>
-                        <a href="{{ url_for('notes.edit_note', note_id=note.id) }}"
-                            class="fw-bold text-dark text-decoration-none">
+                        <span class="fw-bold text-dark">
                             {% if note.is_pinned %}
                             <i class="fas fa-thumbtack text-warning me-1"></i>
                             {% endif %}
                             {{ note.title if note.title else '(タイトルなし)' }}
-                        </a>
+                        </span>
                     </td>
-                    <td>
+                    <td class="note-clickable"
+                        data-note-id="{{ note.id }}"
+                        data-note-title="{{ note.title | e }}"
+                        data-note-category="{{ note.category }}"
+                        data-note-date="{{ note.note_date.strftime('%Y/%m/%d') }}"
+                        data-note-vehicle="{{ note.motorcycle.name if note.motorcycle else '' }}"
+                        data-note-pinned="{{ 'true' if note.is_pinned else 'false' }}"
+                        data-note-content="{{ note.content | e if note.content else '' }}"
+                        data-note-todos='{{ note.todos | tojson | e if note.todos else "" }}'
+                        data-note-edit-url="{{ url_for('notes.edit_note', note_id=note.id) }}">
                         {% if note.category == 'task' and note.todos %}
                         <ul class="list-unstyled mb-0 small" style="max-height: 80px; overflow-y: hidden;">
                             {% for item in note.todos[:2] %}
@@ -431,6 +479,33 @@
 </nav>
 {% endif %}
 
+{# --- ノートプレビュー モーダル --- #}
+<div class="modal fade" id="notePreviewModal" tabindex="-1" aria-labelledby="notePreviewModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <span id="notePreviewBadge" class="badge rounded-pill me-2"></span>
+                    <small id="notePreviewDate" class="text-muted"></small>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <h5 id="notePreviewTitle" class="fw-bold mb-1"></h5>
+                <div id="notePreviewMeta" class="mb-3"></div>
+                <hr class="opacity-25">
+                <div id="notePreviewBody"></div>
+            </div>
+            <div class="modal-footer">
+                <a id="notePreviewEditBtn" href="#" class="btn btn-primary btn-sm">
+                    <i class="fas fa-pen me-1"></i> 編集
+                </a>
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">閉じる</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
@@ -473,6 +548,99 @@
         // Event Listeners
         if (dashboardRadio) dashboardRadio.addEventListener('change', () => setViewMode('dashboard'));
         if (tableRadio) tableRadio.addEventListener('change', () => setViewMode('table'));
+    });
+</script>
+<script>
+    // --- ノートプレビューモーダル ---
+    document.addEventListener('DOMContentLoaded', function () {
+        const modalEl = document.getElementById('notePreviewModal');
+        if (!modalEl) return;
+        const bsModal = new bootstrap.Modal(modalEl);
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function openNotePreview(el) {
+            const title = el.dataset.noteTitle || '(タイトルなし)';
+            const category = el.dataset.noteCategory;
+            const noteDate = el.dataset.noteDate;
+            const vehicle = el.dataset.noteVehicle;
+            const pinned = el.dataset.notePinned === 'true';
+            const content = el.dataset.noteContent || '';
+            const todosRaw = el.dataset.noteTodos;
+            const editUrl = el.dataset.noteEditUrl;
+
+            // バッジ
+            const badge = document.getElementById('notePreviewBadge');
+            if (category === 'task') {
+                badge.className = 'badge rounded-pill bg-primary-subtle text-primary border border-primary-subtle';
+                badge.textContent = 'TASK';
+            } else {
+                badge.className = 'badge rounded-pill bg-secondary-subtle text-secondary border border-secondary-subtle';
+                badge.textContent = 'NOTE';
+            }
+
+            // 日付
+            document.getElementById('notePreviewDate').textContent = noteDate;
+
+            // タイトル
+            let titleHtml = escapeHtml(title);
+            if (pinned) titleHtml = '<i class="fas fa-thumbtack text-warning me-1"></i>' + titleHtml;
+            document.getElementById('notePreviewTitle').innerHTML = titleHtml;
+
+            // メタ情報
+            let metaHtml = '';
+            if (vehicle) {
+                metaHtml += '<span class="badge bg-light text-dark border me-1"><i class="fas fa-motorcycle me-1"></i>' + escapeHtml(vehicle) + '</span>';
+            }
+            document.getElementById('notePreviewMeta').innerHTML = metaHtml;
+
+            // 本文
+            const bodyEl = document.getElementById('notePreviewBody');
+            if (category === 'task' && todosRaw) {
+                try {
+                    const todos = JSON.parse(todosRaw);
+                    if (todos.length === 0) {
+                        bodyEl.innerHTML = '<p class="text-muted fst-italic">TODOアイテムなし</p>';
+                    } else {
+                        let html = '<ul class="list-unstyled todo-full-list">';
+                        todos.forEach(function(item) {
+                            const checked = item.checked;
+                            const cls = checked ? 'text-muted text-decoration-line-through' : '';
+                            const icon = checked ? 'fa-check-square' : 'fa-square';
+                            html += '<li class="' + cls + '"><i class="far ' + icon + '"></i>' + escapeHtml(item.text) + '</li>';
+                        });
+                        html += '</ul>';
+                        bodyEl.innerHTML = html;
+                    }
+                } catch(e) {
+                    bodyEl.innerHTML = '<p class="text-muted fst-italic">TODOアイテムなし</p>';
+                }
+            } else if (category === 'task') {
+                bodyEl.innerHTML = '<p class="text-muted fst-italic">TODOアイテムなし</p>';
+            } else if (content) {
+                bodyEl.innerHTML = '<div class="note-content-full">' + escapeHtml(content) + '</div>';
+            } else {
+                bodyEl.innerHTML = '<p class="text-muted fst-italic">本文なし</p>';
+            }
+
+            // 編集ボタン
+            document.getElementById('notePreviewEditBtn').href = editUrl;
+
+            bsModal.show();
+        }
+
+        // イベント委譲: .note-clickable をクリック
+        document.addEventListener('click', function(e) {
+            const clickable = e.target.closest('.note-clickable');
+            if (!clickable) return;
+            // アクションボタン（リンク、ボタン、フォーム内要素）のクリックはモーダルを開かない
+            if (e.target.closest('a, button, form')) return;
+            openNotePreview(clickable);
+        });
     });
 </script>
 {# ▼▼▼ 作成した filter_persistence.js を読み込む ▼▼▼ #}
