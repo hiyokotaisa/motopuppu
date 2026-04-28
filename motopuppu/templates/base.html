@@ -51,6 +51,12 @@
     </style>
 
     {% block styles %}{% endblock %}
+
+    {# --- Google AdSense サイト所有権確認用スクリプト --- #}
+    {% if config.GOOGLE_ADSENSE_CLIENT_ID %}
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-{{ config.GOOGLE_ADSENSE_CLIENT_ID }}"
+         crossorigin="anonymous"></script>
+    {% endif %}
   </head>
   {# ▼▼▼ body タグにブロックを追加し、クラスを付与 ▼▼▼ #}
   <body class="{{ 'page-landing' if request.endpoint == 'main.index' else '' }} {% block body_attributes %}{% endblock %}">

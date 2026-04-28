@@ -63,6 +63,8 @@ def create_app(config_name=None):
         GOOGLE_MAPS_API_KEY=os.environ.get('GOOGLE_PLACES_API_KEY'),
         MISSKEY_BOT_API_TOKEN=os.environ.get('MISSKEY_BOT_API_TOKEN'),
         GEMINI_API_KEY=os.environ.get('GEMINI_API_KEY'),
+        GOOGLE_ADSENSE_CLIENT_ID=os.environ.get('GOOGLE_ADSENSE_CLIENT_ID'),
+        GOOGLE_ADSENSE_SLOT_ID=os.environ.get('GOOGLE_ADSENSE_SLOT_ID'),
     )
     # ▲▲▲ 修正ここまで ▲▲▲
 

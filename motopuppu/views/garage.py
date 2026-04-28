@@ -25,6 +25,9 @@ def garage_detail(public_id):
         abort(500, "ガレージデータの生成に失敗しました。")
     
     # データを展開してテンプレートに渡す
+    # Google AdSense設定をコンテキストに追加
+    garage_data['adsense_client_id'] = current_app.config.get('GOOGLE_ADSENSE_CLIENT_ID')
+    garage_data['adsense_slot_id'] = current_app.config.get('GOOGLE_ADSENSE_SLOT_ID')
     return render_template('garage/public_garage.html', **garage_data)
     # ▲▲▲【変更はここまで】▲▲▲
 

@@ -29,6 +29,12 @@
     {% if owner.garage_theme and owner.garage_theme != 'default' %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/garage_themes/theme_' + owner.garage_theme + '.css') }}" onerror="this.onerror=null;this.href='{{ url_for('static', filename='css/garage_themes/theme_default.css') }}';">
     {% endif %}
+
+    {# --- Google AdSense スクリプトの読み込み --- #}
+    {% if adsense_client_id %}
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-{{ adsense_client_id }}"
+         crossorigin="anonymous"></script>
+    {% endif %}
 </head>
 <body class="garage-theme-{{ owner.garage_theme or 'default' }}">
 
@@ -219,6 +225,23 @@
     </div>
     {% endif %}
     
+    {# --- Google AdSense 広告セクション --- #}
+    {% if adsense_client_id %}
+    <hr class="my-5">
+    <div class="text-center">
+        <p class="text-muted small mb-2"><i class="fas fa-ad me-1"></i>広告</p>
+        <ins class="adsbygoogle"
+             style="display:block"
+             data-ad-client="ca-pub-{{ adsense_client_id }}"
+             {% if adsense_slot_id %}data-ad-slot="{{ adsense_slot_id }}"{% endif %}
+             data-ad-format="auto"
+             data-full-width-responsive="true"></ins>
+        <script>
+             (adsbygoogle = window.adsbygoogle || []).push({});
+        </script>
+    </div>
+    {% endif %}
+
     <footer class="text-center mt-5">
         <p class="footer-brand">
             <a href="{{ url_for('main.index', _external=True) }}" class="text-decoration-none">もとぷっぷー</a>であなたのガレージも公開しよう！
