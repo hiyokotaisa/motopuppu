@@ -47,16 +47,25 @@
         </div>
 
         {% if motorcycles %}
+        {# アクティブ車両とアーカイブ車両に分割 #}
+        {% set active_motorcycles = motorcycles | rejectattr('is_archived') | list %}
+        {% set archived_motorcycles = motorcycles | selectattr('is_archived') | list %}
+
+        {# --- アクティブ車両セクション --- #}
+        <div class="d-flex align-items-center mb-3">
+            <h5 class="mb-0 fw-bold beta-text-primary"><i class="fas fa-motorcycle me-2" style="color: var(--beta-accent);"></i>アクティブな車両</h5>
+            <span class="beta-badge beta-badge-teal ms-2">{{ active_motorcycles | length }}</span>
+        </div>
+
+        {% if active_motorcycles %}
         {# Vehicle Cards Grid #}
         <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4">
-            {% for motorcycle in motorcycles %}
+            {% for motorcycle in active_motorcycles %}
             <div class="col">
-                <div class="beta-widget-card h-100 {% if motorcycle.is_archived %}beta-vehicle-archived{% endif %}" style="position: relative;">
+                <div class="beta-widget-card h-100" style="position: relative;">
                     {# アクセントライン #}
                     {% if motorcycle.is_default %}
                     <div style="position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, var(--beta-accent-amber), var(--beta-accent-amber)); border-radius: 12px 12px 0 0;"></div>
-                    {% elif motorcycle.is_archived %}
-                    <div style="position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--beta-text-muted); opacity: 0.3; border-radius: 12px 12px 0 0;"></div>
                     {% else %}
                     <div style="position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, var(--beta-accent), var(--beta-accent-emerald)); border-radius: 12px 12px 0 0;"></div>
                     {% endif %}
@@ -173,6 +182,114 @@
             </div>
             {% endfor %}
         </div>
+        {% else %}
+        <div class="text-center py-4 mb-4 beta-widget-card">
+            <div class="beta-widget-body">
+                <p class="beta-text-muted mb-0 small">アクティブな車両はありません。</p>
+            </div>
+        </div>
+        {% endif %}
+
+        {# --- アーカイブ車両セクション (折りたたみ) --- #}
+        {% if archived_motorcycles %}
+        <div class="mt-5">
+            <button class="beta-btn w-100 d-flex justify-content-between align-items-center" type="button"
+                    data-bs-toggle="collapse" data-bs-target="#archivedVehiclesCollapse"
+                    aria-expanded="false" aria-controls="archivedVehiclesCollapse" id="archivedVehiclesToggleBtn"
+                    style="padding: 0.75rem 1rem;">
+                <span>
+                    <i class="fas fa-archive me-2"></i>アーカイブされた車両
+                    <span class="beta-badge ms-1" style="background: rgba(148, 163, 184, 0.2); color: var(--beta-text-muted);">{{ archived_motorcycles | length }}</span>
+                </span>
+                <i class="fas fa-chevron-down archive-toggle-icon"></i>
+            </button>
+            <div class="collapse mt-3" id="archivedVehiclesCollapse">
+                <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4">
+                    {% for motorcycle in archived_motorcycles %}
+                    <div class="col">
+                        <div class="beta-widget-card h-100 beta-vehicle-archived" style="position: relative;">
+                            <div style="position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--beta-text-muted); opacity: 0.3; border-radius: 12px 12px 0 0;"></div>
+                            <div class="beta-widget-body" style="padding: 1.25rem;">
+                                {# ヘッダー: 車両名、ステータス #}
+                                <div class="d-flex justify-content-between align-items-start mb-3">
+                                    <div class="d-flex align-items-center" style="max-width: 80%;">
+                                        {% if motorcycle.image_url %}
+                                        <img src="{{ motorcycle.image_url }}" alt="{{ motorcycle.name }}" class="beta-vehicle-img me-2" style="width: 36px; height: 36px;">
+                                        {% else %}
+                                        <div class="beta-widget-icon me-2" style="background: rgba(148, 163, 184, 0.15); color: var(--beta-text-muted); width: 36px; height: 36px; border-radius: 8px;">
+                                            <i class="fas fa-motorcycle"></i>
+                                        </div>
+                                        {% endif %}
+                                        <div class="text-truncate">
+                                            <a href="{{ url_for('vehicle.dashboard', vehicle_id=motorcycle.id) }}" class="text-decoration-none fw-bold beta-text-primary" style="font-size: 1rem;">{{ motorcycle.name }}</a>
+                                            <div class="d-flex gap-1 mt-1">
+                                                <span class="beta-badge" style="background: rgba(148, 163, 184, 0.2); color: var(--beta-text-muted);"><i class="fas fa-archive me-1"></i>アーカイブ</span>
+                                                {% if motorcycle.is_racer %}
+                                                <span class="beta-badge beta-badge-racer"><i class="fas fa-flag-checkered me-1"></i>レーサー</span>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {# アクションドロップダウン #}
+                                    <div class="dropdown" style="z-index: 10;">
+                                        <button class="beta-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="padding: 0.2rem 0.5rem;">
+                                            <i class="fas fa-ellipsis-v"></i>
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                                            <li><a class="dropdown-item" href="{{ url_for('vehicle.edit_vehicle', vehicle_id=motorcycle.id) }}"><i class="fas fa-edit fa-fw me-2"></i>編集</a></li>
+                                            <li><a class="dropdown-item" href="{{ url_for('vehicle.dashboard', vehicle_id=motorcycle.id) }}"><i class="fas fa-tachometer-alt fa-fw me-2"></i>ダッシュボード</a></li>
+                                            {% if not motorcycle.is_default %}
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li>
+                                                <form action="{{ url_for('vehicle.unarchive_vehicle', vehicle_id=motorcycle.id) }}" method="POST" class="m-0 p-0" onsubmit="return confirm('「{{ motorcycle.name }}」をアーカイブから復元しますか？');">
+                                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                                    <button type="submit" class="dropdown-item" style="color: var(--beta-accent-emerald);"><i class="fas fa-box-open fa-fw me-2"></i>アーカイブ解除</button>
+                                                </form>
+                                            </li>
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li>
+                                                <form action="{{ url_for('vehicle.delete_vehicle', vehicle_id=motorcycle.id) }}" method="POST" class="m-0 p-0" onsubmit="return confirm('本当に「{{ motorcycle.name }}」を削除してもよろしいですか？\n\n【警告】\nこの車両に紐づく全てのデータ（給油、整備、走行ログ、ツーリングログ、ノート等）が完全に削除されます。\nこの操作は元に戻すことができません。');">
+                                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                                    <button type="submit" class="dropdown-item" style="color: var(--beta-accent-red);"><i class="fas fa-trash fa-fw me-2"></i>削除</button>
+                                                </form>
+                                            </li>
+                                            {% endif %}
+                                        </ul>
+                                    </div>
+                                </div>
+
+                                {# サマリー情報 #}
+                                <div class="d-flex flex-wrap gap-3 mb-3 small beta-text-secondary" style="opacity: 0.6;">
+                                    {% if motorcycle.maker %}
+                                    <span><i class="fas fa-industry fa-fw me-1 beta-text-muted"></i>{{ motorcycle.maker }}</span>
+                                    {% endif %}
+                                    {% if motorcycle.year %}
+                                    <span><i class="fas fa-calendar fa-fw me-1 beta-text-muted"></i>{{ motorcycle.year }}</span>
+                                    {% endif %}
+                                    {% if motorcycle.is_racer %}
+                                    <span><i class="fas fa-stopwatch fa-fw me-1 beta-text-muted"></i><strong class="beta-text-primary">{{ "%.2f"|format(motorcycle.display_operating_hours if motorcycle.display_operating_hours is not none else 0) }} h</strong></span>
+                                    {% else %}
+                                    <span><i class="fas fa-road fa-fw me-1 beta-text-muted"></i><strong class="beta-text-primary">{{ "{:,.0f}".format(motorcycle.get_display_total_mileage() | int) }} km</strong></span>
+                                    {% endif %}
+                                </div>
+
+                                {# ナビゲーションリンク #}
+                                <div class="d-flex flex-wrap gap-2" style="opacity: 0.6;">
+                                    <a href="{{ url_for('activity.list_activities', vehicle_id=motorcycle.id) }}" class="beta-btn" style="font-size: 0.7rem;">
+                                        <i class="fas fa-flag-checkered me-1"></i>走行 <span class="beta-badge beta-badge-teal ms-1">{{ motorcycle.activity_log_count }}</span>
+                                    </a>
+                                    <a href="{{ url_for('maintenance.maintenance_log', motorcycle_id=motorcycle.id) }}" class="beta-btn" style="font-size: 0.7rem;">
+                                        <i class="fas fa-tools me-1"></i>整備 <span class="beta-badge beta-badge-amber ms-1">{{ motorcycle.maintenance_entries.count() }}</span>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
 
         {% else %}
         {# 空状態 #}
@@ -199,6 +316,12 @@
     }
     .beta-vehicle-archived:hover {
         opacity: 0.9;
+    }
+    .archive-toggle-icon {
+        transition: transform 0.2s ease;
+    }
+    [aria-expanded="true"] .archive-toggle-icon {
+        transform: rotate(180deg);
     }
 </style>
 {% endblock %}

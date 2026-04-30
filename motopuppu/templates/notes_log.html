@@ -6,6 +6,208 @@
 {% block content %}
 {% include '_breadcrumbs.html' %}
 
+{# --- ノートカード/行のマクロ定義 (ongoing/completed の両セクションで再利用) --- #}
+{% macro render_note_card(note) %}
+<div class="col">
+    <div class="card h-100 border-0 shadow-sm hover-lift note-card type-{{ note.category }}">
+
+        {# カードヘッダー: タイトルとバッジ #}
+        <div class="card-header bg-white border-0 pt-3 pb-0 d-flex justify-content-between align-items-start">
+            <div class="flex-grow-1 me-2">
+                <div class="mb-1">
+                    {% if note.category == 'task' %}
+                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill"
+                        style="font-size: 0.7rem;">TASK</span>
+                    {% else %}
+                    <span
+                        class="badge bg-secondary-subtle text-secondary border border-secondary-subtle rounded-pill"
+                        style="font-size: 0.7rem;">NOTE</span>
+                    {% endif %}
+                    <small class="text-muted ms-1" style="font-size: 0.75rem;">{{
+                        note.note_date.strftime('%Y/%m/%d') }}</small>
+                </div>
+                <h5 class="card-title fw-bold mb-0 text-dark fs-6 text-truncate" title="{{ note.title }}">
+                    {{ note.title if note.title else '(タイトルなし)' }}
+                </h5>
+            </div>
+
+            {% if note.motorcycle %}
+            <span class="badge bg-light text-dark border"
+                style="font-size: 0.7rem; max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                {{ note.motorcycle.name }}
+            </span>
+            {% endif %}
+
+            {% if note.is_pinned %}
+            <span class="badge bg-warning text-dark border ms-1" style="font-size: 0.7rem;">
+                <i class="fas fa-thumbtack"></i>
+            </span>
+            {% endif %}
+
+            {% if note.event_id %}
+            <span class="badge bg-info-subtle text-info border border-info-subtle ms-1" style="font-size: 0.7rem;" title="イベント: {{ note.event.title if note.event else '' }}">
+                <i class="fas fa-calendar-check"></i>
+            </span>
+            {% endif %}
+        </div>
+
+        {# カードボディ #}
+        <div class="card-body pt-2 pb-0 note-clickable"
+            data-note-id="{{ note.id }}"
+            data-note-title="{{ note.title | e }}"
+            data-note-category="{{ note.category }}"
+            data-note-date="{{ note.note_date.strftime('%Y/%m/%d') }}"
+            data-note-vehicle="{{ note.motorcycle.name if note.motorcycle else '' }}"
+            data-note-pinned="{{ 'true' if note.is_pinned else 'false' }}"
+            data-note-content="{{ note.content | e if note.content else '' }}"
+            data-note-todos='{{ note.todos | tojson | e if note.todos else "" }}'
+            data-note-edit-url="{{ url_for('notes.edit_note', note_id=note.id) }}">
+            <hr class="my-2 opacity-25">
+
+            <div style="min-height: 80px;">
+                {% if note.category == 'task' and note.todos %}
+                <ul class="list-unstyled mb-0 todo-preview-list small text-secondary">
+                    {% for item in note.todos[:4] %}
+                    <li class="text-truncate {% if item.checked %}text-muted text-decoration-line-through{% endif %}">
+                        <i class="far {{ 'fa-check-square' if item.checked else 'fa-square' }} me-2"></i>
+                        {{ item.text | escape }}
+                    </li>
+                    {% endfor %}
+                    {% if note.todos|length > 4 %}
+                    <li class="text-muted fst-italic ps-4">...他 {{ note.todos|length - 4 }} 件</li>
+                    {% endif %}
+                </ul>
+                {% elif note.category == 'task' %}
+                <p class="text-muted small fst-italic">TODOアイテムなし</p>
+                {% elif note.content %}
+                <p class="card-text text-secondary small"
+                    style="display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden;">
+                    {{ note.content | striptags }}
+                </p>
+                {% else %}
+                <p class="text-muted small fst-italic">本文なし</p>
+                {% endif %}
+            </div>
+        </div>
+
+        {# カードフッター: アクション #}
+        <div class="card-footer bg-white border-0 pt-0 pb-3 mt-2">
+            <div class="d-flex justify-content-end align-items-center">
+                <a href="{{ url_for('notes.edit_note', note_id=note.id) }}"
+                    class="btn btn-sm btn-outline-secondary border-0 rounded-circle p-2" title="編集"
+                    style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-pen fa-xs"></i>
+                </a>
+                <form action="{{ url_for('notes.delete_note', note_id=note.id) }}" method="POST"
+                    class="d-inline ms-1" onsubmit="return confirm('このノートを削除してもよろしいですか？');">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                    <button type="submit" class="btn btn-sm btn-outline-danger border-0 rounded-circle p-2"
+                        title="削除"
+                        style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
+                        <i class="fas fa-trash fa-xs"></i>
+                    </button>
+                </form>
+                <button class="btn btn-sm btn-outline-info border-0 rounded-circle p-2 ms-1 btn-share-misskey"
+                    data-type="note" data-category="{{ note.category }}"
+                    data-date="{{ note.note_date.isoformat() }}" data-title="{{ note.title or '' }}"
+                    data-vehicle-name="{{ note.motorcycle.name if note.motorcycle else '' }}"
+                    data-content="{{ (note.content[:100] + '...') if note.category == 'note' and note.content and note.content|length > 100 else (note.content or '') if note.category == 'note' else '' }}"
+                    data-todos='{{ note.todos | tojson | safe if note.category == "task" and note.todos else "" }}'
+                    title="Misskeyで共有"
+                    style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-share-alt fa-xs"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endmacro %}
+
+{% macro render_note_row(note) %}
+<tr>
+    <td class="ps-3">{{ note.note_date.strftime('%Y-%m-%d') }}</td>
+    <td>
+        {% if note.motorcycle %}
+        <a href="{{ url_for('notes.edit_note', note_id=note.id) }}"
+            class="text-decoration-none text-dark" title="車両: {{note.motorcycle.name}}">{{
+            note.motorcycle.name }}</a>
+        {% else %}
+        <span class="text-muted small">--</span>
+        {% endif %}
+    </td>
+    <td class="note-clickable"
+        data-note-id="{{ note.id }}"
+        data-note-title="{{ note.title | e }}"
+        data-note-category="{{ note.category }}"
+        data-note-date="{{ note.note_date.strftime('%Y/%m/%d') }}"
+        data-note-vehicle="{{ note.motorcycle.name if note.motorcycle else '' }}"
+        data-note-pinned="{{ 'true' if note.is_pinned else 'false' }}"
+        data-note-content="{{ note.content | e if note.content else '' }}"
+        data-note-todos='{{ note.todos | tojson | e if note.todos else "" }}'
+        data-note-edit-url="{{ url_for('notes.edit_note', note_id=note.id) }}">
+        <span class="me-1" title="カテゴリー: {{ 'タスク' if note.category == 'task' else 'ノート' }}">
+            {% if note.category == 'task' %} <i class="fas fa-check-square text-primary"></i>
+            {% else %} <i class="fas fa-sticky-note text-secondary"></i> {% endif %}
+        </span>
+        <span class="fw-bold text-dark">
+            {% if note.is_pinned %}
+            <i class="fas fa-thumbtack text-warning me-1"></i>
+            {% endif %}
+            {{ note.title if note.title else '(タイトルなし)' }}
+        </span>
+    </td>
+    <td class="note-clickable"
+        data-note-id="{{ note.id }}"
+        data-note-title="{{ note.title | e }}"
+        data-note-category="{{ note.category }}"
+        data-note-date="{{ note.note_date.strftime('%Y/%m/%d') }}"
+        data-note-vehicle="{{ note.motorcycle.name if note.motorcycle else '' }}"
+        data-note-pinned="{{ 'true' if note.is_pinned else 'false' }}"
+        data-note-content="{{ note.content | e if note.content else '' }}"
+        data-note-todos='{{ note.todos | tojson | e if note.todos else "" }}'
+        data-note-edit-url="{{ url_for('notes.edit_note', note_id=note.id) }}">
+        {% if note.category == 'task' and note.todos %}
+        <ul class="list-unstyled mb-0 small" style="max-height: 80px; overflow-y: hidden;">
+            {% for item in note.todos[:2] %}
+            <li class="text-truncate {% if item.checked %}text-muted text-decoration-line-through{% endif %}">
+                <i class="far {{ 'fa-check-square' if item.checked else 'fa-square' }} me-1"></i>
+                {{ item.text | escape }}
+            </li>
+            {% endfor %}
+            {% if note.todos|length > 2 %}
+            <li class="text-muted fst-italic">他 {{ note.todos|length - 2 }} 件...</li>
+            {% endif %}
+        </ul>
+        {% elif note.category == 'task' %}
+        <span class="text-muted small">（TODOアイテムなし）</span>
+        {% else %}
+        <span class="text-muted small text-truncate d-inline-block" style="max-width: 300px;">
+            {{ note.content | striptags | truncate(60) if note.content else '-' }}
+        </span>
+        {% endif %}
+    </td>
+    <td class="text-center text-nowrap">
+        <a href="{{ url_for('notes.edit_note', note_id=note.id) }}"
+            class="btn btn-sm btn-outline-secondary border-0"><i class="fas fa-edit"></i></a>
+        <form action="{{ url_for('notes.delete_note', note_id=note.id) }}" method="POST"
+            class="d-inline" onsubmit="return confirm('このノートを削除してもよろしいですか？');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+            <button type="submit" class="btn btn-sm btn-outline-danger border-0"><i
+                    class="fas fa-trash"></i></button>
+        </form>
+        <button class="btn btn-sm btn-info btn-share-misskey ms-1" data-type="note"
+            data-category="{{ note.category }}" data-date="{{ note.note_date.isoformat() }}"
+            data-title="{{ note.title or '' }}"
+            data-vehicle-name="{{ note.motorcycle.name if note.motorcycle else '' }}"
+            data-content="{{ (note.content[:100] + '...') if note.category == 'note' and note.content and note.content|length > 100 else (note.content or '') if note.category == 'note' else '' }}"
+            data-todos='{{ note.todos | tojson | safe if note.category == "task" and note.todos else "" }}'
+            title="Misskeyで共有">
+            <i class="fa-solid fa-share-nodes fa-fw"></i>
+        </button>
+    </td>
+</tr>
+{% endmacro %}
+
 <style>
     /* --- カードグリッド表示用CSS --- */
     .hover-lift {
@@ -61,6 +263,14 @@
     #notePreviewModal .note-content-full {
         white-space: pre-wrap;
         word-break: break-word;
+    }
+
+    /* 完了済みタスクセクションのトグルアイコン */
+    .completed-toggle-icon {
+        transition: transform 0.2s ease;
+    }
+    [aria-expanded="true"] .completed-toggle-icon {
+        transform: rotate(180deg);
     }
 </style>
 
@@ -178,6 +388,17 @@
 {% endwith %}
 
 
+{# --- ongoing / completed タスクの分割 --- #}
+{# 'task' カテゴリで、TODOが1件以上あり、すべてチェック済みのものを「完了済み」とする #}
+{% set ns = namespace(ongoing=[], completed=[]) %}
+{% for note in entries %}
+    {% if note.category == 'task' and note.todos and note.todos|length > 0 and (note.todos | rejectattr('checked') | list | length == 0) %}
+        {% set ns.completed = ns.completed + [note] %}
+    {% else %}
+        {% set ns.ongoing = ns.ongoing + [note] %}
+    {% endif %}
+{% endfor %}
+
 {# ================================================================= #}
 {# ▼▼▼ VIEW MODE 1: DASHBOARD (カードグリッド形式) ▼▼▼ #}
 {# ================================================================= #}
@@ -221,127 +442,44 @@
 
     {# 2. ノートカード一覧 (Masonry的なグリッド) #}
     {% if entries %}
+    {# --- 進行中(ongoing)カード一覧 --- #}
+    <div class="d-flex align-items-center mb-3">
+        <h5 class="mb-0 fw-bold text-dark"><i class="fas fa-list-check me-2 text-primary"></i>進行中・メモ</h5>
+        <span class="badge bg-primary rounded-pill ms-2">{{ ns.ongoing | length }}</span>
+    </div>
+    {% if ns.ongoing %}
     <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4">
-        {% for note in entries %}
-        <div class="col">
-            <div class="card h-100 border-0 shadow-sm hover-lift note-card type-{{ note.category }}">
-
-                {# カードヘッダー: タイトルとバッジ #}
-                <div class="card-header bg-white border-0 pt-3 pb-0 d-flex justify-content-between align-items-start">
-                    <div class="flex-grow-1 me-2">
-                        <div class="mb-1">
-                            {% if note.category == 'task' %}
-                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill"
-                                style="font-size: 0.7rem;">TASK</span>
-                            {% else %}
-                            <span
-                                class="badge bg-secondary-subtle text-secondary border border-secondary-subtle rounded-pill"
-                                style="font-size: 0.7rem;">NOTE</span>
-                            {% endif %}
-                            <small class="text-muted ms-1" style="font-size: 0.75rem;">{{
-                                note.note_date.strftime('%Y/%m/%d') }}</small>
-                        </div>
-                        <h5 class="card-title fw-bold mb-0 text-dark fs-6 text-truncate" title="{{ note.title }}">
-                            {{ note.title if note.title else '(タイトルなし)' }}
-                        </h5>
-                    </div>
-
-                    {# 関連車両バッジ (右上に配置) #}
-                    {% if note.motorcycle %}
-                    <span class="badge bg-light text-dark border"
-                        style="font-size: 0.7rem; max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                        {{ note.motorcycle.name }}
-                    </span>
-                    {% endif %}
-
-                    {# ピン留めアイコン (右上に配置) #}
-                    {% if note.is_pinned %}
-                    <span class="badge bg-warning text-dark border ms-1" style="font-size: 0.7rem;">
-                        <i class="fas fa-thumbtack"></i>
-                    </span>
-                    {% endif %}
-
-                    {# イベント紐付けバッジ #}
-                    {% if note.event_id %}
-                    <span class="badge bg-info-subtle text-info border border-info-subtle ms-1" style="font-size: 0.7rem;" title="イベント: {{ note.event.title if note.event else '' }}">
-                        <i class="fas fa-calendar-check"></i>
-                    </span>
-                    {% endif %}
-                </div>
-
-                {# カードボディ: 内容プレビュー (クリックでモーダル表示) #}
-                <div class="card-body pt-2 pb-0 note-clickable"
-                    data-note-id="{{ note.id }}"
-                    data-note-title="{{ note.title | e }}"
-                    data-note-category="{{ note.category }}"
-                    data-note-date="{{ note.note_date.strftime('%Y/%m/%d') }}"
-                    data-note-vehicle="{{ note.motorcycle.name if note.motorcycle else '' }}"
-                    data-note-pinned="{{ 'true' if note.is_pinned else 'false' }}"
-                    data-note-content="{{ note.content | e if note.content else '' }}"
-                    data-note-todos='{{ note.todos | tojson | e if note.todos else "" }}'
-                    data-note-edit-url="{{ url_for('notes.edit_note', note_id=note.id) }}">
-                    <hr class="my-2 opacity-25">
-
-                    <div style="min-height: 80px;">
-                        {% if note.category == 'task' and note.todos %}
-                        <ul class="list-unstyled mb-0 todo-preview-list small text-secondary">
-                            {% for item in note.todos[:4] %}
-                            <li
-                                class="text-truncate {% if item.checked %}text-muted text-decoration-line-through{% endif %}">
-                                <i class="far {{ 'fa-check-square' if item.checked else 'fa-square' }} me-2"></i>
-                                {{ item.text | escape }}
-                            </li>
-                            {% endfor %}
-                            {% if note.todos|length > 4 %}
-                            <li class="text-muted fst-italic ps-4">...他 {{ note.todos|length - 4 }} 件</li>
-                            {% endif %}
-                        </ul>
-                        {% elif note.category == 'task' %}
-                        <p class="text-muted small fst-italic">TODOアイテムなし</p>
-                        {% elif note.content %}
-                        <p class="card-text text-secondary small"
-                            style="display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden;">
-                            {{ note.content | striptags }}
-                        </p>
-                        {% else %}
-                        <p class="text-muted small fst-italic">本文なし</p>
-                        {% endif %}
-                    </div>
-                </div>
-
-                {# カードフッター: アクション #}
-                <div class="card-footer bg-white border-0 pt-0 pb-3 mt-2">
-                    <div class="d-flex justify-content-end align-items-center">
-                        <a href="{{ url_for('notes.edit_note', note_id=note.id) }}"
-                            class="btn btn-sm btn-outline-secondary border-0 rounded-circle p-2" title="編集"
-                            style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
-                            <i class="fas fa-pen fa-xs"></i>
-                        </a>
-                        <form action="{{ url_for('notes.delete_note', note_id=note.id) }}" method="POST"
-                            class="d-inline ms-1" onsubmit="return confirm('このノートを削除してもよろしいですか？');">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-                            <button type="submit" class="btn btn-sm btn-outline-danger border-0 rounded-circle p-2"
-                                title="削除"
-                                style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
-                                <i class="fas fa-trash fa-xs"></i>
-                            </button>
-                        </form>
-                        <button class="btn btn-sm btn-outline-info border-0 rounded-circle p-2 ms-1 btn-share-misskey"
-                            data-type="note" data-category="{{ note.category }}"
-                            data-date="{{ note.note_date.isoformat() }}" data-title="{{ note.title or '' }}"
-                            data-vehicle-name="{{ note.motorcycle.name if note.motorcycle else '' }}"
-                            data-content="{{ (note.content[:100] + '...') if note.category == 'note' and note.content and note.content|length > 100 else (note.content or '') if note.category == 'note' else '' }}"
-                            data-todos='{{ note.todos | tojson | safe if note.category == "task" and note.todos else "" }}'
-                            title="Misskeyで共有"
-                            style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
-                            <i class="fas fa-share-alt fa-xs"></i>
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
+        {% for note in ns.ongoing %}
+        {{ render_note_card(note) }}
         {% endfor %}
     </div>
+    {% else %}
+    <div class="text-center py-3 text-muted small bg-white rounded shadow-sm border">
+        進行中のノート・タスクはありません。
+    </div>
+    {% endif %}
+
+    {# --- 完了済みタスクセクション (折りたたみ) --- #}
+    {% if ns.completed %}
+    <div class="mt-5">
+        <button class="btn btn-outline-secondary w-100 d-flex justify-content-between align-items-center"
+                type="button" data-bs-toggle="collapse" data-bs-target="#completedTasksCardCollapse"
+                aria-expanded="false" aria-controls="completedTasksCardCollapse">
+            <span>
+                <i class="fas fa-check-double me-2"></i>完了済みタスク
+                <span class="badge bg-secondary rounded-pill ms-1">{{ ns.completed | length }}</span>
+            </span>
+            <i class="fas fa-chevron-down completed-toggle-icon"></i>
+        </button>
+        <div class="collapse mt-3" id="completedTasksCardCollapse">
+            <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4">
+                {% for note in ns.completed %}
+                {{ render_note_card(note) }}
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
     {% else %}
     <div class="text-center py-5 text-muted">
         <i class="fas fa-sticky-note fa-3x mb-3 text-light"></i>
@@ -355,6 +493,11 @@
 {# ▼▼▼ VIEW MODE 2: TABLE (既存UIの改善版) ▼▼▼ #}
 {# ================================================================= #}
 <div id="view-table-container" class="d-none">
+    {# --- 進行中(ongoing)テーブル --- #}
+    <div class="d-flex align-items-center mb-2">
+        <h5 class="mb-0 fw-bold text-dark"><i class="fas fa-list-check me-2 text-primary"></i>進行中・メモ</h5>
+        <span class="badge bg-primary rounded-pill ms-2">{{ ns.ongoing | length }}</span>
+    </div>
     <div class="table-responsive bg-white shadow-sm rounded">
         <table class="table table-hover table-sm mb-0 align-middle">
             <thead class="table-light">
@@ -367,98 +510,51 @@
                 </tr>
             </thead>
             <tbody>
-                {% for note in entries %}
-                <tr>
-                    <td class="ps-3">{{ note.note_date.strftime('%Y-%m-%d') }}</td>
-                    <td>
-                        {% if note.motorcycle %}
-                        <a href="{{ url_for('notes.edit_note', note_id=note.id) }}"
-                            class="text-decoration-none text-dark" title="車両: {{note.motorcycle.name}}">{{
-                            note.motorcycle.name }}</a>
-                        {% else %}
-                        <span class="text-muted small">--</span>
-                        {% endif %}
-                    </td>
-                    <td class="note-clickable"
-                        data-note-id="{{ note.id }}"
-                        data-note-title="{{ note.title | e }}"
-                        data-note-category="{{ note.category }}"
-                        data-note-date="{{ note.note_date.strftime('%Y/%m/%d') }}"
-                        data-note-vehicle="{{ note.motorcycle.name if note.motorcycle else '' }}"
-                        data-note-pinned="{{ 'true' if note.is_pinned else 'false' }}"
-                        data-note-content="{{ note.content | e if note.content else '' }}"
-                        data-note-todos='{{ note.todos | tojson | e if note.todos else "" }}'
-                        data-note-edit-url="{{ url_for('notes.edit_note', note_id=note.id) }}">
-                        <span class="me-1" title="カテゴリー: {{ 'タスク' if note.category == 'task' else 'ノート' }}">
-                            {% if note.category == 'task' %} <i class="fas fa-check-square text-primary"></i>
-                            {% else %} <i class="fas fa-sticky-note text-secondary"></i> {% endif %}
-                        </span>
-                        <span class="fw-bold text-dark">
-                            {% if note.is_pinned %}
-                            <i class="fas fa-thumbtack text-warning me-1"></i>
-                            {% endif %}
-                            {{ note.title if note.title else '(タイトルなし)' }}
-                        </span>
-                    </td>
-                    <td class="note-clickable"
-                        data-note-id="{{ note.id }}"
-                        data-note-title="{{ note.title | e }}"
-                        data-note-category="{{ note.category }}"
-                        data-note-date="{{ note.note_date.strftime('%Y/%m/%d') }}"
-                        data-note-vehicle="{{ note.motorcycle.name if note.motorcycle else '' }}"
-                        data-note-pinned="{{ 'true' if note.is_pinned else 'false' }}"
-                        data-note-content="{{ note.content | e if note.content else '' }}"
-                        data-note-todos='{{ note.todos | tojson | e if note.todos else "" }}'
-                        data-note-edit-url="{{ url_for('notes.edit_note', note_id=note.id) }}">
-                        {% if note.category == 'task' and note.todos %}
-                        <ul class="list-unstyled mb-0 small" style="max-height: 80px; overflow-y: hidden;">
-                            {% for item in note.todos[:2] %}
-                            <li
-                                class="text-truncate {% if item.checked %}text-muted text-decoration-line-through{% endif %}">
-                                <i class="far {{ 'fa-check-square' if item.checked else 'fa-square' }} me-1"></i>
-                                {{ item.text | escape }}
-                            </li>
-                            {% endfor %}
-                            {% if note.todos|length > 2 %}
-                            <li class="text-muted fst-italic">他 {{ note.todos|length - 2 }} 件...</li>
-                            {% endif %}
-                        </ul>
-                        {% elif note.category == 'task' %}
-                        <span class="text-muted small">（TODOアイテムなし）</span>
-                        {% else %}
-                        <span class="text-muted small text-truncate d-inline-block" style="max-width: 300px;">
-                            {{ note.content | striptags | truncate(60) if note.content else '-' }}
-                        </span>
-                        {% endif %}
-                    </td>
-                    <td class="text-center text-nowrap">
-                        <a href="{{ url_for('notes.edit_note', note_id=note.id) }}"
-                            class="btn btn-sm btn-outline-secondary border-0"><i class="fas fa-edit"></i></a>
-                        <form action="{{ url_for('notes.delete_note', note_id=note.id) }}" method="POST"
-                            class="d-inline" onsubmit="return confirm('このノートを削除してもよろしいですか？');">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-                            <button type="submit" class="btn btn-sm btn-outline-danger border-0"><i
-                                    class="fas fa-trash"></i></button>
-                        </form>
-                        <button class="btn btn-sm btn-info btn-share-misskey ms-1" data-type="note"
-                            data-category="{{ note.category }}" data-date="{{ note.note_date.isoformat() }}"
-                            data-title="{{ note.title or '' }}"
-                            data-vehicle-name="{{ note.motorcycle.name if note.motorcycle else '' }}"
-                            data-content="{{ (note.content[:100] + '...') if note.category == 'note' and note.content and note.content|length > 100 else (note.content or '') if note.category == 'note' else '' }}"
-                            data-todos='{{ note.todos | tojson | safe if note.category == "task" and note.todos else "" }}'
-                            title="Misskeyで共有">
-                            <i class="fa-solid fa-share-nodes fa-fw"></i>
-                        </button>
-                    </td>
-                </tr>
+                {% for note in ns.ongoing %}
+                {{ render_note_row(note) }}
                 {% else %}
                 <tr>
-                    <td colspan="5" class="text-center py-4 text-muted">ノートがありません</td>
+                    <td colspan="5" class="text-center py-4 text-muted">進行中のノート・タスクはありません</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
+
+    {# --- 完了済みタスクテーブル (折りたたみ) --- #}
+    {% if ns.completed %}
+    <div class="mt-4">
+        <button class="btn btn-outline-secondary w-100 d-flex justify-content-between align-items-center"
+                type="button" data-bs-toggle="collapse" data-bs-target="#completedTasksTableCollapse"
+                aria-expanded="false" aria-controls="completedTasksTableCollapse">
+            <span>
+                <i class="fas fa-check-double me-2"></i>完了済みタスク
+                <span class="badge bg-secondary rounded-pill ms-1">{{ ns.completed | length }}</span>
+            </span>
+            <i class="fas fa-chevron-down completed-toggle-icon"></i>
+        </button>
+        <div class="collapse mt-3" id="completedTasksTableCollapse">
+            <div class="table-responsive bg-white shadow-sm rounded">
+                <table class="table table-hover table-sm mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 12%;">日付</th>
+                            <th style="width: 15%;">関連車両</th>
+                            <th style="width: 25%;">タイトル</th>
+                            <th style="width: 35%;">内容 / TODOリスト</th>
+                            <th style="width: 13%;" class="text-center">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for note in ns.completed %}
+                        {{ render_note_row(note) }}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 </div>
 
 {# --- ページネーション (共通) --- #}

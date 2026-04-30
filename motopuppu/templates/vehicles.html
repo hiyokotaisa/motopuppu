@@ -53,6 +53,13 @@
         position: relative;
         z-index: 10;
     }
+    /* アーカイブセクションのトグルアイコン */
+    .archive-toggle-icon {
+        transition: transform 0.2s ease;
+    }
+    [aria-expanded="true"] .archive-toggle-icon {
+        transform: rotate(180deg);
+    }
 </style>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -87,10 +94,21 @@
 </div>
 
 {% if motorcycles %}
+{# アクティブ車両とアーカイブ車両に分割 #}
+{% set active_motorcycles = motorcycles | rejectattr('is_archived') | list %}
+{% set archived_motorcycles = motorcycles | selectattr('is_archived') | list %}
+
+{# --- アクティブ車両セクション --- #}
+<div class="d-flex align-items-center mb-3">
+    <h4 class="mb-0 fw-bold text-dark"><i class="fas fa-motorcycle me-2 text-primary"></i>アクティブな車両</h4>
+    <span class="badge bg-primary rounded-pill ms-2">{{ active_motorcycles | length }}</span>
+</div>
+
+{% if active_motorcycles %}
 <div class="row row-cols-1 row-cols-lg-2 g-4">
-    {% for motorcycle in motorcycles %}
+    {% for motorcycle in active_motorcycles %}
     <div class="col">
-        <div class="card vehicle-card shadow-sm hover-lift h-100 {% if motorcycle.is_archived %}archived-vehicle{% elif motorcycle.is_default %}default-vehicle{% endif %}">
+        <div class="card vehicle-card shadow-sm hover-lift h-100 {% if motorcycle.is_default %}default-vehicle{% endif %}">
             <div class="card-body p-4 d-flex flex-column">
 
                 {# ヘッダー: 車両名とステータス #}
@@ -239,6 +257,147 @@
     </div>
     {% endfor %}
 </div>
+{% else %}
+<div class="text-center py-4 mb-4 bg-white rounded-3 shadow-sm border">
+    <p class="text-muted mb-0 small">アクティブな車両はありません。</p>
+</div>
+{% endif %}
+
+{# --- アーカイブ車両セクション (折りたたみ) --- #}
+{% if archived_motorcycles %}
+<div class="mt-5">
+    <button class="btn btn-outline-secondary w-100 d-flex justify-content-between align-items-center"
+            type="button" data-bs-toggle="collapse" data-bs-target="#archivedVehiclesCollapse"
+            aria-expanded="false" aria-controls="archivedVehiclesCollapse" id="archivedVehiclesToggleBtn">
+        <span>
+            <i class="fas fa-archive me-2"></i>アーカイブされた車両
+            <span class="badge bg-secondary rounded-pill ms-1">{{ archived_motorcycles | length }}</span>
+        </span>
+        <i class="fas fa-chevron-down archive-toggle-icon"></i>
+    </button>
+    <div class="collapse mt-3" id="archivedVehiclesCollapse">
+        <div class="row row-cols-1 row-cols-lg-2 g-4">
+            {% for motorcycle in archived_motorcycles %}
+            <div class="col">
+                <div class="card vehicle-card shadow-sm hover-lift h-100 archived-vehicle">
+                    <div class="card-body p-4 d-flex flex-column">
+
+                        {# ヘッダー: 車両名とステータス #}
+                        <div class="d-flex justify-content-between align-items-start mb-3 position-relative">
+                            <h5 class="card-title fw-bold mb-0 d-flex align-items-center text-truncate" style="max-width: 85%;">
+                                {% if motorcycle.image_url %}
+                                    <img src="{{ motorcycle.image_url }}" alt="{{ motorcycle.name }}" class="rounded-circle border me-2" style="width: 32px; height: 32px; object-fit: cover;">
+                                {% endif %}
+                                <a href="{{ url_for('vehicle.edit_vehicle', vehicle_id=motorcycle.id) }}" class="text-decoration-none text-dark">{{ motorcycle.name }}</a>
+                                <span class="badge bg-secondary ms-2 fw-normal" style="font-size: 0.7rem;">アーカイブ</span>
+                            </h5>
+                        </div>
+
+                        {# サマリー情報エリア #}
+                        <div class="row g-2 mb-4 small rounded bg-light p-2 opacity-75">
+                            <div class="col-6">
+                                <div class="d-flex align-items-center mb-1">
+                                    <i class="fas fa-industry fa-fw text-muted me-2"></i>
+                                    <span class="text-muted me-1">Maker:</span> {{ motorcycle.maker or '-' }}
+                                </div>
+                                <div class="d-flex align-items-center mb-1">
+                                    <i class="fas fa-calendar fa-fw text-muted me-2"></i>
+                                    <span class="text-muted me-1">Year:</span> {{ motorcycle.year or '-' }}
+                                </div>
+                                <div class="d-flex align-items-center">
+                                    <i class="fas fa-road fa-fw text-muted me-2"></i>
+                                    {% if motorcycle.is_racer %}
+                                        <span class="text-muted me-1">Hours:</span> <strong>{{ "%.2f"|format(motorcycle.display_operating_hours if motorcycle.display_operating_hours is not none else 0) }} h</strong>
+                                    {% else %}
+                                        <span class="text-muted me-1">ODO:</span> <strong>{{ "{:,.0f}".format(motorcycle.get_display_total_mileage() | int) }} km</strong>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                {% if not motorcycle.is_racer %}
+                                    <div class="d-flex align-items-center mb-1">
+                                        <i class="fas fa-tachometer-alt fa-fw text-muted me-2"></i>
+                                        <span class="text-muted me-1">KPL:</span> {% set avg_kpl = motorcycle.avg_kpl %}{% if avg_kpl is not none and avg_kpl > 0 %}<strong>{{ "%.2f"|format(avg_kpl) }}</strong>{% else %}-{% endif %}
+                                    </div>
+                                    <div class="d-flex align-items-center mb-1">
+                                        <i class="fas fa-gas-pump fa-fw text-muted me-2"></i>
+                                        <span class="text-muted me-1">Fuel:</span> {% set last_fuel = motorcycle.fuel_entries.first() %}{{ last_fuel.entry_date.strftime('%y/%m/%d') if last_fuel else '-' }}
+                                    </div>
+                                {% endif %}
+                                <div class="d-flex align-items-center">
+                                    <i class="fas fa-tools fa-fw text-muted me-2"></i>
+                                    <span class="text-muted me-1">Maint:</span> {% set last_maint = motorcycle.maintenance_entries.first() %}{{ last_maint.maintenance_date.strftime('%y/%m/%d') if last_maint else '-' }}
+                                </div>
+                            </div>
+                        </div>
+
+                        {# アクションリストエリア #}
+                        <div class="list-group list-group-flush small mb-3 mt-auto">
+                            <a href="{{ url_for('activity.list_activities', vehicle_id=motorcycle.id) }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center px-1 py-2 bg-transparent border-light">
+                                <span><i class="fas fa-flag-checkered fa-fw me-2 text-success"></i>走行ログ</span>
+                                <span class="badge bg-success rounded-pill">{{ motorcycle.activity_log_count }}</span>
+                            </a>
+                            <a href="{{ url_for('touring.list_logs', vehicle_id=motorcycle.id) }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center px-1 py-2 bg-transparent border-light">
+                                <span><i class="fas fa-map-signs fa-fw me-2 text-info"></i>ツーリングログ</span>
+                            </a>
+                            <a href="{{ url_for('maintenance.maintenance_log', motorcycle_id=motorcycle.id) }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center px-1 py-2 bg-transparent border-light">
+                                <span><i class="fas fa-tools fa-fw me-2 text-warning"></i>整備記録</span>
+                                <span class="badge bg-warning text-dark rounded-pill">{{ motorcycle.maintenance_entries.count() }}</span>
+                            </a>
+                            {% if not motorcycle.is_racer %}
+                            <a href="{{ url_for('fuel.fuel_log', vehicle_id=motorcycle.id) }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center px-1 py-2 bg-transparent border-light">
+                                <span><i class="fas fa-gas-pump fa-fw me-2 text-primary"></i>給油記録</span>
+                                <span class="badge bg-primary rounded-pill">{{ motorcycle.fuel_entries.count() }}</span>
+                            </a>
+                            {% endif %}
+                            <a href="{{ url_for('reminder.list_reminders', vehicle_id=motorcycle.id) }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center px-1 py-2 bg-transparent border-light">
+                                <span><i class="fas fa-bell fa-fw me-2 text-danger"></i>リマインダー</span>
+                                <span class="badge bg-danger rounded-pill">{{ motorcycle.maintenance_reminders|length }}</span>
+                            </a>
+                            <a href="{{ url_for('spec_sheet.list_sheets', vehicle_id=motorcycle.id) }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center px-1 py-2 bg-transparent border-light">
+                                <span><i class="fas fa-clipboard-list fa-fw me-2 text-secondary"></i>整備情報シート</span>
+                            </a>
+                        </div>
+
+                        {# ボタン群 #}
+                        <div class="d-flex gap-2 pt-3 border-top vehicle-actions-container">
+                            <a href="{{ url_for('vehicle.edit_vehicle', vehicle_id=motorcycle.id) }}" class="btn btn-sm btn-outline-primary flex-grow-1" title="編集">
+                                <i class="fas fa-edit me-1"></i> 編集
+                            </a>
+                            <div class="dropdown">
+                                <button class="btn btn-sm btn-outline-secondary dropdown-toggle h-100" type="button" id="dropdownMenuButton-archived-{{ motorcycle.id }}" data-bs-toggle="dropdown" aria-expanded="false" title="各種設定">
+                                    <i class="fas fa-cog"></i>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="dropdownMenuButton-archived-{{ motorcycle.id }}">
+                                    <li>
+                                        <form action="{{ url_for('vehicle.unarchive_vehicle', vehicle_id=motorcycle.id) }}" method="POST" class="m-0 p-0" onsubmit="return confirm('「{{ motorcycle.name }}」をアーカイブから復元しますか？');">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                            <button type="submit" class="dropdown-item text-success">
+                                                <i class="fas fa-box-open fa-fw me-2"></i> アーカイブ解除
+                                            </button>
+                                        </form>
+                                    </li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li>
+                                        <form action="{{ url_for('vehicle.delete_vehicle', vehicle_id=motorcycle.id) }}" method="POST" class="m-0 p-0" onsubmit="return confirm('本当に「{{ motorcycle.name }}」を削除してもよろしいですか？\n\n【警告】\nこの車両に紐づく全てのデータ（給油、整備、走行ログ、ツーリングログ、ノート等）が完全に削除されます。\nこの操作は元に戻すことができません。');">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                            <button type="submit" class="dropdown-item text-danger">
+                                                <i class="fas fa-trash fa-fw me-2"></i> 削除
+                                            </button>
+                                        </form>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
 
 {% else %}
 <div class="text-center py-5 my-5 bg-white rounded-3 shadow-sm border">
