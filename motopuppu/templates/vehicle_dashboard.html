@@ -288,9 +288,32 @@
                         <div class="col-lg-8">
                             <h5 class="fw-bold mb-4 text-dark"><i class="fas fa-history me-2 text-muted"></i>Recent History <span class="badge bg-light text-muted fw-normal ms-2">直近30件</span></h5>
                             {% if timeline %}
-                                <div class="timeline-container">
+                                {% set type_meta = [
+                                    ('fuel', '給油', 'fa-gas-pump', 'info'),
+                                    ('maintenance', '整備', 'fa-tools', 'warning'),
+                                    ('note', 'ノート', 'fa-sticky-note', 'secondary'),
+                                    ('activity', '活動', 'fa-flag-checkered', 'success'),
+                                    ('touring', 'ツーリング', 'fa-map-signs', 'primary'),
+                                    ('setting', 'セッティング', 'fa-clipboard-list', 'dark')
+                                ] %}
+                                <div class="timeline-filter d-flex flex-wrap gap-2 mb-3" id="timelineFilter" role="group" aria-label="タイムラインカテゴリフィルター">
+                                    <button type="button" class="btn btn-sm btn-dark" data-filter-all>
+                                        <i class="fas fa-list-ul me-1"></i>すべて
+                                        <span class="badge bg-light text-dark ms-1">{{ timeline | length }}</span>
+                                    </button>
+                                    {% for type_key, label, icon, color in type_meta %}
+                                        {% set count = timeline | selectattr('type', 'equalto', type_key) | list | length %}
+                                        {% if count > 0 %}
+                                        <button type="button" class="btn btn-sm btn-outline-{{ color }} active" data-filter-type="{{ type_key }}" aria-pressed="true">
+                                            <i class="fas {{ icon }} me-1"></i>{{ label }}
+                                            <span class="badge bg-{{ color }} ms-1">{{ count }}</span>
+                                        </button>
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                                <div class="timeline-container" id="timelineContainer">
                                     {% for item in timeline %}
-                                    <div class="timeline-item">
+                                    <div class="timeline-item" data-timeline-type="{{ item.type }}">
                                         <div class="timeline-icon {{ item.bg_class }}">
                                             <i class="fas {{ item.icon }} text-white fa-sm"></i>
                                         </div>
@@ -313,6 +336,9 @@
                                         </div>
                                     </div>
                                     {% endfor %}
+                                </div>
+                                <div class="text-center py-4 text-muted border rounded bg-light d-none" id="timelineEmptyFiltered">
+                                    <p class="mb-0">該当する記録がありません。</p>
                                 </div>
                             {% else %}
                                 <div class="text-center py-4 text-muted border rounded bg-light">
@@ -697,6 +723,48 @@ document.addEventListener('DOMContentLoaded', function () {
         editBtn.href = link;
         editBtn.innerHTML = '<i class="fas fa-edit me-1"></i>' + config.editLabel;
     });
+
+    // タイムラインのカテゴリフィルター
+    const filter = document.getElementById('timelineFilter');
+    const container = document.getElementById('timelineContainer');
+    const emptyState = document.getElementById('timelineEmptyFiltered');
+    if (filter && container) {
+        const typeButtons = filter.querySelectorAll('[data-filter-type]');
+        const allButton = filter.querySelector('[data-filter-all]');
+
+        const applyFilter = () => {
+            const activeTypes = new Set(
+                Array.from(typeButtons)
+                    .filter(b => b.classList.contains('active'))
+                    .map(b => b.dataset.filterType)
+            );
+            let visibleCount = 0;
+            container.querySelectorAll('[data-timeline-type]').forEach(item => {
+                const show = activeTypes.has(item.dataset.timelineType);
+                item.style.display = show ? '' : 'none';
+                if (show) visibleCount++;
+            });
+            if (emptyState) emptyState.classList.toggle('d-none', visibleCount > 0);
+        };
+
+        typeButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                btn.classList.toggle('active');
+                btn.setAttribute('aria-pressed', btn.classList.contains('active') ? 'true' : 'false');
+                applyFilter();
+            });
+        });
+
+        if (allButton) {
+            allButton.addEventListener('click', () => {
+                typeButtons.forEach(b => {
+                    b.classList.add('active');
+                    b.setAttribute('aria-pressed', 'true');
+                });
+                applyFilter();
+            });
+        }
+    }
 });
 </script>
 {% endblock %}

@@ -135,9 +135,32 @@
                     </div>
                     <div class="beta-widget-body" style="padding: 0.75rem 1.25rem;">
                         {% if timeline %}
-                        <ul class="beta-timeline">
+                        {% set type_meta = [
+                            ('fuel', '給油', 'fa-gas-pump'),
+                            ('maintenance', '整備', 'fa-tools'),
+                            ('note', 'ノート', 'fa-sticky-note'),
+                            ('activity', '活動', 'fa-flag-checkered'),
+                            ('touring', 'ツーリング', 'fa-map-signs'),
+                            ('setting', 'セッティング', 'fa-clipboard-list')
+                        ] %}
+                        <div class="beta-timeline-filter d-flex flex-wrap gap-2 mb-3" id="timelineFilter" role="group" aria-label="タイムラインカテゴリフィルター">
+                            <button type="button" class="beta-quick-btn beta-filter-btn" data-filter-all style="font-size: 0.7rem; padding: 0.3rem 0.7rem;">
+                                <i class="fas fa-list-ul"></i>すべて
+                                <span class="beta-badge ms-1">{{ timeline | length }}</span>
+                            </button>
+                            {% for type_key, label, icon in type_meta %}
+                                {% set count = timeline | selectattr('type', 'equalto', type_key) | list | length %}
+                                {% if count > 0 %}
+                                <button type="button" class="beta-quick-btn beta-filter-btn {{ type_key }} is-active" data-filter-type="{{ type_key }}" aria-pressed="true" style="font-size: 0.7rem; padding: 0.3rem 0.7rem;">
+                                    <i class="fas {{ icon }}"></i>{{ label }}
+                                    <span class="beta-badge ms-1">{{ count }}</span>
+                                </button>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                        <ul class="beta-timeline" id="timelineContainer">
                             {% for item in timeline %}
-                            <li class="beta-timeline-item">
+                            <li class="beta-timeline-item" data-timeline-type="{{ item.type }}">
                                 <div class="beta-timeline-marker {{ item.type }}">
                                     <i class="fas {{ item.icon }}"></i>
                                 </div>
@@ -161,6 +184,10 @@
                             </li>
                             {% endfor %}
                         </ul>
+                        <div class="text-center py-4 beta-text-muted d-none" id="timelineEmptyFiltered">
+                            <i class="fas fa-filter fa-2x mb-2 d-block" style="opacity: 0.3;"></i>
+                            <p class="mb-0 small">該当する記録がありません。</p>
+                        </div>
                         {% else %}
                         <div class="text-center py-4 beta-text-muted">
                             <i class="fas fa-inbox fa-2x mb-2 d-block" style="opacity: 0.3;"></i>
@@ -518,6 +545,15 @@
     .beta-reminder-item[role="button"]:hover {
         background: var(--beta-surface-hover, rgba(255,255,255,0.05));
     }
+    .beta-filter-btn { cursor: pointer; opacity: 0.5; }
+    .beta-filter-btn.is-active,
+    .beta-filter-btn[data-filter-all] { opacity: 1; }
+    .beta-filter-btn.fuel.is-active { border-color: var(--beta-accent-emerald); color: var(--beta-accent-emerald); background: rgba(16, 185, 129, 0.1); }
+    .beta-filter-btn.maintenance.is-active { border-color: var(--beta-accent-amber); color: var(--beta-accent-amber); background: rgba(245, 158, 11, 0.1); }
+    .beta-filter-btn.note.is-active { border-color: var(--beta-accent-purple); color: var(--beta-accent-purple); background: rgba(139, 92, 246, 0.1); }
+    .beta-filter-btn.activity.is-active { border-color: var(--beta-accent-emerald); color: var(--beta-accent-emerald); background: rgba(16, 185, 129, 0.1); }
+    .beta-filter-btn.touring.is-active { border-color: var(--beta-accent-blue); color: var(--beta-accent-blue); background: rgba(59, 130, 246, 0.1); }
+    .beta-filter-btn.setting.is-active { border-color: var(--beta-text-muted); color: var(--beta-text-primary); background: rgba(148, 163, 184, 0.1); }
 </style>
 
 <script>
@@ -580,6 +616,49 @@ document.addEventListener('DOMContentLoaded', function () {
         editBtn.href = link;
         editBtn.innerHTML = '<i class="fas fa-edit me-1"></i>' + config.editLabel;
     });
+
+    // タイムラインのカテゴリフィルター
+    const filter = document.getElementById('timelineFilter');
+    const container = document.getElementById('timelineContainer');
+    const emptyState = document.getElementById('timelineEmptyFiltered');
+    if (filter && container) {
+        const typeButtons = filter.querySelectorAll('[data-filter-type]');
+        const allButton = filter.querySelector('[data-filter-all]');
+
+        const applyFilter = () => {
+            const activeTypes = new Set(
+                Array.from(typeButtons)
+                    .filter(b => b.classList.contains('is-active'))
+                    .map(b => b.dataset.filterType)
+            );
+            let visibleCount = 0;
+            container.querySelectorAll('[data-timeline-type]').forEach(item => {
+                const show = activeTypes.has(item.dataset.timelineType);
+                item.style.display = show ? '' : 'none';
+                if (show) visibleCount++;
+            });
+            container.classList.toggle('d-none', visibleCount === 0);
+            if (emptyState) emptyState.classList.toggle('d-none', visibleCount > 0);
+        };
+
+        typeButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                btn.classList.toggle('is-active');
+                btn.setAttribute('aria-pressed', btn.classList.contains('is-active') ? 'true' : 'false');
+                applyFilter();
+            });
+        });
+
+        if (allButton) {
+            allButton.addEventListener('click', () => {
+                typeButtons.forEach(b => {
+                    b.classList.add('is-active');
+                    b.setAttribute('aria-pressed', 'true');
+                });
+                applyFilter();
+            });
+        }
+    }
 });
 </script>
 {% endblock %}
