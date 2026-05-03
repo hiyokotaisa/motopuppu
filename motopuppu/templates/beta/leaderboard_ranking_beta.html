@@ -1,0 +1,402 @@
+{# motopuppu/templates/beta/leaderboard_ranking_beta.html #}
+{% extends "base.html" %}
+
+{% block title %}{{ circuit_name }} Ranking - もとぷっぷー{% endblock %}
+
+{% block body_attributes %}beta-ui-body{% endblock %}
+
+{% block styles %}
+{{ super() }}
+{% include 'beta/_beta_layout_head.html' %}
+{% endblock %}
+
+{% block content %}
+<style>
+.beta-ui-body #main-content > .container { max-width: 100%; padding: 0; }
+
+/* --- ヘッダー --- */
+.beta-lb-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+.beta-lb-header-title {
+    color: var(--beta-text-primary);
+    font-weight: 700;
+    margin-bottom: 0;
+}
+.beta-lb-header-subtitle {
+    color: var(--beta-text-muted);
+    font-size: 0.85rem;
+}
+
+/* --- 表彰台 --- */
+.podium-container {
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    margin-bottom: 3rem;
+    padding-top: 2rem;
+}
+.podium-place {
+    text-align: center;
+    position: relative;
+    transition: transform 0.2s;
+}
+.podium-place:hover { transform: translateY(-5px); }
+
+/* 1位 */
+.podium-first { order: 2; z-index: 3; margin: 0 15px; }
+.podium-first .avatar-img { width: 96px; height: 96px; border: 4px solid #ffc107; box-shadow: 0 0 15px rgba(255, 193, 7, 0.3); }
+.podium-first .rank-label { background-color: #ffc107; color: #000; font-size: 1.2rem; padding: 5px 15px; margin-top: -15px; position: relative; display: inline-block; border-radius: 20px; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+
+/* 2位・3位 */
+.podium-second { order: 1; z-index: 2; }
+.podium-third { order: 3; z-index: 1; }
+.podium-second .avatar-img { width: 80px; height: 80px; border: 4px solid #cbd5e1; }
+.podium-third .avatar-img { width: 80px; height: 80px; border: 4px solid #cd7f32; }
+.podium-second .rank-label { background-color: #cbd5e1; color: #1e293b; font-weight: bold; padding: 2px 10px; border-radius: 15px; margin-top: -12px; display: inline-block; position: relative; }
+.podium-third .rank-label { background-color: #cd7f32; color: #fff; font-weight: bold; padding: 2px 10px; border-radius: 15px; margin-top: -12px; display: inline-block; position: relative; }
+
+.avatar-img { border-radius: 50%; object-fit: cover; background-color: var(--beta-bg-elevated); }
+.podium-time { font-family: 'Monaco', 'Consolas', monospace; font-weight: bold; font-size: 1.1rem; margin-top: 0.5rem; color: var(--beta-text-primary); }
+.podium-user {
+    font-weight: bold;
+    margin-top: 0.5rem;
+    display: block;
+    color: var(--beta-text-primary);
+}
+.podium-user a {
+    color: var(--beta-text-primary);
+    text-decoration: none;
+}
+.podium-user a:hover {
+    color: var(--beta-accent-teal);
+    text-decoration: underline;
+}
+.garage-link {
+    color: inherit;
+    text-decoration: none;
+    transition: color 0.2s;
+}
+.garage-link:hover {
+    color: var(--beta-accent-teal);
+    text-decoration: underline;
+}
+.podium-vehicle {
+    font-size: 0.8rem;
+    color: var(--beta-text-muted);
+}
+
+/* テーブルカード */
+.beta-ranking-card {
+    background: var(--beta-bg-card);
+    border: 1px solid var(--beta-border);
+    border-radius: var(--beta-radius);
+    overflow: hidden;
+}
+.beta-ranking-table {
+    width: 100%;
+    color: var(--beta-text-primary);
+    margin-bottom: 0;
+}
+.beta-ranking-table thead {
+    background: var(--beta-bg-elevated);
+    color: var(--beta-text-muted);
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.5px;
+}
+.beta-ranking-table thead th {
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid var(--beta-border);
+    font-weight: 700;
+}
+.beta-ranking-table tbody tr {
+    border-bottom: 1px solid var(--beta-border);
+    transition: background-color 0.15s ease;
+}
+.beta-ranking-table tbody tr:last-child {
+    border-bottom: none;
+}
+.beta-ranking-table tbody tr:hover {
+    background-color: rgba(20, 184, 166, 0.04);
+}
+.beta-ranking-table tbody td {
+    padding: 0.85rem 1rem;
+    vertical-align: middle;
+}
+.gap-time {
+    font-family: 'Monaco', 'Consolas', monospace;
+    font-size: 0.85rem;
+    color: var(--beta-accent-red, #ef4444);
+}
+
+/* 表彰台アニメーション */
+@keyframes shimmer-gold {
+    0%, 100% { box-shadow: 0 0 15px rgba(255, 193, 7, 0.3); }
+    50% { box-shadow: 0 0 25px rgba(255, 193, 7, 0.6), 0 0 40px rgba(255, 193, 7, 0.2); }
+}
+@keyframes shimmer-silver {
+    0%, 100% { box-shadow: 0 0 10px rgba(0, 0, 0, 0.05); }
+    50% { box-shadow: 0 0 20px rgba(203, 213, 225, 0.4); }
+}
+@keyframes shimmer-bronze {
+    0%, 100% { box-shadow: 0 0 10px rgba(205, 127, 50, 0.1); }
+    50% { box-shadow: 0 0 20px rgba(205, 127, 50, 0.4); }
+}
+@keyframes podium-rise {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.podium-first .avatar-img { animation: shimmer-gold 3s ease-in-out infinite; }
+.podium-second .avatar-img { animation: shimmer-silver 3s ease-in-out infinite 0.5s; }
+.podium-third .avatar-img { animation: shimmer-bronze 3s ease-in-out infinite 1s; }
+.podium-place { animation: podium-rise 0.6s ease-out forwards; }
+.podium-first { animation-delay: 0.3s; opacity: 0; }
+.podium-second { animation-delay: 0.1s; opacity: 0; }
+.podium-third { animation-delay: 0.5s; opacity: 0; }
+
+/* 自分のハイライト行 */
+.my-ranking-row {
+    background-color: rgba(20, 184, 166, 0.08) !important;
+    border-left: 3px solid var(--beta-accent-teal);
+}
+.my-ranking-row:hover {
+    background-color: rgba(20, 184, 166, 0.12) !important;
+}
+.beta-ranking-table tbody tr.bg-top3 {
+    background-color: var(--beta-bg-elevated);
+}
+.podium-self-ring .avatar-img {
+    outline: 3px solid var(--beta-accent-teal);
+    outline-offset: 3px;
+}
+
+/* 鮮度バッジ */
+.fresh-badge {
+    font-size: 0.6rem;
+    padding: 0.15rem 0.4rem;
+    border-radius: 1rem;
+    font-weight: bold;
+    letter-spacing: 0.5px;
+    vertical-align: middle;
+    background: rgba(20, 184, 166, 0.18);
+    color: var(--beta-accent-teal);
+}
+
+/* 自分のサマリーカード */
+.beta-my-position-card {
+    background: var(--beta-bg-card);
+    border: 1px solid var(--beta-border);
+    border-radius: var(--beta-radius);
+    max-width: 500px;
+    margin: 0 auto 1.5rem auto;
+    padding: 1.25rem;
+}
+
+/* 空メッセージ */
+.beta-lb-empty {
+    background: var(--beta-bg-card);
+    border: 1px solid var(--beta-border);
+    border-radius: var(--beta-radius);
+    color: var(--beta-text-muted);
+    padding: 3rem 1.5rem;
+    text-align: center;
+}
+</style>
+
+{% set beta_nav_active = 'leaderboard' %}
+<div class="beta-dashboard-wrapper">
+    <div class="beta-mobile-overlay" id="beta-mobile-overlay"></div>
+    {% include 'beta/_beta_sidebar.html' %}
+
+    <main class="beta-main-content">
+        {# Top Bar #}
+        {% set beta_topbar_title = circuit_name %}
+        {% set beta_topbar_subtitle = 'Official Leaderboard' %}
+        {% include 'beta/_beta_topbar.html' %}
+
+        {# Flash Messages #}
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show" role="alert" style="animation: betaFadeIn 0.3s ease;">
+            {{ message | safe }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        {# ヘッダー（戻る・共有） #}
+        <div class="beta-lb-header">
+            <a href="{{ url_for('leaderboard.index') }}" class="beta-btn">
+                <i class="fas fa-arrow-left me-1"></i> Back
+            </a>
+            <div>
+                {% if rankings %}
+                <button class="beta-btn beta-btn-solid btn-share-misskey"
+                    data-type="leaderboard"
+                    data-circuit-name="{{ circuit_name }}"
+                    data-rankings='{{ rankings[:5] | tojson | safe }}'
+                    title="Misskeyで共有">
+                    <i class="fa-solid fa-share-nodes me-1"></i> Share
+                </button>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if rankings %}
+            {# 表彰台 #}
+            <div class="podium-container">
+                {% for item in rankings[:3] %}
+                <div class="podium-place {% if item.rank == 1 %}podium-first{% elif item.rank == 2 %}podium-second{% else %}podium-third{% endif %} {% if current_user_id and item.user_id == current_user_id %}podium-self-ring{% endif %}">
+                    <img src="{{ item.avatar_url or url_for('static', filename='images/blobcat_8bit.webp') }}" alt="{{ item.username }}" class="avatar-img mb-1">
+                    <div class="text-center">
+                        <div class="rank-label">{{ item.rank }}</div>
+                        <div class="mt-2">
+                            <span class="podium-user text-truncate" style="max-width: 120px;">
+                                {% if item.garage_url %}
+                                <a href="{{ item.garage_url }}" title="ガレージを見る">
+                                    {{ item.username }}
+                                    <i class="fas fa-external-link-alt" style="font-size: 0.55rem; opacity: 0.5;"></i>
+                                </a>
+                                {% else %}
+                                {{ item.username }}
+                                {% endif %}
+                                {% if current_user_id and item.user_id == current_user_id %}
+                                <i class="fas fa-user-circle ms-1" style="font-size: 0.7rem; color: var(--beta-accent-teal);" title="あなた"></i>
+                                {% endif %}
+                            </span>
+                            <div class="podium-time">{{ item.lap_time }}</div>
+                            <div class="podium-vehicle text-truncate" style="max-width: 120px;">{{ item.motorcycle_name }}</div>
+                            {% if item.is_fresh %}
+                            <span class="fresh-badge mt-1 d-inline-block">
+                                <i class="fas fa-bolt me-1"></i>NEW
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            {# 自分の順位サマリー #}
+            {% if current_user_id %}
+                {% for item in rankings %}
+                    {% if item.user_id == current_user_id %}
+                    <div class="beta-my-position-card text-center">
+                        <div class="d-flex align-items-center justify-content-center gap-3">
+                            <div>
+                                <div class="beta-text-muted small">Your Position</div>
+                                <div class="fw-bold fs-3 beta-text-primary">{{ item.rank }}<span class="beta-text-muted fs-6">位</span></div>
+                            </div>
+                            {% if item.gap_to_above %}
+                            <div class="vr"></div>
+                            <div>
+                                <div class="beta-text-muted small">次の順位まで</div>
+                                <div class="fw-bold fs-5" style="color: var(--beta-accent-red, #ef4444);">{{ item.gap_to_above }}</div>
+                                <div class="beta-text-muted" style="font-size: 0.7rem;">あと少しで追い抜ける！</div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+                {% endfor %}
+            {% endif %}
+
+            {# ランキングテーブル #}
+            <div class="beta-ranking-card">
+                <div class="table-responsive">
+                    <table class="beta-ranking-table">
+                        <thead>
+                            <tr>
+                                <th class="text-center" style="width: 60px;">Rank</th>
+                                <th style="width: 25%;">Rider</th>
+                                <th>Time</th>
+                                <th class="text-end">Gap</th>
+                                <th class="d-none d-md-table-cell">Machine</th>
+                                <th class="text-end d-none d-sm-table-cell" style="width: 120px;">Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in rankings %}
+                            <tr class="{% if current_user_id and item.user_id == current_user_id %}my-ranking-row{% elif item.rank <= 3 %}bg-top3{% endif %}">
+                                <th scope="row" class="text-center beta-text-muted">
+                                    {% if item.rank == 1 %}
+                                        <i class="fas fa-crown" style="color: #ffc107;"></i>
+                                    {% else %}
+                                        {{ item.rank }}
+                                    {% endif %}
+                                </th>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <img src="{{ item.avatar_url or url_for('static', filename='images/blobcat_8bit.webp') }}" alt="{{ item.username }}" class="rounded-circle me-2" style="width: 32px; height: 32px; object-fit: cover;">
+                                        <div>
+                                            {% if item.garage_url %}
+                                            <a href="{{ item.garage_url }}" class="garage-link fw-bold" title="ガレージを見る">
+                                                {{ item.username }}
+                                                <i class="fas fa-external-link-alt" style="font-size: 0.55rem; opacity: 0.5;"></i>
+                                            </a>
+                                            {% else %}
+                                            <span class="fw-bold beta-text-primary">{{ item.username }}</span>
+                                            {% endif %}
+                                            {% if current_user_id and item.user_id == current_user_id %}
+                                            <span class="badge ms-1" style="font-size: 0.6rem; background: var(--beta-accent-teal); color: #fff;">YOU</span>
+                                            {% endif %}
+                                            {% if item.is_fresh %}
+                                            <span class="fresh-badge ms-1">NEW</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="fw-bold font-monospace fs-6 beta-text-primary">{{ item.lap_time }}</span>
+                                </td>
+                                <td class="text-end">
+                                    {% if item.rank == 1 %}
+                                        <span class="badge" style="background: #ffc107; color: #000;">TOP</span>
+                                    {% else %}
+                                        <span class="gap-time">{{ item.gap }}</span>
+                                        {% if current_user_id and item.user_id == current_user_id and item.gap_to_above %}
+                                        <div style="font-size: 0.65rem; color: var(--beta-accent-teal);" class="fw-bold mt-1">
+                                            <i class="fas fa-angle-double-up"></i> あと {{ item.gap_to_above }}
+                                        </div>
+                                        {% endif %}
+                                    {% endif %}
+                                </td>
+                                <td class="d-none d-md-table-cell beta-text-muted small">
+                                    <i class="fas fa-motorcycle me-1"></i> {{ item.motorcycle_name }}
+                                </td>
+                                <td class="text-end beta-text-muted small d-none d-sm-table-cell">
+                                    {{ item.date }}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        {% else %}
+            <div class="beta-lb-empty">
+                <div class="mb-3 opacity-50">
+                    <i class="fas fa-road fa-3x"></i>
+                </div>
+                <h4 class="fw-bold beta-text-secondary">No Records Yet</h4>
+                <p class="beta-text-muted">このサーキットにはまだタイムが記録されていません。<br>最初のレコードホルダーになりましょう！</p>
+            </div>
+        {% endif %}
+    </main>
+
+    {% include 'beta/_beta_bottombar.html' %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+{% include 'beta/_beta_scripts.html' %}
+{% endblock %}

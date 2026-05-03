@@ -1,0 +1,442 @@
+{# motopuppu/templates/beta/garage_settings_beta.html #}
+{% extends "base.html" %}
+
+{% block title %}ガレージ設定 - もとぷっぷー{% endblock %}
+
+{% block body_attributes %}beta-ui-body{% endblock %}
+
+{% block styles %}
+{{ super() }}
+{% include 'beta/_beta_layout_head.html' %}
+{% endblock %}
+
+{% block content %}
+<style>
+.beta-ui-body #main-content > .container { max-width: 100%; padding: 0; }
+
+/* 公開URLカード */
+.beta-public-url-card {
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(20, 184, 166, 0.08) 100%);
+    border: 1px solid var(--beta-border);
+    border-radius: var(--beta-radius);
+    padding: 1.25rem;
+}
+.beta-public-url-card .form-control {
+    background: var(--beta-bg-card);
+    border-color: var(--beta-border);
+    color: var(--beta-text-primary);
+}
+
+/* 車両ごとの掲載リスト */
+.beta-vehicle-list-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    padding: 0.75rem 1rem;
+    background: var(--beta-bg-card);
+    border: 1px solid var(--beta-border);
+    border-radius: var(--beta-radius);
+    margin-bottom: 0.5rem;
+    transition: all 0.2s ease;
+}
+.beta-vehicle-list-item:hover {
+    border-color: var(--beta-border-glow);
+    box-shadow: var(--beta-shadow);
+}
+.beta-vehicle-list-thumb {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid var(--beta-border);
+}
+.beta-vehicle-list-thumb-placeholder {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 1px solid var(--beta-border);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--beta-bg-elevated);
+    color: var(--beta-text-muted);
+}
+</style>
+
+{% set beta_nav_active = 'profile' %}
+<div class="beta-dashboard-wrapper">
+    <div class="beta-mobile-overlay" id="beta-mobile-overlay"></div>
+    {% include 'beta/_beta_sidebar.html' %}
+
+    <main class="beta-main-content">
+        {# Top Bar #}
+        {% set beta_topbar_title = 'ガレージ設定' %}
+        {% set beta_topbar_subtitle = '公開ガレージカードのデザインや掲載内容を設定します' %}
+        {% include 'beta/_beta_topbar.html' %}
+
+        {# Flash Messages #}
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show" role="alert" style="animation: betaFadeIn 0.3s ease;">
+            {{ message | safe }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        {# 公開URL #}
+        {% if current_user.is_garage_public and current_user.public_id %}
+        <div class="beta-public-url-card mb-4">
+            <div class="d-flex align-items-center mb-2">
+                <div class="beta-widget-icon me-2" style="background: rgba(99, 102, 241, 0.15); color: var(--beta-accent-purple, #6366f1);">
+                    <i class="fas fa-globe-asia"></i>
+                </div>
+                <span class="beta-widget-title">公開ガレージURL</span>
+            </div>
+            <div class="input-group mb-3">
+                <input type="text" class="form-control" value="{{ url_for('garage.garage_detail', public_id=current_user.public_id, _external=True) }}" readonly id="publicGarageUrl">
+            </div>
+            <div class="d-flex flex-wrap gap-2">
+                <button class="beta-btn" type="button" onclick="navigator.clipboard.writeText(document.getElementById('publicGarageUrl').value); this.innerHTML = '<i class=\'fas fa-check me-1\'></i> コピー完了'; setTimeout(() => {this.innerHTML = '<i class=\'fas fa-copy me-1\'></i> コピー'}, 2000)">
+                    <i class="fas fa-copy me-1"></i>コピー
+                </button>
+                <a href="{{ url_for('garage.garage_detail', public_id=current_user.public_id, _external=True) }}" target="_blank" class="beta-btn">
+                    <i class="fas fa-eye me-1"></i>プレビュー
+                </a>
+                <button class="beta-btn" type="button" data-bs-toggle="modal" data-bs-target="#qrCodeModal">
+                    <i class="fas fa-qrcode me-1"></i>QRコード
+                </button>
+                <button class="beta-btn beta-btn-solid" type="button"
+                        data-share-url="{{ url_for('garage_settings.share_garage_note') }}">
+                    <i class="fa-solid fa-share-nodes me-1"></i> Misskeyで共有
+                </button>
+            </div>
+        </div>
+        {% endif %}
+
+        <form method="POST" action="{{ url_for('garage_settings.settings') }}" novalidate>
+            {{ form.hidden_tag() }}
+
+            <div class="row g-4">
+                <div class="col-lg-6">
+                    {# 全体設定 #}
+                    <div class="beta-widget-card mb-4">
+                        <div class="beta-widget-header">
+                            <div class="beta-widget-header-left">
+                                <div class="beta-widget-icon" style="background: rgba(20, 184, 166, 0.15); color: var(--beta-accent-teal);"><i class="fas fa-sliders-h"></i></div>
+                                <span class="beta-widget-title">全体設定</span>
+                            </div>
+                        </div>
+                        <div class="beta-widget-body" style="padding: 1.25rem;">
+                            <div class="form-check form-switch fs-5 mb-4">
+                                {{ form.is_garage_public(class="form-check-input" + (" is-invalid" if form.is_garage_public.errors else "")) }}
+                                {{ form.is_garage_public.label(class="form-check-label beta-text-secondary") }}
+                                <div class="form-text small beta-text-muted">{{ form.is_garage_public.description }}</div>
+                            </div>
+                            <div class="mb-4">
+                                {{ form.garage_hero_vehicle_id.label(class="form-label small beta-text-muted") }}
+                                {{ form.garage_hero_vehicle_id(class="form-select" + (" is-invalid" if form.garage_hero_vehicle_id.errors else "")) }}
+                                <div class="form-text small beta-text-muted">{{ form.garage_hero_vehicle_id.description }}</div>
+                            </div>
+                            <div class="mb-2">
+                                {{ form.garage_theme.label(class="form-label small beta-text-muted") }}
+                                {{ form.garage_theme(class="form-select" + (" is-invalid" if form.garage_theme.errors else "")) }}
+                                <div class="form-text small beta-text-muted">{{ form.garage_theme.description }}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-6">
+                    {# 表示項目設定 #}
+                    <div class="beta-widget-card mb-4">
+                        <div class="beta-widget-header">
+                            <div class="beta-widget-header-left">
+                                <div class="beta-widget-icon" style="background: rgba(99, 102, 241, 0.15); color: var(--beta-accent-purple, #6366f1);"><i class="fas fa-eye"></i></div>
+                                <span class="beta-widget-title">表示項目設定</span>
+                            </div>
+                        </div>
+                        <div class="beta-widget-body" style="padding: 1.25rem;">
+                            <p class="beta-text-secondary small mb-3">公開ガレージに表示する情報のセクションを個別にON/OFFできます。</p>
+                            <div class="form-check form-switch mb-3">
+                                {{ form.show_hero_stats(class="form-check-input") }}
+                                {{ form.show_hero_stats.label(class="form-check-label beta-text-secondary") }}
+                                <div class="form-text small beta-text-muted">{{ form.show_hero_stats.description }}</div>
+                            </div>
+                            <div class="form-check form-switch mb-3">
+                                {{ form.show_custom_details(class="form-check-input") }}
+                                {{ form.show_custom_details.label(class="form-check-label beta-text-secondary") }}
+                                <div class="form-text small beta-text-muted">{{ form.show_custom_details.description }}</div>
+                            </div>
+                            <div class="form-check form-switch mb-3">
+                                {{ form.show_other_vehicles(class="form-check-input") }}
+                                {{ form.show_other_vehicles.label(class="form-check-label beta-text-secondary") }}
+                                <div class="form-text small beta-text-muted">{{ form.show_other_vehicles.description }}</div>
+                            </div>
+                            <div class="form-check form-switch mb-3">
+                                {{ form.show_achievements(class="form-check-input") }}
+                                {{ form.show_achievements.label(class="form-check-label beta-text-secondary") }}
+                                <div class="form-text small beta-text-muted">{{ form.show_achievements.description }}</div>
+                            </div>
+                            <div class="form-check form-switch">
+                                {{ form.show_circuit_info(class="form-check-input") }}
+                                {{ form.show_circuit_info.label(class="form-check-label beta-text-secondary") }}
+                                <div class="form-text small beta-text-muted">{{ form.show_circuit_info.description }}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-end mb-4">
+                {{ form.submit(class="beta-btn beta-btn-solid") }}
+            </div>
+        </form>
+
+        {# 車両ごとの掲載設定 #}
+        <div class="beta-widget-card mb-4">
+            <div class="beta-widget-header">
+                <div class="beta-widget-header-left">
+                    <div class="beta-widget-icon" style="background: rgba(245, 158, 11, 0.15); color: var(--beta-accent-yellow, #f59e0b);"><i class="fas fa-motorcycle"></i></div>
+                    <span class="beta-widget-title">車両ごとの掲載設定</span>
+                </div>
+            </div>
+            <div class="beta-widget-body" style="padding: 1.25rem;">
+                {% for vehicle in vehicles_for_toggle %}
+                <div class="beta-vehicle-list-item">
+                    <div class="d-flex align-items-center my-1 flex-grow-1 me-2">
+                        {% if vehicle.image_url %}
+                        <img src="{{ vehicle.image_url }}" alt="" class="beta-vehicle-list-thumb me-2">
+                        {% else %}
+                        <span class="beta-vehicle-list-thumb-placeholder me-2"><i class="fas fa-image" style="font-size: 0.8rem;"></i></span>
+                        {% endif %}
+                        <div class="flex-grow-1" style="min-width: 0;">
+                            <div class="beta-text-primary fw-bold text-truncate">
+                                <i class="fas fa-motorcycle me-1 beta-text-muted"></i>{{ vehicle.name }}
+                            </div>
+                            <div class="small beta-text-muted">
+                                {{ vehicle.maker or 'メーカー未設定' }}
+                                {% if vehicle.image_url %}
+                                    {% if 'storage.googleapis.com' in vehicle.image_url %}
+                                    <span class="badge bg-success bg-opacity-75 ms-1" title="GCSにアップロードされた画像"><i class="fas fa-cloud-upload-alt me-1"></i>アップロード</span>
+                                    {% else %}
+                                    <span class="badge bg-info bg-opacity-75 ms-1" title="外部URLの直リンク画像"><i class="fas fa-link me-1"></i>外部リンク</span>
+                                    {% endif %}
+                                {% else %}
+                                <span class="badge bg-secondary bg-opacity-50 ms-1"><i class="fas fa-times-circle me-1"></i>画像未設定</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center my-1">
+                        <button type="button" class="beta-btn edit-details-btn"
+                                data-bs-toggle="modal" data-bs-target="#detailsModal"
+                                data-vehicle-id="{{ vehicle.id }}"
+                                data-vehicle-name="{{ vehicle.name }}"
+                                data-image-url="{{ vehicle.image_url or '' }}"
+                                data-custom-details="{{ vehicle.custom_details or '' }}">
+                            <i class="fas fa-edit me-1"></i>詳細編集
+                        </button>
+                        <div class="form-check form-switch ms-3 d-flex align-items-center">
+                            <input class="form-check-input garage-toggle-switch" type="checkbox" role="switch"
+                                   id="garageToggle{{ vehicle.id }}"
+                                   data-vehicle-id="{{ vehicle.id }}"
+                                   {% if vehicle.show_in_garage %}checked{% endif %}
+                                   title="ガレージへの掲載を切り替える">
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <div class="text-center py-4 beta-text-muted">
+                    <i class="fas fa-motorcycle fa-2x mb-2 d-block opacity-50"></i>
+                    車両が登録されていません。
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </main>
+
+    {% include 'beta/_beta_bottombar.html' %}
+</div>
+
+{# QRコードモーダル #}
+<div class="modal fade" id="qrCodeModal" tabindex="-1" aria-labelledby="qrCodeModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="qrCodeModalLabel">公開ガレージ QRコード</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body text-center">
+        <div id="qrcode-container" class="d-inline-block p-3 bg-white border rounded"></div>
+        <p class="mt-2 text-muted">このQRコードをスマートフォンで読み取ると、あなたのガレージにアクセスできます。</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# 車両詳細編集モーダル #}
+<div class="modal fade" id="detailsModal" tabindex="-1" aria-labelledby="detailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form id="detailsModalForm" method="POST" enctype="multipart/form-data">
+                {{ details_form.hidden_tag() }}
+                <div class="modal-header">
+                    <h5 class="modal-title" id="detailsModalLabel">車両詳細の編集</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3" id="modal_image_preview_area">
+                        <label class="form-label fw-bold">現在の画像</label>
+                        <div id="modal_image_preview_container" class="text-center p-3 border rounded bg-light">
+                            <img id="modal_image_preview" src="" alt="プレビュー" class="img-fluid rounded shadow-sm" style="max-height: 200px; display: none;">
+                            <div id="modal_image_no_preview" class="text-muted py-3">
+                                <i class="fas fa-image fa-2x mb-2 d-block"></i>
+                                画像が設定されていません
+                            </div>
+                        </div>
+                        <div id="modal_image_type_badge" class="mt-2"></div>
+                    </div>
+                    <div class="mb-3">
+                        {{ details_form.image_url.label(class="form-label") }}
+                        {{ details_form.image_url(class="form-control", id="modal_image_url") }}
+                        <div class="form-text">{{ details_form.image_url.description }}</div>
+                    </div>
+                    <div class="mb-3 border rounded p-2 bg-light">
+                        {{ details_form.image_file.label(class="form-label fw-bold text-primary") }}
+                        {{ details_form.image_file(class="form-control") }}
+                        <div class="form-text">画像をアップロードする場合はこちらを選択してください（URL欄より優先されます）。</div>
+                    </div>
+                    <div class="mb-3">
+                        {{ details_form.custom_details.label(class="form-label") }}
+                        {{ details_form.custom_details(class="form-control", id="modal_custom_details") }}
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                    {{ details_form.submit_details(class="btn btn-primary") }}
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+{% include 'beta/_beta_scripts.html' %}
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // QRコード生成
+    const qrCodeModal = document.getElementById('qrCodeModal');
+    if (qrCodeModal) {
+        const qrContainer = document.getElementById('qrcode-container');
+        const garageUrlInput = document.getElementById('publicGarageUrl');
+
+        qrCodeModal.addEventListener('show.bs.modal', function () {
+            const urlToEncode = garageUrlInput ? garageUrlInput.value : '';
+            qrContainer.innerHTML = '';
+
+            if (urlToEncode) {
+                new QRCode(qrContainer, {
+                    text: urlToEncode,
+                    width: 256,
+                    height: 256,
+                    colorDark : "#000000",
+                    colorLight : "#ffffff",
+                    correctLevel : QRCode.CorrectLevel.H
+                });
+            }
+        });
+    }
+
+    // 車両詳細編集モーダルの処理
+    const detailsModal = document.getElementById('detailsModal');
+    if (detailsModal) {
+        detailsModal.addEventListener('show.bs.modal', function (event) {
+            const button = event.relatedTarget;
+            const vehicleId = button.getAttribute('data-vehicle-id');
+            const vehicleName = button.getAttribute('data-vehicle-name');
+            const imageUrl = button.getAttribute('data-image-url');
+            const customDetails = button.getAttribute('data-custom-details');
+
+            const modalTitle = detailsModal.querySelector('.modal-title');
+            const modalForm = detailsModal.querySelector('#detailsModalForm');
+            const imageUrlInput = detailsModal.querySelector('#modal_image_url');
+            const customDetailsInput = detailsModal.querySelector('#modal_custom_details');
+
+            const previewImg = detailsModal.querySelector('#modal_image_preview');
+            const noPreview = detailsModal.querySelector('#modal_image_no_preview');
+            const typeBadge = detailsModal.querySelector('#modal_image_type_badge');
+            const imageFileInput = detailsModal.querySelector('#image_file');
+
+            if (imageFileInput) imageFileInput.value = '';
+
+            if (imageUrl) {
+                previewImg.src = imageUrl;
+                previewImg.style.display = 'block';
+                noPreview.style.display = 'none';
+
+                if (imageUrl.includes('storage.googleapis.com')) {
+                    typeBadge.innerHTML = '<span class="badge bg-success"><i class="fas fa-cloud-upload-alt me-1"></i>アップロード画像（GCS）</span>';
+                } else {
+                    typeBadge.innerHTML = '<span class="badge bg-info"><i class="fas fa-link me-1"></i>外部リンク画像</span>';
+                }
+            } else {
+                previewImg.style.display = 'none';
+                previewImg.src = '';
+                noPreview.style.display = 'block';
+                typeBadge.innerHTML = '<span class="badge bg-secondary"><i class="fas fa-times-circle me-1"></i>画像未設定</span>';
+            }
+
+            modalTitle.textContent = `「${vehicleName}」の詳細編集`;
+            modalForm.action = `/garage/settings/${vehicleId}/update-details`;
+            imageUrlInput.value = imageUrl;
+            customDetailsInput.value = customDetails;
+        });
+    }
+
+    // 車両ごとの掲載設定トグルスイッチ
+    const switches = document.querySelectorAll('.garage-toggle-switch');
+    const csrfToken = '{{ csrf_token() }}';
+
+    switches.forEach(sw => {
+        sw.addEventListener('change', function () {
+            const vehicleId = this.dataset.vehicleId;
+            const isChecked = this.checked;
+
+            fetch(`/vehicles/${vehicleId}/toggle_garage_display`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({ show_in_garage: isChecked })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    this.checked = !isChecked;
+                    alert('エラーが発生しました。ページをリロードして再度お試しください。');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.status !== 'success') {
+                    this.checked = !isChecked;
+                    alert(data.message || '設定の更新に失敗しました。');
+                }
+            })
+            .catch(error => {
+                this.checked = !isChecked;
+                alert('通信エラーが発生しました。設定を更新できませんでした。');
+                console.error('Error:', error);
+            });
+        });
+    });
+});
+</script>
+{% endblock %}

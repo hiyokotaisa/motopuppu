@@ -60,7 +60,10 @@ def index():
             'last_activity': row.last_activity
         })
 
-    return render_template('leaderboard/index.html', 
+    template_name = 'leaderboard/index.html'
+    if current_user.is_authenticated and current_user.use_beta_ui:
+        template_name = 'beta/leaderboard_index_beta.html'
+    return render_template(template_name,
                            circuits_by_region=CIRCUITS_BY_REGION,
                            stats=stats,
                            recent_circuits=recent_circuits)
@@ -156,4 +159,7 @@ def ranking(circuit_name):
     # ▼▼▼【追加】B-2: ログインユーザーIDをテンプレートに渡す ▼▼▼
     current_user_id = current_user.id if current_user.is_authenticated else None
 
-    return render_template('leaderboard/ranking.html', circuit_name=circuit_name, rankings=rankings, current_user_id=current_user_id)
+    template_name = 'leaderboard/ranking.html'
+    if current_user.is_authenticated and current_user.use_beta_ui:
+        template_name = 'beta/leaderboard_ranking_beta.html'
+    return render_template(template_name, circuit_name=circuit_name, rankings=rankings, current_user_id=current_user_id)

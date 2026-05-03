@@ -1,0 +1,317 @@
+{# motopuppu/templates/beta/leaderboard_index_beta.html #}
+{% extends "base.html" %}
+
+{% block title %}Leaderboard - もとぷっぷー{% endblock %}
+
+{% block body_attributes %}beta-ui-body{% endblock %}
+
+{% block styles %}
+{{ super() }}
+{% include 'beta/_beta_layout_head.html' %}
+{% endblock %}
+
+{% block content %}
+<style>
+.beta-ui-body #main-content > .container { max-width: 100%; padding: 0; }
+
+/* ヒーロー統計カード */
+.beta-lb-stat-card {
+    background: var(--beta-bg-card);
+    border: 1px solid var(--beta-border);
+    border-radius: var(--beta-radius);
+    padding: 1.25rem;
+    transition: all 0.2s ease;
+}
+.beta-lb-stat-card:hover {
+    border-color: var(--beta-border-glow);
+    box-shadow: var(--beta-shadow);
+    transform: translateY(-2px);
+}
+.beta-lb-stat-icon {
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    font-size: 1.5rem;
+    flex-shrink: 0;
+}
+
+/* サーキットカード */
+.beta-circuit-card {
+    background: var(--beta-bg-card);
+    border: 1px solid var(--beta-border);
+    border-radius: var(--beta-radius);
+    transition: all 0.2s ease;
+    position: relative;
+    height: 100%;
+}
+.beta-circuit-card:hover {
+    border-color: var(--beta-border-glow);
+    box-shadow: var(--beta-shadow);
+    transform: translateY(-3px);
+}
+.beta-circuit-card-body {
+    padding: 1.25rem;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+}
+.beta-circuit-card-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--beta-bg-elevated);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--beta-text-muted);
+    margin-bottom: 0.75rem;
+    font-size: 1.5rem;
+}
+.beta-circuit-card-title {
+    color: var(--beta-text-primary);
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+.beta-circuit-card-link {
+    color: var(--beta-accent-teal);
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+.beta-circuit-card-link:hover {
+    color: var(--beta-accent-teal);
+    text-decoration: underline;
+}
+
+/* Trending */
+.beta-recent-circuit-card {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.06) 0%, rgba(245, 158, 11, 0.06) 100%);
+    border-color: rgba(239, 68, 68, 0.25);
+}
+.beta-recent-badge {
+    font-size: 0.7rem;
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--beta-accent-red, #ef4444);
+    padding: 0.2rem 0.6rem;
+    border-radius: 1rem;
+    display: inline-block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+}
+.beta-recent-circuit-card .beta-circuit-card-link {
+    color: var(--beta-accent-red, #ef4444);
+}
+
+/* 検索ボックス */
+.beta-search-box {
+    max-width: 600px;
+    margin: 0 auto;
+    position: relative;
+}
+.beta-search-input {
+    border-radius: 2rem;
+    padding: 0.75rem 1.5rem;
+    background: var(--beta-bg-card);
+    border: 1px solid var(--beta-border);
+    color: var(--beta-text-primary);
+    width: 100%;
+}
+.beta-search-input:focus {
+    outline: none;
+    border-color: var(--beta-border-glow);
+    box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.1);
+}
+.beta-search-icon {
+    position: absolute;
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--beta-text-muted);
+}
+
+.beta-region-title {
+    color: var(--beta-text-primary);
+    font-weight: 700;
+    border-bottom: 1px solid var(--beta-border);
+    padding-bottom: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.beta-lb-empty-message {
+    background: var(--beta-bg-card);
+    border: 1px solid var(--beta-border);
+    border-radius: var(--beta-radius);
+    color: var(--beta-text-muted);
+    padding: 3rem 1.5rem;
+    text-align: center;
+}
+</style>
+
+{% set beta_nav_active = 'leaderboard' %}
+<div class="beta-dashboard-wrapper">
+    <div class="beta-mobile-overlay" id="beta-mobile-overlay"></div>
+    {% include 'beta/_beta_sidebar.html' %}
+
+    <main class="beta-main-content">
+        {# Top Bar #}
+        {% set beta_topbar_title = 'Leaderboard' %}
+        {% set beta_topbar_subtitle = '全国のサーキットのベストラップランキング' %}
+        {% include 'beta/_beta_topbar.html' %}
+
+        {# Flash Messages #}
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show" role="alert" style="animation: betaFadeIn 0.3s ease;">
+            {{ message | safe }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        {# --- ヒーロー統計エリア --- #}
+        <div class="row g-3 mb-4 justify-content-center">
+            <div class="col-md-4 col-lg-3">
+                <div class="beta-lb-stat-card d-flex align-items-center">
+                    <div class="beta-lb-stat-icon me-3" style="background: rgba(20, 184, 166, 0.15); color: var(--beta-accent-teal);">
+                        <i class="fas fa-map-marked-alt"></i>
+                    </div>
+                    <div class="text-start">
+                        <h6 class="text-uppercase beta-text-muted fw-bold mb-0" style="font-size: 0.7rem;">Active Circuits</h6>
+                        <h2 class="mb-0 fw-bold beta-text-primary">{{ stats.active_circuits }}</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 col-lg-3">
+                <div class="beta-lb-stat-card d-flex align-items-center">
+                    <div class="beta-lb-stat-icon me-3" style="background: rgba(245, 158, 11, 0.15); color: var(--beta-accent-yellow, #f59e0b);">
+                        <i class="fas fa-stopwatch"></i>
+                    </div>
+                    <div class="text-start">
+                        <h6 class="text-uppercase beta-text-muted fw-bold mb-0" style="font-size: 0.7rem;">Total Records</h6>
+                        <h2 class="mb-0 fw-bold beta-text-primary">{{ stats.total_records }}</h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {# --- Trending Now --- #}
+        {% if recent_circuits %}
+        <div class="mb-5">
+            <div class="d-flex align-items-center justify-content-center mb-2">
+                <h4 class="fw-bold mb-0" style="color: var(--beta-accent-red, #ef4444);"><i class="fas fa-fire me-2"></i>Trending Now</h4>
+            </div>
+            <p class="text-center beta-text-muted small mb-3">最近記録が更新されたサーキット</p>
+
+            <div class="row row-cols-1 row-cols-md-2 row-cols-lg-4 g-3 justify-content-center">
+                {% for circuit in recent_circuits %}
+                <div class="col">
+                    <div class="beta-circuit-card beta-recent-circuit-card h-100">
+                        <div class="beta-circuit-card-body">
+                            <span class="beta-recent-badge">
+                                <i class="fas fa-clock me-1"></i> {{ circuit.last_activity.strftime('%m/%d') }}
+                            </span>
+                            <h6 class="beta-circuit-card-title">{{ circuit.name }}</h6>
+                            <a href="{{ url_for('leaderboard.ranking', circuit_name=circuit.name) }}" class="beta-circuit-card-link stretched-link">
+                                View Ranking <i class="fas fa-chevron-right ms-1"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        {# --- 検索ボックス --- #}
+        <div class="beta-search-box mb-4">
+            <input type="text" id="circuit-filter" class="beta-search-input" placeholder="サーキット名で検索..." aria-label="サーキット名で検索">
+            <i class="fas fa-search beta-search-icon"></i>
+        </div>
+
+        {# --- サーキットリスト --- #}
+        <div id="circuit-list">
+        {% for region, circuits in circuits_by_region.items() %}
+            <div class="region-group mb-4">
+                <h4 class="beta-region-title">{{ region }}</h4>
+                <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3">
+                    {% for circuit in circuits %}
+                    <div class="col circuit-card-wrapper">
+                        <div class="beta-circuit-card h-100">
+                            <div class="beta-circuit-card-body">
+                                <div class="beta-circuit-card-icon">
+                                    <i class="fas fa-flag-checkered"></i>
+                                </div>
+                                <h5 class="beta-circuit-card-title card-title">{{ circuit }}</h5>
+                                <a href="{{ url_for('leaderboard.ranking', circuit_name=circuit) }}" class="beta-circuit-card-link stretched-link">
+                                    View Ranking <i class="fas fa-chevron-right ms-1"></i>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        {% endfor %}
+            <div id="no-results-message" class="beta-lb-empty-message d-none" role="alert">
+                <i class="far fa-frown fa-2x mb-3 opacity-50"></i><br>
+                一致するサーキットが見つかりません。
+            </div>
+        </div>
+    </main>
+
+    {% include 'beta/_beta_bottombar.html' %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+{% include 'beta/_beta_scripts.html' %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const filterInput = document.getElementById('circuit-filter');
+    const circuitList = document.getElementById('circuit-list');
+    const noResultsMessage = document.getElementById('no-results-message');
+
+    if (filterInput && circuitList) {
+        filterInput.addEventListener('input', () => {
+            const searchTerm = filterInput.value.toLowerCase().trim();
+            let totalVisibleCards = 0;
+
+            circuitList.querySelectorAll('.region-group').forEach(regionGroup => {
+                let visibleCardsInRegion = 0;
+                regionGroup.querySelectorAll('.circuit-card-wrapper').forEach(card => {
+                    const circuitName = card.querySelector('.card-title').textContent.toLowerCase();
+                    if (circuitName.includes(searchTerm)) {
+                        card.style.display = '';
+                        visibleCardsInRegion++;
+                        totalVisibleCards++;
+                    } else {
+                        card.style.display = 'none';
+                    }
+                });
+
+                if (visibleCardsInRegion > 0) {
+                    regionGroup.style.display = '';
+                } else {
+                    regionGroup.style.display = 'none';
+                }
+            });
+
+            if (totalVisibleCards === 0 && searchTerm) {
+                noResultsMessage.classList.remove('d-none');
+            } else {
+                noResultsMessage.classList.add('d-none');
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

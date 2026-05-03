@@ -71,9 +71,10 @@ def settings():
     vehicles_for_toggle = Motorcycle.query.filter_by(user_id=current_user.id).order_by(Motorcycle.name).all()
 
     details_form = GarageVehicleDetailsForm()
-    
-    return render_template('garage/settings.html', 
-                           title="ガレージ設定", 
+
+    template_name = 'beta/garage_settings_beta.html' if current_user.use_beta_ui else 'garage/settings.html'
+    return render_template(template_name,
+                           title="ガレージ設定",
                            form=form,
                            details_form=details_form,
                            vehicles_for_toggle=vehicles_for_toggle)
