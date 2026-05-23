@@ -731,12 +731,33 @@ class EventForm(FlaskForm):
         'イベント一覧に公開する',
         default=True
     )
-    
+
+    # 当日集金関連
+    collection_enabled = BooleanField(
+        '当日集金を行う',
+        default=False
+    )
+    collection_amount = IntegerField(
+        '集金額 (円・参加者一律)',
+        validators=[Optional(), NumberRange(min=0, max=1000000, message='0〜1,000,000円の範囲で入力してください。')],
+        render_kw={"placeholder": "例: 1500", "min": "0", "step": "100"}
+    )
+    collection_note = StringField(
+        '集金目的 (任意)',
+        validators=[Optional(), Length(max=100, message='100文字以内で入力してください。')],
+        render_kw={"placeholder": "例: 駐車場代+食事代"}
+    )
+
     submit = SubmitField('イベントを保存')
-    
+
     def validate_end_datetime(self, field):
         if field.data and self.start_datetime.data and field.data < self.start_datetime.data:
             raise ValidationError('終了日時は開始日時より後に設定してください。')
+
+    def validate_collection_amount(self, field):
+        # 集金ONなのに金額未入力ならエラー
+        if self.collection_enabled.data and (field.data is None):
+            raise ValidationError('当日集金を行う場合は金額を入力してください。')
 
 class ParticipantForm(FlaskForm):
     """公開ページでの出欠登録用フォーム"""

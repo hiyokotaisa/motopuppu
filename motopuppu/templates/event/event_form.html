@@ -92,6 +92,44 @@
                         {% endif %}
                     </div>
 
+                    {# --- 当日集金設定 --- #}
+                    <div class="card bg-light border-0 mb-3">
+                        <div class="card-body">
+                            <div class="form-check mb-2">
+                                {{ form.collection_enabled(class="form-check-input", id="collectionEnabledCheck") }}
+                                {{ form.collection_enabled.label(class="form-check-label fw-bold", for="collectionEnabledCheck") }}
+                            </div>
+                            <div class="form-text mb-2">
+                                参加者ごとに支払い状況（未払/支払済/免除）を管理できます。当日現金を受け取ったときの記録用です。
+                            </div>
+                            <div id="collectionFieldsWrapper" {% if not form.collection_enabled.data %}class="d-none"{% endif %}>
+                                <div class="row g-2">
+                                    <div class="col-md-5">
+                                        {{ form.collection_amount.label(class="form-label small mb-1") }}
+                                        <div class="input-group input-group-sm">
+                                            {{ form.collection_amount(class="form-control" + (" is-invalid" if form.collection_amount.errors else ""), type="number") }}
+                                            <span class="input-group-text">円</span>
+                                        </div>
+                                        {% if form.collection_amount.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.collection_amount.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-7">
+                                        {{ form.collection_note.label(class="form-label small mb-1") }}
+                                        {{ form.collection_note(class="form-control form-control-sm" + (" is-invalid" if form.collection_note.errors else "")) }}
+                                        {% if form.collection_note.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.collection_note.errors %}{{ error }}{% endfor %}
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     {% if target_team or (event and event.team_id) %}
                         {# チームイベントの場合、強制的に非公開となるため表示しない（またはdisabledで表示） #}
                         <div class="alert alert-info py-2">
@@ -125,4 +163,23 @@
 
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const chk = document.getElementById('collectionEnabledCheck');
+    const wrapper = document.getElementById('collectionFieldsWrapper');
+    if (chk && wrapper) {
+        chk.addEventListener('change', function() {
+            if (chk.checked) {
+                wrapper.classList.remove('d-none');
+            } else {
+                wrapper.classList.add('d-none');
+            }
+        });
+    }
+});
+</script>
 {% endblock %}

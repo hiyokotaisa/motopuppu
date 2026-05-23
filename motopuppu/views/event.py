@@ -7,7 +7,7 @@ from datetime import datetime, timezone, date
 from sqlalchemy import func
 from flask_login import login_required, current_user
 from wtforms.validators import Optional
-from ..models import db, Event, EventParticipant, Motorcycle, ParticipationStatus, User, Team, GeneralNote
+from ..models import db, Event, EventParticipant, Motorcycle, ParticipationStatus, PaymentStatus, User, Team, GeneralNote
 from ..forms import EventForm, ParticipantForm
 from ..utils.datetime_helpers import JST
 from .. import limiter
@@ -102,6 +102,7 @@ def add_event():
         start_dt_utc = form.start_datetime.data.replace(tzinfo=JST).astimezone(timezone.utc).replace(tzinfo=None)
         end_dt_utc = form.end_datetime.data.replace(tzinfo=JST).astimezone(timezone.utc).replace(tzinfo=None) if form.end_datetime.data else None
 
+        collection_enabled = bool(form.collection_enabled.data)
         new_event = Event(
             user_id=current_user.id,
             team_id=team_id, # ▼▼▼【追加】チームIDを保存
@@ -112,7 +113,10 @@ def add_event():
             start_datetime=start_dt_utc,
             end_datetime=end_dt_utc,
             # チームイベントなら強制的に非公開(False)、そうでなければフォームの値
-            is_public=False if target_team else form.is_public.data
+            is_public=False if target_team else form.is_public.data,
+            collection_enabled=collection_enabled,
+            collection_amount=form.collection_amount.data if collection_enabled else None,
+            collection_note=form.collection_note.data if collection_enabled else None,
         )
         try:
             db.session.add(new_event)
@@ -157,10 +161,16 @@ def edit_event(event_id):
         event.location = form.location.data
         event.start_datetime = start_dt_utc
         event.end_datetime = end_dt_utc
-        
+
         # チームイベントの場合は公開設定を変更させない（元のまま or False固定）
         if not event.team_id:
             event.is_public = form.is_public.data
+
+        # 集金設定の更新
+        collection_enabled = bool(form.collection_enabled.data)
+        event.collection_enabled = collection_enabled
+        event.collection_amount = form.collection_amount.data if collection_enabled else None
+        event.collection_note = form.collection_note.data if collection_enabled else None
 
         try:
             db.session.commit()
@@ -181,6 +191,9 @@ def edit_event(event_id):
         if event.end_datetime:
             form.end_datetime.data = event.end_datetime.replace(tzinfo=timezone.utc).astimezone(JST)
         form.is_public.data = event.is_public
+        form.collection_enabled.data = event.collection_enabled
+        form.collection_amount.data = event.collection_amount
+        form.collection_note.data = event.collection_note
     
     return render_template('event/event_form.html', form=form, mode='edit', event=event)
 
@@ -235,6 +248,26 @@ def event_detail(event_id):
     if is_owner:
         event_notes = event.notes.all()
 
+    # 集金集計（主催者のみ・集金有効時のみ意味を持つ）
+    collection_summary = None
+    if is_owner and event.collection_enabled:
+        amount = event.collection_amount or 0
+        targets = participants_attending + participants_tentative
+        paid_count = sum(1 for p in targets if p.payment_status == PaymentStatus.PAID)
+        unpaid_count = sum(1 for p in targets if p.payment_status == PaymentStatus.UNPAID)
+        exempt_count = sum(1 for p in targets if p.payment_status == PaymentStatus.EXEMPT)
+        billable_count = paid_count + unpaid_count  # 免除を除いた請求対象
+        collection_summary = {
+            'amount': amount,
+            'total_count': len(targets),
+            'paid_count': paid_count,
+            'unpaid_count': unpaid_count,
+            'exempt_count': exempt_count,
+            'expected_total': amount * billable_count,
+            'collected_total': amount * paid_count,
+            'outstanding_total': amount * unpaid_count,
+        }
+
     # 走行ログ作成用: 車両未設定でもボタンを表示できるようユーザーの車両リストを取得
     user_motorcycles = []
     if is_owner:
@@ -243,7 +276,7 @@ def event_detail(event_id):
         ).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
 
     return render_template(
-        'event/event_detail.html', 
+        'event/event_detail.html',
         event=event,
         participants_attending=participants_attending,
         participants_tentative=participants_tentative,
@@ -251,7 +284,9 @@ def event_detail(event_id):
         ical_available=ICALENDAR_AVAILABLE,
         event_notes=event_notes,
         is_owner=is_owner,
-        user_motorcycles=user_motorcycles
+        user_motorcycles=user_motorcycles,
+        collection_summary=collection_summary,
+        PaymentStatus=PaymentStatus,
     )
 
 
@@ -436,6 +471,77 @@ def public_event_view(public_id):
         participants_tentative=participants_tentative,
         participants_not_attending=participants_not_attending
     )
+
+
+@event_bp.route('/participant/<int:participant_id>/payment', methods=['POST'])
+@limiter.limit("120 per hour")
+@login_required
+def update_participant_payment(participant_id):
+    """主催者が参加者の支払いステータスを更新する"""
+    participant = EventParticipant.query.get_or_404(participant_id)
+    event = participant.event
+
+    if event.user_id != current_user.id:
+        abort(403)
+
+    if not event.collection_enabled:
+        flash('このイベントは集金が有効ではありません。', 'warning')
+        return redirect(url_for('event.event_detail', event_id=event.id))
+
+    new_status_value = request.form.get('payment_status')
+    try:
+        new_status = PaymentStatus(new_status_value)
+    except ValueError:
+        flash('不正な支払いステータスです。', 'danger')
+        return redirect(url_for('event.event_detail', event_id=event.id))
+
+    try:
+        participant.payment_status = new_status
+        if new_status == PaymentStatus.PAID:
+            participant.paid_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        else:
+            participant.paid_at = None
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error updating payment status for participant {participant_id}: {e}", exc_info=True)
+        flash('支払いステータスの更新中にエラーが発生しました。', 'danger')
+
+    return redirect(url_for('event.event_detail', event_id=event.id) + '#collectionSection')
+
+
+@event_bp.route('/<int:event_id>/payments/bulk', methods=['POST'])
+@limiter.limit("30 per hour")
+@login_required
+def bulk_update_payments(event_id):
+    """主催者が一括で支払いステータスを変更する (全員未払い化など)"""
+    event = Event.query.get_or_404(event_id)
+    if event.user_id != current_user.id:
+        abort(403)
+    if not event.collection_enabled:
+        flash('このイベントは集金が有効ではありません。', 'warning')
+        return redirect(url_for('event.event_detail', event_id=event.id))
+
+    action = request.form.get('action')
+    target_statuses = [ParticipationStatus.ATTENDING, ParticipationStatus.TENTATIVE]
+
+    try:
+        participants = event.participants.filter(EventParticipant.status.in_(target_statuses)).all()
+        if action == 'reset_unpaid':
+            for p in participants:
+                p.payment_status = PaymentStatus.UNPAID
+                p.paid_at = None
+            flash('支払い状況をすべて「未払い」にリセットしました。', 'info')
+        else:
+            flash('不正な操作です。', 'danger')
+            return redirect(url_for('event.event_detail', event_id=event.id))
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error bulk updating payments for event {event_id}: {e}", exc_info=True)
+        flash('一括更新中にエラーが発生しました。', 'danger')
+
+    return redirect(url_for('event.event_detail', event_id=event.id) + '#collectionSection')
 
 
 @event_bp.route('/participant/<int:participant_id>/delete', methods=['POST'])

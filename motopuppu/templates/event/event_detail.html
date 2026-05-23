@@ -67,6 +67,147 @@
         </div>
         {% endif %}
 
+        {# --- 当日集金セクション (主催者のみ・集金有効時のみ) --- #}
+        {% if is_owner and event.collection_enabled and collection_summary %}
+        <div class="card mb-4 border-warning" id="collectionSection">
+            <div class="card-header bg-warning-subtle d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-yen-sign me-2"></i>当日集金</span>
+                <span class="badge bg-warning text-dark">
+                    1人 {{ "{:,}".format(collection_summary.amount) }}円
+                    {% if event.collection_note %}
+                    <span class="ms-1">({{ event.collection_note }})</span>
+                    {% endif %}
+                </span>
+            </div>
+            <div class="card-body">
+                {# サマリー表示 #}
+                <div class="row text-center g-2 mb-3">
+                    <div class="col-6 col-md-3">
+                        <div class="border rounded p-2 h-100">
+                            <div class="small text-muted">予定総額</div>
+                            <div class="fw-bold">{{ "{:,}".format(collection_summary.expected_total) }}円</div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="border border-success rounded p-2 h-100 bg-success-subtle">
+                            <div class="small text-success-emphasis">集金済み</div>
+                            <div class="fw-bold text-success-emphasis">{{ "{:,}".format(collection_summary.collected_total) }}円</div>
+                            <div class="small text-muted">{{ collection_summary.paid_count }}名</div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="border border-danger rounded p-2 h-100 bg-danger-subtle">
+                            <div class="small text-danger-emphasis">未収</div>
+                            <div class="fw-bold text-danger-emphasis">{{ "{:,}".format(collection_summary.outstanding_total) }}円</div>
+                            <div class="small text-muted">{{ collection_summary.unpaid_count }}名</div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="border rounded p-2 h-100">
+                            <div class="small text-muted">免除</div>
+                            <div class="fw-bold">{{ collection_summary.exempt_count }}名</div>
+                        </div>
+                    </div>
+                </div>
+
+                {# プログレスバー #}
+                {% if collection_summary.expected_total > 0 %}
+                {% set progress_pct = (collection_summary.collected_total / collection_summary.expected_total * 100) | round(0, 'floor') %}
+                <div class="progress mb-3" style="height: 10px;">
+                    <div class="progress-bar bg-success" role="progressbar" style="width: {{ progress_pct }}%;" aria-valuenow="{{ progress_pct }}" aria-valuemin="0" aria-valuemax="100"></div>
+                </div>
+                {% endif %}
+
+                {# 集金チェックリスト #}
+                {% set payment_targets = participants_attending + participants_tentative %}
+                {% if payment_targets %}
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>参加者</th>
+                                <th class="text-center" style="width: 100px;">出欠</th>
+                                <th class="text-end" style="width: 240px;">支払い状況</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for p in payment_targets %}
+                            <tr>
+                                <td>
+                                    <div class="fw-bold">{{ p.name }}</div>
+                                    {% if p.vehicle_name %}
+                                    <div class="small text-muted"><i class="fas fa-motorcycle me-1"></i>{{ p.vehicle_name }}</div>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    {% if p.status.value == 'attending' %}
+                                    <span class="badge bg-success">参加</span>
+                                    {% elif p.status.value == 'tentative' %}
+                                    <span class="badge bg-warning text-dark">保留</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">
+                                    <form action="{{ url_for('event.update_participant_payment', participant_id=p.id) }}" method="POST" class="d-inline">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <div class="btn-group btn-group-sm" role="group" aria-label="支払いステータス">
+                                            <button type="submit" name="payment_status" value="unpaid" class="btn {% if p.payment_status == PaymentStatus.UNPAID %}btn-danger{% else %}btn-outline-danger{% endif %}" title="未払い">
+                                                未払い
+                                            </button>
+                                            <button type="submit" name="payment_status" value="paid" class="btn {% if p.payment_status == PaymentStatus.PAID %}btn-success{% else %}btn-outline-success{% endif %}" title="支払済">
+                                                <i class="fas fa-check me-1"></i>支払済
+                                            </button>
+                                            <button type="submit" name="payment_status" value="exempt" class="btn {% if p.payment_status == PaymentStatus.EXEMPT %}btn-secondary{% else %}btn-outline-secondary{% endif %}" title="免除">
+                                                免除
+                                            </button>
+                                        </div>
+                                    </form>
+                                    {% if p.payment_status == PaymentStatus.PAID and p.paid_at %}
+                                    <div class="small text-muted mt-1">{{ p.paid_at | to_jst('%m/%d %H:%M') }} 記録</div>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="d-flex justify-content-end mt-2">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#resetPaymentsModal">
+                        <i class="fas fa-undo me-1"></i>すべて未払いにリセット
+                    </button>
+                </div>
+                {% else %}
+                <div class="text-center text-muted py-3">
+                    <p class="mb-0 small">集金対象（参加・保留）の参加者がまだいません。</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="modal fade" id="resetPaymentsModal" tabindex="-1" aria-labelledby="resetPaymentsModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="resetPaymentsModalLabel">支払い状況のリセット</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>集金対象の参加者全員を「未払い」状態に戻します。</p>
+                        <p class="text-muted small">記録済みの支払い日時もクリアされます。</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                        <form action="{{ url_for('event.bulk_update_payments', event_id=event.id) }}" method="POST" class="d-inline">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="action" value="reset_unpaid">
+                            <button type="submit" class="btn btn-warning">リセットを実行</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
         {# --- 準備ノート・チェックリストセクション --- #}
         {% if is_owner %}
         <div class="card mb-4">

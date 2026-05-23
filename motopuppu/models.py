@@ -420,6 +420,21 @@ class ParticipationStatus(PyEnum):
             'not_attending': '不参加'
         }.get(self.value, '')
 
+
+class PaymentStatus(PyEnum):
+    """当日集金の支払いステータス"""
+    UNPAID = 'unpaid'
+    PAID = 'paid'
+    EXEMPT = 'exempt'
+
+    @property
+    def label(self):
+        return {
+            'unpaid': '未払い',
+            'paid': '支払済',
+            'exempt': '免除'
+        }.get(self.value, '')
+
 class Event(db.Model):
     __tablename__ = 'events'
     id = db.Column(db.Integer, primary_key=True)
@@ -437,6 +452,12 @@ class Event(db.Model):
     start_datetime = db.Column(db.DateTime, nullable=False, comment="開始日時 (UTC)")
     end_datetime = db.Column(db.DateTime, nullable=True, comment="終了日時 (UTC)")
     is_public = db.Column(db.Boolean, nullable=False, default=True, server_default='true', index=True, comment="イベント一覧に公開するか")
+
+    # 当日集金関連
+    collection_enabled = db.Column(db.Boolean, nullable=False, default=False, server_default='false', comment="当日集金を行うか")
+    collection_amount = db.Column(db.Integer, nullable=True, comment="当日集金額 (円・参加者一律)")
+    collection_note = db.Column(db.String(100), nullable=True, comment="集金目的のメモ (例: 駐車場代+食事代)")
+
     created_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
     updated_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now(), onupdate=db.func.now())
     
@@ -480,6 +501,17 @@ class EventParticipant(db.Model):
     comment = db.Column(db.String(100), nullable=True, comment="参加者の一言コメント")
     vehicle_name = db.Column(db.String(50), nullable=True, comment="参加車両名")
     passcode_hash = db.Column(db.String(255), nullable=True, comment="出欠変更用のパスコードのハッシュ")
+
+    # 当日集金関連
+    payment_status = db.Column(
+        db.Enum(PaymentStatus, values_callable=lambda x: [e.value for e in x]),
+        nullable=False,
+        default=PaymentStatus.UNPAID,
+        server_default=PaymentStatus.UNPAID.value,
+        comment="支払いステータス (unpaid/paid/exempt)"
+    )
+    paid_at = db.Column(db.DateTime, nullable=True, comment="支払いを記録した日時 (UTC)")
+
     created_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
     
     # ユーザーとのリレーションを追加

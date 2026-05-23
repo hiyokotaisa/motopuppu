@@ -93,6 +93,19 @@
                     {% endif %}
                 </div>
 
+                {# 当日集金のお知らせ #}
+                {% if event.collection_enabled and event.collection_amount %}
+                <div class="alert alert-warning d-flex align-items-center mb-3" role="alert">
+                    <i class="fas fa-yen-sign fa-lg me-3"></i>
+                    <div>
+                        <strong>当日集金あり: 1人 {{ "{:,}".format(event.collection_amount) }}円</strong>
+                        {% if event.collection_note %}
+                        <div class="small">({{ event.collection_note }})</div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+
                 {# 詳細説明 #}
                 {% if event.description %}
                 <div class="bg-light rounded p-4 mb-3">
