@@ -7,8 +7,8 @@ from datetime import datetime, timezone, date
 from sqlalchemy import func
 from flask_login import login_required, current_user
 from wtforms.validators import Optional
-from ..models import db, Event, EventParticipant, Motorcycle, ParticipationStatus, PaymentStatus, User, Team, GeneralNote
-from ..forms import EventForm, ParticipantForm
+from ..models import db, Event, EventCollectionPlan, EventParticipant, Motorcycle, ParticipationStatus, PaymentStatus, User, Team, GeneralNote
+from ..forms import EventForm, ParticipantForm, WalkinParticipantForm
 from ..utils.datetime_helpers import JST
 from .. import limiter
 
@@ -21,6 +21,140 @@ except ImportError:
 
 
 event_bp = Blueprint('event', __name__, url_prefix='/event')
+
+
+def _redirect_after_participant_update(event, participant_id=None):
+    """主催者操作の戻り先を呼び出し元 (redirect_to パラメータ) に応じて切り替える"""
+    redirect_to = request.form.get('redirect_to')
+    anchor = f'#p-{participant_id}' if participant_id else ''
+    if redirect_to == 'day':
+        return redirect(url_for('event.day_view', event_id=event.id) + anchor)
+    return redirect(url_for('event.event_detail', event_id=event.id) + (anchor or '#collectionSection'))
+
+
+# プラン管理の上限と各種制限
+MAX_COLLECTION_PLANS = 20
+MAX_PLAN_NAME_LEN = 50
+MAX_PLAN_AMOUNT = 1_000_000
+
+
+def _plans_from_request(form_data):
+    """request.form からプラン入力データを抽出し、テンプレート再表示用のリストに変換する"""
+    try:
+        plan_count = int(form_data.get('plan_count', '0') or '0')
+    except (TypeError, ValueError):
+        plan_count = 0
+    plan_count = max(0, min(plan_count, MAX_COLLECTION_PLANS))
+
+    plans = []
+    for i in range(plan_count):
+        raw_id = (form_data.get(f'plan_id_{i}') or '').strip()
+        raw_name = (form_data.get(f'plan_name_{i}') or '').strip()
+        raw_amount = (form_data.get(f'plan_amount_{i}') or '').strip()
+        if not raw_name and not raw_amount and not raw_id:
+            continue
+        plans.append({'id': raw_id, 'name': raw_name, 'amount': raw_amount})
+    return plans
+
+
+def _plans_from_event(event):
+    """既存イベントのプランをテンプレート再表示用のリストに変換する"""
+    return [
+        {'id': str(p.id), 'name': p.name, 'amount': str(p.amount)}
+        for p in event.collection_plans.order_by(EventCollectionPlan.sort_order, EventCollectionPlan.id).all()
+    ]
+
+
+def _sync_collection_plans(event, form_data):
+    """request.form から送信された料金プラン情報を event.collection_plans に反映する。
+
+    フォーマット:
+        plan_count: 件数 (例: 3)
+        plan_id_{i}: 既存プランID (新規は空)
+        plan_name_{i}: プラン名
+        plan_amount_{i}: 金額 (整数)
+
+    集金OFFの場合は全プランを削除する。
+    バリデーションエラーがある場合は (False, エラーメッセージ) を返す。
+    """
+    # 集金OFFならプランを全削除
+    if not event.collection_enabled:
+        for plan in event.collection_plans.all():
+            db.session.delete(plan)
+        return True, None
+
+    try:
+        plan_count = int(form_data.get('plan_count', '0') or '0')
+    except (TypeError, ValueError):
+        plan_count = 0
+
+    plan_count = max(0, min(plan_count, MAX_COLLECTION_PLANS))
+
+    # 送信内容を解釈
+    submitted_plans = []  # [{id, name, amount, sort_order}]
+    for i in range(plan_count):
+        raw_id = (form_data.get(f'plan_id_{i}') or '').strip()
+        raw_name = (form_data.get(f'plan_name_{i}') or '').strip()
+        raw_amount = (form_data.get(f'plan_amount_{i}') or '').strip()
+
+        # 空行はスキップ (削除されたか未入力)
+        if not raw_name and not raw_amount:
+            continue
+
+        if not raw_name:
+            return False, f'プラン {i + 1} のプラン名が入力されていません。'
+        if len(raw_name) > MAX_PLAN_NAME_LEN:
+            return False, f'プラン名は{MAX_PLAN_NAME_LEN}文字以内で入力してください。'
+
+        try:
+            amount = int(raw_amount)
+        except ValueError:
+            return False, f'プラン「{raw_name}」の金額は整数で入力してください。'
+        if amount < 0 or amount > MAX_PLAN_AMOUNT:
+            return False, f'プラン「{raw_name}」の金額は0〜{MAX_PLAN_AMOUNT:,}円の範囲で入力してください。'
+
+        plan_id = None
+        if raw_id:
+            try:
+                plan_id = int(raw_id)
+            except ValueError:
+                plan_id = None
+
+        submitted_plans.append({
+            'id': plan_id,
+            'name': raw_name,
+            'amount': amount,
+            'sort_order': len(submitted_plans),
+        })
+
+    # 既存プランをID→entityで取得
+    existing_plans = {p.id: p for p in event.collection_plans.all()}
+    submitted_ids = {p['id'] for p in submitted_plans if p['id'] is not None}
+
+    # 送信されなかった既存プランは削除 (参加者FKは ondelete=SET NULL で自動的にNULL化)
+    for pid, plan in list(existing_plans.items()):
+        if pid not in submitted_ids:
+            db.session.delete(plan)
+
+    # 更新 or 新規追加
+    for p in submitted_plans:
+        if p['id'] is not None and p['id'] in existing_plans:
+            existing = existing_plans[p['id']]
+            # 別イベントのプランIDを送られても無視 (security)
+            if existing.event_id != event.id:
+                continue
+            existing.name = p['name']
+            existing.amount = p['amount']
+            existing.sort_order = p['sort_order']
+        else:
+            db.session.add(EventCollectionPlan(
+                event_id=event.id,
+                name=p['name'],
+                amount=p['amount'],
+                sort_order=p['sort_order'],
+            ))
+
+    return True, None
 
 @event_bp.route('/list')
 def public_events_list():
@@ -120,14 +254,20 @@ def add_event():
         )
         try:
             db.session.add(new_event)
+            db.session.flush()  # plan FK 用に new_event.id を確定
+
+            ok, err = _sync_collection_plans(new_event, request.form)
+            if not ok:
+                db.session.rollback()
+                flash(err, 'danger')
+                return render_template('event/event_form.html', form=form, mode='add', target_team=target_team, plans=_plans_from_request(request.form))
+
             db.session.commit()
-            
-            # ▼▼▼【追加】リダイレクト先の調整
+
             if target_team:
                 flash(f'チーム「{target_team.name}」のイベントを作成しました。', 'success')
             else:
                 flash('新しいイベントを作成しました。', 'success')
-            # ▲▲▲
 
             return redirect(url_for('event.event_detail', event_id=new_event.id))
         except Exception as e:
@@ -135,7 +275,8 @@ def add_event():
             current_app.logger.error(f"Error adding new event: {e}", exc_info=True)
             flash('イベントの保存中にエラーが発生しました。', 'danger')
 
-    return render_template('event/event_form.html', form=form, mode='add', target_team=target_team)
+    plans_data = _plans_from_request(request.form) if request.method == 'POST' else []
+    return render_template('event/event_form.html', form=form, mode='add', target_team=target_team, plans=plans_data)
 
 
 @event_bp.route('/<int:event_id>/edit', methods=['GET', 'POST'])
@@ -172,6 +313,12 @@ def edit_event(event_id):
         event.collection_amount = form.collection_amount.data if collection_enabled else None
         event.collection_note = form.collection_note.data if collection_enabled else None
 
+        ok, err = _sync_collection_plans(event, request.form)
+        if not ok:
+            db.session.rollback()
+            flash(err, 'danger')
+            return render_template('event/event_form.html', form=form, mode='edit', event=event, plans=_plans_from_request(request.form))
+
         try:
             db.session.commit()
             flash('イベント情報を更新しました。', 'success')
@@ -195,7 +342,11 @@ def edit_event(event_id):
         form.collection_amount.data = event.collection_amount
         form.collection_note.data = event.collection_note
     
-    return render_template('event/event_form.html', form=form, mode='edit', event=event)
+    if request.method == 'POST':
+        plans_data = _plans_from_request(request.form)
+    else:
+        plans_data = _plans_from_event(event)
+    return render_template('event/event_form.html', form=form, mode='edit', event=event, plans=plans_data)
 
 
 @event_bp.route('/<int:event_id>/delete', methods=['POST'])
@@ -248,24 +399,81 @@ def event_detail(event_id):
     if is_owner:
         event_notes = event.notes.all()
 
+    # 料金プラン一覧 (集金有効時のみ意味を持つ)
+    collection_plans = []
+    if event.collection_enabled:
+        collection_plans = event.collection_plans.order_by(EventCollectionPlan.sort_order, EventCollectionPlan.id).all()
+
     # 集金集計（主催者のみ・集金有効時のみ意味を持つ）
     collection_summary = None
     if is_owner and event.collection_enabled:
-        amount = event.collection_amount or 0
         targets = participants_attending + participants_tentative
-        paid_count = sum(1 for p in targets if p.payment_status == PaymentStatus.PAID)
-        unpaid_count = sum(1 for p in targets if p.payment_status == PaymentStatus.UNPAID)
-        exempt_count = sum(1 for p in targets if p.payment_status == PaymentStatus.EXEMPT)
-        billable_count = paid_count + unpaid_count  # 免除を除いた請求対象
+
+        # プラン別集計用バケット (key: plan_id or None)
+        buckets = {}  # plan_id -> {name, amount, paid_count, unpaid_count, exempt_count}
+        # デフォルト枠 (key: None)
+        default_amount = event.collection_amount or 0
+        buckets[None] = {
+            'plan_id': None,
+            'name': 'デフォルト',
+            'amount': default_amount,
+            'paid_count': 0,
+            'unpaid_count': 0,
+            'exempt_count': 0,
+        }
+        for plan in collection_plans:
+            buckets[plan.id] = {
+                'plan_id': plan.id,
+                'name': plan.name,
+                'amount': plan.amount,
+                'paid_count': 0,
+                'unpaid_count': 0,
+                'exempt_count': 0,
+            }
+
+        paid_count = unpaid_count = exempt_count = 0
+        expected_total = collected_total = outstanding_total = 0
+        for p in targets:
+            key = p.collection_plan_id if p.collection_plan_id in buckets else None
+            bucket = buckets[key]
+            amount = bucket['amount'] or 0
+            if p.payment_status == PaymentStatus.PAID:
+                bucket['paid_count'] += 1
+                paid_count += 1
+                expected_total += amount
+                collected_total += amount
+            elif p.payment_status == PaymentStatus.UNPAID:
+                bucket['unpaid_count'] += 1
+                unpaid_count += 1
+                expected_total += amount
+                outstanding_total += amount
+            else:  # EXEMPT
+                bucket['exempt_count'] += 1
+                exempt_count += 1
+
+        # 表示順: デフォルト → プラン定義順 (使われていないプランは非表示にしない=主催者の確認用)
+        plan_breakdown = []
+        for key in [None] + [pl.id for pl in collection_plans]:
+            b = buckets[key]
+            count = b['paid_count'] + b['unpaid_count'] + b['exempt_count']
+            if count == 0 and key is None and not collection_plans:
+                # プラン未定義時はデフォルトのみ出すので素通し
+                pass
+            b['count'] = count
+            b['expected'] = b['amount'] * (b['paid_count'] + b['unpaid_count'])
+            b['collected'] = b['amount'] * b['paid_count']
+            b['outstanding'] = b['amount'] * b['unpaid_count']
+            plan_breakdown.append(b)
+
         collection_summary = {
-            'amount': amount,
             'total_count': len(targets),
             'paid_count': paid_count,
             'unpaid_count': unpaid_count,
             'exempt_count': exempt_count,
-            'expected_total': amount * billable_count,
-            'collected_total': amount * paid_count,
-            'outstanding_total': amount * unpaid_count,
+            'expected_total': expected_total,
+            'collected_total': collected_total,
+            'outstanding_total': outstanding_total,
+            'plan_breakdown': plan_breakdown,
         }
 
     # 走行ログ作成用: 車両未設定でもボタンを表示できるようユーザーの車両リストを取得
@@ -286,8 +494,167 @@ def event_detail(event_id):
         is_owner=is_owner,
         user_motorcycles=user_motorcycles,
         collection_summary=collection_summary,
+        collection_plans=collection_plans,
         PaymentStatus=PaymentStatus,
     )
+
+
+@event_bp.route('/<int:event_id>/day', methods=['GET'])
+@login_required
+def day_view(event_id):
+    """主催者専用の当日運用ページ (チェックイン+集金、モバイル最適化)"""
+    event = Event.query.filter_by(id=event_id, user_id=current_user.id).first_or_404()
+
+    # 表示対象: 参加 + 保留 (不参加は飛ばす)
+    participants = event.participants.filter(
+        EventParticipant.status.in_([ParticipationStatus.ATTENDING, ParticipationStatus.TENTATIVE])
+    ).order_by(EventParticipant.created_at).all()
+
+    # 料金プラン
+    collection_plans = []
+    if event.collection_enabled:
+        collection_plans = event.collection_plans.order_by(EventCollectionPlan.sort_order, EventCollectionPlan.id).all()
+
+    # 集計
+    total_count = len(participants)
+    checked_in_count = sum(1 for p in participants if p.checked_in_at is not None)
+
+    expected_total = collected_total = outstanding_total = 0
+    paid_count = unpaid_count = exempt_count = 0
+    if event.collection_enabled:
+        for p in participants:
+            amount = p.effective_amount or 0
+            if p.payment_status == PaymentStatus.PAID:
+                paid_count += 1
+                expected_total += amount
+                collected_total += amount
+            elif p.payment_status == PaymentStatus.UNPAID:
+                unpaid_count += 1
+                expected_total += amount
+                outstanding_total += amount
+            else:
+                exempt_count += 1
+
+    day_summary = {
+        'total_count': total_count,
+        'checked_in_count': checked_in_count,
+        'not_checked_in_count': total_count - checked_in_count,
+        'paid_count': paid_count,
+        'unpaid_count': unpaid_count,
+        'exempt_count': exempt_count,
+        'expected_total': expected_total,
+        'collected_total': collected_total,
+        'outstanding_total': outstanding_total,
+    }
+
+    walkin_form = WalkinParticipantForm()
+    walkin_form.collection_plan_id.choices = [('', f'デフォルト ({(event.collection_amount or 0):,}円)' if event.collection_enabled else 'なし')] + [
+        (str(p.id), f'{p.name} ({p.amount:,}円)') for p in collection_plans
+    ]
+
+    return render_template(
+        'event/day_view.html',
+        event=event,
+        participants=participants,
+        collection_plans=collection_plans,
+        day_summary=day_summary,
+        walkin_form=walkin_form,
+        PaymentStatus=PaymentStatus,
+    )
+
+
+@event_bp.route('/participant/<int:participant_id>/checkin', methods=['POST'])
+@limiter.limit("240 per hour")
+@login_required
+def update_participant_checkin(participant_id):
+    """主催者が参加者のチェックイン状態をトグルする"""
+    participant = EventParticipant.query.get_or_404(participant_id)
+    event = participant.event
+
+    if event.user_id != current_user.id:
+        abort(403)
+
+    action = request.form.get('action', 'toggle')
+
+    try:
+        if action == 'check_in':
+            participant.checked_in_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        elif action == 'check_out':
+            participant.checked_in_at = None
+        else:  # toggle
+            if participant.checked_in_at is None:
+                participant.checked_in_at = datetime.now(timezone.utc).replace(tzinfo=None)
+            else:
+                participant.checked_in_at = None
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error updating check-in for participant {participant_id}: {e}", exc_info=True)
+        flash('チェックイン状態の更新中にエラーが発生しました。', 'danger')
+
+    return _redirect_after_participant_update(event, participant.id)
+
+
+@event_bp.route('/<int:event_id>/walkin', methods=['POST'])
+@limiter.limit("60 per hour")
+@login_required
+def add_walkin_participant(event_id):
+    """主催者が当日モードから飛び入り参加者を追加する (チェックイン済み状態で作成)"""
+    event = Event.query.filter_by(id=event_id, user_id=current_user.id).first_or_404()
+
+    form = WalkinParticipantForm()
+    # プラン選択肢を組み立て (バリデーション用)
+    plans = []
+    if event.collection_enabled:
+        plans = event.collection_plans.order_by(EventCollectionPlan.sort_order, EventCollectionPlan.id).all()
+    form.collection_plan_id.choices = [('', 'デフォルト')] + [(str(p.id), p.name) for p in plans]
+
+    if not form.validate_on_submit():
+        for field, errs in form.errors.items():
+            for err in errs:
+                flash(err, 'danger')
+        return redirect(url_for('event.day_view', event_id=event.id))
+
+    name = form.name.data.strip()
+
+    # 名前重複チェック
+    if event.participants.filter_by(name=name).first():
+        flash(f'「{name}」さんは既に登録されています。', 'warning')
+        return redirect(url_for('event.day_view', event_id=event.id))
+
+    # プランIDの解決
+    selected_plan_id = None
+    if event.collection_enabled:
+        raw = (form.collection_plan_id.data or '').strip()
+        if raw:
+            try:
+                pid = int(raw)
+                if any(p.id == pid for p in plans):
+                    selected_plan_id = pid
+            except ValueError:
+                selected_plan_id = None
+
+    try:
+        new_participant = EventParticipant(
+            event_id=event.id,
+            name=name,
+            status=ParticipationStatus.ATTENDING,
+            vehicle_name=form.vehicle_name.data or None,
+            checked_in_at=datetime.now(timezone.utc).replace(tzinfo=None),
+            collection_plan_id=selected_plan_id if event.collection_enabled else None,
+        )
+        db.session.add(new_participant)
+        db.session.commit()
+        flash(f'飛び入り参加者「{name}」さんを追加・チェックインしました。', 'success')
+    except IntegrityError:
+        db.session.rollback()
+        flash('その名前は既に使用されています。', 'danger')
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error adding walk-in participant: {e}", exc_info=True)
+        flash('参加者の追加中にエラーが発生しました。', 'danger')
+
+    return redirect(url_for('event.day_view', event_id=event.id))
 
 
 @event_bp.route('/public/<public_id>', methods=['GET', 'POST'])
@@ -296,6 +663,16 @@ def public_event_view(public_id):
     """公開イベントページ（ログイン不要・ログイン時はユーザー連携）"""
     event = Event.query.filter_by(public_id=public_id).first_or_404()
     form = ParticipantForm()
+
+    # 料金プランの選択肢 (集金有効時のみ)
+    event_plans = []
+    if event.collection_enabled:
+        event_plans = event.collection_plans.order_by(EventCollectionPlan.sort_order, EventCollectionPlan.id).all()
+    default_amount = event.collection_amount or 0
+    default_label = f'デフォルト ({default_amount:,}円)' if event.collection_enabled else 'デフォルト'
+    form.collection_plan_id.choices = [('', default_label)] + [
+        (str(p.id), f'{p.name} ({p.amount:,}円)') for p in event_plans
+    ]
 
     # ログインユーザーの場合の初期値設定とバリデーション調整
     if current_user.is_authenticated:
@@ -313,6 +690,7 @@ def public_event_view(public_id):
                 form.status.data = current_participant.status.value
                 form.vehicle_name.data = current_participant.vehicle_name
                 form.comment.data = current_participant.comment
+                form.collection_plan_id.data = str(current_participant.collection_plan_id) if current_participant.collection_plan_id else ''
             else:
                 # 未参加ならデフォルト情報をセット
                 form.status.data = 'attending'
@@ -326,7 +704,19 @@ def public_event_view(public_id):
         status = form.status.data
         comment = form.comment.data
         vehicle_name = form.vehicle_name.data
-        
+
+        # 料金プランIDの解決 (集金有効時のみ意味を持つ)
+        selected_plan_id = None
+        if event.collection_enabled:
+            raw_plan_id = (form.collection_plan_id.data or '').strip()
+            if raw_plan_id:
+                try:
+                    pid = int(raw_plan_id)
+                    if any(p.id == pid for p in event_plans):
+                        selected_plan_id = pid
+                except ValueError:
+                    selected_plan_id = None
+
         # --- A. ログインユーザーの処理 ---
         if current_user.is_authenticated:
             # ▼▼▼【変更】名前属性を変更して受け取る ▼▼▼
@@ -374,6 +764,8 @@ def public_event_view(public_id):
                     participant.comment = comment
                     participant.vehicle_name = vehicle_name
                     participant.name = user_name # 名前も最新のユーザー名に同期
+                    if event.collection_enabled:
+                        participant.collection_plan_id = selected_plan_id
                     flash('出欠情報を更新しました。', 'success')
                 else:
                     # 新規作成
@@ -391,7 +783,8 @@ def public_event_view(public_id):
                         status=ParticipationStatus(status),
                         comment=comment,
                         vehicle_name=vehicle_name,
-                        passcode_hash=None # ログインユーザーはパスコード不要
+                        passcode_hash=None, # ログインユーザーはパスコード不要
+                        collection_plan_id=selected_plan_id if event.collection_enabled else None,
                     )
                     db.session.add(new_participant)
                     # メッセージ重複回避のため、統合処理直後でない場合のみ表示
@@ -430,6 +823,8 @@ def public_event_view(public_id):
                         existing_participant.status = ParticipationStatus(status)
                         existing_participant.comment = comment
                         existing_participant.vehicle_name = vehicle_name
+                        if event.collection_enabled:
+                            existing_participant.collection_plan_id = selected_plan_id
                         flash(f'「{participant_name}」さんの出欠情報を更新しました。', 'success')
                 else:
                     if status == 'delete':
@@ -441,7 +836,8 @@ def public_event_view(public_id):
                         name=participant_name,
                         status=ParticipationStatus(status),
                         comment=comment,
-                        vehicle_name=vehicle_name
+                        vehicle_name=vehicle_name,
+                        collection_plan_id=selected_plan_id if event.collection_enabled else None,
                     )
                     new_participant.set_passcode(passcode)
                     db.session.add(new_participant)
@@ -464,12 +860,13 @@ def public_event_view(public_id):
     participants_not_attending = event.participants.filter_by(status=ParticipationStatus.NOT_ATTENDING).order_by(EventParticipant.created_at).all()
 
     return render_template(
-        'event/public_event_view.html', 
-        event=event, 
+        'event/public_event_view.html',
+        event=event,
         form=form,
         participants_attending=participants_attending,
         participants_tentative=participants_tentative,
-        participants_not_attending=participants_not_attending
+        participants_not_attending=participants_not_attending,
+        event_plans=event_plans,
     )
 
 
@@ -486,14 +883,14 @@ def update_participant_payment(participant_id):
 
     if not event.collection_enabled:
         flash('このイベントは集金が有効ではありません。', 'warning')
-        return redirect(url_for('event.event_detail', event_id=event.id))
+        return _redirect_after_participant_update(event, participant.id)
 
     new_status_value = request.form.get('payment_status')
     try:
         new_status = PaymentStatus(new_status_value)
     except ValueError:
         flash('不正な支払いステータスです。', 'danger')
-        return redirect(url_for('event.event_detail', event_id=event.id))
+        return _redirect_after_participant_update(event, participant.id)
 
     try:
         participant.payment_status = new_status
@@ -507,7 +904,46 @@ def update_participant_payment(participant_id):
         current_app.logger.error(f"Error updating payment status for participant {participant_id}: {e}", exc_info=True)
         flash('支払いステータスの更新中にエラーが発生しました。', 'danger')
 
-    return redirect(url_for('event.event_detail', event_id=event.id) + '#collectionSection')
+    return _redirect_after_participant_update(event, participant.id)
+
+
+@event_bp.route('/participant/<int:participant_id>/plan', methods=['POST'])
+@limiter.limit("120 per hour")
+@login_required
+def update_participant_plan(participant_id):
+    """主催者が参加者の料金プランを変更する"""
+    participant = EventParticipant.query.get_or_404(participant_id)
+    event = participant.event
+
+    if event.user_id != current_user.id:
+        abort(403)
+    if not event.collection_enabled:
+        flash('このイベントは集金が有効ではありません。', 'warning')
+        return _redirect_after_participant_update(event, participant.id)
+
+    raw_plan_id = request.form.get('collection_plan_id', '').strip()
+    new_plan_id = None
+    if raw_plan_id:
+        try:
+            new_plan_id = int(raw_plan_id)
+        except ValueError:
+            flash('不正なプラン指定です。', 'danger')
+            return _redirect_after_participant_update(event, participant.id)
+        # 指定プランが本イベントのものか検証
+        plan = EventCollectionPlan.query.filter_by(id=new_plan_id, event_id=event.id).first()
+        if not plan:
+            flash('指定された料金プランが見つかりません。', 'danger')
+            return _redirect_after_participant_update(event, participant.id)
+
+    try:
+        participant.collection_plan_id = new_plan_id
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error updating plan for participant {participant_id}: {e}", exc_info=True)
+        flash('プランの更新中にエラーが発生しました。', 'danger')
+
+    return _redirect_after_participant_update(event, participant.id)
 
 
 @event_bp.route('/<int:event_id>/payments/bulk', methods=['POST'])
@@ -520,7 +956,7 @@ def bulk_update_payments(event_id):
         abort(403)
     if not event.collection_enabled:
         flash('このイベントは集金が有効ではありません。', 'warning')
-        return redirect(url_for('event.event_detail', event_id=event.id))
+        return _redirect_after_participant_update(event)
 
     action = request.form.get('action')
     target_statuses = [ParticipationStatus.ATTENDING, ParticipationStatus.TENTATIVE]
@@ -534,14 +970,14 @@ def bulk_update_payments(event_id):
             flash('支払い状況をすべて「未払い」にリセットしました。', 'info')
         else:
             flash('不正な操作です。', 'danger')
-            return redirect(url_for('event.event_detail', event_id=event.id))
+            return _redirect_after_participant_update(event)
         db.session.commit()
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"Error bulk updating payments for event {event_id}: {e}", exc_info=True)
         flash('一括更新中にエラーが発生しました。', 'danger')
 
-    return redirect(url_for('event.event_detail', event_id=event.id) + '#collectionSection')
+    return _redirect_after_participant_update(event)
 
 
 @event_bp.route('/participant/<int:participant_id>/delete', methods=['POST'])

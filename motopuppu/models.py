@@ -488,11 +488,27 @@ class BotNotificationLog(db.Model):
         return f'<BotNotificationLog id={self.id} type="{self.notification_type}">'
 
 
+class EventCollectionPlan(db.Model):
+    """イベントの料金プラン (走行料・見学費など)"""
+    __tablename__ = 'event_collection_plans'
+    id = db.Column(db.Integer, primary_key=True)
+    event_id = db.Column(db.Integer, db.ForeignKey('events.id', ondelete='CASCADE'), nullable=False, index=True)
+    name = db.Column(db.String(50), nullable=False, comment="プラン名 (例: 走行料、見学費)")
+    amount = db.Column(db.Integer, nullable=False, comment="金額 (円)")
+    sort_order = db.Column(db.Integer, nullable=False, server_default='0', comment="表示順")
+    created_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
+
+    event = db.relationship('Event', backref=db.backref('collection_plans', lazy='dynamic', cascade="all, delete-orphan", order_by="EventCollectionPlan.sort_order"))
+
+    def __repr__(self):
+        return f'<EventCollectionPlan id={self.id} name="{self.name}" amount={self.amount}>'
+
+
 class EventParticipant(db.Model):
     __tablename__ = 'event_participants'
     id = db.Column(db.Integer, primary_key=True)
     event_id = db.Column(db.Integer, db.ForeignKey('events.id', ondelete='CASCADE'), nullable=False, index=True)
-    
+
     # ユーザーとの紐付け用カラムを追加
     user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, index=True, comment="紐づくユーザーID")
     
@@ -512,6 +528,19 @@ class EventParticipant(db.Model):
     )
     paid_at = db.Column(db.DateTime, nullable=True, comment="支払いを記録した日時 (UTC)")
 
+    # 当日チェックイン (NULL なら未到着、値があれば来場済み)
+    checked_in_at = db.Column(db.DateTime, nullable=True, comment="当日チェックインを記録した日時 (UTC)")
+
+    # 料金プランの紐付け (NULL ならイベントのデフォルト金額)
+    collection_plan_id = db.Column(
+        db.Integer,
+        db.ForeignKey('event_collection_plans.id', ondelete='SET NULL'),
+        nullable=True,
+        index=True,
+        comment="割り当てられた料金プランID (NULLならデフォルト金額)"
+    )
+    collection_plan = db.relationship('EventCollectionPlan', backref=db.backref('participants', lazy='dynamic'))
+
     created_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
     
     # ユーザーとのリレーションを追加
@@ -529,6 +558,20 @@ class EventParticipant(db.Model):
         if not passcode:
             return False
         return check_password_hash(self.passcode_hash, passcode)
+    @property
+    def effective_amount(self):
+        """この参加者に適用される集金額。プラン未割当てならイベントのデフォルト金額。"""
+        if self.collection_plan is not None:
+            return self.collection_plan.amount
+        return self.event.collection_amount if self.event else None
+
+    @property
+    def plan_label(self):
+        """料金プラン名 (未割当てはデフォルト名)"""
+        if self.collection_plan is not None:
+            return self.collection_plan.name
+        return 'デフォルト'
+
     def __repr__(self):
         return f'<EventParticipant id={self.id} event_id={self.event_id} name="{self.name}" status="{self.status.value}">'
 

@@ -72,15 +72,12 @@
         <div class="card mb-4 border-warning" id="collectionSection">
             <div class="card-header bg-warning-subtle d-flex justify-content-between align-items-center">
                 <span><i class="fas fa-yen-sign me-2"></i>当日集金</span>
-                <span class="badge bg-warning text-dark">
-                    1人 {{ "{:,}".format(collection_summary.amount) }}円
-                    {% if event.collection_note %}
-                    <span class="ms-1">({{ event.collection_note }})</span>
-                    {% endif %}
-                </span>
+                {% if event.collection_note %}
+                <span class="badge bg-warning text-dark">{{ event.collection_note }}</span>
+                {% endif %}
             </div>
             <div class="card-body">
-                {# サマリー表示 #}
+                {# 全体サマリー #}
                 <div class="row text-center g-2 mb-3">
                     <div class="col-6 col-md-3">
                         <div class="border rounded p-2 h-100">
@@ -118,16 +115,61 @@
                 </div>
                 {% endif %}
 
+                {# プラン別内訳 (プランが定義されているか、デフォルト割当てがある場合) #}
+                {% set non_empty_breakdown = collection_summary.plan_breakdown | selectattr('count', 'gt', 0) | list %}
+                {% if non_empty_breakdown %}
+                <div class="mb-3">
+                    <div class="small fw-bold text-muted mb-2"><i class="fas fa-tags me-1"></i>プラン別内訳</div>
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0">
+                            <thead>
+                                <tr class="small text-muted">
+                                    <th>プラン</th>
+                                    <th class="text-end">単価</th>
+                                    <th class="text-center">人数</th>
+                                    <th class="text-end">予定</th>
+                                    <th class="text-end">集金済</th>
+                                    <th class="text-end">未収</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for b in non_empty_breakdown %}
+                                <tr>
+                                    <td>
+                                        {% if b.plan_id is none %}
+                                        <span class="text-muted">{{ b.name }}</span>
+                                        {% else %}
+                                        <span class="fw-bold">{{ b.name }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-end">{{ "{:,}".format(b.amount or 0) }}円</td>
+                                    <td class="text-center">
+                                        {{ b.count }}名
+                                        <span class="small text-muted">(済{{ b.paid_count }}/未{{ b.unpaid_count }}{% if b.exempt_count %}/免{{ b.exempt_count }}{% endif %})</span>
+                                    </td>
+                                    <td class="text-end">{{ "{:,}".format(b.expected) }}円</td>
+                                    <td class="text-end text-success-emphasis">{{ "{:,}".format(b.collected) }}円</td>
+                                    <td class="text-end text-danger-emphasis">{{ "{:,}".format(b.outstanding) }}円</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% endif %}
+
                 {# 集金チェックリスト #}
                 {% set payment_targets = participants_attending + participants_tentative %}
                 {% if payment_targets %}
+                <div class="small fw-bold text-muted mb-2"><i class="fas fa-list-check me-1"></i>参加者ごとの支払い状況</div>
                 <div class="table-responsive">
                     <table class="table table-sm align-middle mb-0">
                         <thead>
                             <tr>
                                 <th>参加者</th>
-                                <th class="text-center" style="width: 100px;">出欠</th>
-                                <th class="text-end" style="width: 240px;">支払い状況</th>
+                                <th class="text-center" style="width: 80px;">出欠</th>
+                                <th style="width: 200px;">プラン</th>
+                                <th class="text-end" style="width: 240px;">支払い</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -146,15 +188,30 @@
                                     <span class="badge bg-warning text-dark">保留</span>
                                     {% endif %}
                                 </td>
+                                <td>
+                                    <form action="{{ url_for('event.update_participant_plan', participant_id=p.id) }}" method="POST" class="d-flex align-items-center gap-1">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <select name="collection_plan_id" class="form-select form-select-sm" onchange="this.form.submit()">
+                                            <option value="" {% if not p.collection_plan_id %}selected{% endif %}>
+                                                デフォルト ({{ "{:,}".format(event.collection_amount or 0) }}円)
+                                            </option>
+                                            {% for plan in collection_plans %}
+                                            <option value="{{ plan.id }}" {% if p.collection_plan_id == plan.id %}selected{% endif %}>
+                                                {{ plan.name }} ({{ "{:,}".format(plan.amount) }}円)
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                    </form>
+                                </td>
                                 <td class="text-end">
                                     <form action="{{ url_for('event.update_participant_payment', participant_id=p.id) }}" method="POST" class="d-inline">
                                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                         <div class="btn-group btn-group-sm" role="group" aria-label="支払いステータス">
                                             <button type="submit" name="payment_status" value="unpaid" class="btn {% if p.payment_status == PaymentStatus.UNPAID %}btn-danger{% else %}btn-outline-danger{% endif %}" title="未払い">
-                                                未払い
+                                                未払
                                             </button>
                                             <button type="submit" name="payment_status" value="paid" class="btn {% if p.payment_status == PaymentStatus.PAID %}btn-success{% else %}btn-outline-success{% endif %}" title="支払済">
-                                                <i class="fas fa-check me-1"></i>支払済
+                                                <i class="fas fa-check me-1"></i>済
                                             </button>
                                             <button type="submit" name="payment_status" value="exempt" class="btn {% if p.payment_status == PaymentStatus.EXEMPT %}btn-secondary{% else %}btn-outline-secondary{% endif %}" title="免除">
                                                 免除
@@ -420,6 +477,19 @@
             </div>
         </div>
         {# ▲▲▲【追加】ここまで ▲▲▲ #}
+
+        {# 当日モード (主催者のみ) #}
+        {% if is_owner %}
+        <div class="card mb-4 border-danger">
+            <div class="card-body text-center">
+                <h5 class="card-title text-danger"><i class="fas fa-bolt me-2"></i>当日モード</h5>
+                <p class="card-text small text-muted">当日の来場チェックと集金管理に最適化された専用ページです。スマホでの操作に向いています。</p>
+                <a href="{{ url_for('event.day_view', event_id=event.id) }}" class="btn btn-danger w-100">
+                    <i class="fas fa-tasks me-1"></i> 当日モードを開く
+                </a>
+            </div>
+        </div>
+        {% endif %}
 
         <div class="card mb-4">
             <div class="card-header">

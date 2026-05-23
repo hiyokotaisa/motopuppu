@@ -94,15 +94,32 @@
                 </div>
 
                 {# 当日集金のお知らせ #}
-                {% if event.collection_enabled and event.collection_amount %}
-                <div class="alert alert-warning d-flex align-items-center mb-3" role="alert">
-                    <i class="fas fa-yen-sign fa-lg me-3"></i>
-                    <div>
-                        <strong>当日集金あり: 1人 {{ "{:,}".format(event.collection_amount) }}円</strong>
-                        {% if event.collection_note %}
-                        <div class="small">({{ event.collection_note }})</div>
-                        {% endif %}
+                {% if event.collection_enabled %}
+                <div class="alert alert-warning mb-3" role="alert">
+                    <div class="d-flex align-items-center mb-2">
+                        <i class="fas fa-yen-sign fa-lg me-3"></i>
+                        <div>
+                            <strong>当日集金あり</strong>
+                            {% if event.collection_note %}
+                            <span class="ms-2 small">({{ event.collection_note }})</span>
+                            {% endif %}
+                        </div>
                     </div>
+                    {% if event_plans %}
+                    <div class="small ms-4">
+                        <div class="mb-1 text-muted">料金プラン:</div>
+                        <ul class="mb-0 ps-3">
+                            {% for plan in event_plans %}
+                            <li><strong>{{ plan.name }}</strong>: {{ "{:,}".format(plan.amount) }}円</li>
+                            {% endfor %}
+                            {% if event.collection_amount %}
+                            <li class="text-muted">デフォルト (上記以外): {{ "{:,}".format(event.collection_amount) }}円</li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                    {% elif event.collection_amount %}
+                    <div class="ms-4 small">1人 {{ "{:,}".format(event.collection_amount) }}円</div>
+                    {% endif %}
                 </div>
                 {% endif %}
 
@@ -245,6 +262,22 @@
                             %}</div>
                         {% endif %}
                     </div>
+
+                    {% if event.collection_enabled and event_plans %}
+                    <div class="mb-4">
+                        {{ form.collection_plan_id.label(class="form-label fw-bold small text-muted") }}
+                        <div class="input-group">
+                            <span class="input-group-text bg-white text-muted"><i class="fas fa-yen-sign"></i></span>
+                            {{ form.collection_plan_id(class="form-select" + (" is-invalid" if form.collection_plan_id.errors else "")) }}
+                        </div>
+                        <div class="form-text">あなたの料金プランを選択してください。</div>
+                        {% if form.collection_plan_id.errors %}
+                        <div class="invalid-feedback d-block">
+                            {% for error in form.collection_plan_id.errors %}{{ error }}{% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
 
                     <div class="mb-4">
                         {{ form.status.label(class="form-label fw-bold small text-muted d-block") }}

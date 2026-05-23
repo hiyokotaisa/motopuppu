@@ -103,13 +103,14 @@
                                 参加者ごとに支払い状況（未払/支払済/免除）を管理できます。当日現金を受け取ったときの記録用です。
                             </div>
                             <div id="collectionFieldsWrapper" {% if not form.collection_enabled.data %}class="d-none"{% endif %}>
-                                <div class="row g-2">
+                                <div class="row g-2 mb-3">
                                     <div class="col-md-5">
                                         {{ form.collection_amount.label(class="form-label small mb-1") }}
                                         <div class="input-group input-group-sm">
                                             {{ form.collection_amount(class="form-control" + (" is-invalid" if form.collection_amount.errors else ""), type="number") }}
                                             <span class="input-group-text">円</span>
                                         </div>
+                                        <div class="form-text">プラン未割当ての参加者に適用される基本金額です。</div>
                                         {% if form.collection_amount.errors %}
                                         <div class="invalid-feedback d-block">
                                             {% for error in form.collection_amount.errors %}{{ error }}{% endfor %}
@@ -125,6 +126,44 @@
                                         </div>
                                         {% endif %}
                                     </div>
+                                </div>
+
+                                {# --- 料金プラン (走行料/見学費など、参加者ごとに金額が変わる場合) --- #}
+                                <div class="border-top pt-3">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <label class="form-label fw-bold mb-0">料金プラン (任意)</label>
+                                        <button type="button" class="btn btn-sm btn-outline-primary" id="addPlanBtn">
+                                            <i class="fas fa-plus me-1"></i>プランを追加
+                                        </button>
+                                    </div>
+                                    <div class="form-text mb-2">
+                                        「走行料 5,000円」「見学費 1,000円」のように、参加者ごとに金額が変わる場合に追加します。プランを作成しても、参加者がプラン未割当てなら上のデフォルト金額が適用されます。
+                                    </div>
+                                    <input type="hidden" name="plan_count" id="planCount" value="{{ plans|length }}">
+                                    <div id="planList">
+                                        {% for plan in plans %}
+                                        <div class="row g-2 align-items-start mb-2 plan-row">
+                                            <input type="hidden" name="plan_id_{{ loop.index0 }}" value="{{ plan.id }}">
+                                            <div class="col-md-5">
+                                                <input type="text" name="plan_name_{{ loop.index0 }}" value="{{ plan.name }}" class="form-control form-control-sm" placeholder="プラン名 (例: 走行料)" maxlength="50">
+                                            </div>
+                                            <div class="col-md-5">
+                                                <div class="input-group input-group-sm">
+                                                    <input type="number" name="plan_amount_{{ loop.index0 }}" value="{{ plan.amount }}" class="form-control" placeholder="金額" min="0" step="100">
+                                                    <span class="input-group-text">円</span>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-2 text-end">
+                                                <button type="button" class="btn btn-sm btn-outline-danger remove-plan-btn" title="このプランを削除">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                    {% if not plans %}
+                                    <div class="text-muted small" id="planEmptyHint">プランは追加されていません。一律料金の場合は不要です。</div>
+                                    {% endif %}
                                 </div>
                             </div>
                         </div>
@@ -178,6 +217,73 @@ document.addEventListener('DOMContentLoaded', function() {
             } else {
                 wrapper.classList.add('d-none');
             }
+        });
+    }
+
+    // --- 料金プラン 動的追加・削除 ---
+    const MAX_PLANS = 20;
+    const planList = document.getElementById('planList');
+    const planCountInput = document.getElementById('planCount');
+    const addPlanBtn = document.getElementById('addPlanBtn');
+    const emptyHint = document.getElementById('planEmptyHint');
+
+    function reindexPlans() {
+        const rows = planList.querySelectorAll('.plan-row');
+        rows.forEach((row, idx) => {
+            row.querySelectorAll('input[type="hidden"], input[type="text"], input[type="number"]').forEach((el) => {
+                if (el.name.startsWith('plan_id_')) el.name = 'plan_id_' + idx;
+                else if (el.name.startsWith('plan_name_')) el.name = 'plan_name_' + idx;
+                else if (el.name.startsWith('plan_amount_')) el.name = 'plan_amount_' + idx;
+            });
+        });
+        planCountInput.value = rows.length;
+        if (emptyHint) emptyHint.classList.toggle('d-none', rows.length > 0);
+    }
+
+    function attachRemove(row) {
+        const btn = row.querySelector('.remove-plan-btn');
+        if (btn) {
+            btn.addEventListener('click', function() {
+                row.remove();
+                reindexPlans();
+            });
+        }
+    }
+
+    if (planList) {
+        planList.querySelectorAll('.plan-row').forEach(attachRemove);
+    }
+
+    if (addPlanBtn && planList) {
+        addPlanBtn.addEventListener('click', function() {
+            const current = planList.querySelectorAll('.plan-row').length;
+            if (current >= MAX_PLANS) {
+                alert('プランは最大 ' + MAX_PLANS + ' 件まで追加できます。');
+                return;
+            }
+            const idx = current;
+            const div = document.createElement('div');
+            div.className = 'row g-2 align-items-start mb-2 plan-row';
+            div.innerHTML = `
+                <input type="hidden" name="plan_id_${idx}" value="">
+                <div class="col-md-5">
+                    <input type="text" name="plan_name_${idx}" value="" class="form-control form-control-sm" placeholder="プラン名 (例: 走行料)" maxlength="50">
+                </div>
+                <div class="col-md-5">
+                    <div class="input-group input-group-sm">
+                        <input type="number" name="plan_amount_${idx}" value="" class="form-control" placeholder="金額" min="0" step="100">
+                        <span class="input-group-text">円</span>
+                    </div>
+                </div>
+                <div class="col-md-2 text-end">
+                    <button type="button" class="btn btn-sm btn-outline-danger remove-plan-btn" title="このプランを削除">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            `;
+            planList.appendChild(div);
+            attachRemove(div);
+            reindexPlans();
         });
     }
 });

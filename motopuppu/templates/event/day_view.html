@@ -1,0 +1,330 @@
+{# templates/event/day_view.html: 主催者専用・当日運用ページ #}
+{% extends 'base.html' %}
+
+{% block title %}{{ event.title }} - 当日モード{% endblock %}
+
+{% block page_specific_head %}
+<style>
+    .day-summary-bar {
+        position: sticky;
+        top: 0;
+        z-index: 1020;
+        background: #fff;
+        border-bottom: 1px solid #dee2e6;
+    }
+    .day-participant-card {
+        transition: background-color .15s ease;
+    }
+    .day-participant-card.is-checked-in {
+        background-color: rgba(25, 135, 84, 0.05);
+    }
+    .day-participant-card.is-paid {
+        opacity: 0.85;
+    }
+    .day-status-buttons .btn {
+        min-width: 56px;
+    }
+    .filter-chip {
+        white-space: nowrap;
+    }
+    .day-search-input {
+        font-size: 16px; /* iOS の auto-zoom 防止 */
+    }
+    @media (max-width: 576px) {
+        .day-summary-stat {
+            font-size: 0.85rem;
+        }
+        .day-summary-stat .stat-value {
+            font-size: 1.05rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-2">
+    <a href="{{ url_for('event.event_detail', event_id=event.id) }}" class="btn btn-sm btn-outline-secondary">
+        <i class="fas fa-arrow-left me-1"></i> イベント詳細に戻る
+    </a>
+    <span class="badge bg-danger">
+        <i class="fas fa-bolt me-1"></i>当日モード
+    </span>
+</div>
+
+<h1 class="h4 mb-3">{{ event.title }}</h1>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+{% for category, message in messages %}
+<div class="alert alert-{{ category }} alert-dismissible fade show py-2 small" role="alert">
+    {{ message }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+{% endfor %}
+{% endif %}
+{% endwith %}
+
+{# --- サマリーバー (sticky) --- #}
+<div class="day-summary-bar py-2 mb-3">
+    <div class="row text-center g-1">
+        <div class="col-6 col-md-3 day-summary-stat">
+            <div class="text-muted small">来場</div>
+            <div class="stat-value fw-bold">
+                <span class="text-success">{{ day_summary.checked_in_count }}</span>
+                <span class="text-muted">/ {{ day_summary.total_count }}</span>
+            </div>
+        </div>
+        {% if event.collection_enabled %}
+        <div class="col-6 col-md-3 day-summary-stat">
+            <div class="text-muted small">集金済</div>
+            <div class="stat-value fw-bold text-success">{{ "{:,}".format(day_summary.collected_total) }}円</div>
+            <div class="small text-muted">{{ day_summary.paid_count }}名</div>
+        </div>
+        <div class="col-6 col-md-3 day-summary-stat">
+            <div class="text-muted small">未収</div>
+            <div class="stat-value fw-bold text-danger">{{ "{:,}".format(day_summary.outstanding_total) }}円</div>
+            <div class="small text-muted">{{ day_summary.unpaid_count }}名</div>
+        </div>
+        <div class="col-6 col-md-3 day-summary-stat">
+            <div class="text-muted small">予定総額</div>
+            <div class="stat-value fw-bold">{{ "{:,}".format(day_summary.expected_total) }}円</div>
+        </div>
+        {% else %}
+        <div class="col-6 col-md-3 day-summary-stat">
+            <div class="text-muted small">未来場</div>
+            <div class="stat-value fw-bold text-secondary">{{ day_summary.not_checked_in_count }}名</div>
+        </div>
+        {% endif %}
+    </div>
+
+    {# 進捗バー #}
+    {% if day_summary.total_count > 0 %}
+    {% set checkin_pct = (day_summary.checked_in_count / day_summary.total_count * 100) | round(0, 'floor') %}
+    <div class="progress mt-2" style="height: 4px;">
+        <div class="progress-bar bg-success" style="width: {{ checkin_pct }}%;"></div>
+    </div>
+    {% endif %}
+
+    {# 検索 + フィルタ #}
+    <div class="d-flex gap-2 mt-2 align-items-center">
+        <div class="input-group input-group-sm flex-grow-1">
+            <span class="input-group-text bg-white"><i class="fas fa-search"></i></span>
+            <input type="text" id="daySearchInput" class="form-control day-search-input" placeholder="名前で検索">
+        </div>
+        <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#walkinModal">
+            <i class="fas fa-user-plus me-1"></i>飛び入り
+        </button>
+    </div>
+    <div class="d-flex gap-1 mt-2 overflow-auto" id="dayFilterChips">
+        <button type="button" class="btn btn-sm btn-secondary filter-chip" data-filter="all">全員 ({{ day_summary.total_count }})</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary filter-chip" data-filter="not_checked_in">未来場 ({{ day_summary.not_checked_in_count }})</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary filter-chip" data-filter="checked_in">来場済 ({{ day_summary.checked_in_count }})</button>
+        {% if event.collection_enabled %}
+        <button type="button" class="btn btn-sm btn-outline-secondary filter-chip" data-filter="unpaid_arrived">来場&amp;未払 ({{ day_summary.unpaid_count }})</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary filter-chip" data-filter="complete">完了 ({{ day_summary.paid_count }})</button>
+        {% endif %}
+    </div>
+</div>
+
+{# --- 参加者リスト --- #}
+<div id="dayParticipantList">
+    {% if participants %}
+    {% for p in participants %}
+    {% set is_checked = p.checked_in_at is not none %}
+    {% set is_paid = p.payment_status == PaymentStatus.PAID %}
+    {% set is_exempt = p.payment_status == PaymentStatus.EXEMPT %}
+    {% set is_complete = is_checked and (not event.collection_enabled or is_paid or is_exempt) %}
+    <div class="card mb-2 day-participant-card {% if is_checked %}is-checked-in{% endif %} {% if is_paid %}is-paid{% endif %}"
+         id="p-{{ p.id }}"
+         data-name="{{ p.name | lower }}"
+         data-checked="{{ '1' if is_checked else '0' }}"
+         data-payment="{{ p.payment_status.value }}"
+         data-complete="{{ '1' if is_complete else '0' }}">
+        <div class="card-body p-2">
+            <div class="d-flex align-items-start gap-2">
+                {# チェックイン状態の大きなトグルボタン #}
+                <form action="{{ url_for('event.update_participant_checkin', participant_id=p.id) }}" method="POST" class="m-0">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="redirect_to" value="day">
+                    <input type="hidden" name="action" value="toggle">
+                    <button type="submit" class="btn {% if is_checked %}btn-success{% else %}btn-outline-secondary{% endif %} d-flex align-items-center justify-content-center"
+                            style="width: 56px; height: 56px;"
+                            title="{% if is_checked %}チェックイン取消{% else %}チェックイン{% endif %}">
+                        {% if is_checked %}
+                        <i class="fas fa-check fa-lg"></i>
+                        {% else %}
+                        <i class="far fa-circle fa-lg"></i>
+                        {% endif %}
+                    </button>
+                </form>
+
+                <div class="flex-grow-1 min-w-0">
+                    <div class="d-flex justify-content-between align-items-baseline">
+                        <div class="fw-bold text-truncate">{{ p.name }}</div>
+                        {% if p.status.value == 'tentative' %}
+                        <span class="badge bg-warning text-dark ms-1">保留</span>
+                        {% endif %}
+                    </div>
+                    <div class="small text-muted text-truncate">
+                        {% if p.vehicle_name %}<i class="fas fa-motorcycle me-1"></i>{{ p.vehicle_name }}{% endif %}
+                        {% if event.collection_enabled %}
+                        <span class="ms-1">
+                            <i class="fas fa-yen-sign me-1"></i>{{ p.plan_label }} / {{ "{:,}".format(p.effective_amount or 0) }}円
+                        </span>
+                        {% endif %}
+                    </div>
+                    {% if is_checked %}
+                    <div class="small text-success">
+                        <i class="fas fa-clock me-1"></i>{{ p.checked_in_at | to_jst('%H:%M') }} 来場
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            {# プラン変更 + 支払いステータス (集金有効時のみ) #}
+            {% if event.collection_enabled %}
+            <div class="mt-2">
+                {% if collection_plans %}
+                <form action="{{ url_for('event.update_participant_plan', participant_id=p.id) }}" method="POST" class="mb-1">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="redirect_to" value="day">
+                    <select name="collection_plan_id" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="" {% if not p.collection_plan_id %}selected{% endif %}>
+                            デフォルト ({{ "{:,}".format(event.collection_amount or 0) }}円)
+                        </option>
+                        {% for plan in collection_plans %}
+                        <option value="{{ plan.id }}" {% if p.collection_plan_id == plan.id %}selected{% endif %}>
+                            {{ plan.name }} ({{ "{:,}".format(plan.amount) }}円)
+                        </option>
+                        {% endfor %}
+                    </select>
+                </form>
+                {% endif %}
+                <form action="{{ url_for('event.update_participant_payment', participant_id=p.id) }}" method="POST" class="m-0">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="redirect_to" value="day">
+                    <div class="btn-group btn-group-sm day-status-buttons w-100" role="group">
+                        <button type="submit" name="payment_status" value="unpaid"
+                                class="btn {% if p.payment_status == PaymentStatus.UNPAID %}btn-danger{% else %}btn-outline-danger{% endif %}">
+                            未払
+                        </button>
+                        <button type="submit" name="payment_status" value="paid"
+                                class="btn {% if p.payment_status == PaymentStatus.PAID %}btn-success{% else %}btn-outline-success{% endif %}">
+                            <i class="fas fa-check me-1"></i>受領
+                        </button>
+                        <button type="submit" name="payment_status" value="exempt"
+                                class="btn {% if p.payment_status == PaymentStatus.EXEMPT %}btn-secondary{% else %}btn-outline-secondary{% endif %}">
+                            免除
+                        </button>
+                    </div>
+                </form>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="text-center text-muted py-5">
+        <i class="fas fa-user-clock fa-2x mb-2"></i>
+        <p>参加・保留の参加者がまだいません。</p>
+        <p class="small">右上の「飛び入り」ボタンから当日参加者を追加できます。</p>
+    </div>
+    {% endif %}
+</div>
+
+{# --- 飛び入り参加者の追加モーダル --- #}
+<div class="modal fade" id="walkinModal" tabindex="-1" aria-labelledby="walkinModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form action="{{ url_for('event.add_walkin_participant', event_id=event.id) }}" method="POST">
+                {{ walkin_form.hidden_tag() }}
+                <div class="modal-header">
+                    <h5 class="modal-title" id="walkinModalLabel"><i class="fas fa-user-plus me-1"></i>飛び入り参加者の追加</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="small text-muted">追加と同時にチェックイン済みの状態で登録されます。</p>
+                    <div class="mb-3">
+                        {{ walkin_form.name.label(class="form-label") }}
+                        {{ walkin_form.name(class="form-control", autocomplete="off") }}
+                    </div>
+                    <div class="mb-3">
+                        {{ walkin_form.vehicle_name.label(class="form-label") }}
+                        {{ walkin_form.vehicle_name(class="form-control") }}
+                    </div>
+                    {% if event.collection_enabled and collection_plans %}
+                    <div class="mb-3">
+                        {{ walkin_form.collection_plan_id.label(class="form-label") }}
+                        {{ walkin_form.collection_plan_id(class="form-select") }}
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                    {{ walkin_form.submit(class="btn btn-primary") }}
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const list = document.getElementById('dayParticipantList');
+    const searchInput = document.getElementById('daySearchInput');
+    const filterChips = document.querySelectorAll('#dayFilterChips .filter-chip');
+    let currentFilter = 'all';
+
+    function applyFilters() {
+        const q = (searchInput.value || '').trim().toLowerCase();
+        const cards = list.querySelectorAll('.day-participant-card');
+        cards.forEach(card => {
+            const name = card.dataset.name || '';
+            const checked = card.dataset.checked === '1';
+            const payment = card.dataset.payment;
+            const complete = card.dataset.complete === '1';
+
+            let matchesFilter = true;
+            switch (currentFilter) {
+                case 'not_checked_in':
+                    matchesFilter = !checked;
+                    break;
+                case 'checked_in':
+                    matchesFilter = checked;
+                    break;
+                case 'unpaid_arrived':
+                    matchesFilter = checked && payment === 'unpaid';
+                    break;
+                case 'complete':
+                    matchesFilter = complete;
+                    break;
+                default:
+                    matchesFilter = true;
+            }
+
+            const matchesSearch = !q || name.indexOf(q) !== -1;
+            card.style.display = (matchesFilter && matchesSearch) ? '' : 'none';
+        });
+    }
+
+    if (searchInput) searchInput.addEventListener('input', applyFilters);
+
+    filterChips.forEach(chip => {
+        chip.addEventListener('click', function() {
+            currentFilter = this.dataset.filter;
+            filterChips.forEach(c => {
+                c.classList.remove('btn-secondary');
+                c.classList.add('btn-outline-secondary');
+            });
+            this.classList.remove('btn-outline-secondary');
+            this.classList.add('btn-secondary');
+            applyFilters();
+        });
+    });
+});
+</script>
+{% endblock %}

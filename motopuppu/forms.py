@@ -802,6 +802,37 @@ class ParticipantForm(FlaskForm):
         validators=[DataRequired(message='出欠を選択してください。')],
         default='attending'
     )
+    collection_plan_id = SelectField(
+        '料金プラン',
+        coerce=str,
+        validators=[Optional()],
+        default=''
+    )
+    submit = SubmitField('出欠を登録・更新する')
+
+
+class WalkinParticipantForm(FlaskForm):
+    """当日モード: 飛び入り参加者の登録用フォーム"""
+    name = StringField(
+        'お名前',
+        validators=[
+            DataRequired(message='お名前は必須です。'),
+            Length(max=20, message='お名前は20文字以内で入力してください。')
+        ],
+        render_kw={"placeholder": "参加者の名前"}
+    )
+    vehicle_name = StringField(
+        '車種 (任意)',
+        validators=[Optional(), Length(max=50, message='車種は50文字以内で入力してください。')],
+        render_kw={"placeholder": "例: YZF-R1"}
+    )
+    collection_plan_id = SelectField(
+        '料金プラン (任意)',
+        coerce=str,
+        validators=[Optional()],
+        default=''
+    )
+    submit = SubmitField('追加')
     submit = SubmitField('出欠を登録・更新する')
 
 
