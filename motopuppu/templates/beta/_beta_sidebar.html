@@ -116,7 +116,10 @@
                 <i class="fas fa-chart-line"></i> サーキット
             </a>
             <a href="{{ url_for('event.public_events_list') }}" class="beta-nav-item {{ 'active' if beta_nav_active == 'event' }}">
-                <i class="fas fa-calendar-alt"></i> イベント
+                <i class="fas fa-calendar-alt"></i> イベントを探す
+            </a>
+            <a href="{{ url_for('event.list_events') }}" class="beta-nav-item {{ 'active' if beta_nav_active == 'my_events' }}">
+                <i class="fas fa-calendar-check"></i> 自分のイベント
             </a>
             {% if g.user_motorcycles|length > 0 %}
             <a href="{{ url_for('touring.list_logs', vehicle_id=g.user_motorcycles[0].id) }}" class="beta-nav-item {{ 'active' if beta_nav_active == 'touring' }}">

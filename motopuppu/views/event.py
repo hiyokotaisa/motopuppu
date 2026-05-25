@@ -201,9 +201,41 @@ def public_events_list():
 def list_events():
     """ログインユーザーが作成したイベントの一覧を表示する"""
     page = request.args.get('page', 1, type=int)
-    events_pagination = Event.query.filter_by(user_id=current_user.id).order_by(Event.start_datetime.desc()).paginate(page=page, per_page=10, error_out=False)
-    
-    return render_template('event/list_events.html', events_pagination=events_pagination)
+    filter_type = request.args.get('filter', 'upcoming')
+    if filter_type not in ('upcoming', 'past', 'all'):
+        filter_type = 'upcoming'
+
+    now_utc_naive = datetime.now(timezone.utc).replace(tzinfo=None)
+
+    base_query = Event.query.filter_by(user_id=current_user.id)
+
+    if filter_type == 'upcoming':
+        events_query = base_query.filter(Event.start_datetime >= now_utc_naive).order_by(Event.start_datetime.asc())
+    elif filter_type == 'past':
+        events_query = base_query.filter(Event.start_datetime < now_utc_naive).order_by(Event.start_datetime.desc())
+    else:
+        events_query = base_query.order_by(Event.start_datetime.desc())
+
+    events_pagination = events_query.paginate(page=page, per_page=10, error_out=False)
+
+    # タブ用件数
+    upcoming_count = Event.query.filter_by(user_id=current_user.id).filter(Event.start_datetime >= now_utc_naive).count()
+    past_count = Event.query.filter_by(user_id=current_user.id).filter(Event.start_datetime < now_utc_naive).count()
+    total_count = upcoming_count + past_count
+
+    template_name = 'event/list_events.html'
+    if current_user.use_beta_ui:
+        template_name = 'beta/list_events_beta.html'
+
+    return render_template(
+        template_name,
+        events_pagination=events_pagination,
+        filter_type=filter_type,
+        upcoming_count=upcoming_count,
+        past_count=past_count,
+        total_count=total_count,
+        now_utc_naive=now_utc_naive,
+    )
 
 
 @event_bp.route('/add', methods=['GET', 'POST'])

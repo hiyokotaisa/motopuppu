@@ -23,20 +23,59 @@
   {% endif %}
 {% endwith %}
 
+{# --- フィルタタブ --- #}
+<ul class="nav nav-pills mb-3">
+    <li class="nav-item">
+        <a class="nav-link {% if filter_type == 'upcoming' %}active{% endif %}" href="{{ url_for('event.list_events', filter='upcoming') }}">
+            <i class="far fa-calendar me-1"></i> 開催予定
+            <span class="badge {% if filter_type == 'upcoming' %}bg-light text-dark{% else %}bg-secondary{% endif %} ms-1">{{ upcoming_count }}</span>
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if filter_type == 'past' %}active{% endif %}" href="{{ url_for('event.list_events', filter='past') }}">
+            <i class="fas fa-history me-1"></i> 終了
+            <span class="badge {% if filter_type == 'past' %}bg-light text-dark{% else %}bg-secondary{% endif %} ms-1">{{ past_count }}</span>
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if filter_type == 'all' %}active{% endif %}" href="{{ url_for('event.list_events', filter='all') }}">
+            <i class="fas fa-list me-1"></i> すべて
+            <span class="badge {% if filter_type == 'all' %}bg-light text-dark{% else %}bg-secondary{% endif %} ms-1">{{ total_count }}</span>
+        </a>
+    </li>
+</ul>
+
 {% if not events_pagination.items %}
 <div class="card text-center">
     <div class="card-body">
-        <p class="card-text">まだイベントが登録されていません。</p>
-        <a href="{{ url_for('event.add_event') }}" class="btn btn-primary">最初のイベントを作成しましょう！</a>
+        {% if filter_type == 'past' %}
+            <p class="card-text">終了したイベントはまだありません。</p>
+            <a href="{{ url_for('event.list_events', filter='upcoming') }}" class="btn btn-outline-primary">開催予定を見る</a>
+        {% elif filter_type == 'upcoming' %}
+            <p class="card-text">開催予定のイベントはありません。</p>
+            <a href="{{ url_for('event.add_event') }}" class="btn btn-primary">新しいイベントを作成</a>
+            {% if past_count > 0 %}
+            <div class="mt-2">
+                <a href="{{ url_for('event.list_events', filter='past') }}" class="text-muted small">
+                    <i class="fas fa-history me-1"></i>過去のイベント ({{ past_count }}件) を見る
+                </a>
+            </div>
+            {% endif %}
+        {% else %}
+            <p class="card-text">まだイベントが登録されていません。</p>
+            <a href="{{ url_for('event.add_event') }}" class="btn btn-primary">最初のイベントを作成しましょう！</a>
+        {% endif %}
     </div>
 </div>
 {% else %}
 <div class="list-group">
     {% for event in events_pagination.items %}
-    <div class="list-group-item list-group-item-action flex-column align-items-start mb-3 border rounded">
+    {% set is_past = event.start_datetime < now_utc_naive %}
+    <div class="list-group-item list-group-item-action flex-column align-items-start mb-3 border rounded" {% if is_past %}style="opacity: 0.85;"{% endif %}>
         <div class="d-flex w-100 justify-content-between">
             <h5 class="mb-1">
                 <a href="{{ url_for('event.event_detail', event_id=event.id) }}" class="text-decoration-none">{{ event.title }}</a>
+                {% if is_past %}<span class="badge bg-secondary ms-2" style="font-size: 0.7rem;">終了</span>{% endif %}
             </h5>
             <small class="text-muted">{{ event.start_datetime | to_jst('%Y/%m/%d') }}</small>
         </div>
@@ -110,19 +149,19 @@
 <nav aria-label="Event list navigation">
     <ul class="pagination justify-content-center">
         <li class="page-item {% if not events_pagination.has_prev %}disabled{% endif %}">
-            <a class="page-link" href="{{ url_for('event.list_events', page=events_pagination.prev_num) if events_pagination.has_prev else '#' }}">前へ</a>
+            <a class="page-link" href="{{ url_for('event.list_events', page=events_pagination.prev_num, filter=filter_type) if events_pagination.has_prev else '#' }}">前へ</a>
         </li>
         {% for page_num in events_pagination.iter_pages() %}
             {% if page_num %}
                 <li class="page-item {% if page_num == events_pagination.page %}active{% endif %}">
-                    <a class="page-link" href="{{ url_for('event.list_events', page=page_num) }}">{{ page_num }}</a>
+                    <a class="page-link" href="{{ url_for('event.list_events', page=page_num, filter=filter_type) }}">{{ page_num }}</a>
                 </li>
             {% else %}
                 <li class="page-item disabled"><span class="page-link">…</span></li>
             {% endif %}
         {% endfor %}
         <li class="page-item {% if not events_pagination.has_next %}disabled{% endif %}">
-            <a class="page-link" href="{{ url_for('event.list_events', page=events_pagination.next_num) if events_pagination.has_next else '#' }}">次へ</a>
+            <a class="page-link" href="{{ url_for('event.list_events', page=events_pagination.next_num, filter=filter_type) if events_pagination.has_next else '#' }}">次へ</a>
         </li>
     </ul>
 </nav>
