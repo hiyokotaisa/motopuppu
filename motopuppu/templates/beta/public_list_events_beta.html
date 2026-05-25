@@ -1,7 +1,7 @@
 {# motopuppu/templates/beta/public_list_events_beta.html #}
 {% extends "base.html" %}
 
-{% block title %}開催予定のイベント一覧 - もとぷっぷー{% endblock %}
+{% block title %}イベントを探す - もとぷっぷー{% endblock %}
 
 {% block body_attributes %}beta-ui-body{% endblock %}
 
@@ -20,8 +20,8 @@
 
     <main class="beta-main-content">
         {# Top Bar #}
-        {% set beta_topbar_title = '開催予定のイベント一覧' %}
-        {% set beta_topbar_subtitle = 'Scheduled Events' %}
+        {% set beta_topbar_title = 'イベントを探す' %}
+        {% set beta_topbar_subtitle = 'Find Events' %}
         {% include 'beta/_beta_topbar.html' %}
 
         {# Flash Messages #}
@@ -36,24 +36,65 @@
         {% endif %}
         {% endwith %}
 
+        {# --- 検索フォーム --- #}
+        <form method="GET" action="{{ url_for('event.public_events_list') }}" class="mb-3">
+            <input type="hidden" name="filter" value="{{ filter_type }}">
+            <div class="input-group">
+                <span class="input-group-text"><i class="fas fa-search"></i></span>
+                <input type="search" name="q" class="form-control" placeholder="タイトルや場所で検索..." value="{{ search_query }}" maxlength="100">
+                {% if search_query %}
+                <a href="{{ url_for('event.public_events_list', filter=filter_type) }}" class="btn btn-outline-secondary" title="検索をクリア">
+                    <i class="fas fa-times"></i>
+                </a>
+                {% endif %}
+                <button type="submit" class="beta-btn beta-btn-solid">検索</button>
+            </div>
+        </form>
+
+        {# --- フィルタタブ --- #}
+        <div class="d-flex flex-wrap gap-2 mb-4">
+            <a href="{{ url_for('event.public_events_list', filter='upcoming', q=search_query or None) }}"
+               class="beta-btn {{ 'beta-btn-solid' if filter_type == 'upcoming' }}">
+                <i class="far fa-calendar me-1"></i> 開催予定
+                <span class="beta-badge ms-1" style="background: rgba(255,255,255,0.2);">{{ upcoming_count }}</span>
+            </a>
+            <a href="{{ url_for('event.public_events_list', filter='past', q=search_query or None) }}"
+               class="beta-btn {{ 'beta-btn-solid' if filter_type == 'past' }}">
+                <i class="fas fa-history me-1"></i> 過去のイベント
+                <span class="beta-badge ms-1" style="background: rgba(255,255,255,0.2);">{{ past_count }}</span>
+            </a>
+            <a href="{{ url_for('event.public_events_list', filter='all', q=search_query or None) }}"
+               class="beta-btn {{ 'beta-btn-solid' if filter_type == 'all' }}">
+                <i class="fas fa-list me-1"></i> すべて
+                <span class="beta-badge ms-1" style="background: rgba(255,255,255,0.2);">{{ total_count }}</span>
+            </a>
+        </div>
+
         {% if events_pagination.items %}
 
         {# Event Cards Grid #}
         <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4">
             {% for event, attending_count, tentative_count in events_pagination.items %}
+            {% set is_past = event.start_datetime.replace(tzinfo=None) < now_utc.replace(tzinfo=None) %}
             <div class="col">
                 <a href="{{ url_for('event.public_event_view', public_id=event.public_id) }}"
                     class="text-decoration-none" style="color: inherit;">
-                    <div class="beta-widget-card h-100" style="transition: transform 0.2s ease, box-shadow 0.2s ease; cursor: pointer;">
+                    <div class="beta-widget-card h-100" style="transition: transform 0.2s ease, box-shadow 0.2s ease; cursor: pointer; {% if is_past %}opacity: 0.78;{% endif %}">
                         <div class="beta-widget-body" style="padding: 1.25rem;">
-                            {# --- 日時 --- #}
-                            <div class="d-flex align-items-center mb-3">
-                                <div class="beta-widget-icon me-3" style="background: rgba(99, 102, 241, 0.15); color: var(--beta-accent-indigo, #818cf8); width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0;">
-                                    <i class="far fa-clock"></i>
+                            {# --- 日時 + 終了バッジ --- #}
+                            <div class="d-flex align-items-center justify-content-between mb-3">
+                                <div class="d-flex align-items-center">
+                                    <div class="beta-widget-icon me-3"
+                                         style="background: {% if is_past %}rgba(148,163,184,0.15); color: var(--beta-text-muted){% else %}rgba(99, 102, 241, 0.15); color: var(--beta-accent-indigo, #818cf8){% endif %}; width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0;">
+                                        <i class="far {% if is_past %}fa-calendar-check{% else %}fa-clock{% endif %}"></i>
+                                    </div>
+                                    <div class="beta-text-muted small fw-bold text-uppercase" style="font-size: 0.7rem; letter-spacing: 0.05em;">
+                                        {{ event.start_datetime | to_jst('%Y.%m.%d (%a) %H:%M') }}
+                                    </div>
                                 </div>
-                                <div class="beta-text-muted small fw-bold text-uppercase" style="font-size: 0.7rem; letter-spacing: 0.05em;">
-                                    {{ event.start_datetime | to_jst('%Y.%m.%d (%a) %H:%M') }}
-                                </div>
+                                {% if is_past %}
+                                <span class="beta-badge" style="background: rgba(148,163,184,0.15); color: var(--beta-text-muted); border: 1px solid rgba(148,163,184,0.3); font-size: 0.65rem;">終了</span>
+                                {% endif %}
                             </div>
 
                             {# --- イベントタイトル --- #}
@@ -119,19 +160,19 @@
         <nav aria-label="Page navigation" class="mt-4">
             <ul class="pagination justify-content-center">
                 <li class="page-item {% if not events_pagination.has_prev %}disabled{% endif %}">
-                    <a class="page-link" href="{{ url_for('event.public_events_list', page=events_pagination.prev_num) if events_pagination.has_prev else '#' }}">&laquo;</a>
+                    <a class="page-link" href="{{ url_for('event.public_events_list', page=events_pagination.prev_num, filter=filter_type, q=search_query or None) if events_pagination.has_prev else '#' }}">&laquo;</a>
                 </li>
                 {% for page_num in events_pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
                 {% if page_num %}
                 <li class="page-item {% if page_num == events_pagination.page %}active{% endif %}">
-                    <a class="page-link" href="{{ url_for('event.public_events_list', page=page_num) }}">{{ page_num }}</a>
+                    <a class="page-link" href="{{ url_for('event.public_events_list', page=page_num, filter=filter_type, q=search_query or None) }}">{{ page_num }}</a>
                 </li>
                 {% else %}
                 <li class="page-item disabled"><span class="page-link">...</span></li>
                 {% endif %}
                 {% endfor %}
                 <li class="page-item {% if not events_pagination.has_next %}disabled{% endif %}">
-                    <a class="page-link" href="{{ url_for('event.public_events_list', page=events_pagination.next_num) if events_pagination.has_next else '#' }}">&raquo;</a>
+                    <a class="page-link" href="{{ url_for('event.public_events_list', page=events_pagination.next_num, filter=filter_type, q=search_query or None) if events_pagination.has_next else '#' }}">&raquo;</a>
                 </li>
             </ul>
         </nav>
@@ -143,12 +184,33 @@
             <div class="mb-4">
                 <i class="fas fa-calendar-times fa-4x beta-text-muted" style="opacity: 0.3;"></i>
             </div>
+            {% if search_query %}
+            <h4 class="fw-bold beta-text-primary">該当するイベントが見つかりません</h4>
+            <p class="beta-text-muted mb-4">「{{ search_query }}」に一致するイベントはありません。</p>
+            <a href="{{ url_for('event.public_events_list', filter=filter_type) }}" class="beta-btn">
+                <i class="fas fa-times me-1"></i> 検索をクリア
+            </a>
+            {% elif filter_type == 'past' %}
+            <h4 class="fw-bold beta-text-primary">過去のイベントはまだありません</h4>
+            <p class="beta-text-muted mb-4">過去に公開されたイベントはここに表示されます。</p>
+            <a href="{{ url_for('event.public_events_list', filter='upcoming') }}" class="beta-btn">
+                <i class="far fa-calendar me-1"></i> 開催予定を見る
+            </a>
+            {% else %}
             <h4 class="fw-bold beta-text-primary">No Events Scheduled</h4>
             <p class="beta-text-muted mb-4">現在、開催予定の公開イベントはありません。</p>
+            {% if past_count > 0 %}
+            <div class="mb-3">
+                <a href="{{ url_for('event.public_events_list', filter='past') }}" class="beta-text-muted">
+                    <i class="fas fa-history me-1"></i>過去のイベント ({{ past_count }}件) を見る
+                </a>
+            </div>
+            {% endif %}
             {% if current_user.is_authenticated %}
             <a href="{{ url_for('event.add_event') }}" class="beta-btn beta-btn-solid">
                 <i class="fas fa-plus me-1"></i> イベントを作成する
             </a>
+            {% endif %}
             {% endif %}
         </div>
         {% endif %}

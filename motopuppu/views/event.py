@@ -158,10 +158,18 @@ def _sync_collection_plans(event, form_data):
 
 @event_bp.route('/list')
 def public_events_list():
-    """公開設定された、開催予定のイベント一覧を誰でも閲覧できるように表示する"""
+    """公開設定されたイベント一覧 (開催予定・過去) を誰でも閲覧できるように表示する"""
     now_utc = datetime.now(timezone.utc)
     page = request.args.get('page', 1, type=int)
-    
+    filter_type = request.args.get('filter', 'upcoming')
+    if filter_type not in ('upcoming', 'past', 'all'):
+        filter_type = 'upcoming'
+
+    search_query = (request.args.get('q', '') or '').strip()
+    # 検索ワードが長すぎる場合の保護
+    if len(search_query) > 100:
+        search_query = search_query[:100]
+
     # 参加者数をステータス別にカウントする相関サブクエリを作成
     attending_count_subquery = db.session.query(
         func.count(EventParticipant.id)
@@ -177,23 +185,61 @@ def public_events_list():
         EventParticipant.status == ParticipationStatus.TENTATIVE
     ).correlate(Event).as_scalar()
 
-    # メインクエリにサブクエリをカラムとして追加し、イベント情報と参加者数を一括で取得
+    # メインクエリ (公開イベントのみ)
     events_query = Event.query.options(
-        db.joinedload(Event.owner).load_only(User.display_name, User.misskey_username, User.avatar_url) # 主催者情報も効率的に読み込む
+        db.joinedload(Event.owner).load_only(User.display_name, User.misskey_username, User.avatar_url)
     ).add_columns(
         attending_count_subquery.label('attending_count'),
         tentative_count_subquery.label('tentative_count')
-    ).filter(
-        Event.is_public == True,
-        Event.start_datetime >= now_utc
-    ).order_by(Event.start_datetime.asc())
-    
+    ).filter(Event.is_public == True)
+
+    # 開催時期フィルタ
+    if filter_type == 'upcoming':
+        events_query = events_query.filter(Event.start_datetime >= now_utc).order_by(Event.start_datetime.asc())
+    elif filter_type == 'past':
+        events_query = events_query.filter(Event.start_datetime < now_utc).order_by(Event.start_datetime.desc())
+    else:  # all
+        events_query = events_query.order_by(Event.start_datetime.desc())
+
+    # 検索クエリ (タイトル・場所の部分一致)
+    if search_query:
+        like_pattern = f"%{search_query}%"
+        events_query = events_query.filter(
+            db.or_(
+                Event.title.ilike(like_pattern),
+                Event.location.ilike(like_pattern),
+            )
+        )
+
     events_pagination = events_query.paginate(page=page, per_page=15, error_out=False)
-    
+
+    # タブ用件数 (検索クエリも反映する)
+    count_base = Event.query.filter(Event.is_public == True)
+    if search_query:
+        like_pattern = f"%{search_query}%"
+        count_base = count_base.filter(
+            db.or_(
+                Event.title.ilike(like_pattern),
+                Event.location.ilike(like_pattern),
+            )
+        )
+    upcoming_count = count_base.filter(Event.start_datetime >= now_utc).count()
+    past_count = count_base.filter(Event.start_datetime < now_utc).count()
+    total_count = upcoming_count + past_count
+
     template_name = 'event/public_list_events.html'
     if current_user.is_authenticated and current_user.use_beta_ui:
         template_name = 'beta/public_list_events_beta.html'
-    return render_template(template_name, events_pagination=events_pagination)
+    return render_template(
+        template_name,
+        events_pagination=events_pagination,
+        filter_type=filter_type,
+        search_query=search_query,
+        upcoming_count=upcoming_count,
+        past_count=past_count,
+        total_count=total_count,
+        now_utc=now_utc,
+    )
 
 
 @event_bp.route('/')
