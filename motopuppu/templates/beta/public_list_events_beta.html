@@ -113,6 +113,16 @@
                             </div>
                             {% endif %}
 
+                            {# --- 写真置き場 --- #}
+                            {% if event.album_url %}
+                            <div class="mb-2">
+                                <div class="d-flex align-items-center beta-text-secondary small">
+                                    <i class="fas fa-images me-2" style="color: var(--beta-accent-purple, #a78bfa);"></i>
+                                    <span>写真置き場あり</span>
+                                </div>
+                            </div>
+                            {% endif %}
+
                             <div class="mt-auto pt-3" style="border-top: 1px solid var(--beta-border);">
                                 {# --- 主催者と参加者数の表示 --- #}
                                 <div class="d-flex justify-content-between align-items-center">

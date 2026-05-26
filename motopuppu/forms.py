@@ -749,6 +749,16 @@ class EventForm(FlaskForm):
         render_kw={"placeholder": "例: 駐車場代+食事代"}
     )
 
+    album_url = StringField(
+        '写真置き場URL (任意)',
+        validators=[
+            Optional(),
+            URL(message='有効なURL形式で入力してください。'),
+            Length(max=500, message='URLは500文字以内で入力してください。')
+        ],
+        render_kw={"placeholder": "例: https://media-share.misskey.workers.dev/album/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"}
+    )
+
     submit = SubmitField('イベントを保存')
 
     def validate_end_datetime(self, field):
@@ -759,6 +769,20 @@ class EventForm(FlaskForm):
         # 集金ONなのに金額未入力ならエラー
         if self.collection_enabled.data and (field.data is None):
             raise ValidationError('当日集金を行う場合は金額を入力してください。')
+
+    def validate_album_url(self, field):
+        if not field.data:
+            return
+        from urllib.parse import urlparse
+        parsed = urlparse(field.data.strip())
+        if parsed.scheme != 'https':
+            raise ValidationError('写真置き場URLはhttps://で始まる必要があります。')
+        if parsed.netloc != 'media-share.misskey.workers.dev':
+            raise ValidationError('現在対応している写真置き場は Misskey Media Share (media-share.misskey.workers.dev) のアルバムURLのみです。')
+        # /album/<uuid> 形式を期待
+        path_parts = [p for p in parsed.path.split('/') if p]
+        if len(path_parts) < 2 or path_parts[0] != 'album':
+            raise ValidationError('アルバムのURLを指定してください (例: https://media-share.misskey.workers.dev/album/...)。')
 
 class ParticipantForm(FlaskForm):
     """公開ページでの出欠登録用フォーム"""

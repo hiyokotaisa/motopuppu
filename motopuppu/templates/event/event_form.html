@@ -169,6 +169,32 @@
                         </div>
                     </div>
 
+                    {# --- 写真置き場 (Misskey Media Share アルバム) --- #}
+                    <div class="card bg-light border-0 mb-3">
+                        <div class="card-body">
+                            <label class="form-label fw-bold mb-1" for="{{ form.album_url.id }}">
+                                <i class="fas fa-images me-1 text-secondary"></i>{{ form.album_url.label.text }}
+                            </label>
+                            <div class="form-text mb-2">
+                                <a href="https://media-share.misskey.workers.dev/" target="_blank" rel="noopener noreferrer">Misskey Media Share</a> でアルバムを作成し、そのアルバムURLを貼り付けると、イベント詳細ページから写真置き場にリンクされます。<br>
+                                <span class="text-muted small">※ アルバムの閲覧には Misskey.io アカウントでのログインが必要です。参加者にもその旨を伝えてください。</span>
+                            </div>
+                            {{ form.album_url(class="form-control" + (" is-invalid" if form.album_url.errors else "")) }}
+                            {% if form.album_url.errors %}
+                            <div class="invalid-feedback d-block">
+                                {% for error in form.album_url.errors %}{{ error }}{% endfor %}
+                            </div>
+                            {% endif %}
+                            {% if form.album_url.data %}
+                            <div class="mt-2">
+                                <a href="{{ form.album_url.data }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-secondary">
+                                    <i class="fas fa-external-link-alt me-1"></i>現在のアルバムを開く
+                                </a>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
                     {% if target_team or (event and event.team_id) %}
                         {# チームイベントの場合、強制的に非公開となるため表示しない（またはdisabledで表示） #}
                         <div class="alert alert-info py-2">

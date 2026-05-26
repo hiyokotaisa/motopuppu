@@ -329,6 +329,7 @@ def add_event():
             collection_enabled=collection_enabled,
             collection_amount=form.collection_amount.data if collection_enabled else None,
             collection_note=form.collection_note.data if collection_enabled else None,
+            album_url=(form.album_url.data.strip() or None) if form.album_url.data else None,
         )
         try:
             db.session.add(new_event)
@@ -391,6 +392,8 @@ def edit_event(event_id):
         event.collection_amount = form.collection_amount.data if collection_enabled else None
         event.collection_note = form.collection_note.data if collection_enabled else None
 
+        event.album_url = (form.album_url.data.strip() or None) if form.album_url.data else None
+
         ok, err = _sync_collection_plans(event, request.form)
         if not ok:
             db.session.rollback()
@@ -419,6 +422,7 @@ def edit_event(event_id):
         form.collection_enabled.data = event.collection_enabled
         form.collection_amount.data = event.collection_amount
         form.collection_note.data = event.collection_note
+        form.album_url.data = event.album_url
     
     if request.method == 'POST':
         plans_data = _plans_from_request(request.form)

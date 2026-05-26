@@ -458,6 +458,9 @@ class Event(db.Model):
     collection_amount = db.Column(db.Integer, nullable=True, comment="当日集金額 (円・参加者一律)")
     collection_note = db.Column(db.String(100), nullable=True, comment="集金目的のメモ (例: 駐車場代+食事代)")
 
+    # 写真置き場 (Misskey Media Share のアルバムURL)
+    album_url = db.Column(db.String(500), nullable=True, comment="イベント写真置き場のURL (例: Misskey Media Share アルバム)")
+
     created_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
     updated_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now(), onupdate=db.func.now())
     
