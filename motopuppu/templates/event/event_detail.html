@@ -50,12 +50,8 @@
                 <p>
                     <strong><i class="fas fa-images fa-fw me-2 text-secondary"></i>写真置き場:</strong>
                     <a href="{{ event.album_url }}" target="_blank" rel="noopener noreferrer">
-                        {% if event.album_title %}{{ event.album_title }}{% else %}アルバムを開く{% endif %}
-                        <i class="fas fa-external-link-alt ms-1 small"></i>
+                        アルバムを開く <i class="fas fa-external-link-alt ms-1 small"></i>
                     </a>
-                    {% if event.album_media_count is not none %}
-                    <span class="text-muted small ms-2"><i class="fas fa-camera me-1"></i>{{ event.album_media_count }}枚</span>
-                    {% endif %}
                 </p>
                 {% endif %}
                 <hr>
