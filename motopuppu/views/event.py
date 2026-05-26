@@ -1204,6 +1204,10 @@ def media_share_auth_start():
 
     session_id = result.get('sessionId') or result.get('session_id') or result.get('id')
     auth_url = result.get('authUrl') or result.get('auth_url') or result.get('url')
+    current_app.logger.info(
+        f"Media Share startMiAuth ok: keys={list(result.keys()) if isinstance(result, dict) else type(result).__name__} "
+        f"sessionId_present={bool(session_id)} authUrl_present={bool(auth_url)}"
+    )
     if not session_id or not auth_url:
         current_app.logger.error(f"Media Share startMiAuth unexpected response: {result}")
         flash('Media Share の認証応答が想定外でした。', 'danger')
@@ -1220,6 +1224,29 @@ def media_share_auth_start():
     return redirect(auth_url)
 
 
+def _extract_token_from_response(result: dict) -> str | None:
+    """media-share finishMiAuth レスポンスから token を取り出す。
+
+    公式OpenAPIにレスポンス構造の記述がないため、ありえそうなキーを総当たりする。
+    トップレベルだけでなく、ネスト (data, result, auth) も探索する。
+    """
+    if not isinstance(result, dict):
+        return None
+    candidates = ('token', 'accessToken', 'access_token', 'apiKey', 'api_key', 'authToken', 'auth_token', 'sessionToken')
+    for key in candidates:
+        v = result.get(key)
+        if isinstance(v, str) and v:
+            return v
+    # ネスト1段だけ覗く
+    for nest_key in ('data', 'result', 'auth', 'user'):
+        nested = result.get(nest_key)
+        if isinstance(nested, dict):
+            t = _extract_token_from_response(nested)
+            if t:
+                return t
+    return None
+
+
 @event_bp.route('/media-share/auth/status', methods=['GET'])
 @login_required
 def media_share_auth_status():
@@ -1230,33 +1257,48 @@ def media_share_auth_status():
       - {status: 'pending'} — まだユーザーが Misskey.io で承認していない
       - {status: 'idle'}    — pending情報がない (start未実行 or 既に消費済)
     """
+    def _resp(payload: dict):
+        r = jsonify(payload)
+        # CDN/プロキシによるキャッシュを抑止
+        r.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        r.headers['Pragma'] = 'no-cache'
+        return r
+
     # 既にトークンを保持している場合は即ok
     if session.get(MEDIA_SHARE_TOKEN_SESSION_KEY):
-        return jsonify({'status': 'ok'})
+        return _resp({'status': 'ok'})
 
     pending = session.get(MEDIA_SHARE_PENDING_SESSION_KEY)
     if not pending or pending.get('user_id') != current_user.id:
-        return jsonify({'status': 'idle'})
+        return _resp({'status': 'idle'})
 
     session_id = pending.get('session_id')
     if not session_id:
-        return jsonify({'status': 'idle'})
+        return _resp({'status': 'idle'})
 
     try:
         client = MediaShareClient()
         result = client.finish_miauth(session_id)
+    except MediaShareAuthError as e:
+        current_app.logger.info(f"Media Share finishMiAuth auth-pending (401): {e}")
+        return _resp({'status': 'pending'})
     except MediaShareError as e:
-        # 承認前は 4xx が返る想定 — 引き続き pending として扱う
-        current_app.logger.debug(f"Media Share finishMiAuth still pending: {e}")
-        return jsonify({'status': 'pending'})
+        # 承認前は 400 BAD_REQUEST が返ることが確認済。引き続き pending として扱う
+        current_app.logger.info(f"Media Share finishMiAuth still pending: status={e.status} payload={e.payload}")
+        return _resp({'status': 'pending'})
 
-    token = result.get('token') or result.get('accessToken') or result.get('access_token')
+    token = _extract_token_from_response(result)
     if not token:
-        return jsonify({'status': 'pending'})
+        current_app.logger.warning(
+            f"Media Share finishMiAuth returned 200 but no token found. "
+            f"Response keys: {list(result.keys()) if isinstance(result, dict) else type(result).__name__}"
+        )
+        return _resp({'status': 'pending'})
 
     session[MEDIA_SHARE_TOKEN_SESSION_KEY] = token
     session.pop(MEDIA_SHARE_PENDING_SESSION_KEY, None)
-    return jsonify({'status': 'ok'})
+    current_app.logger.info("Media Share token acquired via polling.")
+    return _resp({'status': 'ok'})
 
 
 @event_bp.route('/media-share/auth/callback', methods=['GET'])
@@ -1275,10 +1317,11 @@ def media_share_auth_callback():
         try:
             client = MediaShareClient()
             result = client.finish_miauth(session_id)
-            token = result.get('token') or result.get('accessToken') or result.get('access_token')
+            token = _extract_token_from_response(result)
             if not token:
-                raise MediaShareError(f'finishMiAuth response missing token: keys={list(result.keys())}')
+                raise MediaShareError(f'finishMiAuth response missing token: keys={list(result.keys()) if isinstance(result, dict) else type(result).__name__}')
             session[MEDIA_SHARE_TOKEN_SESSION_KEY] = token
+            current_app.logger.info("Media Share token acquired via callback.")
         except MediaShareError as e:
             current_app.logger.warning(f"Media Share finishMiAuth failed: {e}")
             status = 'error'

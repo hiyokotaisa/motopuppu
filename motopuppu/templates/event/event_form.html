@@ -255,6 +255,11 @@
                                 </div>
                                 {% endif %}
                             {% endif %}
+
+                            {# 認証中の手動完了リンク (デフォルト非表示。poll開始時に表示される) #}
+                            <div class="mt-2 small d-none" id="mediaShareManualFinish">
+                                <a href="#">認証は完了したのにこの画面が反応しない場合はここをクリック</a>
+                            </div>
                         </div>
                     </div>
 
@@ -415,6 +420,16 @@ document.addEventListener('DOMContentLoaded', function() {
         f.submit();
     }
 
+    let activePoll = null;  // {intervalId, popup, actionUrl} — 手動完了用に保持
+
+    function stopPolling() {
+        if (activePoll) {
+            clearInterval(activePoll.intervalId);
+            try { if (activePoll.popup && !activePoll.popup.closed) activePoll.popup.close(); } catch (e) { /* ignore */ }
+            activePoll = null;
+        }
+    }
+
     function pollUntilAuthorized(actionUrl, popup) {
         let attempts = 0;
         const intervalId = setInterval(function() {
@@ -425,33 +440,53 @@ document.addEventListener('DOMContentLoaded', function() {
             fetch(authStatusUrl, {credentials: 'same-origin', cache: 'no-store'})
                 .then(function(r) { return r.json(); })
                 .then(function(data) {
+                    console.debug('[media-share poll]', attempts, data);
                     if (data.status === 'ok') {
-                        clearInterval(intervalId);
-                        try { if (popup && !popup.closed) popup.close(); } catch (e) { /* ignore */ }
+                        stopPolling();
                         submitDynamicPost(actionUrl);
                         return;
                     }
-                    // 認証前にユーザーが popup を閉じた場合は終了
                     if (closedByUser) {
-                        clearInterval(intervalId);
+                        stopPolling();
                         alert('認証ウィンドウが閉じられました。連携を中止します。');
                         return;
                     }
                     if (exhausted) {
-                        clearInterval(intervalId);
-                        try { if (popup && !popup.closed) popup.close(); } catch (e) { /* ignore */ }
+                        stopPolling();
                         alert('認証がタイムアウトしました。再度お試しください。');
                     }
                 })
-                .catch(function() {
-                    // 通信エラーは黙って次のpollに任せる
+                .catch(function(err) {
+                    console.warn('[media-share poll] fetch error', err);
                     if (closedByUser || exhausted) {
-                        clearInterval(intervalId);
-                        try { if (popup && !popup.closed) popup.close(); } catch (e) { /* ignore */ }
+                        stopPolling();
                         alert(exhausted ? '認証がタイムアウトしました。' : '認証ウィンドウが閉じられました。');
                     }
                 });
         }, POLL_INTERVAL_MS);
+        activePoll = {intervalId: intervalId, popup: popup, actionUrl: actionUrl};
+
+        // 「完了したのに閉じない場合」用の手動トリガを露出
+        const manualLink = document.getElementById('mediaShareManualFinish');
+        if (manualLink) {
+            manualLink.classList.remove('d-none');
+            manualLink.onclick = function(ev) {
+                ev.preventDefault();
+                fetch(authStatusUrl, {credentials: 'same-origin', cache: 'no-store'})
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        console.debug('[media-share manual]', data);
+                        if (data.status === 'ok') {
+                            const url = activePoll ? activePoll.actionUrl : actionUrl;
+                            stopPolling();
+                            submitDynamicPost(url);
+                        } else {
+                            alert('まだ Media Share 側の認証が完了していないようです (status: ' + data.status + ')。Misskeyの認証画面で「許可」を押したか確認してください。');
+                        }
+                    })
+                    .catch(function() { alert('認証状態の確認に失敗しました。'); });
+            };
+        }
     }
 
     document.querySelectorAll('.media-share-action-btn').forEach(function(btn) {
