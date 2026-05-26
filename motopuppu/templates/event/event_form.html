@@ -376,13 +376,20 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // --- Media Share アルバム操作: popup 認証フロー ---
+    // --- Media Share アルバム操作: popup + ポーリング認証フロー ---
     // HTML5は <form> のネストを禁止しており、外側のイベント編集 <form> 内に
     // album 操作用の <form> を置くことができない。代わりに <button type="button"> を使い、
     // クリック時にJSで動的フォームを生成してPOSTする。
+    //
+    // 認証フロー: media-share の MiAuth は redirectTo パラメータで motopuppu に
+    // 戻ってくる保証がない (media-share の /auth/callback がハードコードされており、
+    // 認証後は media-share の UI に留まる) ため、親window からポーリングで
+    // finishMiAuth を試行する方式で「認証完了」を検知する。
     const csrfToken = '{{ csrf_token() }}';
     const authStartUrl = '{{ url_for("event.media_share_auth_start") }}';
-    let pendingActionUrl = null;
+    const authStatusUrl = '{{ url_for("event.media_share_auth_status") }}';
+    const POLL_INTERVAL_MS = 2000;
+    const POLL_MAX_ATTEMPTS = 150;  // 約5分
 
     function openMediaShareAuthPopup(eventId, intent) {
         const params = new URLSearchParams({event_id: eventId, intent: intent || 'create'});
@@ -408,6 +415,45 @@ document.addEventListener('DOMContentLoaded', function() {
         f.submit();
     }
 
+    function pollUntilAuthorized(actionUrl, popup) {
+        let attempts = 0;
+        const intervalId = setInterval(function() {
+            attempts++;
+            const exhausted = attempts > POLL_MAX_ATTEMPTS;
+            const closedByUser = popup && popup.closed;
+
+            fetch(authStatusUrl, {credentials: 'same-origin', cache: 'no-store'})
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data.status === 'ok') {
+                        clearInterval(intervalId);
+                        try { if (popup && !popup.closed) popup.close(); } catch (e) { /* ignore */ }
+                        submitDynamicPost(actionUrl);
+                        return;
+                    }
+                    // 認証前にユーザーが popup を閉じた場合は終了
+                    if (closedByUser) {
+                        clearInterval(intervalId);
+                        alert('認証ウィンドウが閉じられました。連携を中止します。');
+                        return;
+                    }
+                    if (exhausted) {
+                        clearInterval(intervalId);
+                        try { if (popup && !popup.closed) popup.close(); } catch (e) { /* ignore */ }
+                        alert('認証がタイムアウトしました。再度お試しください。');
+                    }
+                })
+                .catch(function() {
+                    // 通信エラーは黙って次のpollに任せる
+                    if (closedByUser || exhausted) {
+                        clearInterval(intervalId);
+                        try { if (popup && !popup.closed) popup.close(); } catch (e) { /* ignore */ }
+                        alert(exhausted ? '認証がタイムアウトしました。' : '認証ウィンドウが閉じられました。');
+                    }
+                });
+        }, POLL_INTERVAL_MS);
+    }
+
     document.querySelectorAll('.media-share-action-btn').forEach(function(btn) {
         btn.addEventListener('click', function() {
             const actionUrl = btn.dataset.actionUrl;
@@ -416,29 +462,27 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
             if (btn.dataset.requiresAuth === '1') {
-                pendingActionUrl = actionUrl;
                 const popup = openMediaShareAuthPopup(btn.dataset.eventId, btn.dataset.intent);
                 if (!popup) {
                     alert('ポップアップがブロックされました。ブラウザの設定でこのサイトのポップアップを許可してください。');
-                    pendingActionUrl = null;
+                    return;
                 }
+                pollUntilAuthorized(actionUrl, popup);
             } else {
                 submitDynamicPost(actionUrl);
             }
         });
     });
 
+    // 旧 callback ルートからの postMessage を受信した場合の高速経路 (redirectTo が
+    // 機能した場合のフォールバック)。ポーリングと競合しても fetch側で 'ok' が返るので
+    // 結果的に submit が一度だけ呼ばれる。
     window.addEventListener('message', function(ev) {
         if (ev.origin !== window.location.origin) return;
         const data = ev.data || {};
         if (data.source !== 'motopuppu-media-share') return;
-        if (data.status === 'ok' && pendingActionUrl) {
-            const url = pendingActionUrl;
-            pendingActionUrl = null;
-            submitDynamicPost(url);
-        } else if (data.status === 'error') {
+        if (data.status === 'error') {
             alert('Media Share の認証に失敗しました。再度お試しください。');
-            pendingActionUrl = null;
         }
     });
 });

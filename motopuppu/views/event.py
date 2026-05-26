@@ -1220,6 +1220,45 @@ def media_share_auth_start():
     return redirect(auth_url)
 
 
+@event_bp.route('/media-share/auth/status', methods=['GET'])
+@login_required
+def media_share_auth_status():
+    """親windowからのポーリング用。pending sessionIdに対して finishMiAuth を試行する。
+
+    返却 JSON:
+      - {status: 'ok'}     — token取得済 (今回 or 過去のリクエストで)
+      - {status: 'pending'} — まだユーザーが Misskey.io で承認していない
+      - {status: 'idle'}    — pending情報がない (start未実行 or 既に消費済)
+    """
+    # 既にトークンを保持している場合は即ok
+    if session.get(MEDIA_SHARE_TOKEN_SESSION_KEY):
+        return jsonify({'status': 'ok'})
+
+    pending = session.get(MEDIA_SHARE_PENDING_SESSION_KEY)
+    if not pending or pending.get('user_id') != current_user.id:
+        return jsonify({'status': 'idle'})
+
+    session_id = pending.get('session_id')
+    if not session_id:
+        return jsonify({'status': 'idle'})
+
+    try:
+        client = MediaShareClient()
+        result = client.finish_miauth(session_id)
+    except MediaShareError as e:
+        # 承認前は 4xx が返る想定 — 引き続き pending として扱う
+        current_app.logger.debug(f"Media Share finishMiAuth still pending: {e}")
+        return jsonify({'status': 'pending'})
+
+    token = result.get('token') or result.get('accessToken') or result.get('access_token')
+    if not token:
+        return jsonify({'status': 'pending'})
+
+    session[MEDIA_SHARE_TOKEN_SESSION_KEY] = token
+    session.pop(MEDIA_SHARE_PENDING_SESSION_KEY, None)
+    return jsonify({'status': 'ok'})
+
+
 @event_bp.route('/media-share/auth/callback', methods=['GET'])
 @login_required
 def media_share_auth_callback():
