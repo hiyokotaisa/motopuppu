@@ -835,13 +835,14 @@
     <div class="modal fade" id="importCsvModal-{{ session.id }}" tabindex="-1" aria-labelledby="importCsvModalLabel-{{ session.id }}" aria-hidden="true">
       <div class="modal-dialog">
         <div class="modal-content">
-          <form method="POST" action="{{ url_for('activity.import_laps', session_id=session.id) }}" enctype="multipart/form-data" 
-                class="import-form">
+          <form method="POST" action="{{ url_for('activity.import_laps', session_id=session.id) }}" enctype="multipart/form-data"
+                class="import-form" data-session-id="{{ session.id }}">
             <div class="modal-header">
               <h5 class="modal-title" id="importCsvModalLabel-{{ session.id }}">{{ session.session_name }} - CSVインポート</h5>
-              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+              <button type="button" class="btn-close import-close-btn" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
+                <div class="import-form-fields">
                 {{ import_form.hidden_tag() }}
                 <div class="mb-3">
                     {{ import_form.device_type.label(class="form-label") }}
@@ -850,8 +851,9 @@
                 <div class="mb-3">
                     {{ import_form.csv_file.label(class="form-label") }}
                     {{ import_form.csv_file(class="form-control") }}
+                    <div class="form-text small">最大50MBまで。</div>
                 </div>
-                
+
                 <div class="form-check mb-3">
                     {{ import_form.append_mode(class="form-check-input") }}
                     {{ import_form.append_mode.label(class="form-check-label") }}
@@ -859,7 +861,7 @@
                         ※ チェックすると、現在の記録を消去せずに後ろに追加します。Droggerの分割ログなどで使用してください。
                     </div>
                 </div>
-                
+
                 <div class="form-check">
                     {{ import_form.remove_outliers(class="form-check-input", **{'data-bs-toggle': 'collapse', 'data-bs-target': '#outlier-options-' + session.id|string, 'aria-expanded': 'true' }) }}
                     {{ import_form.remove_outliers.label(class="form-check-label") }}
@@ -878,10 +880,30 @@
                         </div>
                     </div>
                 </div>
+                </div>
 
+                <div class="import-progress-display d-none">
+                    <div class="text-center mb-3">
+                        <h6 class="import-progress-stage-text mb-1">準備中...</h6>
+                        <p class="import-progress-detail small text-muted mb-0"></p>
+                    </div>
+                    <div class="progress mb-2" style="height: 24px;">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated"
+                             role="progressbar"
+                             style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+                    </div>
+                    <div class="text-center small text-muted mt-3">
+                        <i class="fas fa-info-circle"></i>
+                        このウィンドウを閉じずにお待ちください
+                    </div>
+                </div>
+
+                <div class="import-error-display d-none alert alert-danger mt-3 mb-0">
+                    <strong>エラー:</strong> <span class="import-error-text"></span>
+                </div>
             </div>
             <div class="modal-footer">
-              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+              <button type="button" class="btn btn-secondary import-cancel-btn" data-bs-dismiss="modal">キャンセル</button>
               {{ import_form.submit_import(class="btn btn-primary") }}
             </div>
           </form>
@@ -917,27 +939,167 @@ function initMap() {}
 document.addEventListener('DOMContentLoaded', () => {
 
     document.querySelectorAll('.import-form').forEach(form => {
+        const fieldsContainer = form.querySelector('.import-form-fields');
+        const progressContainer = form.querySelector('.import-progress-display');
+        const errorContainer = form.querySelector('.import-error-display');
+        const errorTextEl = form.querySelector('.import-error-text');
+        const stageTextEl = form.querySelector('.import-progress-stage-text');
+        const detailTextEl = form.querySelector('.import-progress-detail');
+        const progressBar = form.querySelector('.progress-bar');
+        const submitBtn = form.querySelector('input[type="submit"]');
+        const cancelBtn = form.querySelector('.import-cancel-btn');
+        const closeBtn = form.querySelector('.import-close-btn');
+
+        const STAGE_LABELS = {
+            uploading: 'ファイルをアップロード中',
+            parsing: 'CSVを解析中',
+            validating: 'ラップタイムを検証中',
+            filtering: '外れ値を除外中',
+            optimizing: 'GPS軌跡を最適化中',
+            saving: 'データベースに保存中',
+            done: '完了',
+            error: 'エラー',
+        };
+
+        const setProgress = (pct, striped, animated) => {
+            const v = Math.max(0, Math.min(100, Math.round(pct)));
+            progressBar.style.width = v + '%';
+            progressBar.setAttribute('aria-valuenow', v);
+            progressBar.textContent = v + '%';
+            progressBar.classList.toggle('progress-bar-striped', !!striped);
+            progressBar.classList.toggle('progress-bar-animated', !!animated);
+        };
+
+        const showProgress = () => {
+            errorContainer.classList.add('d-none');
+            fieldsContainer.classList.add('d-none');
+            progressContainer.classList.remove('d-none');
+            if (submitBtn) submitBtn.disabled = true;
+            if (cancelBtn) cancelBtn.disabled = true;
+            if (closeBtn) closeBtn.disabled = true;
+        };
+
+        const resetForm = () => {
+            fieldsContainer.classList.remove('d-none');
+            progressContainer.classList.add('d-none');
+            if (submitBtn) submitBtn.disabled = false;
+            if (cancelBtn) cancelBtn.disabled = false;
+            if (closeBtn) closeBtn.disabled = false;
+            setProgress(0, true, true);
+        };
+
+        const showError = (message) => {
+            resetForm();
+            errorContainer.classList.remove('d-none');
+            errorTextEl.textContent = message || 'エラーが発生しました。';
+        };
+
+        const handleEvent = (evt) => {
+            const stage = evt.stage;
+            const label = STAGE_LABELS[stage] || stage;
+
+            if (stage === 'error') {
+                showError(evt.message);
+                return;
+            }
+            if (stage === 'done') {
+                stageTextEl.textContent = '完了';
+                detailTextEl.textContent = evt.message || '';
+                setProgress(100, false, false);
+                progressBar.classList.add('bg-success');
+                setTimeout(() => {
+                    if (evt.redirect_url) {
+                        window.location.href = evt.redirect_url;
+                    } else {
+                        window.location.reload();
+                    }
+                }, 700);
+                return;
+            }
+            stageTextEl.textContent = label + '...';
+            if (stage === 'optimizing' && evt.lap && evt.total_laps) {
+                detailTextEl.textContent = `ラップ ${evt.lap} / ${evt.total_laps}`;
+                const pct = (evt.lap / evt.total_laps) * 100;
+                setProgress(pct, false, true);
+            } else {
+                detailTextEl.textContent = evt.message || '';
+                // 確定的な進捗が無いステージは不確定スピナー風
+                setProgress(100, true, true);
+            }
+        };
+
         form.addEventListener('submit', function(event) {
+            event.preventDefault();
+
             const appendModeCheckbox = this.querySelector('input[name="append_mode"]');
             const isAppend = appendModeCheckbox ? appendModeCheckbox.checked : false;
-            
+
             let message = '既存のラップタイムは上書きされます。よろしいですか？';
             if (isAppend) {
                 message = '既存の記録の後ろに追記します。よろしいですか？\n(この操作は取り消せません)';
             }
-            
-            if (!confirm(message)) {
-                event.preventDefault();
-                return;
-            }
-            
-            const submitBtn = this.querySelector('input[type="submit"]');
-            if (submitBtn) {
-                submitBtn.disabled = true; 
-                submitBtn.value = 'インポート中...';
-                submitBtn.style.cursor = 'wait';
-                this.style.cursor = 'wait';
-            }
+            if (!confirm(message)) return;
+
+            showProgress();
+            stageTextEl.textContent = 'アップロード中...';
+            detailTextEl.textContent = '0%';
+            setProgress(0, false, false);
+
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', form.action, true);
+            xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+            xhr.setRequestHeader('Accept', 'application/x-ndjson');
+
+            xhr.upload.onprogress = (e) => {
+                if (e.lengthComputable) {
+                    const pct = (e.loaded / e.total) * 100;
+                    setProgress(pct, false, false);
+                    detailTextEl.textContent = Math.round(pct) + '%';
+                }
+            };
+            xhr.upload.onload = () => {
+                // アップロード完了 → サーバー処理待ち
+                stageTextEl.textContent = 'サーバー処理中...';
+                detailTextEl.textContent = '';
+                setProgress(100, true, true);
+            };
+
+            let buffer = '';
+            let lastIndex = 0;
+            xhr.onreadystatechange = () => {
+                if (xhr.readyState < 3) return;
+                // 受信中 (3) or 完了 (4): 増分テキストを処理
+                const newText = xhr.responseText.substring(lastIndex);
+                lastIndex = xhr.responseText.length;
+                buffer += newText;
+                let nl;
+                while ((nl = buffer.indexOf('\n')) >= 0) {
+                    const line = buffer.substring(0, nl).trim();
+                    buffer = buffer.substring(nl + 1);
+                    if (!line) continue;
+                    try {
+                        const evt = JSON.parse(line);
+                        handleEvent(evt);
+                    } catch (e) {
+                        console.warn('Failed to parse stream line:', line, e);
+                    }
+                }
+            };
+            xhr.onerror = () => {
+                showError('通信エラーが発生しました。');
+            };
+            xhr.onload = () => {
+                // HTTPステータスが 4xx/5xx かつ JSON エラー
+                if (xhr.status >= 400 && buffer) {
+                    try {
+                        const evt = JSON.parse(buffer);
+                        handleEvent(evt);
+                    } catch (e) {
+                        showError(`サーバーエラー (HTTP ${xhr.status})`);
+                    }
+                }
+            };
+            xhr.send(new FormData(form));
         });
     });
 

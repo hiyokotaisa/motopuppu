@@ -3,7 +3,7 @@ from flask import (
     Blueprint, render_template, request, flash, redirect, url_for, abort, current_app
 )
 from flask_login import login_required, current_user
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import load_only, selectinload
 from sqlalchemy import func
 import uuid
 from datetime import datetime, timezone
@@ -145,10 +145,13 @@ def dashboard(team_id):
         ActivityLog.circuit_name
     ).subquery()
 
+    # User オブジェクトは表示に必要な列のみロード (JSON/JSONB列を読み込まない)
     circuit_rankings_query = db.session.query(
         User,
         best_lap_subquery.c.circuit_name,
         best_lap_subquery.c.personal_best
+    ).options(
+        load_only(User.id, User.display_name, User.misskey_username, User.avatar_url)
     ).join(
         best_lap_subquery, User.id == best_lap_subquery.c.user_id
     ).order_by(
@@ -168,9 +171,14 @@ def dashboard(team_id):
     members = team.members.order_by(User.display_name.asc()).all()
     
     # 2. チームメンバーの最新活動ログを取得
+    # selectinload + load_only でUser/Motorcycle の不要な大型JSON列を回避
     recent_activities = ActivityLog.query.options(
-        joinedload(ActivityLog.user),
-        joinedload(ActivityLog.motorcycle)
+        selectinload(ActivityLog.user).load_only(
+            User.id, User.display_name, User.misskey_username, User.avatar_url
+        ),
+        selectinload(ActivityLog.motorcycle).load_only(
+            Motorcycle.id, Motorcycle.name
+        )
     ).filter(
         ActivityLog.user_id.in_(member_ids),
         ActivityLog.share_with_teams == True  # 公開設定のログのみをフィルタ

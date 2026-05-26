@@ -94,6 +94,7 @@ def ranking(circuit_name):
     ).subquery()
 
     # ランク1位（各ユーザーの自己ベスト）の記録のみを抽出
+    # 上位100件に制限 (Renderの2GB OOM対策: 全件読み込みでメモリ膨張を防ぐ)
     best_laps = db.session.query(
         User.id.label('user_id'),
         User.misskey_username,
@@ -108,6 +109,7 @@ def ranking(circuit_name):
      .join(Motorcycle, Motorcycle.id == subquery.c.motorcycle_id)\
      .filter(subquery.c.rn == 1)\
      .order_by(subquery.c.best_lap_seconds.asc())\
+     .limit(100)\
      .all()
     
     rankings = []

@@ -1,7 +1,8 @@
 from flask import current_app
 from .models import (
     db, User, AchievementDefinition, UserAchievement,
-    Motorcycle, FuelEntry, MaintenanceEntry, GeneralNote, OdoResetLog
+    Motorcycle, FuelEntry, MaintenanceEntry, GeneralNote, OdoResetLog,
+    ActivityLog
 )
 from .achievements_utils import unlock_achievement
 

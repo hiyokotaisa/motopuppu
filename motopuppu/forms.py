@@ -1,6 +1,6 @@
 # motopuppu/forms.py
 from flask_wtf import FlaskForm
-from flask_wtf.file import FileField, FileRequired, FileAllowed
+from flask_wtf.file import FileField, FileRequired, FileAllowed, FileSize
 from wtforms import StringField, SelectField, DateField, DecimalField, IntegerField, TextAreaField, BooleanField, SubmitField, RadioField, FieldList, FormField, HiddenField, DateTimeField, PasswordField
 from wtforms.validators import DataRequired, Optional, NumberRange, Length, ValidationError, InputRequired, EqualTo, URL
 from datetime import date, datetime
@@ -543,7 +543,8 @@ class LapTimeImportForm(FlaskForm):
         'CSVファイル',
         validators=[
             FileRequired(message="ファイルを選択してください。"),
-            FileAllowed(['csv', 'txt'], 'CSVまたはTXTファイルのみアップロードできます')
+            FileAllowed(['csv', 'txt'], 'CSVまたはTXTファイルのみアップロードできます'),
+            FileSize(max_size=50 * 1024 * 1024, message='ファイルサイズは50MB以下にしてください。')
         ]
     )
     remove_outliers = BooleanField(

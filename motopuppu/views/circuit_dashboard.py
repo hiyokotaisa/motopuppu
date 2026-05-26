@@ -5,7 +5,7 @@ from datetime import date, datetime, timedelta
 from flask import Blueprint, render_template, current_app, url_for, request, flash, redirect
 from flask_login import login_required, current_user
 from sqlalchemy import func, case, or_, desc
-from sqlalchemy.orm import aliased, joinedload
+from sqlalchemy.orm import aliased, joinedload, defer
 
 from ..models import db, ActivityLog, SessionLog, User, Motorcycle, UserCircuitTarget, TrackSchedule
 from ..constants import CIRCUIT_METADATA
@@ -121,8 +121,11 @@ def index():
     circuit_data = []
     
     # グラフ用データ取得のために全データを取得（N+1回避のためeager load）
+    # 重いJSON列 (lap_times, gps_tracks) は defer して読み込まない (OOM対策)
     all_sessions_for_graph = base_query.options(
-        joinedload(SessionLog.activity)
+        joinedload(SessionLog.activity),
+        defer(SessionLog.lap_times),
+        defer(SessionLog.gps_tracks),
     ).order_by(ActivityLog.activity_date.asc()).all()
 
     today = date.today()
@@ -383,10 +386,15 @@ def index():
             # ▲▲▲【追加】ここまで ▲▲▲
         })
         
-    # 3. 総合サマリー情報を計算
-    all_sessions_list = base_query.all()
-    total_sessions = len(all_sessions_list)
-    total_laps = sum(len(s.lap_times) for a, s in all_sessions_list if s.lap_times)
+    # 3. 総合サマリー情報を計算 — 全セッションの再ロードを避け、SQL集約で算出 (OOM対策)
+    total_sessions = base_query.count()
+    total_laps = base_query.with_entities(
+        func.coalesce(
+            func.sum(func.jsonb_array_length(SessionLog.lap_times)),
+            0
+        )
+    ).filter(SessionLog.lap_times.isnot(None)).scalar() or 0
+    total_laps = int(total_laps)
 
     # ▼▼▼【追加】ストリーク情報 (A-2) ▼▼▼
     first_of_month = today.replace(day=1)
