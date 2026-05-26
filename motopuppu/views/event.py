@@ -156,9 +156,155 @@ def _sync_collection_plans(event, form_data):
 
     return True, None
 
+@event_bp.route('/all')
+def events_index():
+    """統合イベント一覧 (Beta UI 専用)。view パラメータで全/主催/参加を切り替える"""
+    page = request.args.get('page', 1, type=int)
+    view = request.args.get('view', 'all')
+    filter_type = request.args.get('filter', 'upcoming')
+    search_query = (request.args.get('q', '') or '').strip()
+
+    if view not in ('all', 'owned', 'attended'):
+        view = 'all'
+    if filter_type not in ('upcoming', 'past', 'all'):
+        filter_type = 'upcoming'
+    if len(search_query) > 100:
+        search_query = search_query[:100]
+
+    # 非Beta UIユーザー (未ログイン含む) はレガシーUIへリダイレクト
+    if not current_user.is_authenticated:
+        return redirect(url_for('event.public_events_list', filter=filter_type, q=search_query or None))
+    if not current_user.use_beta_ui:
+        if view == 'owned':
+            return redirect(url_for('event.list_events', filter=filter_type))
+        return redirect(url_for('event.public_events_list', filter=filter_type, q=search_query or None))
+
+    now_utc = datetime.now(timezone.utc)
+    now_utc_naive = now_utc.replace(tzinfo=None)
+
+    # 参加者数サブクエリ (公開一覧の表示で使用)
+    attending_count_subquery = db.session.query(
+        func.count(EventParticipant.id)
+    ).filter(
+        EventParticipant.event_id == Event.id,
+        EventParticipant.status == ParticipationStatus.ATTENDING
+    ).correlate(Event).as_scalar()
+
+    tentative_count_subquery = db.session.query(
+        func.count(EventParticipant.id)
+    ).filter(
+        EventParticipant.event_id == Event.id,
+        EventParticipant.status == ParticipationStatus.TENTATIVE
+    ).correlate(Event).as_scalar()
+
+    def build_base_query(target_view):
+        if target_view == 'owned':
+            return Event.query.filter(Event.user_id == current_user.id)
+        if target_view == 'attended':
+            attended_ids = db.session.query(EventParticipant.event_id).filter(
+                EventParticipant.user_id == current_user.id,
+                EventParticipant.status.in_([ParticipationStatus.ATTENDING, ParticipationStatus.TENTATIVE]),
+            )
+            return Event.query.filter(Event.id.in_(attended_ids))
+        return Event.query.filter(Event.is_public == True)
+
+    base_query = build_base_query(view)
+
+    if search_query:
+        like_pattern = f"%{search_query}%"
+        base_query = base_query.filter(
+            db.or_(
+                Event.title.ilike(like_pattern),
+                Event.location.ilike(like_pattern),
+            )
+        )
+
+    events_query = base_query.options(
+        db.joinedload(Event.owner).load_only(User.display_name, User.misskey_username, User.avatar_url)
+    ).add_columns(
+        attending_count_subquery.label('attending_count'),
+        tentative_count_subquery.label('tentative_count'),
+    )
+
+    if filter_type == 'upcoming':
+        events_query = events_query.filter(Event.start_datetime >= now_utc_naive).order_by(Event.start_datetime.asc())
+    elif filter_type == 'past':
+        events_query = events_query.filter(Event.start_datetime < now_utc_naive).order_by(Event.start_datetime.desc())
+    else:
+        events_query = events_query.order_by(Event.start_datetime.desc())
+
+    events_pagination = events_query.paginate(page=page, per_page=50, error_out=False)
+
+    # 時期タブ用件数 (現在のview・検索クエリを反映)
+    upcoming_count = base_query.filter(Event.start_datetime >= now_utc_naive).count()
+    past_count = base_query.filter(Event.start_datetime < now_utc_naive).count()
+    total_count = upcoming_count + past_count
+
+    # viewタブ用件数 (検索クエリは反映する・時期フィルタは反映しない)
+    def build_count_query(target_view):
+        q = build_base_query(target_view)
+        if search_query:
+            like_pattern = f"%{search_query}%"
+            q = q.filter(
+                db.or_(
+                    Event.title.ilike(like_pattern),
+                    Event.location.ilike(like_pattern),
+                )
+            )
+        return q
+
+    view_counts = {
+        'all': build_count_query('all').count(),
+        'owned': build_count_query('owned').count(),
+        'attended': build_count_query('attended').count(),
+    }
+
+    # 月ごとにグループ化 (JST基準)
+    events_grouped = []
+    prev_month_key = None
+    current_items = None
+    for row in events_pagination.items:
+        event_obj = row[0]
+        jst_dt = event_obj.start_datetime.replace(tzinfo=timezone.utc).astimezone(JST)
+        month_key = jst_dt.strftime('%Y-%m')
+        if month_key != prev_month_key:
+            prev_month_key = month_key
+            current_items = []
+            events_grouped.append({
+                'label': f'{jst_dt.year}年{jst_dt.month}月',
+                'items': current_items,
+            })
+        current_items.append(row)
+
+    return render_template(
+        'beta/events_index_beta.html',
+        events_pagination=events_pagination,
+        events_grouped=events_grouped,
+        view=view,
+        filter_type=filter_type,
+        search_query=search_query,
+        upcoming_count=upcoming_count,
+        past_count=past_count,
+        total_count=total_count,
+        view_counts=view_counts,
+        now_utc=now_utc,
+        now_utc_naive=now_utc_naive,
+    )
+
+
 @event_bp.route('/list')
 def public_events_list():
     """公開設定されたイベント一覧 (開催予定・過去) を誰でも閲覧できるように表示する"""
+    # Beta UI ユーザーは統合ページへ
+    if current_user.is_authenticated and current_user.use_beta_ui:
+        return redirect(url_for(
+            'event.events_index',
+            view='all',
+            filter=request.args.get('filter') or None,
+            q=request.args.get('q') or None,
+            page=request.args.get('page') or None,
+        ))
+
     now_utc = datetime.now(timezone.utc)
     page = request.args.get('page', 1, type=int)
     filter_type = request.args.get('filter', 'upcoming')
@@ -227,11 +373,8 @@ def public_events_list():
     past_count = count_base.filter(Event.start_datetime < now_utc).count()
     total_count = upcoming_count + past_count
 
-    template_name = 'event/public_list_events.html'
-    if current_user.is_authenticated and current_user.use_beta_ui:
-        template_name = 'beta/public_list_events_beta.html'
     return render_template(
-        template_name,
+        'event/public_list_events.html',
         events_pagination=events_pagination,
         filter_type=filter_type,
         search_query=search_query,
@@ -246,6 +389,15 @@ def public_events_list():
 @login_required
 def list_events():
     """ログインユーザーが作成したイベントの一覧を表示する"""
+    # Beta UI ユーザーは統合ページへ
+    if current_user.use_beta_ui:
+        return redirect(url_for(
+            'event.events_index',
+            view='owned',
+            filter=request.args.get('filter') or None,
+            page=request.args.get('page') or None,
+        ))
+
     page = request.args.get('page', 1, type=int)
     filter_type = request.args.get('filter', 'upcoming')
     if filter_type not in ('upcoming', 'past', 'all'):
@@ -269,12 +421,8 @@ def list_events():
     past_count = Event.query.filter_by(user_id=current_user.id).filter(Event.start_datetime < now_utc_naive).count()
     total_count = upcoming_count + past_count
 
-    template_name = 'event/list_events.html'
-    if current_user.use_beta_ui:
-        template_name = 'beta/list_events_beta.html'
-
     return render_template(
-        template_name,
+        'event/list_events.html',
         events_pagination=events_pagination,
         filter_type=filter_type,
         upcoming_count=upcoming_count,
