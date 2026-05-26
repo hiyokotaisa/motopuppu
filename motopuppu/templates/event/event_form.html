@@ -393,8 +393,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const csrfToken = '{{ csrf_token() }}';
     const authStartUrl = '{{ url_for("event.media_share_auth_start") }}';
     const authStatusUrl = '{{ url_for("event.media_share_auth_status") }}';
-    const POLL_INTERVAL_MS = 2000;
-    const POLL_MAX_ATTEMPTS = 150;  // 約5分
 
     function openMediaShareAuthPopup(eventId, intent) {
         const params = new URLSearchParams({event_id: eventId, intent: intent || 'create'});
@@ -420,71 +418,71 @@ document.addEventListener('DOMContentLoaded', function() {
         f.submit();
     }
 
-    let activePoll = null;  // {intervalId, popup, actionUrl} — 手動完了用に保持
+    // 注意: 以前は2秒間隔でfinishMiAuthをポーリングしていたが、media-shareの
+    // MiAuth sessionが ~5-6秒で消費/失効してしまい認証が成立しなかった。
+    // 現在は「popupの.closedを監視し、閉じた瞬間に finishMiAuth を1回だけ呼ぶ」
+    // 戦略にしている。popupが閉じない場合は手動完了ボタンで起動できる。
+    let activeFlow = null;  // {watcherId, popup, actionUrl}
 
-    function stopPolling() {
-        if (activePoll) {
-            clearInterval(activePoll.intervalId);
-            try { if (activePoll.popup && !activePoll.popup.closed) activePoll.popup.close(); } catch (e) { /* ignore */ }
-            activePoll = null;
+    function endFlow() {
+        if (activeFlow) {
+            clearInterval(activeFlow.watcherId);
+            try { if (activeFlow.popup && !activeFlow.popup.closed) activeFlow.popup.close(); } catch (e) { /* ignore */ }
+            activeFlow = null;
+        }
+        const manualLink = document.getElementById('mediaShareManualFinish');
+        if (manualLink) {
+            manualLink.classList.add('d-none');
+            manualLink.onclick = null;
         }
     }
 
-    function pollUntilAuthorized(actionUrl, popup) {
-        let attempts = 0;
-        const intervalId = setInterval(function() {
-            attempts++;
-            const exhausted = attempts > POLL_MAX_ATTEMPTS;
-            const closedByUser = popup && popup.closed;
+    function tryFinishOnce(actionUrl) {
+        return fetch(authStatusUrl, {credentials: 'same-origin', cache: 'no-store'})
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                console.debug('[media-share finish]', data);
+                if (data.status === 'ok') {
+                    endFlow();
+                    submitDynamicPost(actionUrl);
+                    return true;
+                }
+                return false;
+            });
+    }
 
-            fetch(authStatusUrl, {credentials: 'same-origin', cache: 'no-store'})
-                .then(function(r) { return r.json(); })
-                .then(function(data) {
-                    console.debug('[media-share poll]', attempts, data);
-                    if (data.status === 'ok') {
-                        stopPolling();
-                        submitDynamicPost(actionUrl);
-                        return;
-                    }
-                    if (closedByUser) {
-                        stopPolling();
-                        alert('認証ウィンドウが閉じられました。連携を中止します。');
-                        return;
-                    }
-                    if (exhausted) {
-                        stopPolling();
-                        alert('認証がタイムアウトしました。再度お試しください。');
-                    }
-                })
-                .catch(function(err) {
-                    console.warn('[media-share poll] fetch error', err);
-                    if (closedByUser || exhausted) {
-                        stopPolling();
-                        alert(exhausted ? '認証がタイムアウトしました。' : '認証ウィンドウが閉じられました。');
+    function watchPopupAndFinish(actionUrl, popup) {
+        const startedAt = Date.now();
+        const watcherId = setInterval(function() {
+            const elapsed = Date.now() - startedAt;
+            if (popup && popup.closed) {
+                // popupが閉じた = ユーザーが認証フローを完了 (もしくは中断) した
+                tryFinishOnce(actionUrl).then(function(ok) {
+                    if (!ok) {
+                        endFlow();
+                        alert('認証が完了しませんでした。再度お試しください。\n(認証ウィンドウを閉じる前に Misskey.io で「許可」を押す必要があります)');
                     }
                 });
-        }, POLL_INTERVAL_MS);
-        activePoll = {intervalId: intervalId, popup: popup, actionUrl: actionUrl};
+                clearInterval(watcherId);
+            } else if (elapsed > 5 * 60 * 1000) {
+                // 5分経過してもpopupが閉じない → タイムアウト
+                endFlow();
+                alert('認証がタイムアウトしました。再度お試しください。');
+            }
+        }, 500);
+        activeFlow = {watcherId: watcherId, popup: popup, actionUrl: actionUrl};
 
-        // 「完了したのに閉じない場合」用の手動トリガを露出
+        // popupが自動で閉じない場合の手動完了ボタンを露出
         const manualLink = document.getElementById('mediaShareManualFinish');
         if (manualLink) {
             manualLink.classList.remove('d-none');
             manualLink.onclick = function(ev) {
                 ev.preventDefault();
-                fetch(authStatusUrl, {credentials: 'same-origin', cache: 'no-store'})
-                    .then(function(r) { return r.json(); })
-                    .then(function(data) {
-                        console.debug('[media-share manual]', data);
-                        if (data.status === 'ok') {
-                            const url = activePoll ? activePoll.actionUrl : actionUrl;
-                            stopPolling();
-                            submitDynamicPost(url);
-                        } else {
-                            alert('まだ Media Share 側の認証が完了していないようです (status: ' + data.status + ')。Misskeyの認証画面で「許可」を押したか確認してください。');
-                        }
-                    })
-                    .catch(function() { alert('認証状態の確認に失敗しました。'); });
+                tryFinishOnce(actionUrl).then(function(ok) {
+                    if (!ok) {
+                        alert('Media Share 側の認証がまだ完了していないようです。\n認証ウィンドウで Misskey.io の「許可」を押してから再度こちらをクリックしてください。');
+                    }
+                });
             };
         }
     }
@@ -502,7 +500,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     alert('ポップアップがブロックされました。ブラウザの設定でこのサイトのポップアップを許可してください。');
                     return;
                 }
-                pollUntilAuthorized(actionUrl, popup);
+                watchPopupAndFinish(actionUrl, popup);
             } else {
                 submitDynamicPost(actionUrl);
             }
