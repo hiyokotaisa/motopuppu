@@ -219,7 +219,7 @@ class MaintenanceEntry(db.Model):
     category = db.Column(db.String(50), nullable=True)
     notes = db.Column(db.Text, nullable=True)
     is_odo_pending = db.Column(db.Boolean, nullable=False, default=False, server_default='false', comment="ODO/稼働時間入力保留フラグ")
-    attachments = db.relationship('Attachment', backref='maintenance_entry', lazy=True, cascade="all, delete-orphan")
+    attachments = db.relationship('Attachment', backref='maintenance_entry', lazy=True, cascade="all, delete-orphan", order_by='Attachment.sort_order, Attachment.id')
     __table_args__ = (Index('ix_maintenance_entries_category', 'category'), Index('ix_maintenance_entries_maintenance_date', 'maintenance_date'),)
     @property
     def total_cost(self):
@@ -282,8 +282,10 @@ class Attachment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     maintenance_entry_id = db.Column(db.Integer, db.ForeignKey('maintenance_entries.id', ondelete='CASCADE'), nullable=False)
     filename = db.Column(db.String(255), nullable=False)
-    filepath = db.Column(db.String(512), nullable=False, unique=True)
+    filepath = db.Column(db.String(2048), nullable=False, unique=True)
     upload_date = db.Column(db.DateTime, nullable=False)
+    caption = db.Column(db.String(200), nullable=True)
+    sort_order = db.Column(db.Integer, nullable=False, default=0, server_default='0')
     def __repr__(self): return f'<Attachment id={self.id} filename={self.filename}>'
 
 class GeneralNote(db.Model):

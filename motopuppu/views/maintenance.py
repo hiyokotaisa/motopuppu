@@ -1,7 +1,7 @@
 # motopuppu/views/maintenance.py
 import csv
 import io
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 
 from flask import (
     Blueprint, flash, redirect, render_template, request, url_for, abort, current_app, Response, jsonify
@@ -10,15 +10,137 @@ from sqlalchemy import or_, asc, desc, func, and_
 from sqlalchemy.orm import joinedload # N+1対策のためにインポート
 
 from flask_login import login_required, current_user
-from ..models import db, Motorcycle, MaintenanceEntry, MaintenanceReminder
+from ..models import db, Motorcycle, MaintenanceEntry, MaintenanceReminder, Attachment
 from ..forms import MaintenanceForm, MaintenanceCsvUploadForm
 from ..constants import MAINTENANCE_CATEGORIES
 from ..achievement_evaluator import check_achievements_for_event, EVENT_ADD_MAINTENANCE_LOG
 from .. import limiter
 from ..utils.search_helpers import escape_like
+from ..utils.image_security import process_and_upload_image, delete_gcs_image
 
 
 maintenance_bp = Blueprint('maintenance', __name__, url_prefix='/maintenance')
+
+MAX_PHOTOS_PER_MAINTENANCE = 3
+
+
+def _parse_delete_attachment_ids():
+    """request.form から削除対象 attachment_id のリストを取り出す"""
+    raw = request.form.getlist('delete_attachment_ids')
+    out = []
+    for x in raw:
+        try:
+            out.append(int(x))
+        except (TypeError, ValueError):
+            continue
+    return out
+
+
+def _parse_attachment_order():
+    """request.form の attachment_order (カンマ区切り attachment_id) を整数リストに変換する"""
+    raw = (request.form.get('attachment_order') or '').strip()
+    if not raw:
+        return []
+    out = []
+    for x in raw.split(','):
+        x = x.strip()
+        if x.isdigit():
+            out.append(int(x))
+    return out
+
+
+def _parse_attachment_captions():
+    """request.form の caption_<id>=<text> を {id: caption} 辞書に変換する"""
+    out = {}
+    for key in request.form.keys():
+        if key.startswith('caption_'):
+            id_part = key[len('caption_'):]
+            if id_part.isdigit():
+                value = (request.form.get(key) or '').strip()
+                out[int(id_part)] = value[:200]
+    return out
+
+
+def _save_maintenance_photos(entry, uploaded_files, user_id, delete_ids, order_ids=None, captions=None):
+    """整備記録の写真を追加・削除・並び替え・キャプション更新する。
+
+    - 最終枚数が MAX_PHOTOS_PER_MAINTENANCE を超える場合は ValueError
+    - 個別ファイルのアップロード失敗は flash 警告のみで継続 (部分成功を許容)
+    - 削除対象は entry に紐付くものに限定する
+    - order_ids に従って既存写真の sort_order を再採番、漏れた既存はID順で後ろに、新規はさらに後ろに
+    - captions[id] = '' は NULL に置換
+    """
+    order_ids = order_ids or []
+    captions = captions or {}
+    new_files = [f for f in (uploaded_files or []) if f and getattr(f, 'filename', '')]
+
+    existing_attachments = list(entry.attachments) if entry.attachments else []
+    existing_id_set = {att.id for att in existing_attachments}
+    valid_delete_ids = [d for d in delete_ids if d in existing_id_set]
+    deleted_set = set(valid_delete_ids)
+
+    final_count = len(existing_attachments) - len(valid_delete_ids) + len(new_files)
+    if final_count > MAX_PHOTOS_PER_MAINTENANCE:
+        raise ValueError(
+            f'写真は最大{MAX_PHOTOS_PER_MAINTENANCE}枚までです（既存{len(existing_attachments)}枚、削除{len(valid_delete_ids)}枚、追加{len(new_files)}枚）。'
+        )
+
+    # 削除処理
+    for att in existing_attachments:
+        if att.id in deleted_set:
+            try:
+                delete_gcs_image(att.filepath)
+            except Exception as e:
+                current_app.logger.warning(f"GCS deletion failed for attachment {att.id}: {e}")
+            db.session.delete(att)
+
+    # キャプション更新 (削除対象以外)
+    for att in existing_attachments:
+        if att.id in deleted_set:
+            continue
+        if att.id in captions:
+            att.caption = captions[att.id] or None
+
+    # 並び順の再採番: 1) order_ids 指定順, 2) 漏れた既存をID順, 3) 新規をアップロード順
+    surviving_existing = [att for att in existing_attachments if att.id not in deleted_set]
+    id_to_att = {att.id: att for att in surviving_existing}
+    surviving_id_set = set(id_to_att.keys())
+
+    order_idx = 0
+    used_ids = set()
+    for aid in order_ids:
+        if aid in surviving_id_set and aid not in used_ids:
+            id_to_att[aid].sort_order = order_idx
+            used_ids.add(aid)
+            order_idx += 1
+    for att in sorted(surviving_existing, key=lambda a: a.id):
+        if att.id not in used_ids:
+            att.sort_order = order_idx
+            order_idx += 1
+
+    # 追加処理
+    now_naive_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+    for f in new_files:
+        try:
+            gcs_url = process_and_upload_image(f, user_id, folder='maintenance')
+        except ValueError as e:
+            flash(f'写真「{f.filename}」のアップロードに失敗しました: {e}', 'warning')
+            continue
+        except Exception as e:
+            current_app.logger.error(f"Error uploading maintenance photo: {e}", exc_info=True)
+            flash(f'写真「{f.filename}」のアップロードに失敗しました。', 'warning')
+            continue
+        if not gcs_url:
+            flash(f'写真「{f.filename}」のアップロード処理がスキップされました（GCS未設定の可能性）。', 'warning')
+            continue
+        db.session.add(Attachment(
+            maintenance_entry_id=entry.id,
+            filename=(f.filename or '')[:255],
+            filepath=gcs_url,
+            upload_date=now_naive_utc,
+            sort_order=order_idx,
+        ))
+        order_idx += 1
 
 def _process_maintenance_csv_import(file_stream, motorcycle: Motorcycle):
     """
@@ -228,7 +350,10 @@ def maintenance_log():
     active_motorcycle_ids_for_maintenance = [m.id for m in user_motorcycles_for_maintenance if not m.is_archived]
 
     # ▼▼▼【パフォーマンス改善】joinedloadを追加してN+1問題を解消 ▼▼▼
-    query = db.session.query(MaintenanceEntry).options(joinedload(MaintenanceEntry.motorcycle)).join(Motorcycle)
+    query = db.session.query(MaintenanceEntry).options(
+        joinedload(MaintenanceEntry.motorcycle),
+        joinedload(MaintenanceEntry.attachments),
+    ).join(Motorcycle)
     # ▲▲▲ 改善ここまで ▲▲▲
 
     active_filters = {k: v for k, v in request.args.items() if k not in ['page', 'sort_by', 'order']}
@@ -404,6 +529,20 @@ def add_maintenance():
         try:
             db.session.add(new_entry)
             db.session.flush()
+            try:
+                _save_maintenance_photos(
+                    new_entry,
+                    form.photos.data,
+                    current_user.id,
+                    [],
+                    order_ids=_parse_attachment_order(),
+                    captions=_parse_attachment_captions(),
+                )
+            except ValueError as ve:
+                db.session.rollback()
+                flash(str(ve), 'danger')
+                template_name = 'beta/maintenance_form_beta.html' if current_user.use_beta_ui else 'maintenance_form.html'
+                return render_template(template_name, form_action='add', form=form, category_options=MAINTENANCE_CATEGORIES)
             _update_reminder_if_applicable(new_entry)
             db.session.commit()
             flash('整備記録を追加しました。', 'success')
@@ -446,7 +585,7 @@ def edit_maintenance(entry_id):
         if not motorcycle:
             flash('選択された車両が見つからないか、有効でありません。再度お試しください。', 'danger')
             template_name = 'beta/maintenance_form_beta.html' if current_user.use_beta_ui else 'maintenance_form.html'
-            return render_template(template_name, form_action='edit', form=form, entry_id=entry.id, category_options=MAINTENANCE_CATEGORIES)
+            return render_template(template_name, form_action='edit', form=form, entry_id=entry.id, entry=entry, category_options=MAINTENANCE_CATEGORIES)
 
         previous_mainte = get_previous_maintenance_entry(motorcycle.id, form.maintenance_date.data, entry.id)
 
@@ -490,7 +629,7 @@ def edit_maintenance(entry_id):
         if form.errors:
             flash('入力内容にエラーがあります。ご確認ください。', 'danger')
             template_name = 'beta/maintenance_form_beta.html' if current_user.use_beta_ui else 'maintenance_form.html'
-            return render_template(template_name, form_action='edit', form=form, entry_id=entry.id, category_options=MAINTENANCE_CATEGORIES)
+            return render_template(template_name, form_action='edit', form=form, entry_id=entry.id, entry=entry, category_options=MAINTENANCE_CATEGORIES)
 
         entry.motorcycle_id = motorcycle.id
         entry.maintenance_date = form.maintenance_date.data
@@ -504,6 +643,24 @@ def edit_maintenance(entry_id):
         entry.labor_cost = form.labor_cost.data
         entry.notes = form.notes.data.strip() if form.notes.data else None
         entry.is_odo_pending = form.is_odo_pending.data
+
+        delete_ids = _parse_delete_attachment_ids()
+        order_ids = _parse_attachment_order()
+        captions = _parse_attachment_captions()
+        try:
+            _save_maintenance_photos(
+                entry,
+                form.photos.data,
+                current_user.id,
+                delete_ids,
+                order_ids=order_ids,
+                captions=captions,
+            )
+        except ValueError as ve:
+            db.session.rollback()
+            flash(str(ve), 'danger')
+            template_name = 'beta/maintenance_form_beta.html' if current_user.use_beta_ui else 'maintenance_form.html'
+            return render_template(template_name, form_action='edit', form=form, entry_id=entry.id, entry=entry, category_options=MAINTENANCE_CATEGORIES)
 
         try:
             _update_reminder_if_applicable(entry)
@@ -519,7 +676,7 @@ def edit_maintenance(entry_id):
         flash('入力内容にエラーがあります。ご確認ください。', 'danger')
 
     template_name = 'beta/maintenance_form_beta.html' if current_user.use_beta_ui else 'maintenance_form.html'
-    return render_template(template_name, form_action='edit', form=form, entry_id=entry.id, category_options=MAINTENANCE_CATEGORIES)
+    return render_template(template_name, form_action='edit', form=form, entry_id=entry.id, entry=entry, category_options=MAINTENANCE_CATEGORIES)
 
 
 @maintenance_bp.route('/<int:entry_id>/delete', methods=['POST'])
@@ -531,6 +688,12 @@ def delete_maintenance(entry_id):
         Motorcycle.user_id == current_user.id
     ).first_or_404()
     try:
+        # 紐付く写真の GCS 上のファイルを先に削除 (DB行は cascade で消える)
+        for att in list(entry.attachments):
+            try:
+                delete_gcs_image(att.filepath)
+            except Exception as e:
+                current_app.logger.warning(f"GCS deletion failed for attachment {att.id}: {e}")
         db.session.delete(entry)
         db.session.commit()
         flash('整備記録を削除しました。', 'success')
@@ -539,6 +702,22 @@ def delete_maintenance(entry_id):
         flash(f'記録の削除中にエラーが発生しました。詳細は管理者にお問い合わせください。', 'error')
         current_app.logger.error(f"Error deleting maintenance entry ID {entry_id}: {e}", exc_info=True)
     return redirect(url_for('maintenance.maintenance_log'))
+
+
+@maintenance_bp.route('/<int:entry_id>/detail_partial')
+@limiter.limit("120 per minute")
+@login_required
+def maintenance_detail_partial(entry_id):
+    """整備記録の詳細をHTML断片で返す (一覧モーダルでのAjax表示用)"""
+    entry = MaintenanceEntry.query.options(
+        joinedload(MaintenanceEntry.motorcycle),
+        joinedload(MaintenanceEntry.attachments),
+    ).join(Motorcycle).filter(
+        MaintenanceEntry.id == entry_id,
+        Motorcycle.user_id == current_user.id
+    ).first_or_404()
+    return render_template('_maintenance_detail_partial.html', entry=entry)
+
 
 @maintenance_bp.route('/template/maintenance_import_template.csv')
 @login_required

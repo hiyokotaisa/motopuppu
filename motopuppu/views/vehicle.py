@@ -321,9 +321,17 @@ def delete_vehicle(vehicle_id):
         vehicle_name = motorcycle.name
 
         # ▼▼▼【ここから追記】車両削除前にGCS上の画像を削除してオーファンを防ぐ ▼▼▼
+        from ..utils.image_security import delete_gcs_image
         if motorcycle.image_url:
-            from ..utils.image_security import delete_gcs_image
             delete_gcs_image(motorcycle.image_url)
+
+        # 紐付く整備記録の写真 (Attachment) も GCS から削除する
+        for entry in motorcycle.maintenance_entries.all():
+            for att in entry.attachments:
+                try:
+                    delete_gcs_image(att.filepath)
+                except Exception as e:
+                    current_app.logger.warning(f"GCS deletion failed for maintenance attachment {att.id}: {e}")
         # ▲▲▲【追記はここまで】▲▲▲
 
         # ondelete='SET NULL' が設定されている関連データを先に手動で削除する

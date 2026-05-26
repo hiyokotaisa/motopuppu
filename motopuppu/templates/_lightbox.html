@@ -1,0 +1,98 @@
+{# motopuppu/templates/_lightbox.html
+   写真クリックで拡大表示する軽量ライトボックス。
+   トリガー: <a class="lightbox-trigger" href="image_url" data-caption="...">
+   または <img class="lightbox-trigger" data-src="..." data-caption="...">
+   - オーバーレイ部分 or X ボタンクリックで閉じる
+   - ESC キーで閉じる
+   - 動的追加要素 (Ajax) にも対応するため document delegation を使う #}
+
+<div id="lightbox" class="lightbox-overlay" onclick="if(event.target===this)window.closeLightbox()" role="dialog" aria-hidden="true">
+    <button type="button" class="lightbox-close" onclick="window.closeLightbox()" aria-label="閉じる">&times;</button>
+    <div class="lightbox-content">
+        <img id="lightbox-image" src="" alt="">
+        <div id="lightbox-caption"></div>
+    </div>
+</div>
+
+<style>
+.lightbox-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.88);
+    z-index: 2000;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+.lightbox-overlay.active { display: flex; }
+.lightbox-content {
+    max-width: 95vw;
+    max-height: 95vh;
+    text-align: center;
+    pointer-events: none;
+}
+.lightbox-content img {
+    max-width: 100%;
+    max-height: 85vh;
+    object-fit: contain;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+    border-radius: 4px;
+    pointer-events: auto;
+}
+#lightbox-caption {
+    color: #f1f5f9;
+    padding-top: 0.75rem;
+    font-size: 0.9rem;
+    word-break: break-word;
+    pointer-events: auto;
+}
+.lightbox-close {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    background: transparent;
+    border: none;
+    color: #f1f5f9;
+    font-size: 2.5rem;
+    line-height: 1;
+    cursor: pointer;
+    z-index: 2001;
+    padding: 0 0.5rem;
+}
+.lightbox-close:hover { color: #fff; }
+</style>
+
+<script>
+(function(){
+    function openLightbox(src, caption) {
+        if (!src) return;
+        document.getElementById('lightbox-image').src = src;
+        document.getElementById('lightbox-caption').textContent = caption || '';
+        var el = document.getElementById('lightbox');
+        el.classList.add('active');
+        el.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+    }
+    window.closeLightbox = function() {
+        var el = document.getElementById('lightbox');
+        if (!el) return;
+        el.classList.remove('active');
+        el.setAttribute('aria-hidden', 'true');
+        document.getElementById('lightbox-image').src = '';
+        document.body.style.overflow = '';
+    };
+    document.addEventListener('click', function(e) {
+        var trigger = e.target.closest('.lightbox-trigger');
+        if (trigger) {
+            e.preventDefault();
+            var src = trigger.getAttribute('href') || trigger.dataset.src;
+            var caption = trigger.dataset.caption || trigger.dataset.filename || '';
+            openLightbox(src, caption);
+        }
+    });
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') window.closeLightbox();
+    });
+})();
+</script>

@@ -39,7 +39,7 @@
                 </div>
             </div>
             <div class="beta-widget-body" style="padding: 1.5rem;">
-                <form method="POST" action="{{ url_for('maintenance.add_maintenance') if form_action == 'add' else url_for('maintenance.edit_maintenance', entry_id=entry_id) }}">
+                <form method="POST" enctype="multipart/form-data" action="{{ url_for('maintenance.add_maintenance') if form_action == 'add' else url_for('maintenance.edit_maintenance', entry_id=entry_id) }}">
                     {{ form.hidden_tag() }}
 
                     {# 車両選択 #}
@@ -165,6 +165,67 @@
                         {% if form.notes.errors %}<div class="invalid-feedback">{% for error in form.notes.errors %}<span>{{ error }}</span><br>{% endfor %}</div>{% endif %}
                     </div>
 
+                    {# 写真セクション (試験的機能・最大3枚) #}
+                    {% set existing_attachments = (entry.attachments if form_action == 'edit' and entry else []) %}
+                    <div class="mb-3" style="background: rgba(255,255,255,0.03); border: 1px solid var(--beta-border); border-radius: 8px; padding: 1rem;">
+                        <label class="form-label beta-text-secondary fw-bold">
+                            <i class="bi bi-camera me-2"></i>写真 <small class="beta-text-muted">(試験的機能・最大3枚)</small>
+                        </label>
+
+                        {% if existing_attachments %}
+                        <div class="mb-3">
+                            <div class="small beta-text-muted mb-2">既存の写真 ({{ existing_attachments|length }}枚)。並び替え (▲▼)、キャプション編集、削除チェックが可能です。</div>
+                            <input type="hidden" name="attachment_order" id="attachment_order_input" value="{{ existing_attachments|map(attribute='id')|join(',') }}">
+                            <div class="row g-2" id="existing-photos-container">
+                                {% for att in existing_attachments %}
+                                <div class="col-md-4 col-6 photo-card" data-attachment-id="{{ att.id }}">
+                                    <div class="beta-widget-card" style="overflow: hidden;">
+                                        <a href="{{ att.filepath }}" class="lightbox-trigger" data-caption="{{ att.caption or att.filename }}" data-filename="{{ att.filename }}">
+                                            <img src="{{ att.filepath }}" alt="{{ att.caption or att.filename }}" style="width: 100%; height: 140px; object-fit: cover; display: block; cursor: zoom-in;">
+                                        </a>
+                                        <div style="padding: 0.5rem;">
+                                            <input type="text" class="form-control form-control-sm mb-2"
+                                                   name="caption_{{ att.id }}"
+                                                   value="{{ att.caption or '' }}"
+                                                   maxlength="200"
+                                                   placeholder="キャプション (任意)">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <div class="btn-group btn-group-sm" role="group" aria-label="並び替え">
+                                                    <button type="button" class="beta-btn" style="padding: 0.2rem 0.4rem;" onclick="movePhotoCard(this,'up')" title="上へ"><i class="bi bi-arrow-up"></i></button>
+                                                    <button type="button" class="beta-btn" style="padding: 0.2rem 0.4rem;" onclick="movePhotoCard(this,'down')" title="下へ"><i class="bi bi-arrow-down"></i></button>
+                                                </div>
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" name="delete_attachment_ids" value="{{ att.id }}" id="del_att_{{ att.id }}">
+                                                    <label class="form-check-label small" style="color: var(--beta-accent-red);" for="del_att_{{ att.id }}">
+                                                        <i class="bi bi-trash me-1"></i>削除
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% set remaining = 3 - existing_attachments|length %}
+                        <label for="{{ form.photos.id }}" class="form-label beta-text-secondary">{{ form.photos.label.text }}</label>
+                        {{ form.photos(class="form-control" + (" is-invalid" if form.photos.errors else ""), multiple=True, accept="image/*") }}
+                        {% if form.photos.errors %}
+                            <div class="invalid-feedback d-block">{% for error in form.photos.errors %}<span>{{ error }}</span><br>{% endfor %}</div>
+                        {% else %}
+                            <div class="form-text beta-text-muted">
+                                JPG/PNG/WebP/HEIC 対応。アップロード時に EXIF が削除され、最大1200pxにリサイズされます。
+                                {% if form_action == 'edit' %}
+                                残り {{ remaining }} 枚まで追加できます (削除と同時送信なら、削除した枚数分も追加できます)。新規写真のキャプションは保存後に編集できます。
+                                {% else %}
+                                最大3枚まで同時にアップロードできます。キャプションは保存後に編集できます。
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                    </div>
+
                     <div class="mt-4 d-flex gap-2">
                         {{ form.submit(class="beta-btn beta-btn-solid") }}
                         <a href="{{ url_for('maintenance.maintenance_log') }}" class="beta-btn"><i class="fas fa-times me-1"></i> キャンセル</a>
@@ -181,7 +242,28 @@
 {% block scripts %}
 {{ super() }}
 {% include 'beta/_beta_scripts.html' %}
+{% include '_lightbox.html' %}
 <script>
+function updatePhotoOrderInput() {
+    var container = document.getElementById('existing-photos-container');
+    var hidden = document.getElementById('attachment_order_input');
+    if (!container || !hidden) return;
+    var ids = Array.prototype.map.call(
+        container.querySelectorAll('[data-attachment-id]'),
+        function (el) { return el.dataset.attachmentId; }
+    );
+    hidden.value = ids.join(',');
+}
+function movePhotoCard(button, direction) {
+    var card = button.closest('[data-attachment-id]');
+    if (!card) return;
+    if (direction === 'up' && card.previousElementSibling) {
+        card.parentNode.insertBefore(card, card.previousElementSibling);
+    } else if (direction === 'down' && card.nextElementSibling) {
+        card.parentNode.insertBefore(card.nextElementSibling, card);
+    }
+    updatePhotoOrderInput();
+}
 document.addEventListener('DOMContentLoaded', function() {
     const motorcycleSelect = document.getElementById('motorcycle_id');
     const maintenanceDateInput = document.getElementById('maintenance_date');

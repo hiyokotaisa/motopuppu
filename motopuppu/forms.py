@@ -1,6 +1,6 @@
 # motopuppu/forms.py
 from flask_wtf import FlaskForm
-from flask_wtf.file import FileField, FileRequired, FileAllowed, FileSize
+from flask_wtf.file import FileField, FileRequired, FileAllowed, FileSize, MultipleFileField
 from wtforms import StringField, SelectField, DateField, DecimalField, IntegerField, TextAreaField, BooleanField, SubmitField, RadioField, FieldList, FormField, HiddenField, DateTimeField, PasswordField
 from wtforms.validators import DataRequired, Optional, NumberRange, Length, ValidationError, InputRequired, EqualTo, URL
 from datetime import date, datetime
@@ -205,6 +205,13 @@ class MaintenanceForm(FlaskForm):
         'メモ',
         validators=[Optional(), Length(max=1000, message='メモは1000文字以内で入力してください。')],
         render_kw={"rows": 4, "placeholder": "使用した部品の型番、作業の詳細など"}
+    )
+    photos = MultipleFileField(
+        '写真 (最大3枚)',
+        validators=[
+            Optional(),
+            FileAllowed(['jpg', 'jpeg', 'png', 'webp', 'heic', 'HEIC'], '許可されていない画像形式です。')
+        ]
     )
     submit = SubmitField('保存する')
 

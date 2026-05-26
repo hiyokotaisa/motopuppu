@@ -193,7 +193,7 @@
         <div class="timeline-item">
             <div class="timeline-marker"></div>
             
-            <div class="card border-0 shadow-sm hover-lift">
+            <div class="card border-0 shadow-sm hover-lift maintenance-clickable" role="button" tabindex="0" onclick="openMaintenanceDetail({{ entry.id }})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openMaintenanceDetail({{ entry.id }});}">
                 <div class="card-body">
                     {# ヘッダー行: 日付、車両名、コスト #}
                     <div class="d-flex justify-content-between align-items-start mb-2">
@@ -203,6 +203,11 @@
                                 <span class="badge bg-light text-dark border fw-normal" style="font-size: 0.75rem;">{{ entry.motorcycle.name }}</span>
                                 {% if entry.category %}
                                     <span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size: 0.75rem;">{{ entry.category }}</span>
+                                {% endif %}
+                                {% if entry.attachments %}
+                                    <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle" style="font-size: 0.75rem;" title="写真{{ entry.attachments|length }}枚">
+                                        <i class="fas fa-camera me-1"></i>{{ entry.attachments|length }}
+                                    </span>
                                 {% endif %}
                             </h5>
                         </div>
@@ -262,7 +267,7 @@
                     {% endif %}
 
                     {# フッター: アクション #}
-                    <div class="d-flex justify-content-end align-items-center mt-3 pt-2 border-top">
+                    <div class="d-flex justify-content-end align-items-center mt-3 pt-2 border-top" onclick="event.stopPropagation()">
                         <a href="{{ url_for('maintenance.edit_maintenance', entry_id=entry.id) }}" class="btn btn-sm btn-link text-decoration-none text-secondary p-0 me-3">編集</a>
                         <form action="{{ url_for('maintenance.delete_maintenance', entry_id=entry.id) }}" method="POST" class="d-inline" onsubmit="return confirm('この整備記録を削除してもよろしいですか？');">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
@@ -336,10 +341,10 @@
             </thead>
             <tbody>
                 {% for entry in entries %}
-                <tr>
+                <tr class="maintenance-clickable" role="button" tabindex="0" onclick="openMaintenanceDetail({{ entry.id }})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openMaintenanceDetail({{ entry.id }});}">
                     <td class="ps-3">{{ entry.maintenance_date.strftime('%Y-%m-%d') }}</td>
                     <td>
-                        <a href="{{ url_for('maintenance.edit_maintenance', entry_id=entry.id) }}" title="編集" class="text-decoration-none text-dark">
+                        <a href="{{ url_for('maintenance.edit_maintenance', entry_id=entry.id) }}" title="編集" class="text-decoration-none text-dark" onclick="event.stopPropagation()">
                             {{ entry.motorcycle.name }}
                         </a>
                     </td>
@@ -362,6 +367,11 @@
                         <span title="{{ entry.description }}" data-bs-toggle="tooltip" data-bs-placement="top">
                             {{ entry.description|truncate(30) }}
                         </span>
+                        {% if entry.attachments %}
+                            <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle ms-1" title="写真{{ entry.attachments|length }}枚">
+                                <i class="fas fa-camera me-1"></i>{{ entry.attachments|length }}
+                            </span>
+                        {% endif %}
                     </td>
                     <td class="text-end font-monospace">
                         {% if entry.total_cost is not none %}
@@ -370,7 +380,7 @@
                             -
                         {% endif %}
                     </td>
-                    <td class="text-center text-nowrap">
+                    <td class="text-center text-nowrap" onclick="event.stopPropagation()">
                         <a href="{{ url_for('maintenance.edit_maintenance', entry_id=entry.id) }}" class="btn btn-sm btn-outline-secondary border-0"><i class="fas fa-edit"></i></a>
                         <form action="{{ url_for('maintenance.delete_maintenance', entry_id=entry.id) }}" method="POST" class="d-inline" onsubmit="return confirm('この整備記録を削除してもよろしいですか？');">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
@@ -567,10 +577,61 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 <script src="{{ url_for('static', filename='js/filter_persistence.js') }}"></script>
+
+{# 写真ライトボックス共有スニペット #}
+{% include '_lightbox.html' %}
+
+<style>
+.maintenance-clickable { cursor: pointer; transition: background-color 0.15s ease; }
+.maintenance-clickable:hover { background-color: rgba(13,110,253,0.04); }
+</style>
+<script>
+function openMaintenanceDetail(entryId) {
+    var body = document.getElementById('maintenanceDetailBody');
+    if (body) {
+        body.innerHTML = '<div class="text-center py-4 text-muted"><div class="spinner-border" role="status" aria-hidden="true"></div><div class="mt-2">読み込み中...</div></div>';
+    }
+    var modalEl = document.getElementById('maintenanceDetailModal');
+    if (!modalEl) return;
+    var modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+    modal.show();
+    fetch('/maintenance/' + encodeURIComponent(entryId) + '/detail_partial', {credentials: 'same-origin'})
+        .then(function (r) {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.text();
+        })
+        .then(function (html) {
+            if (body) body.innerHTML = html;
+        })
+        .catch(function (err) {
+            console.error(err);
+            if (body) body.innerHTML = '<div class="alert alert-danger">詳細の読み込みに失敗しました。</div>';
+        });
+}
+</script>
 {% endblock %}
 
 {% block modals %}
 {{ super() }}
+
+{# --- 整備記録 詳細モーダル --- #}
+<div class="modal fade" id="maintenanceDetailModal" tabindex="-1" aria-labelledby="maintenanceDetailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="maintenanceDetailModalLabel"><i class="fas fa-tools me-2"></i>整備記録の詳細</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="閉じる"></button>
+            </div>
+            <div class="modal-body" id="maintenanceDetailBody">
+                <div class="text-center py-4 text-muted">
+                    <div class="spinner-border" role="status" aria-hidden="true"></div>
+                    <div class="mt-2">読み込み中...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 {# --- CSVインポート用モーダル --- #}
 {% if request_args.get('vehicle_id') %}
     {% set selected_vehicle_id = request_args.get('vehicle_id')|int %}

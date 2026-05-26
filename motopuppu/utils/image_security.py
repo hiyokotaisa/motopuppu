@@ -55,16 +55,17 @@ def strip_exif(image_bytes: bytes) -> bytes:
         raise ValueError("画像のEXIF除去処理に失敗しました。不正な画像ファイルの可能性があります。")
 
 
-def process_and_upload_image(file_storage, user_id, max_size=(1200, 1200)):
+def process_and_upload_image(file_storage, user_id, max_size=(1200, 1200), folder='vehicles'):
     """
     アップロードされた画像（FileStorageなど）を開き、セキュリティチェック、
     リサイズ（最大1200px）、EXIF削除、WebP変換（軽量化）を行った上で
     Google Cloud Storage (GCS) にアップロードし、その公開パスURLを返します。
-    
+
     Args:
         file_storage: アップロードされたファイル (FileStorageオブジェクト)
         user_id: アップロードするユーザーのID (GCSパスに含めて管理性を向上させる)
         max_size: リサイズの最大サイズ (幅, 高さ)
+        folder: GCS上のトップレベルフォルダ名 (例: 'vehicles' / 'maintenance')
     """
     try:
         # Pillowで画像として読み込む
@@ -96,7 +97,7 @@ def process_and_upload_image(file_storage, user_id, max_size=(1200, 1200)):
         
         # ユーザーIDを含むパスでUUID一意なファイル名(キー)を生成
         # ユーザー単位での管理・一括削除・運用を容易にするため
-        unique_filename = f"vehicles/{user_id}/{uuid.uuid4().hex}.webp"
+        unique_filename = f"{folder}/{user_id}/{uuid.uuid4().hex}.webp"
         blob = bucket.blob(unique_filename)
         
         # 一時ストリームからファイルをアップロード
@@ -191,20 +192,23 @@ def delete_all_gcs_images_for_user(user_id):
     try:
         client = storage.Client()
         bucket = client.bucket(bucket_name)
-        prefix = f"vehicles/{user_id}/"
-        
-        blobs = list(bucket.list_blobs(prefix=prefix))
+        prefixes = [f"vehicles/{user_id}/", f"maintenance/{user_id}/"]
+
         deleted_count = 0
-        for blob in blobs:
-            try:
-                blob.delete()
-                deleted_count += 1
-            except Exception as e:
-                logging.warning(f"GCS画像の削除に失敗 ({blob.name}): {e}")
-        
-        logging.info(f"ユーザー {user_id} のGCS画像を {deleted_count}/{len(blobs)} 件削除しました。")
+        total_blobs = 0
+        for prefix in prefixes:
+            blobs = list(bucket.list_blobs(prefix=prefix))
+            total_blobs += len(blobs)
+            for blob in blobs:
+                try:
+                    blob.delete()
+                    deleted_count += 1
+                except Exception as e:
+                    logging.warning(f"GCS画像の削除に失敗 ({blob.name}): {e}")
+
+        logging.info(f"ユーザー {user_id} のGCS画像を {deleted_count}/{total_blobs} 件削除しました。")
         return deleted_count
-        
+
     except Exception as e:
         logging.warning(f"ユーザー {user_id} のGCS画像一括削除中にエラー: {e}")
         return 0

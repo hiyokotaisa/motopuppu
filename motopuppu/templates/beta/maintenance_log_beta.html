@@ -150,13 +150,18 @@
                 {% for entry in entries %}
                 <div class="beta-log-timeline-item">
                     <div class="beta-log-timeline-marker maintenance"><i class="fas fa-tools"></i></div>
-                    <div class="beta-log-timeline-content">
+                    <div class="beta-log-timeline-content maintenance-clickable" role="button" tabindex="0" onclick="openMaintenanceDetail({{ entry.id }})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openMaintenanceDetail({{ entry.id }});}">
                         <div class="d-flex justify-content-between align-items-start mb-2">
                             <div>
                                 <span class="fw-bold beta-text-primary">{{ entry.maintenance_date.strftime('%Y/%m/%d') }}</span>
                                 <span class="beta-badge beta-badge-teal ms-2">{{ entry.motorcycle.name }}</span>
                                 {% if entry.category %}
                                 <span class="beta-badge beta-badge-blue ms-1">{{ entry.category }}</span>
+                                {% endif %}
+                                {% if entry.attachments %}
+                                <span class="beta-badge ms-1" style="background: rgba(148,163,184,0.18); color: var(--beta-text-secondary); border: 1px solid rgba(148,163,184,0.3);" title="写真{{ entry.attachments|length }}枚">
+                                    <i class="fas fa-camera me-1"></i>{{ entry.attachments|length }}
+                                </span>
                                 {% endif %}
                             </div>
                             <div class="text-end">
@@ -207,7 +212,7 @@
                         </div>
                         {% endif %}
 
-                        <div class="d-flex justify-content-end align-items-center mt-2 pt-2" style="border-top: 1px solid var(--beta-border);">
+                        <div class="d-flex justify-content-end align-items-center mt-2 pt-2" style="border-top: 1px solid var(--beta-border);" onclick="event.stopPropagation()">
                             <a href="{{ url_for('maintenance.edit_maintenance', entry_id=entry.id) }}" class="beta-btn" style="font-size: 0.7rem; padding: 0.2rem 0.5rem;">編集</a>
                             <form action="{{ url_for('maintenance.delete_maintenance', entry_id=entry.id) }}" method="POST" class="d-inline ms-1" onsubmit="return confirm('この整備記録を削除してもよろしいですか？');">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
@@ -277,9 +282,9 @@
                     </thead>
                     <tbody>
                         {% for entry in entries %}
-                        <tr>
+                        <tr class="maintenance-clickable" role="button" tabindex="0" onclick="openMaintenanceDetail({{ entry.id }})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openMaintenanceDetail({{ entry.id }});}">
                             <td class="ps-3">{{ entry.maintenance_date.strftime('%Y-%m-%d') }}</td>
-                            <td><a href="{{ url_for('maintenance.edit_maintenance', entry_id=entry.id) }}" class="text-decoration-none beta-text-primary">{{ entry.motorcycle.name }}</a></td>
+                            <td><a href="{{ url_for('maintenance.edit_maintenance', entry_id=entry.id) }}" class="text-decoration-none beta-text-primary" onclick="event.stopPropagation()">{{ entry.motorcycle.name }}</a></td>
                             <td class="text-end beta-text-mono distance-value-cell"
                                 data-is-racer="{{ 'true' if entry.motorcycle.is_racer else 'false' }}"
                                 data-is-pending="{{ 'true' if entry.is_odo_pending else 'false' }}"
@@ -294,7 +299,7 @@
                             <td>{{ entry.category if entry.category else '-' }}</td>
                             <td><span title="{{ entry.description }}" data-bs-toggle="tooltip">{{ entry.description|truncate(30) }}</span></td>
                             <td class="text-end beta-text-mono">{% if entry.total_cost is not none %}{{ "{:,}".format(entry.total_cost|round|int) }}{% else %}-{% endif %}</td>
-                            <td class="text-center text-nowrap">
+                            <td class="text-center text-nowrap" onclick="event.stopPropagation()">
                                 <a href="{{ url_for('maintenance.edit_maintenance', entry_id=entry.id) }}" class="beta-btn" style="font-size: 0.7rem; padding: 0.15rem 0.4rem;"><i class="fas fa-edit"></i></a>
                                 <form action="{{ url_for('maintenance.delete_maintenance', entry_id=entry.id) }}" method="POST" class="d-inline" onsubmit="return confirm('削除しますか？');">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
@@ -358,6 +363,25 @@
 
 {% block modals %}
 {{ super() }}
+
+{# --- 整備記録 詳細モーダル --- #}
+<div class="modal fade" id="maintenanceDetailModal" tabindex="-1" aria-labelledby="maintenanceDetailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="maintenanceDetailModalLabel"><i class="fas fa-tools me-2"></i>整備記録の詳細</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="閉じる"></button>
+            </div>
+            <div class="modal-body" id="maintenanceDetailBody">
+                <div class="text-center py-4 beta-text-muted">
+                    <div class="spinner-border" role="status" aria-hidden="true"></div>
+                    <div class="mt-2">読み込み中...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% if request_args.get('vehicle_id') %}
 {% set selected_vehicle_id = request_args.get('vehicle_id')|int %}
 {% set selected_vehicle = motorcycles|selectattr('id', 'equalto', selected_vehicle_id)|first %}
@@ -432,4 +456,36 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 <script src="{{ url_for('static', filename='js/filter_persistence.js') }}"></script>
+
+{# 写真ライトボックス共有スニペット #}
+{% include '_lightbox.html' %}
+
+<style>
+.maintenance-clickable { cursor: pointer; transition: background-color 0.15s ease; }
+.maintenance-clickable:hover { background-color: rgba(99,102,241,0.06); }
+</style>
+<script>
+function openMaintenanceDetail(entryId) {
+    var body = document.getElementById('maintenanceDetailBody');
+    if (body) {
+        body.innerHTML = '<div class="text-center py-4 beta-text-muted"><div class="spinner-border" role="status" aria-hidden="true"></div><div class="mt-2">読み込み中...</div></div>';
+    }
+    var modalEl = document.getElementById('maintenanceDetailModal');
+    if (!modalEl) return;
+    var modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+    modal.show();
+    fetch('/maintenance/' + encodeURIComponent(entryId) + '/detail_partial', {credentials: 'same-origin'})
+        .then(function (r) {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.text();
+        })
+        .then(function (html) {
+            if (body) body.innerHTML = html;
+        })
+        .catch(function (err) {
+            console.error(err);
+            if (body) body.innerHTML = '<div class="alert alert-danger">詳細の読み込みに失敗しました。</div>';
+        });
+}
+</script>
 {% endblock %}

@@ -1,0 +1,96 @@
+{# motopuppu/templates/_maintenance_detail_partial.html
+   整備記録の詳細を表示する共有パーシャル。一覧モーダルから Ajax で呼ばれる。
+   Alpha/Beta 両UIで利用するため、UIフレームワーク固有のクラスは控えめにする。 #}
+
+<div class="maint-detail">
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+        <h5 class="mb-0">
+            <i class="bi bi-calendar-event me-1"></i>{{ entry.maintenance_date.strftime('%Y/%m/%d') }}
+        </h5>
+        <span class="badge bg-light text-dark border">{{ entry.motorcycle.name }}</span>
+        {% if entry.category %}
+        <span class="badge bg-success-subtle text-success border border-success-subtle">{{ entry.category }}</span>
+        {% endif %}
+        {% if entry.is_odo_pending %}
+        <span class="badge bg-warning-subtle text-warning border border-warning-subtle">
+            <i class="bi bi-hourglass-split me-1"></i>ODO保留
+        </span>
+        {% endif %}
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-sm-6">
+            <div class="small text-muted">走行距離 / 稼働時間</div>
+            <div class="fw-bold">
+                {% if entry.is_odo_pending %}
+                    保留中
+                {% elif entry.motorcycle.is_racer %}
+                    {{ entry.operating_hours_at_maintenance }} H
+                {% else %}
+                    {{ "{:,}".format(entry.odometer_reading_at_maintenance) if entry.odometer_reading_at_maintenance is not none else '-' }} km
+                {% endif %}
+            </div>
+        </div>
+        <div class="col-sm-6">
+            <div class="small text-muted">合計費用</div>
+            <div class="fw-bold">
+                {% if entry.total_cost is not none %}
+                    {{ "{:,}".format(entry.total_cost|round|int) }} 円
+                {% else %}-{% endif %}
+                {% if entry.parts_cost is not none or entry.labor_cost is not none %}
+                <span class="small text-muted ms-1">
+                    (部品 {{ "{:,}".format(entry.parts_cost|int) if entry.parts_cost is not none else 0 }} / 工賃 {{ "{:,}".format(entry.labor_cost|int) if entry.labor_cost is not none else 0 }})
+                </span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="mb-3">
+        <div class="small text-muted">整備内容</div>
+        <div style="white-space: pre-wrap;">{{ entry.description }}</div>
+    </div>
+
+    {% if entry.location %}
+    <div class="mb-3">
+        <div class="small text-muted">場所</div>
+        <div><i class="bi bi-geo-alt me-1"></i>{{ entry.location }}</div>
+    </div>
+    {% endif %}
+
+    {% if entry.notes %}
+    <div class="mb-3">
+        <div class="small text-muted">メモ</div>
+        <div class="p-2 rounded bg-light" style="white-space: pre-wrap;">{{ entry.notes }}</div>
+    </div>
+    {% endif %}
+
+    {% if entry.attachments %}
+    <div class="mb-3">
+        <div class="small text-muted mb-2"><i class="bi bi-camera me-1"></i>写真 ({{ entry.attachments|length }}枚)</div>
+        <div class="row g-2">
+            {% for att in entry.attachments %}
+            <div class="col-md-4 col-6">
+                <a href="{{ att.filepath }}"
+                   class="lightbox-trigger d-block"
+                   data-caption="{{ att.caption or '' }}"
+                   data-filename="{{ att.filename }}">
+                    <img src="{{ att.filepath }}"
+                         alt="{{ att.caption or att.filename }}"
+                         style="width: 100%; height: 140px; object-fit: cover; border-radius: 6px; cursor: zoom-in;">
+                </a>
+                {% if att.caption %}
+                <div class="small text-muted mt-1 text-truncate" title="{{ att.caption }}">{{ att.caption }}</div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="text-end mt-3">
+        <a href="{{ url_for('maintenance.edit_maintenance', entry_id=entry.id) }}" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-pencil me-1"></i>編集
+        </a>
+    </div>
+</div>
