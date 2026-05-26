@@ -273,26 +273,42 @@ def dashboard_timeline_widget():
     user_motorcycles_all = Motorcycle.query.filter_by(user_id=current_user.id, is_archived=False).order_by(
         Motorcycle.is_default.desc(), Motorcycle.name).all()
     motorcycles_public = [m for m in user_motorcycles_all if not m.is_racer]
+    motorcycles_racer = [m for m in user_motorcycles_all if m.is_racer]
     user_motorcycle_ids_public = [m.id for m in motorcycles_public]
+    user_motorcycle_ids_all = [m.id for m in user_motorcycles_all]
 
-    timeline_target_ids = []
+    # 給油は公道車のみ、整備はレーサー含む全車両を対象にする
+    fuel_target_ids = []
+    maint_target_ids = []
     if selected_timeline_vehicle_id == 'all':
-        timeline_target_ids = user_motorcycle_ids_public
+        fuel_target_ids = user_motorcycle_ids_public
+        maint_target_ids = user_motorcycle_ids_all
     else:
         try:
             vehicle_id_int = int(selected_timeline_vehicle_id)
-            if vehicle_id_int in user_motorcycle_ids_public:
-                timeline_target_ids = [vehicle_id_int]
-            else:
-                timeline_target_ids = user_motorcycle_ids_public
+            selected_vehicle = next((m for m in user_motorcycles_all if m.id == vehicle_id_int), None)
+            if selected_vehicle is None:
+                # 不正なID: すべてにフォールバック
+                fuel_target_ids = user_motorcycle_ids_public
+                maint_target_ids = user_motorcycle_ids_all
                 selected_timeline_vehicle_id = 'all'
+            elif selected_vehicle.is_racer:
+                # レーサー個別選択: 整備のみ
+                fuel_target_ids = []
+                maint_target_ids = [vehicle_id_int]
+            else:
+                # 公道車個別選択: 給油+整備
+                fuel_target_ids = [vehicle_id_int]
+                maint_target_ids = [vehicle_id_int]
         except (ValueError, TypeError):
-            timeline_target_ids = user_motorcycle_ids_public
+            fuel_target_ids = user_motorcycle_ids_public
+            maint_target_ids = user_motorcycle_ids_all
             selected_timeline_vehicle_id = 'all'
 
     # 重い処理: タイムライン取得
     timeline_events = services.get_timeline_events(
-        motorcycle_ids=timeline_target_ids,
+        fuel_motorcycle_ids=fuel_target_ids,
+        maint_motorcycle_ids=maint_target_ids,
         start_date=start_date,
         end_date=end_date
     )
@@ -301,6 +317,7 @@ def dashboard_timeline_widget():
         'dashboard/_timeline_widget.html',
         timeline_events=timeline_events,
         motorcycles_public=motorcycles_public,
+        motorcycles_racer=motorcycles_racer,
         selected_timeline_vehicle_id=selected_timeline_vehicle_id,
         selected_stats_vehicle_id=selected_stats_vehicle_id,
         period=period,

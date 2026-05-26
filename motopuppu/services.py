@@ -200,93 +200,107 @@ def calculate_average_kpl(motorcycle: Motorcycle, start_date=None, end_date=None
 
 # --- ダッシュボード用サービス関数 ---
 
-def get_timeline_events(motorcycle_ids, start_date=None, end_date=None):
-    """指定された車両IDリストの給油・整備記録を時系列で取得する"""
-    if not motorcycle_ids:
+def get_timeline_events(fuel_motorcycle_ids, maint_motorcycle_ids, start_date=None, end_date=None):
+    """指定された車両IDリストの給油・整備記録を時系列で取得する
+
+    給油はODO/距離ベースのため公道車のみを対象とし、整備はレーサー (operating_hours) も含めて
+    取得できるよう、給油用と整備用でID集合を分離して受け取る。
+    """
+    if not fuel_motorcycle_ids and not maint_motorcycle_ids:
         return []
 
     timeline_events = []
-    is_multiple_vehicles = len(motorcycle_ids) > 1
-    
-    # --- 燃費の一括計算 ---
-    # タイムラインに表示する対象車両のIDについて、全期間の給油記録を取得して燃費を計算する
-    # ※期間フィルタがあっても、正確な燃費計算には過去の記録が必要なため全期間取得する
-    # データ量が多くても、ID/Distance/Volume/IsFull だけなら軽量
-    all_fuel_entries = db.session.query(
-        FuelEntry.id, FuelEntry.motorcycle_id, FuelEntry.total_distance, 
-        FuelEntry.fuel_volume, FuelEntry.is_full_tank, FuelEntry.exclude_from_average
-    ).filter(
-        FuelEntry.motorcycle_id.in_(motorcycle_ids)
-    ).order_by(FuelEntry.motorcycle_id, FuelEntry.total_distance).all()
-    
-    kpl_map = calculate_kpl_bulk(all_fuel_entries)
+    distinct_vehicle_ids = set(fuel_motorcycle_ids or []) | set(maint_motorcycle_ids or [])
+    is_multiple_vehicles = len(distinct_vehicle_ids) > 1
+
+    # --- 燃費の一括計算 (給油対象の公道車のみ) ---
+    kpl_map = {}
+    if fuel_motorcycle_ids:
+        all_fuel_entries = db.session.query(
+            FuelEntry.id, FuelEntry.motorcycle_id, FuelEntry.total_distance,
+            FuelEntry.fuel_volume, FuelEntry.is_full_tank, FuelEntry.exclude_from_average
+        ).filter(
+            FuelEntry.motorcycle_id.in_(fuel_motorcycle_ids)
+        ).order_by(FuelEntry.motorcycle_id, FuelEntry.total_distance).all()
+
+        kpl_map = calculate_kpl_bulk(all_fuel_entries)
 
     # 1. 給油記録を取得 (N+1対策: joinedloadを追加)
-    fuel_query = FuelEntry.query.options(db.joinedload(FuelEntry.motorcycle)).filter(FuelEntry.motorcycle_id.in_(motorcycle_ids))
-    if start_date and end_date:
-        fuel_query = fuel_query.filter(FuelEntry.entry_date.between(start_date, end_date))
-    
-    for entry in fuel_query.all():
-        title = f"給油 ({entry.fuel_volume:.2f}L)"
-        if is_multiple_vehicles:
-            title = f"[{entry.motorcycle.name}] {title}"
-        
-        # プロパティアクセスを回避
-        kpl = kpl_map.get(entry.id)
-        kpl_str = f"{kpl:.2f}" if kpl is not None else "---"
+    if fuel_motorcycle_ids:
+        fuel_query = FuelEntry.query.options(db.joinedload(FuelEntry.motorcycle)).filter(FuelEntry.motorcycle_id.in_(fuel_motorcycle_ids))
+        if start_date and end_date:
+            fuel_query = fuel_query.filter(FuelEntry.entry_date.between(start_date, end_date))
 
-        timeline_events.append({
-            'type': 'fuel',
-            'date': entry.entry_date,
-            'id': entry.id,
-            'odo': entry.odometer_reading,
-            'total_dist': entry.total_distance,
-            'title': title,
-            'description': f"燃費: {kpl_str} km/L",
-            'cost': entry.total_cost,
-            'details': {
-                '車両名': entry.motorcycle.name,
-                '燃費': f"{kpl_str} km/L",
-                '給油量': f"{entry.fuel_volume:.2f} L",
-                '単価': f"{entry.price_per_liter} 円/L" if entry.price_per_liter else '---',
-                '合計金額': f"{entry.total_cost:,.0f} 円" if entry.total_cost is not None else '---',
-                'スタンド': entry.station_name or '未記録',
-                'メモ': entry.notes or 'なし'
-            },
-            'edit_url': url_for('fuel.edit_fuel', entry_id=entry.id)
-        })
+        for entry in fuel_query.all():
+            title = f"給油 ({entry.fuel_volume:.2f}L)"
+            if is_multiple_vehicles:
+                title = f"[{entry.motorcycle.name}] {title}"
+
+            # プロパティアクセスを回避
+            kpl = kpl_map.get(entry.id)
+            kpl_str = f"{kpl:.2f}" if kpl is not None else "---"
+
+            timeline_events.append({
+                'type': 'fuel',
+                'date': entry.entry_date,
+                'id': entry.id,
+                'odo': entry.odometer_reading,
+                'odo_unit': 'km',
+                'is_pending': False,
+                'total_dist': entry.total_distance,
+                'title': title,
+                'description': f"燃費: {kpl_str} km/L",
+                'cost': entry.total_cost,
+                'details': {
+                    '車両名': entry.motorcycle.name,
+                    '燃費': f"{kpl_str} km/L",
+                    '給油量': f"{entry.fuel_volume:.2f} L",
+                    '単価': f"{entry.price_per_liter} 円/L" if entry.price_per_liter else '---',
+                    '合計金額': f"{entry.total_cost:,.0f} 円" if entry.total_cost is not None else '---',
+                    'スタンド': entry.station_name or '未記録',
+                    'メモ': entry.notes or 'なし'
+                },
+                'edit_url': url_for('fuel.edit_fuel', entry_id=entry.id)
+            })
 
     # 2. 整備記録を取得 (N+1対策: joinedloadを追加)
-    maint_query = MaintenanceEntry.query.options(db.joinedload(MaintenanceEntry.motorcycle)).filter(MaintenanceEntry.motorcycle_id.in_(motorcycle_ids)).filter(MaintenanceEntry.category != '初期設定')
-    if start_date and end_date:
-        maint_query = maint_query.filter(MaintenanceEntry.maintenance_date.between(start_date, end_date))
+    if maint_motorcycle_ids:
+        maint_query = MaintenanceEntry.query.options(db.joinedload(MaintenanceEntry.motorcycle)).filter(MaintenanceEntry.motorcycle_id.in_(maint_motorcycle_ids)).filter(MaintenanceEntry.category != '初期設定')
+        if start_date and end_date:
+            maint_query = maint_query.filter(MaintenanceEntry.maintenance_date.between(start_date, end_date))
 
-    for entry in maint_query.all():
-        title = entry.category or entry.description
-        if is_multiple_vehicles:
-            title = f"[{entry.motorcycle.name}] {title}"
+        for entry in maint_query.all():
+            title = entry.category or entry.description
+            if is_multiple_vehicles:
+                title = f"[{entry.motorcycle.name}] {title}"
 
-        timeline_events.append({
-            'type': 'maintenance',
-            'date': entry.maintenance_date,
-            'id': entry.id,
-            'odo': entry.odometer_reading_at_maintenance,
-            'total_dist': entry.total_distance_at_maintenance,
-            'title': title,
-            'description': entry.description,
-            'cost': entry.total_cost,
-            'details': {
-                '車両名': entry.motorcycle.name,
-                'カテゴリ': entry.category or '未分類',
-                '内容': entry.description,
-                '部品代': f"{entry.parts_cost:,.0f} 円" if entry.parts_cost is not None else '---',
-                '工賃': f"{entry.labor_cost:,.0f} 円" if entry.labor_cost is not None else '---',
-                '合計費用': f"{entry.total_cost:,.0f} 円" if entry.total_cost is not None else '---',
-                '場所': entry.location or '未記録',
-                'メモ': entry.notes or 'なし'
-            },
-            'edit_url': url_for('maintenance.edit_maintenance', entry_id=entry.id)
-        })
+            is_racer = bool(entry.motorcycle.is_racer)
+            odo_value = entry.operating_hours_at_maintenance if is_racer else entry.odometer_reading_at_maintenance
+            odo_unit = 'H' if is_racer else 'km'
+
+            timeline_events.append({
+                'type': 'maintenance',
+                'date': entry.maintenance_date,
+                'id': entry.id,
+                'odo': odo_value,
+                'odo_unit': odo_unit,
+                'is_pending': bool(entry.is_odo_pending),
+                'total_dist': entry.total_distance_at_maintenance,
+                'title': title,
+                'description': entry.description,
+                'cost': entry.total_cost,
+                'details': {
+                    '車両名': entry.motorcycle.name,
+                    'カテゴリ': entry.category or '未分類',
+                    '内容': entry.description,
+                    '部品代': f"{entry.parts_cost:,.0f} 円" if entry.parts_cost is not None else '---',
+                    '工賃': f"{entry.labor_cost:,.0f} 円" if entry.labor_cost is not None else '---',
+                    '合計費用': f"{entry.total_cost:,.0f} 円" if entry.total_cost is not None else '---',
+                    '場所': entry.location or '未記録',
+                    'メモ': entry.notes or 'なし'
+                },
+                'edit_url': url_for('maintenance.edit_maintenance', entry_id=entry.id)
+            })
 
     # 3. 日付(降順)、次にID(降順)でソート
     timeline_events.sort(key=lambda x: (x['date'], x['id']), reverse=True)
