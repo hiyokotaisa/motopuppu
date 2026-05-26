@@ -1289,10 +1289,18 @@ def media_share_auth_status():
 
     token = _extract_token_from_response(result)
     if not token:
-        current_app.logger.warning(
-            f"Media Share finishMiAuth returned 200 but no token found. "
-            f"Response keys: {list(result.keys()) if isinstance(result, dict) else type(result).__name__}"
-        )
+        # 検証用: full JSON を吐く (本番の情報量とプライバシーは要再評価)
+        try:
+            import json as _json
+            current_app.logger.warning(
+                f"Media Share finishMiAuth returned 200 but no token found. "
+                f"Full response: {_json.dumps(result, ensure_ascii=False)[:2000]}"
+            )
+        except Exception:
+            current_app.logger.warning(
+                f"Media Share finishMiAuth returned 200 but no token found. "
+                f"Response keys: {list(result.keys()) if isinstance(result, dict) else type(result).__name__}"
+            )
         return _resp({'status': 'pending'})
 
     session[MEDIA_SHARE_TOKEN_SESSION_KEY] = token
