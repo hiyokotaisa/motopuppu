@@ -150,7 +150,7 @@
                 {% for entry in entries %}
                 <div class="beta-log-timeline-item">
                     <div class="beta-log-timeline-marker maintenance"><i class="fas fa-tools"></i></div>
-                    <div class="beta-log-timeline-content maintenance-clickable" role="button" tabindex="0" onclick="openMaintenanceDetail({{ entry.id }})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openMaintenanceDetail({{ entry.id }});}">
+                    <div class="beta-log-timeline-content maintenance-clickable" role="button" tabindex="0" onclick="openMaintenanceDetail({{ entry.id }}, event)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openMaintenanceDetail({{ entry.id }}, event);}">
                         <div class="d-flex justify-content-between align-items-start mb-2">
                             <div>
                                 <span class="fw-bold beta-text-primary">{{ entry.maintenance_date.strftime('%Y/%m/%d') }}</span>
@@ -212,7 +212,7 @@
                         </div>
                         {% endif %}
 
-                        <div class="d-flex justify-content-end align-items-center mt-2 pt-2" style="border-top: 1px solid var(--beta-border);" onclick="event.stopPropagation()">
+                        <div class="d-flex justify-content-end align-items-center mt-2 pt-2" style="border-top: 1px solid var(--beta-border);">
                             <a href="{{ url_for('maintenance.edit_maintenance', entry_id=entry.id) }}" class="beta-btn" style="font-size: 0.7rem; padding: 0.2rem 0.5rem;">編集</a>
                             <form action="{{ url_for('maintenance.delete_maintenance', entry_id=entry.id) }}" method="POST" class="d-inline ms-1" onsubmit="return confirm('この整備記録を削除してもよろしいですか？');">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
@@ -282,9 +282,9 @@
                     </thead>
                     <tbody>
                         {% for entry in entries %}
-                        <tr class="maintenance-clickable" role="button" tabindex="0" onclick="openMaintenanceDetail({{ entry.id }})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openMaintenanceDetail({{ entry.id }});}">
+                        <tr class="maintenance-clickable" role="button" tabindex="0" onclick="openMaintenanceDetail({{ entry.id }}, event)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openMaintenanceDetail({{ entry.id }}, event);}">
                             <td class="ps-3">{{ entry.maintenance_date.strftime('%Y-%m-%d') }}</td>
-                            <td><a href="{{ url_for('maintenance.edit_maintenance', entry_id=entry.id) }}" class="text-decoration-none beta-text-primary" onclick="event.stopPropagation()">{{ entry.motorcycle.name }}</a></td>
+                            <td><a href="{{ url_for('maintenance.edit_maintenance', entry_id=entry.id) }}" class="text-decoration-none beta-text-primary">{{ entry.motorcycle.name }}</a></td>
                             <td class="text-end beta-text-mono distance-value-cell"
                                 data-is-racer="{{ 'true' if entry.motorcycle.is_racer else 'false' }}"
                                 data-is-pending="{{ 'true' if entry.is_odo_pending else 'false' }}"
@@ -299,7 +299,7 @@
                             <td>{{ entry.category if entry.category else '-' }}</td>
                             <td><span title="{{ entry.description }}" data-bs-toggle="tooltip">{{ entry.description|truncate(30) }}</span></td>
                             <td class="text-end beta-text-mono">{% if entry.total_cost is not none %}{{ "{:,}".format(entry.total_cost|round|int) }}{% else %}-{% endif %}</td>
-                            <td class="text-center text-nowrap" onclick="event.stopPropagation()">
+                            <td class="text-center text-nowrap">
                                 <a href="{{ url_for('maintenance.edit_maintenance', entry_id=entry.id) }}" class="beta-btn" style="font-size: 0.7rem; padding: 0.15rem 0.4rem;"><i class="fas fa-edit"></i></a>
                                 <form action="{{ url_for('maintenance.delete_maintenance', entry_id=entry.id) }}" method="POST" class="d-inline" onsubmit="return confirm('削除しますか？');">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
@@ -465,7 +465,11 @@ document.addEventListener('DOMContentLoaded', function() {
 .maintenance-clickable:hover { background-color: rgba(99,102,241,0.06); }
 </style>
 <script>
-function openMaintenanceDetail(entryId) {
+function openMaintenanceDetail(entryId, ev) {
+    // 編集リンク・削除フォーム・Misskey共有ボタンなどのインタラクティブ要素クリックは無視
+    if (ev && ev.target && ev.target.closest('a, button, form, input, label, .btn-share-misskey')) {
+        return;
+    }
     var body = document.getElementById('maintenanceDetailBody');
     if (body) {
         body.innerHTML = '<div class="text-center py-4 beta-text-muted"><div class="spinner-border" role="status" aria-hidden="true"></div><div class="mt-2">読み込み中...</div></div>';

@@ -193,7 +193,7 @@
         <div class="timeline-item">
             <div class="timeline-marker"></div>
             
-            <div class="card border-0 shadow-sm hover-lift maintenance-clickable" role="button" tabindex="0" onclick="openMaintenanceDetail({{ entry.id }})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openMaintenanceDetail({{ entry.id }});}">
+            <div class="card border-0 shadow-sm hover-lift maintenance-clickable" role="button" tabindex="0" onclick="openMaintenanceDetail({{ entry.id }}, event)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openMaintenanceDetail({{ entry.id }}, event);}">
                 <div class="card-body">
                     {# ヘッダー行: 日付、車両名、コスト #}
                     <div class="d-flex justify-content-between align-items-start mb-2">
@@ -267,7 +267,7 @@
                     {% endif %}
 
                     {# フッター: アクション #}
-                    <div class="d-flex justify-content-end align-items-center mt-3 pt-2 border-top" onclick="event.stopPropagation()">
+                    <div class="d-flex justify-content-end align-items-center mt-3 pt-2 border-top">
                         <a href="{{ url_for('maintenance.edit_maintenance', entry_id=entry.id) }}" class="btn btn-sm btn-link text-decoration-none text-secondary p-0 me-3">編集</a>
                         <form action="{{ url_for('maintenance.delete_maintenance', entry_id=entry.id) }}" method="POST" class="d-inline" onsubmit="return confirm('この整備記録を削除してもよろしいですか？');">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
@@ -341,10 +341,10 @@
             </thead>
             <tbody>
                 {% for entry in entries %}
-                <tr class="maintenance-clickable" role="button" tabindex="0" onclick="openMaintenanceDetail({{ entry.id }})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openMaintenanceDetail({{ entry.id }});}">
+                <tr class="maintenance-clickable" role="button" tabindex="0" onclick="openMaintenanceDetail({{ entry.id }}, event)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openMaintenanceDetail({{ entry.id }}, event);}">
                     <td class="ps-3">{{ entry.maintenance_date.strftime('%Y-%m-%d') }}</td>
                     <td>
-                        <a href="{{ url_for('maintenance.edit_maintenance', entry_id=entry.id) }}" title="編集" class="text-decoration-none text-dark" onclick="event.stopPropagation()">
+                        <a href="{{ url_for('maintenance.edit_maintenance', entry_id=entry.id) }}" title="編集" class="text-decoration-none text-dark">
                             {{ entry.motorcycle.name }}
                         </a>
                     </td>
@@ -380,7 +380,7 @@
                             -
                         {% endif %}
                     </td>
-                    <td class="text-center text-nowrap" onclick="event.stopPropagation()">
+                    <td class="text-center text-nowrap">
                         <a href="{{ url_for('maintenance.edit_maintenance', entry_id=entry.id) }}" class="btn btn-sm btn-outline-secondary border-0"><i class="fas fa-edit"></i></a>
                         <form action="{{ url_for('maintenance.delete_maintenance', entry_id=entry.id) }}" method="POST" class="d-inline" onsubmit="return confirm('この整備記録を削除してもよろしいですか？');">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
@@ -586,7 +586,11 @@ document.addEventListener('DOMContentLoaded', function() {
 .maintenance-clickable:hover { background-color: rgba(13,110,253,0.04); }
 </style>
 <script>
-function openMaintenanceDetail(entryId) {
+function openMaintenanceDetail(entryId, ev) {
+    // 編集リンク・削除フォーム・Misskey共有ボタンなどのインタラクティブ要素クリックは無視
+    if (ev && ev.target && ev.target.closest('a, button, form, input, label, .btn-share-misskey')) {
+        return;
+    }
     var body = document.getElementById('maintenanceDetailBody');
     if (body) {
         body.innerHTML = '<div class="text-center py-4 text-muted"><div class="spinner-border" role="status" aria-hidden="true"></div><div class="mt-2">読み込み中...</div></div>';
