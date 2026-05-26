@@ -460,6 +460,11 @@ class Event(db.Model):
 
     # 写真置き場 (Misskey Media Share のアルバムURL)
     album_url = db.Column(db.String(500), nullable=True, comment="イベント写真置き場のURL (例: Misskey Media Share アルバム)")
+    album_id = db.Column(db.String(64), nullable=True, comment="連携した media-share アルバムのUUID")
+    album_title = db.Column(db.String(200), nullable=True, comment="連携アルバムのタイトル (キャッシュ)")
+    album_cover_url = db.Column(db.String(500), nullable=True, comment="連携アルバムのカバー画像URL (キャッシュ)")
+    album_media_count = db.Column(db.Integer, nullable=True, comment="連携アルバム内のメディア数 (キャッシュ)")
+    album_metadata_fetched_at = db.Column(db.DateTime, nullable=True, comment="キャッシュ最終取得日時 (UTC)")
 
     created_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
     updated_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now(), onupdate=db.func.now())

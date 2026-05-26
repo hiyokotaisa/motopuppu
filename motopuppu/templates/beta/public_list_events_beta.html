@@ -118,7 +118,7 @@
                             <div class="mb-2">
                                 <div class="d-flex align-items-center beta-text-secondary small">
                                     <i class="fas fa-images me-2" style="color: var(--beta-accent-purple, #a78bfa);"></i>
-                                    <span>写真置き場あり</span>
+                                    <span>写真置き場{% if event.album_media_count is not none %} ({{ event.album_media_count }}枚){% endif %}</span>
                                 </div>
                             </div>
                             {% endif %}

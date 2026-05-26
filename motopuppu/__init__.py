@@ -48,6 +48,7 @@ def create_app(config_name=None):
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
         MAX_CONTENT_LENGTH = int(os.environ.get('MAX_CONTENT_LENGTH', 64)) * 1024 * 1024,
         MISSKEY_INSTANCE_URL=os.environ.get('MISSKEY_INSTANCE_URL', 'https://misskey.io'),
+        MEDIA_SHARE_BASE_URL=os.environ.get('MEDIA_SHARE_BASE_URL', 'https://media-share.misskey.workers.dev'),
         ENV=os.environ.get('FLASK_ENV', 'production'),
         LOCAL_DEV_USER_ID=os.environ.get('LOCAL_DEV_USER_ID'),
         FUEL_ENTRIES_PER_PAGE = int(os.environ.get('FUEL_ENTRIES_PER_PAGE', 20)),

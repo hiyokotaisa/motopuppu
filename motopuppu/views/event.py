@@ -1,6 +1,6 @@
 # motopuppu/views/event.py
 from flask import (
-    Blueprint, flash, redirect, render_template, request, url_for, abort, Response, current_app
+    Blueprint, flash, jsonify, redirect, render_template, request, session, url_for, abort, Response, current_app
 )
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime, timezone, date
@@ -10,6 +10,14 @@ from wtforms.validators import Optional
 from ..models import db, Event, EventCollectionPlan, EventParticipant, Motorcycle, ParticipationStatus, PaymentStatus, User, Team, GeneralNote
 from ..forms import EventForm, ParticipantForm, WalkinParticipantForm
 from ..utils.datetime_helpers import JST
+from ..media_share import (
+    MediaShareClient,
+    MediaShareError,
+    MediaShareAuthError,
+    extract_album_id,
+    build_album_url,
+    fetch_album_metadata,
+)
 from .. import limiter
 
 # iCalenderライブラリのインポート
@@ -330,6 +338,7 @@ def add_event():
             collection_amount=form.collection_amount.data if collection_enabled else None,
             collection_note=form.collection_note.data if collection_enabled else None,
             album_url=(form.album_url.data.strip() or None) if form.album_url.data else None,
+            album_id=extract_album_id(form.album_url.data) if form.album_url.data else None,
         )
         try:
             db.session.add(new_event)
@@ -392,7 +401,16 @@ def edit_event(event_id):
         event.collection_amount = form.collection_amount.data if collection_enabled else None
         event.collection_note = form.collection_note.data if collection_enabled else None
 
-        event.album_url = (form.album_url.data.strip() or None) if form.album_url.data else None
+        new_album_url = (form.album_url.data.strip() or None) if form.album_url.data else None
+        new_album_id = extract_album_id(new_album_url) if new_album_url else None
+        if new_album_id != event.album_id:
+            # URLの指すアルバムが変わった場合はキャッシュも破棄する
+            event.album_title = None
+            event.album_cover_url = None
+            event.album_media_count = None
+            event.album_metadata_fetched_at = None
+        event.album_url = new_album_url
+        event.album_id = new_album_id
 
         ok, err = _sync_collection_plans(event, request.form)
         if not ok:
@@ -1126,3 +1144,204 @@ def export_ics(event_id):
         mimetype='text/calendar',
         headers={'Content-Disposition': f'attachment; filename="{filename}"'}
     )
+
+
+# ============================================================
+# Misskey Media Share アルバム連携 (Phase 2a)
+# ============================================================
+
+MEDIA_SHARE_TOKEN_SESSION_KEY = 'media_share_token'
+MEDIA_SHARE_PENDING_SESSION_KEY = 'media_share_pending'
+
+
+def _get_authorized_event(event_id: int) -> Event:
+    """主催者 or チームメンバーのみアクセス可能なイベントを取得 (それ以外は 403)。"""
+    event = Event.query.get_or_404(event_id)
+    is_authorized = event.user_id == current_user.id
+    if not is_authorized and event.team_id and event.team:
+        if event.team.members.filter(User.id == current_user.id).count() > 0:
+            is_authorized = True
+    if not is_authorized:
+        abort(403)
+    return event
+
+
+def _cache_album_metadata(event: Event, metadata: dict) -> None:
+    """fetch_album_metadata() の戻り値を Event にキャッシュする。"""
+    if metadata.get('title') is not None:
+        event.album_title = metadata['title'][:200]
+    if metadata.get('media_count') is not None:
+        event.album_media_count = metadata['media_count']
+    if metadata.get('cover_url') is not None:
+        event.album_cover_url = metadata['cover_url'][:500]
+    event.album_metadata_fetched_at = datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+@event_bp.route('/media-share/auth/start', methods=['GET'])
+@limiter.limit("30 per hour")
+@login_required
+def media_share_auth_start():
+    """Media Share の MiAuth を開始する。popup で開かれることを想定。
+
+    クエリ:
+      - event_id: 紐付けたいイベントID (権限チェックに使用)
+      - intent: 'create' | 'link' | 'refresh' (callback後の遷移先決定用、任意)
+    """
+    event_id = request.args.get('event_id', type=int)
+    intent = request.args.get('intent', 'create')
+    if not event_id:
+        abort(400)
+    _get_authorized_event(event_id)  # 権限チェック (403 may abort)
+
+    callback_url = url_for('event.media_share_auth_callback', _external=True)
+    try:
+        client = MediaShareClient()
+        result = client.start_miauth(callback_url)
+    except MediaShareError as e:
+        current_app.logger.warning(f"Media Share startMiAuth failed: {e}")
+        flash('Media Share の認証開始に失敗しました。時間を置いて再度お試しください。', 'danger')
+        return redirect(url_for('event.edit_event', event_id=event_id))
+
+    session_id = result.get('sessionId') or result.get('session_id') or result.get('id')
+    auth_url = result.get('authUrl') or result.get('auth_url') or result.get('url')
+    if not session_id or not auth_url:
+        current_app.logger.error(f"Media Share startMiAuth unexpected response: {result}")
+        flash('Media Share の認証応答が想定外でした。', 'danger')
+        return redirect(url_for('event.edit_event', event_id=event_id))
+
+    # callback時に検証する pending 情報をセッションに保存 (CSRF/紐付けのため)
+    session[MEDIA_SHARE_PENDING_SESSION_KEY] = {
+        'session_id': session_id,
+        'event_id': event_id,
+        'intent': intent,
+        'user_id': current_user.id,
+    }
+
+    return redirect(auth_url)
+
+
+@event_bp.route('/media-share/auth/callback', methods=['GET'])
+@login_required
+def media_share_auth_callback():
+    """MiAuth コールバック。token を Flask セッションに保存して popup を閉じる小HTMLを返す。"""
+    pending = session.pop(MEDIA_SHARE_PENDING_SESSION_KEY, None)
+    status = 'ok'
+    error_message = None
+
+    if not pending or pending.get('user_id') != current_user.id:
+        status = 'error'
+        error_message = 'セッションが切れているか、不正な認証フローです。'
+    else:
+        session_id = pending.get('session_id')
+        try:
+            client = MediaShareClient()
+            result = client.finish_miauth(session_id)
+            token = result.get('token') or result.get('accessToken') or result.get('access_token')
+            if not token:
+                raise MediaShareError(f'finishMiAuth response missing token: keys={list(result.keys())}')
+            session[MEDIA_SHARE_TOKEN_SESSION_KEY] = token
+        except MediaShareError as e:
+            current_app.logger.warning(f"Media Share finishMiAuth failed: {e}")
+            status = 'error'
+            error_message = 'Media Share の認証に失敗しました。'
+
+    return render_template(
+        'event/_media_share_popup.html',
+        status=status,
+        error_message=error_message,
+        event_id=(pending or {}).get('event_id'),
+        intent=(pending or {}).get('intent'),
+    )
+
+
+@event_bp.route('/<int:event_id>/album/create', methods=['POST'])
+@limiter.limit("10 per hour")
+@login_required
+def album_create(event_id):
+    """セッションtokenで media-share に新規アルバムを作成し、イベントに紐付ける。"""
+    event = _get_authorized_event(event_id)
+    token = session.get(MEDIA_SHARE_TOKEN_SESSION_KEY)
+    if not token:
+        flash('まず Media Share の認証を完了してください。', 'warning')
+        return redirect(url_for('event.edit_event', event_id=event_id))
+
+    client = MediaShareClient(token=token)
+    try:
+        album = client.create_album(
+            title=event.title[:120],
+            visibility='restricted',
+            description=(event.description or None) and event.description[:1000],
+        )
+    except MediaShareAuthError:
+        session.pop(MEDIA_SHARE_TOKEN_SESSION_KEY, None)
+        flash('Media Share のセッションが切れました。再度認証してください。', 'warning')
+        return redirect(url_for('event.edit_event', event_id=event_id))
+    except MediaShareError as e:
+        current_app.logger.error(f"Media Share createAlbum failed for event {event_id}: {e}")
+        flash('Media Share アルバムの作成に失敗しました。', 'danger')
+        return redirect(url_for('event.edit_event', event_id=event_id))
+
+    album_id = album.get('id')
+    if not album_id:
+        current_app.logger.error(f"createAlbum response missing id: {album}")
+        flash('Media Share アルバム作成のレスポンスが想定外でした。', 'danger')
+        return redirect(url_for('event.edit_event', event_id=event_id))
+
+    event.album_id = album_id
+    event.album_url = build_album_url(album_id)
+    _cache_album_metadata(event, {
+        'title': album.get('title'),
+        'media_count': album.get('mediaCount', 0),
+        'cover_url': None,
+    })
+    db.session.commit()
+    flash('Media Share アルバムを作成し、このイベントに連携しました。', 'success')
+    return redirect(url_for('event.edit_event', event_id=event_id))
+
+
+@event_bp.route('/<int:event_id>/album/refresh', methods=['POST'])
+@limiter.limit("30 per hour")
+@login_required
+def album_refresh(event_id):
+    """連携済みアルバムのメタデータをAPIから再取得してキャッシュ更新。"""
+    event = _get_authorized_event(event_id)
+    if not event.album_id:
+        flash('連携されたアルバムがありません。', 'warning')
+        return redirect(url_for('event.edit_event', event_id=event_id))
+    token = session.get(MEDIA_SHARE_TOKEN_SESSION_KEY)
+    if not token:
+        flash('まず Media Share の認証を完了してください。', 'warning')
+        return redirect(url_for('event.edit_event', event_id=event_id))
+
+    try:
+        metadata = fetch_album_metadata(token, event.album_id)
+    except MediaShareAuthError:
+        session.pop(MEDIA_SHARE_TOKEN_SESSION_KEY, None)
+        flash('Media Share のセッションが切れました。再度認証してください。', 'warning')
+        return redirect(url_for('event.edit_event', event_id=event_id))
+    except MediaShareError as e:
+        current_app.logger.error(f"Media Share getAlbum failed for event {event_id}: {e}")
+        flash('アルバム情報の更新に失敗しました。', 'danger')
+        return redirect(url_for('event.edit_event', event_id=event_id))
+
+    _cache_album_metadata(event, metadata)
+    db.session.commit()
+    flash('アルバム情報を更新しました。', 'success')
+    return redirect(url_for('event.edit_event', event_id=event_id))
+
+
+@event_bp.route('/<int:event_id>/album/unlink', methods=['POST'])
+@limiter.limit("20 per hour")
+@login_required
+def album_unlink(event_id):
+    """イベントとアルバムの連携を解除 (media-share側のアルバム自体は削除しない)。"""
+    event = _get_authorized_event(event_id)
+    event.album_id = None
+    event.album_url = None
+    event.album_title = None
+    event.album_cover_url = None
+    event.album_media_count = None
+    event.album_metadata_fetched_at = None
+    db.session.commit()
+    flash('アルバム連携を解除しました (media-share側のアルバムは残っています)。', 'success')
+    return redirect(url_for('event.edit_event', event_id=event_id))

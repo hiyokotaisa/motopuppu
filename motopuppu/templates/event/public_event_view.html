@@ -129,7 +129,10 @@
                     <div class="d-flex align-items-center me-3 flex-grow-1">
                         <i class="fas fa-images fa-lg me-3"></i>
                         <div>
-                            <strong>イベントの写真置き場</strong>
+                            <strong>{% if event.album_title %}{{ event.album_title }}{% else %}イベントの写真置き場{% endif %}</strong>
+                            {% if event.album_media_count is not none %}
+                            <span class="badge bg-info text-white ms-2">{{ event.album_media_count }}枚</span>
+                            {% endif %}
                             <div class="small text-muted">主催者が用意した写真アルバムへ移動できます (閲覧には Misskey.io アカウントでのログインが必要)</div>
                         </div>
                     </div>

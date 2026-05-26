@@ -172,25 +172,87 @@
                     {# --- 写真置き場 (Misskey Media Share アルバム) --- #}
                     <div class="card bg-light border-0 mb-3">
                         <div class="card-body">
-                            <label class="form-label fw-bold mb-1" for="{{ form.album_url.id }}">
-                                <i class="fas fa-images me-1 text-secondary"></i>{{ form.album_url.label.text }}
+                            <label class="form-label fw-bold mb-1">
+                                <i class="fas fa-images me-1 text-secondary"></i>写真置き場 (Misskey Media Share)
                             </label>
                             <div class="form-text mb-2">
-                                <a href="https://media-share.misskey.workers.dev/" target="_blank" rel="noopener noreferrer">Misskey Media Share</a> でアルバムを作成し、そのアルバムURLを貼り付けると、イベント詳細ページから写真置き場にリンクされます。<br>
-                                <span class="text-muted small">※ アルバムの閲覧には Misskey.io アカウントでのログインが必要です。参加者にもその旨を伝えてください。</span>
+                                イベント参加者と共有する写真アルバムを連携します。<br>
+                                <span class="text-muted small">※ アルバム閲覧には Misskey.io アカウントでのログインが必要です。</span>
                             </div>
-                            {{ form.album_url(class="form-control" + (" is-invalid" if form.album_url.errors else "")) }}
-                            {% if form.album_url.errors %}
-                            <div class="invalid-feedback d-block">
-                                {% for error in form.album_url.errors %}{{ error }}{% endfor %}
-                            </div>
-                            {% endif %}
-                            {% if form.album_url.data %}
-                            <div class="mt-2">
-                                <a href="{{ form.album_url.data }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-secondary">
-                                    <i class="fas fa-external-link-alt me-1"></i>現在のアルバムを開く
-                                </a>
-                            </div>
+
+                            {% if mode == 'edit' and event and event.album_id %}
+                                {# 連携済みの表示 #}
+                                <div class="d-flex flex-wrap align-items-center gap-3 p-3 bg-white rounded border">
+                                    <div class="flex-shrink-0" style="font-size: 2rem; color: #6c757d;">
+                                        <i class="fas fa-images"></i>
+                                    </div>
+                                    <div class="flex-grow-1 min-w-0">
+                                        <div class="fw-bold text-truncate">{{ event.album_title or 'アルバム (タイトル未取得)' }}</div>
+                                        <div class="small text-muted">
+                                            {% if event.album_media_count is not none %}
+                                                <i class="fas fa-camera me-1"></i>{{ event.album_media_count }}枚
+                                            {% endif %}
+                                            {% if event.album_metadata_fetched_at %}
+                                                <span class="ms-2">最終更新: {{ event.album_metadata_fetched_at | to_jst }}</span>
+                                            {% endif %}
+                                            {% if event.album_media_count is none and not event.album_metadata_fetched_at %}
+                                                <span class="text-warning"><i class="fas fa-info-circle me-1"></i>メタデータ未取得 (「更新」を押してください)</span>
+                                            {% endif %}
+                                        </div>
+                                        <div class="small text-muted text-truncate">
+                                            <i class="fas fa-link me-1"></i>{{ event.album_url }}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="d-flex flex-wrap gap-2 mt-2">
+                                    <a href="{{ event.album_url }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary">
+                                        <i class="fas fa-external-link-alt me-1"></i>アルバムを開く
+                                    </a>
+                                    {# 更新フォーム (要・media-share認証) #}
+                                    <form method="POST" action="{{ url_for('event.album_refresh', event_id=event.id) }}" class="d-inline media-share-action-form" data-requires-auth="1" data-event-id="{{ event.id }}" data-intent="refresh">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-secondary">
+                                            <i class="fas fa-sync me-1"></i>情報を更新
+                                        </button>
+                                    </form>
+                                    {# 解除フォーム #}
+                                    <form method="POST" action="{{ url_for('event.album_unlink', event_id=event.id) }}" class="d-inline" onsubmit="return confirm('このイベントとアルバムの連携を解除します。よろしいですか？\n(media-share側のアルバム自体は削除されません)');">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">
+                                            <i class="fas fa-unlink me-1"></i>連携を解除
+                                        </button>
+                                    </form>
+                                </div>
+                            {% else %}
+                                {# 未連携の状態 #}
+                                {% if mode == 'edit' and event %}
+                                <div class="d-flex flex-wrap gap-2 mb-3">
+                                    <form method="POST" action="{{ url_for('event.album_create', event_id=event.id) }}" class="d-inline media-share-action-form" data-requires-auth="1" data-event-id="{{ event.id }}" data-intent="create">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button type="submit" class="btn btn-sm btn-primary">
+                                            <i class="fas fa-plus me-1"></i>新規アルバムを作成
+                                        </button>
+                                    </form>
+                                    <span class="text-muted small align-self-center">または↓に既存アルバムのURLを貼り付け</span>
+                                </div>
+                                {% else %}
+                                <div class="alert alert-info py-2 small mb-3">
+                                    <i class="fas fa-info-circle me-1"></i>イベント作成後、編集画面から「新規アルバムを作成」ボタンが使えるようになります。
+                                </div>
+                                {% endif %}
+
+                                {# URL貼り付け (Phase 1互換) #}
+                                <label class="form-label small" for="{{ form.album_url.id }}">既存アルバムURL</label>
+                                {{ form.album_url(class="form-control form-control-sm" + (" is-invalid" if form.album_url.errors else "")) }}
+                                <div class="form-text">
+                                    例: <code>https://media-share.misskey.workers.dev/album/xxxxxxxx-...</code><br>
+                                    <a href="https://media-share.misskey.workers.dev/" target="_blank" rel="noopener noreferrer">Media Share を開く <i class="fas fa-external-link-alt ms-1"></i></a>
+                                </div>
+                                {% if form.album_url.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.album_url.errors %}{{ error }}{% endfor %}
+                                </div>
+                                {% endif %}
                             {% endif %}
                         </div>
                     </div>
@@ -312,6 +374,53 @@ document.addEventListener('DOMContentLoaded', function() {
             reindexPlans();
         });
     }
+
+    // --- Media Share アルバム操作: popup 認証フロー ---
+    const mediaShareForms = document.querySelectorAll('form.media-share-action-form[data-requires-auth="1"]');
+    let pendingForm = null;
+
+    function openMediaShareAuthPopup(eventId, intent) {
+        const params = new URLSearchParams({event_id: eventId, intent: intent || 'create'});
+        const url = '{{ url_for("event.media_share_auth_start") }}?' + params.toString();
+        const w = 520, h = 640;
+        const left = window.screenX + (window.outerWidth - w) / 2;
+        const top = window.screenY + (window.outerHeight - h) / 2;
+        return window.open(url, 'motopuppuMediaShareAuth',
+            `width=${w},height=${h},left=${left},top=${top},menubar=no,toolbar=no`);
+    }
+
+    mediaShareForms.forEach(function(form) {
+        form.addEventListener('submit', function(ev) {
+            // 既にtokenがあるならそのまま送信させる。サーバ側で判定するため、ここでは判定不可。
+            // よって submitを止めず素直に試行し、サーバが警告flash + redirectで戻したら次回popupを開く方式は煩雑なので、
+            // 「常に認証 popup を開いてから送信」する単純戦略を取る。
+            if (form.dataset.authChecked === '1') {
+                // 認証完了後の再送 — そのまま通す
+                return;
+            }
+            ev.preventDefault();
+            pendingForm = form;
+            const popup = openMediaShareAuthPopup(form.dataset.eventId, form.dataset.intent);
+            if (!popup) {
+                alert('ポップアップがブロックされました。ブラウザの設定でこのサイトのポップアップを許可してください。');
+                pendingForm = null;
+            }
+        });
+    });
+
+    window.addEventListener('message', function(ev) {
+        if (ev.origin !== window.location.origin) return;
+        const data = ev.data || {};
+        if (data.source !== 'motopuppu-media-share') return;
+        if (data.status === 'ok' && pendingForm) {
+            pendingForm.dataset.authChecked = '1';
+            pendingForm.submit();
+            pendingForm = null;
+        } else if (data.status === 'error') {
+            alert('Media Share の認証に失敗しました。再度お試しください。');
+            pendingForm = null;
+        }
+    });
 });
 </script>
 {% endblock %}
