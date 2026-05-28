@@ -1,7 +1,7 @@
 # motopuppu/forms.py
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileField, FileRequired, FileAllowed, FileSize, MultipleFileField
-from wtforms import StringField, SelectField, DateField, DecimalField, IntegerField, TextAreaField, BooleanField, SubmitField, RadioField, FieldList, FormField, HiddenField, DateTimeField, PasswordField
+from wtforms import StringField, SelectField, DateField, DecimalField, IntegerField, TextAreaField, BooleanField, SubmitField, RadioField, FieldList, FormField, HiddenField, DateTimeField, PasswordField, TimeField
 from wtforms.validators import DataRequired, Optional, NumberRange, Length, ValidationError, InputRequired, EqualTo, URL
 from datetime import date, datetime
 from wtforms_sqlalchemy.fields import QuerySelectField
@@ -970,6 +970,63 @@ class MaintenanceCsvUploadForm(FlaskForm):
         ]
     )
     submit_upload = SubmitField('アップロードしてインポート')
+
+
+class TrackScheduleForm(FlaskForm):
+    """サーキット走行枠スケジュール用のフォーム (管理者用)"""
+    circuit_name = SelectField(
+        'サーキット',
+        validators=[DataRequired(message='サーキットを選択してください。')]
+    )
+    date = DateField(
+        '日付',
+        validators=[DataRequired(message='日付は必須です。')],
+        format='%Y-%m-%d'
+    )
+    start_time = TimeField(
+        '開始時刻',
+        validators=[DataRequired(message='開始時刻は必須です。')],
+        format='%H:%M'
+    )
+    end_time = TimeField(
+        '終了時刻',
+        validators=[DataRequired(message='終了時刻は必須です。')],
+        format='%H:%M'
+    )
+    title = StringField(
+        '走行枠名',
+        validators=[
+            DataRequired(message='走行枠名は必須です。'),
+            Length(max=100, message='走行枠名は100文字以内で入力してください。')
+        ],
+        render_kw={"placeholder": "例: 2S、R1、大型枠"}
+    )
+    notes = StringField(
+        '補足 (任意)',
+        validators=[Optional(), Length(max=200, message='補足は200文字以内で入力してください。')],
+        render_kw={"placeholder": "例: 入門枠、要事前申込"}
+    )
+    source_url = StringField(
+        'ソースURL (任意)',
+        validators=[
+            Optional(),
+            URL(message='有効なURL形式で入力してください。'),
+            Length(max=2048, message='URLは2048文字以内で入力してください。')
+        ],
+        render_kw={"placeholder": "例: https://okspo.jp/schedule/2026-06.pdf"}
+    )
+    submit = SubmitField('保存する')
+
+    def __init__(self, *args, **kwargs):
+        super(TrackScheduleForm, self).__init__(*args, **kwargs)
+        from .constants import CIRCUIT_METADATA
+        self.circuit_name.choices = [('', '--- サーキットを選択 ---')] + [
+            (name, name) for name in CIRCUIT_METADATA.keys()
+        ]
+
+    def validate_end_time(self, field):
+        if self.start_time.data and field.data and field.data <= self.start_time.data:
+            raise ValidationError('終了時刻は開始時刻より後に設定してください。')
 
 
 class MaintenanceSpecSheetForm(FlaskForm):

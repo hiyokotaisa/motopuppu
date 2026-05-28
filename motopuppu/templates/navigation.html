@@ -56,7 +56,7 @@
 
                 {# ▼▼▼ カテゴリ分けされたコミュニティメニュー ▼▼▼ #}
                 <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle {% if request.endpoint.startswith(('team.', 'circuit_dashboard.', 'leaderboard.', 'event.', 'garage_settings.')) %}active{% endif %}"
+                    <a class="nav-link dropdown-toggle {% if request.endpoint.startswith(('team.', 'circuit_dashboard.', 'leaderboard.', 'event.', 'garage_settings.', 'admin_schedule.')) %}active{% endif %}"
                         href="#" id="activityLogDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="fas fa-users me-1"></i> コミュニティ
                     </a>
@@ -98,6 +98,14 @@
                                 <i class="fas fa-trophy fa-fw me-2"></i>リーダーボード
                             </a>
                         </li>
+                        {% if current_user.is_admin %}
+                        <li>
+                            <a class="dropdown-item {% if request.endpoint.startswith('admin_schedule.') %}active{% endif %}"
+                                href="{{ url_for('admin_schedule.list_schedules') }}">
+                                <i class="fas fa-calendar-alt fa-fw me-2"></i>走行枠管理 <span class="badge bg-secondary ms-1" style="font-size: 0.65rem;">管理者</span>
+                            </a>
+                        </li>
+                        {% endif %}
                         <li>
                             <hr class="dropdown-divider">
                         </li>

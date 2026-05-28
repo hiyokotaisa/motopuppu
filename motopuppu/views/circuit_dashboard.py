@@ -129,7 +129,7 @@ def index():
     ).order_by(ActivityLog.activity_date.asc()).all()
 
     today = date.today()
-    next_week = today + timedelta(days=7)
+    schedule_horizon = today + timedelta(days=30)
 
     # ▼▼▼【追加】PBトラッキングデータを全セッションから一括計算 (A-3 + 成長タイムライン + セッションランク) ▼▼▼
     pb_tracking = {}  # circuit_name -> {'count': int, 'last_pb_date': date, 'first_time': Decimal, 'history': list}
@@ -282,10 +282,10 @@ def index():
         # メタデータと走行枠情報の取得
         metadata = CIRCUIT_METADATA.get(circuit_name, {})
         
-        # スケジュール取得 (1週間分)
+        # スケジュール取得 (1ヶ月分)
         raw_schedules = TrackSchedule.query.filter(
             TrackSchedule.date >= today,
-            TrackSchedule.date <= next_week,
+            TrackSchedule.date <= schedule_horizon,
             or_(
                 TrackSchedule.circuit_name == circuit_name,
                 TrackSchedule.circuit_name.contains(circuit_name)

@@ -4,12 +4,24 @@ import requests
 import json
 import os
 from flask import (
-    Blueprint, flash, g, redirect, render_template, request, session, url_for, current_app
+    Blueprint, abort, flash, g, redirect, render_template, request, session, url_for, current_app
 )
 from flask_login import login_user, logout_user, current_user, login_required
 from .. import db
 from ..models import User
 from functools import wraps
+
+
+def admin_required(view_func):
+    """管理者(is_admin=True)のみアクセス可能にするデコレータ。@login_required と併用する。"""
+    @wraps(view_func)
+    def wrapper(*args, **kwargs):
+        if not current_user.is_authenticated:
+            return current_app.login_manager.unauthorized()
+        if not getattr(current_user, 'is_admin', False):
+            abort(403)
+        return view_func(*args, **kwargs)
+    return wrapper
 from ..forms import DeleteAccountForm
 from ..services import CryptoService
 from .. import limiter

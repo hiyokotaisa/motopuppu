@@ -725,6 +725,37 @@ def merge_duplicate_achievements_command(dry_run):
             db.session.rollback()
             click.echo(click.style(f"\nError during commit: {e}", fg='red'))
 
+@click.command('set-admin')
+@with_appcontext
+@click.option('--username', required=True, help='管理者フラグを切り替える Misskey ユーザー名 (例: hiyokotaisa)')
+@click.option('--revoke', is_flag=True, help='付与ではなく解除する (is_admin = False)')
+def set_admin_command(username, revoke):
+    """指定した Misskey ユーザー名のユーザーに管理者フラグを付与/解除します。"""
+    user = User.query.filter_by(misskey_username=username).first()
+    if not user:
+        click.echo(click.style(f"エラー: misskey_username='{username}' のユーザーが見つかりません。", fg='red'))
+        click.echo("先に一度ログインしてユーザーを作成してから実行してください。")
+        raise SystemExit(1)
+
+    new_value = False if revoke else True
+    if user.is_admin == new_value:
+        state = '管理者' if new_value else '一般ユーザー'
+        click.echo(click.style(f"変更なし: {username} (ID: {user.id}) は既に {state} です。", fg='yellow'))
+        return
+
+    user.is_admin = new_value
+    try:
+        db.session.commit()
+        state = '管理者に昇格' if new_value else '管理者を解除'
+        click.echo(click.style(
+            f"成功: {username} (ID: {user.id}) を {state} しました。", fg='green', bold=True
+        ))
+    except Exception as e:
+        db.session.rollback()
+        click.echo(click.style(f"エラー: 更新に失敗しました: {e}", fg='red'))
+        raise SystemExit(1)
+
+
 @click.command('post-upcoming-events')
 @with_appcontext
 @click.option('--dry-run', is_flag=True, help='実際には投稿せず、投稿内容をプレビューします。')
@@ -780,4 +811,5 @@ def register_commands(app):
     app.cli.add_command(post_upcoming_events_command)
     app.cli.add_command(post_leaderboard_records_command)
     app.cli.add_command(post_misskey_bot_command)
+    app.cli.add_command(set_admin_command)
     # ▲▲▲ 登録ここまで ▲▲▲

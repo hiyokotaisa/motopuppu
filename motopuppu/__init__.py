@@ -249,6 +249,7 @@ def create_app(config_name=None):
         from .views import garage, search
         from .views import garage_settings
         from .views import circuit_dashboard
+        from .views import admin_schedule
 
         # Blueprintの登録
         app.register_blueprint(auth.auth_bp)
@@ -270,6 +271,7 @@ def create_app(config_name=None):
         app.register_blueprint(search.search_bp)
         app.register_blueprint(garage_settings.garage_settings_bp)
         app.register_blueprint(circuit_dashboard.circuit_dashboard_bp)
+        app.register_blueprint(admin_schedule.admin_schedule_bp)
         app.register_blueprint(team.team_bp)
 
         if app.config['ENV'] == 'development' or app.debug: 

@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block title %}{% if form_action == 'edit' %}走行枠の編集{% else %}走行枠の追加{% endif %} - もとぷっぷー{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+    <a href="{{ url_for('admin_schedule.list_schedules') }}" class="text-decoration-none small">
+        <i class="fas fa-arrow-left me-1"></i> 走行枠一覧に戻る
+    </a>
+</div>
+
+<h2 class="fw-bold mb-4 text-dark">
+    <i class="fas fa-calendar-plus me-2 text-primary"></i>
+    {% if form_action == 'edit' %}走行枠の編集{% else %}走行枠の追加{% endif %}
+</h2>
+
+{# フラッシュメッセージ #}
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+            <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show shadow-sm" role="alert">
+                {{ message | safe }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        <form method="POST" novalidate>
+            {{ form.hidden_tag() }}
+
+            <div class="mb-3">
+                {{ form.circuit_name.label(class="form-label fw-bold") }}
+                {{ form.circuit_name(class="form-select" + (' is-invalid' if form.circuit_name.errors else '')) }}
+                {% for err in form.circuit_name.errors %}
+                    <div class="invalid-feedback">{{ err }}</div>
+                {% endfor %}
+            </div>
+
+            <div class="row g-3 mb-3">
+                <div class="col-md-4">
+                    {{ form.date.label(class="form-label fw-bold") }}
+                    {{ form.date(class="form-control" + (' is-invalid' if form.date.errors else '')) }}
+                    {% for err in form.date.errors %}
+                        <div class="invalid-feedback">{{ err }}</div>
+                    {% endfor %}
+                </div>
+                <div class="col-md-4">
+                    {{ form.start_time.label(class="form-label fw-bold") }}
+                    {{ form.start_time(class="form-control" + (' is-invalid' if form.start_time.errors else '')) }}
+                    {% for err in form.start_time.errors %}
+                        <div class="invalid-feedback">{{ err }}</div>
+                    {% endfor %}
+                </div>
+                <div class="col-md-4">
+                    {{ form.end_time.label(class="form-label fw-bold") }}
+                    {{ form.end_time(class="form-control" + (' is-invalid' if form.end_time.errors else '')) }}
+                    {% for err in form.end_time.errors %}
+                        <div class="invalid-feedback">{{ err }}</div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="mb-3">
+                {{ form.title.label(class="form-label fw-bold") }}
+                {{ form.title(class="form-control" + (' is-invalid' if form.title.errors else '')) }}
+                <div class="form-text">桶川スポーツランドの場合、「大型」「ミニ」を含めるとダッシュボードに内訳バッジが表示されます。</div>
+                {% for err in form.title.errors %}
+                    <div class="invalid-feedback">{{ err }}</div>
+                {% endfor %}
+            </div>
+
+            <div class="mb-3">
+                {{ form.notes.label(class="form-label fw-bold") }}
+                {{ form.notes(class="form-control" + (' is-invalid' if form.notes.errors else '')) }}
+                <div class="form-text">「入門」という文字列を含めると、ダッシュボードに「入門」バッジが表示されます。</div>
+                {% for err in form.notes.errors %}
+                    <div class="invalid-feedback">{{ err }}</div>
+                {% endfor %}
+            </div>
+
+            <div class="mb-4">
+                {{ form.source_url.label(class="form-label fw-bold") }}
+                {{ form.source_url(class="form-control" + (' is-invalid' if form.source_url.errors else '')) }}
+                {% for err in form.source_url.errors %}
+                    <div class="invalid-feedback">{{ err }}</div>
+                {% endfor %}
+            </div>
+
+            <div class="d-flex justify-content-between">
+                <a href="{{ url_for('admin_schedule.list_schedules') }}" class="btn btn-outline-secondary">キャンセル</a>
+                {{ form.submit(class="btn btn-primary") }}
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
