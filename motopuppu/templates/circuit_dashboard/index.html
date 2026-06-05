@@ -668,6 +668,30 @@
                                 </span>
                             </div>
                             {% endfor %}
+
+                            {% if not schedule.sessions %}
+                            <div class="ps-1 text-muted small fst-italic">このコースの走行枠はありません</div>
+                            {% endif %}
+
+                            {# 他コースの走行枠（桶川: ミニ/大型でコースが分かれる場合に併記） #}
+                            {% if schedule.other_courses %}
+                            <div class="mt-1 pt-1 ps-1" style="border-top: 1px dashed rgba(0,0,0,0.1);">
+                                {% for oc in schedule.other_courses %}
+                                {% for session in oc.sessions %}
+                                <div class="d-flex align-items-start small text-muted" style="line-height: 1.5;">
+                                    <span class="badge bg-light text-secondary border me-2" style="font-size: 0.65rem;">{{ oc.course_label }}</span>
+                                    {% if session.time_label %}
+                                    <span class="font-monospace me-2" style="white-space: nowrap;">{{ session.time_label }}</span>
+                                    {% endif %}
+                                    <span>
+                                        {{ session.title }}{% if session.bikes_label %} ({{ session.bikes_label }}){% endif %}
+                                        {% if session.is_beginner %}<i class="fas fa-graduation-cap text-success ms-1" title="入門・ビギナー枠"></i>{% endif %}
+                                    </span>
+                                </div>
+                                {% endfor %}
+                                {% endfor %}
+                            </div>
+                            {% endif %}
                         </div>
                         {% endfor %}
                     </div>

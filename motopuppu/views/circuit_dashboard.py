@@ -43,6 +43,78 @@ def _course_label_from_name(circuit_name):
             return "ショート"
     return ""
 
+
+def _build_sessions_from_slots(schedules):
+    """同一コースの走行枠リストを (開始/終了時刻・走行枠名) 単位のセッションへ集約する。
+
+    同一時間帯の大型/ミニは1セッションに集約し、補足(notes)もまとめる。
+    Returns: (sessions: list[dict], has_beginner: bool)
+    """
+    slots = {}
+    for s in schedules:
+        base_title = _clean_slot_title(s.title)
+        slot_key = (s.start_time, s.end_time, base_title)
+        if slot_key not in slots:
+            slots[slot_key] = {
+                'start_time': s.start_time,
+                'end_time': s.end_time,
+                'title': base_title,
+                'bikes': set(),
+                'notes_list': [],
+                'is_beginner': False,
+            }
+        slot = slots[slot_key]
+
+        if "大型" in (s.title or ""):
+            slot['bikes'].add('大型')
+        if "ミニ" in (s.title or ""):
+            slot['bikes'].add('ミニ')
+
+        note = (s.notes or "").strip()
+        if note and note not in slot['notes_list']:
+            slot['notes_list'].append(note)
+
+        haystack = f"{s.title or ''} {s.notes or ''}"
+        if "入門" in haystack or "ビギナー" in haystack:
+            slot['is_beginner'] = True
+
+    sessions = []
+    has_beginner = False
+    for slot in slots.values():
+        bikes = slot['bikes']
+        if bikes == {'大型', 'ミニ'}:
+            bikes_label = "大型・ミニ"
+        elif bikes == {'大型'}:
+            bikes_label = "大型"
+        elif bikes == {'ミニ'}:
+            bikes_label = "ミニ"
+        else:
+            bikes_label = ""
+
+        st = slot['start_time']
+        et = slot['end_time']
+        if st and et:
+            time_label = f"{st.strftime('%H:%M')}-{et.strftime('%H:%M')}"
+        elif st:
+            time_label = st.strftime('%H:%M')
+        else:
+            time_label = ""
+
+        if slot['is_beginner']:
+            has_beginner = True
+
+        sessions.append({
+            'time_label': time_label,
+            'start_time': st,
+            'title': slot['title'],
+            'bikes_label': bikes_label,
+            'notes': ' / '.join(slot['notes_list']),
+            'is_beginner': slot['is_beginner'],
+        })
+
+    sessions.sort(key=lambda x: (x['start_time'] is None, x['start_time'] or datetime.min.time()))
+    return sessions, has_beginner
+
 def get_leaderboard_rankings(circuit_name, user_id):
     """ 指定されたサーキットのリーダーボード情報を取得し、
         指定されたユーザーの順位と次の順位との差を返す """
@@ -307,105 +379,66 @@ def index():
         metadata = CIRCUIT_METADATA.get(circuit_name, {})
         
         # スケジュール取得 (1ヶ月分)
-        raw_schedules = TrackSchedule.query.filter(
-            TrackSchedule.date >= today,
-            TrackSchedule.date <= schedule_horizon,
-            or_(
+        # 桶川はミニ/大型でコースが分かれるため、施設全体を取得して
+        # 自コース(このカードのコース)と他コースに分け、他コースは併記表示する。
+        is_okegawa = "桶川" in (circuit_name or "")
+        if is_okegawa:
+            schedule_filter = TrackSchedule.circuit_name.contains("桶川スポーツランド")
+        else:
+            schedule_filter = or_(
                 TrackSchedule.circuit_name == circuit_name,
                 TrackSchedule.circuit_name.contains(circuit_name)
             )
+
+        raw_schedules = TrackSchedule.query.filter(
+            TrackSchedule.date >= today,
+            TrackSchedule.date <= schedule_horizon,
+            schedule_filter
         ).order_by(TrackSchedule.date.asc(), TrackSchedule.start_time.asc()).all()
-        
-        # スケジュール整形処理
-        # 日付ごとに、(開始/終了時刻・走行枠名) 単位の走行枠(slot)へまとめる。
-        # 同一時間帯の大型/ミニは1つのslotに集約し、補足(notes)もまとめて表示する。
-        grouped_schedules = {}  # date -> {date, course_label, circuit_full_name, _slots}
+
+        target_course_label = _course_label_from_name(circuit_name)
+
+        # 日付 → コース名 → 走行枠リスト に振り分け
+        schedules_by_date = {}
         for s in raw_schedules:
-            if s.date not in grouped_schedules:
-                grouped_schedules[s.date] = {
-                    'date': s.date,
-                    'course_label': _course_label_from_name(s.circuit_name),
-                    'circuit_full_name': s.circuit_name,  # ログ作成時のパラメータ用
-                    '_slots': {},
-                }
-            day = grouped_schedules[s.date]
+            schedules_by_date.setdefault(s.date, {}).setdefault(s.circuit_name, []).append(s)
 
-            base_title = _clean_slot_title(s.title)
-            slot_key = (s.start_time, s.end_time, base_title)
-            if slot_key not in day['_slots']:
-                day['_slots'][slot_key] = {
-                    'start_time': s.start_time,
-                    'end_time': s.end_time,
-                    'title': base_title,
-                    'bikes': set(),
-                    'notes_list': [],
-                    'is_beginner': False,
-                }
-            slot = day['_slots'][slot_key]
-
-            # バイク区分(大型/ミニ)を集約
-            if "大型" in (s.title or ""):
-                slot['bikes'].add('大型')
-            if "ミニ" in (s.title or ""):
-                slot['bikes'].add('ミニ')
-
-            # 補足(notes)をユニークに収集
-            note = (s.notes or "").strip()
-            if note and note not in slot['notes_list']:
-                slot['notes_list'].append(note)
-
-            # 入門/ビギナー枠の判定 (走行枠名・補足のどちらかに含まれれば対象)
-            haystack = f"{s.title or ''} {s.notes or ''}"
-            if "入門" in haystack or "ビギナー" in haystack:
-                slot['is_beginner'] = True
-
-        # 最終整形: slotをリスト化し時間順にソート、表示用ラベルを生成
         upcoming_schedules = []
-        for d_date in sorted(grouped_schedules.keys()):
-            day = grouped_schedules[d_date]
-            sessions = []
-            has_beginner_day = False
-            for slot in day['_slots'].values():
-                bikes = slot['bikes']
-                if bikes == {'大型', 'ミニ'}:
-                    bikes_label = "大型・ミニ"
-                elif bikes == {'大型'}:
-                    bikes_label = "大型"
-                elif bikes == {'ミニ'}:
-                    bikes_label = "ミニ"
+        for d_date in sorted(schedules_by_date.keys()):
+            courses = schedules_by_date[d_date]
+            own_sessions = []
+            own_has_beginner = False
+            other_courses = []
+
+            for course_name, scheds in courses.items():
+                sessions, has_beg = _build_sessions_from_slots(scheds)
+                clabel = _course_label_from_name(course_name)
+
+                # 自コース判定: 非桶川は常に自コース。桶川はカードのコース種別と
+                # 一致するものを自コースとし、それ以外を他コースとして併記する。
+                # カードのコース種別が不明な場合は全て自コース扱い。
+                is_own = (not is_okegawa) or (not target_course_label) or (clabel == target_course_label)
+                if is_own:
+                    own_sessions.extend(sessions)
+                    if has_beg:
+                        own_has_beginner = True
                 else:
-                    bikes_label = ""
+                    other_courses.append({
+                        'course_label': clabel or course_name,
+                        'circuit_full_name': course_name,
+                        'sessions': sessions,
+                    })
 
-                st = slot['start_time']
-                et = slot['end_time']
-                if st and et:
-                    time_label = f"{st.strftime('%H:%M')}-{et.strftime('%H:%M')}"
-                elif st:
-                    time_label = st.strftime('%H:%M')
-                else:
-                    time_label = ""
-
-                if slot['is_beginner']:
-                    has_beginner_day = True
-
-                sessions.append({
-                    'time_label': time_label,
-                    'start_time': st,
-                    'title': slot['title'],
-                    'bikes_label': bikes_label,
-                    'notes': ' / '.join(slot['notes_list']),
-                    'is_beginner': slot['is_beginner'],
-                })
-
-            # 開始時刻順 (Noneは末尾)
-            sessions.sort(key=lambda x: (x['start_time'] is None, x['start_time'] or datetime.min.time()))
+            own_sessions.sort(key=lambda x: (x['start_time'] is None, x['start_time'] or datetime.min.time()))
+            other_courses.sort(key=lambda x: x['course_label'])
 
             upcoming_schedules.append({
-                'date': day['date'],
-                'course_label': day['course_label'],
-                'circuit_full_name': day['circuit_full_name'],
-                'sessions': sessions,
-                'has_beginner': has_beginner_day,
+                'date': d_date,
+                'course_label': target_course_label,
+                'circuit_full_name': circuit_name,
+                'sessions': own_sessions,
+                'other_courses': other_courses,
+                'has_beginner': own_has_beginner,
             })
 
         # 天気予報APIエンドポイント
