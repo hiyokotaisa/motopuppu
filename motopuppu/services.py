@@ -318,18 +318,25 @@ def get_upcoming_reminders(user_motorcycles_all, user_id):
     KM_THRESHOLD_DANGER = current_app.config.get('REMINDER_KM_DANGER', 0)
     DAYS_THRESHOLD_DANGER = current_app.config.get('REMINDER_DAYS_DANGER', 0)
 
+    # 対象車両のIDリスト（アーカイブ済み車両は呼び出し側で除外済み）
+    target_motorcycle_ids = [m.id for m in user_motorcycles_all]
+
     current_public_distances = {}
     for m in user_motorcycles_all:
         if not m.is_racer:
             current_public_distances[m.id] = get_latest_total_distance(
                 m.id, m.odometer_offset)
 
+    # 対象車両がなければ計算するまでもなく空で返す
+    if not target_motorcycle_ids:
+        return []
+
     # N+1対策: joinedloadで関連データを一括取得
     all_reminders = MaintenanceReminder.query.options(
         db.joinedload(MaintenanceReminder.motorcycle),
         db.joinedload(MaintenanceReminder.last_maintenance_entry)
-    ).join(Motorcycle).filter(
-        Motorcycle.user_id == user_id,
+    ).filter(
+        MaintenanceReminder.motorcycle_id.in_(target_motorcycle_ids),
         MaintenanceReminder.is_dismissed == False,
         (MaintenanceReminder.snoozed_until == None) | (MaintenanceReminder.snoozed_until <= datetime.now(timezone.utc))
     ).all()
