@@ -543,32 +543,59 @@
                                 <h6 class="beta-text-muted fw-bold small text-uppercase mb-2">
                                     <i class="fas fa-calendar-alt me-1"></i> Schedule (1 Month)
                                 </h6>
-                                <div class="d-flex flex-wrap gap-2" style="max-height: 220px; overflow-y: auto;">
+                                <div class="d-flex flex-column gap-2" style="max-height: 320px; overflow-y: auto;">
                                     {% for schedule in circuit.upcoming_schedules %}
-                                    <div class="d-flex align-items-center rounded px-2 py-1"
+                                    <div class="rounded px-2 py-2"
                                         style="font-size: 0.8rem; background: rgba(148, 163, 184, 0.06); border: 1px solid var(--beta-border);">
-                                        <div class="me-2">
-                                            <span class="fw-bold beta-text-secondary">{{ schedule.date.strftime('%m/%d') }}</span>
-                                            <span class="beta-text-muted small">({{ ['月','火','水','木','金','土','日'][schedule.date.weekday()] }})</span>
+
+                                        {# ヘッダ: 日付・曜日・コース種別・入門・ログ作成 #}
+                                        <div class="d-flex align-items-center mb-1">
+                                            <span class="fw-bold beta-text-secondary me-1">{{ schedule.date.strftime('%m/%d') }}</span>
+                                            <span class="beta-text-muted small me-2">({{ ['月','火','水','木','金','土','日'][schedule.date.weekday()] }})</span>
+                                            {% if schedule.course_label %}
+                                            <span class="beta-badge me-2" style="font-size: 0.7rem;">{{ schedule.course_label }}</span>
+                                            {% endif %}
+                                            {% if schedule.has_beginner %}
+                                            <span class="beta-badge beta-badge-teal me-2" style="font-size: 0.7rem;" title="入門・ビギナー枠あり">入門</span>
+                                            {% endif %}
+                                            <span class="ms-auto">
+                                            {% if circuit.latest_vehicle_id %}
+                                            <a href="{{ url_for('activity.add_activity',
+                                                                vehicle_id=circuit.latest_vehicle_id,
+                                                                activity_date=schedule.date.strftime('%Y-%m-%d'),
+                                                                location_type='circuit',
+                                                                circuit_name=schedule.circuit_full_name) }}"
+                                                class="text-decoration-none" style="color: var(--beta-accent-blue);" title="この日のログを作成">
+                                                <i class="fas fa-pen-square fa-lg"></i>
+                                            </a>
+                                            {% else %}
+                                            <span class="beta-text-muted" title="車両が登録されていません"><i class="fas fa-pen-square"></i></span>
+                                            {% endif %}
+                                            </span>
                                         </div>
-                                        {% if schedule.course_label %}
-                                        <span class="beta-badge me-2" style="font-size: 0.7rem;">{{ schedule.course_label }}</span>
-                                        {% endif %}
-                                        {% if schedule.has_beginner %}
-                                        <span class="beta-badge beta-badge-teal me-2" style="font-size: 0.7rem;" title="入門枠あり">入門</span>
-                                        {% endif %}
-                                        {% if circuit.latest_vehicle_id %}
-                                        <a href="{{ url_for('activity.add_activity',
-                                                            vehicle_id=circuit.latest_vehicle_id,
-                                                            activity_date=schedule.date.strftime('%Y-%m-%d'),
-                                                            location_type='circuit',
-                                                            circuit_name=schedule.circuit_full_name) }}"
-                                            class="text-decoration-none" style="color: var(--beta-accent-blue);" title="この日のログを作成">
-                                            <i class="fas fa-pen-square fa-lg"></i>
-                                        </a>
-                                        {% else %}
-                                        <span class="beta-text-muted" title="車両が登録されていません"><i class="fas fa-pen-square"></i></span>
-                                        {% endif %}
+
+                                        {# 走行枠(セッション)一覧 #}
+                                        {% for session in schedule.sessions %}
+                                        <div class="d-flex align-items-start ps-1" style="line-height: 1.5;">
+                                            {% if session.time_label %}
+                                            <span class="beta-text-muted font-monospace me-2" style="white-space: nowrap;">{{ session.time_label }}</span>
+                                            {% endif %}
+                                            <span>
+                                                <span class="beta-text-secondary">{{ session.title }}</span>
+                                                {% if session.bikes_label %}
+                                                <span class="beta-text-muted">({{ session.bikes_label }})</span>
+                                                {% endif %}
+                                                {% if session.is_beginner %}
+                                                <i class="fas fa-graduation-cap ms-1" style="color: var(--beta-accent-teal, #14b8a6);" title="入門・ビギナー枠"></i>
+                                                {% endif %}
+                                                {% if session.notes %}
+                                                <span class="d-block beta-text-muted small">
+                                                    <i class="fas fa-info-circle me-1"></i>{{ session.notes }}
+                                                </span>
+                                                {% endif %}
+                                            </span>
+                                        </div>
+                                        {% endfor %}
                                     </div>
                                     {% endfor %}
                                 </div>
