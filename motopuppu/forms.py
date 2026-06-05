@@ -1029,6 +1029,52 @@ class TrackScheduleForm(FlaskForm):
             raise ValidationError('終了時刻は開始時刻より後に設定してください。')
 
 
+class ScheduleImportForm(FlaskForm):
+    """走行枠スケジュールをJSONテキスト/ファイルで一括取り込みするフォーム (管理者用)"""
+    json_text = TextAreaField(
+        'JSONデータ',
+        validators=[Optional()],
+        render_kw={
+            "rows": 14,
+            "placeholder": '[{"date": "2026-06-12", "start_time": "13:30", "end_time": "17:00", "circuit_name": "桶川スポーツランド ロングコース", "title": "スポーツ走行A 大型", "notes": "入門枠あり"}]'
+        }
+    )
+    json_file = FileField(
+        'またはJSONファイル',
+        validators=[
+            Optional(),
+            FileAllowed(['json'], 'JSONファイル(.json)のみアップロードできます。'),
+            FileSize(max_size=5 * 1024 * 1024, message='ファイルは5MB以下にしてください。')
+        ]
+    )
+    source_url = StringField(
+        'ソースURL (任意)',
+        validators=[
+            Optional(),
+            URL(message='有効なURL形式で入力してください。'),
+            Length(max=2048, message='URLは2048文字以内で入力してください。')
+        ],
+        render_kw={"placeholder": "例: https://okspo.jp/schedule/2026-06.pdf"}
+    )
+    submit_upload = SubmitField('解析してプレビュー')
+
+    def validate(self, extra_validators=None):
+        if not super().validate(extra_validators=extra_validators):
+            return False
+        if not (self.json_text.data and self.json_text.data.strip()) and not self.json_file.data:
+            msg = 'JSONテキストを貼り付けるか、JSONファイルを選択してください。'
+            self.json_text.errors.append(msg)
+            return False
+        return True
+
+
+class ScheduleImportConfirmForm(FlaskForm):
+    """プレビュー確認後に一括登録するためのフォーム (管理者用)"""
+    payload = HiddenField()
+    source_url = HiddenField()
+    submit_confirm = SubmitField('この内容で一括登録')
+
+
 class MaintenanceSpecSheetForm(FlaskForm):
     """整備情報シート用のフォーム"""
     sheet_name = StringField(

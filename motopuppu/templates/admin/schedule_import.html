@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+
+{% block title %}走行枠のJSON一括登録 - もとぷっぷー{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+    <a href="{{ url_for('admin_schedule.list_schedules') }}" class="text-decoration-none small">
+        <i class="fas fa-arrow-left me-1"></i> 走行枠一覧に戻る
+    </a>
+</div>
+
+<h2 class="fw-bold mb-4 text-dark">
+    <i class="fas fa-file-import me-2 text-primary"></i>走行枠のJSON一括登録
+</h2>
+
+{# フラッシュメッセージ #}
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+            <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show shadow-sm" role="alert">
+                {{ message | safe }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
+
+{# --- 使い方ガイド（手元AIでPDF→JSON変換するためのプロンプト例） --- #}
+<div class="card shadow-sm mb-4 border-info">
+    <div class="card-header bg-info-subtle">
+        <i class="fas fa-info-circle me-1"></i> 使い方 - PDFをJSONに変換してから貼り付けます
+    </div>
+    <div class="card-body">
+        <p class="small mb-2">
+            桶川スポーツランドの月間スケジュールPDFを、お手元のAI（Gemini / ChatGPT など）に下記のプロンプトと一緒に渡し、
+            出力されたJSONをこのページに貼り付けてください。プレビューで内容を確認してから一括登録できます。
+        </p>
+        <label class="form-label fw-bold small mb-1">コピー用プロンプト例</label>
+        <div class="position-relative">
+            <textarea id="promptTemplate" class="form-control font-monospace small" rows="16" readonly>添付した桶川スポーツランドの月間コーススケジュールPDFを読み取り、走行枠を以下のJSON配列形式で出力してください。JSONのみを出力し、説明文やMarkdownのコードブロックは不要です。
+
+[
+  {
+    "date": "YYYY-MM-DD",
+    "start_time": "HH:MM",
+    "end_time": "HH:MM",
+    "circuit_name": "（下記のいずれか）",
+    "title": "走行枠名",
+    "notes": "補足（無ければ null）"
+  }
+]
+
+【変換ルール】
+- date: PDFヘッダの年月をもとに「YYYY-MM-DD」形式にする。
+- circuit_name: 必ず次の3つの文字列のいずれか正確に一致させる。
+    - ロングコースを走る区分 → "桶川スポーツランド ロングコース"
+    - ミドルコースを走る区分 → "桶川スポーツランド ミドルコース"
+    - ショートコースを走る区分 → "桶川スポーツランド ショートコース"
+- title: 走行枠名（例「スポーツ走行A」）に、大型バイク向け枠なら「大型」、ミニバイク向け枠なら「ミニ」という語を含める。
+- start_time / end_time: その時間帯（AM/PM など）の開始・終了時刻を24時間表記「HH:MM」で。不明なら null。
+- notes: 「入門」「混走」「要事前申込」などの補足。無ければ null。
+- 「定休日」「貸切」「臨時休業」など一般のスポーツ走行枠ではない日は出力に含めない。
+- 1日に複数の時間帯・バイク区分がある場合は、それぞれを別レコードとして出力する。</textarea>
+            <button type="button" id="copyPromptBtn" class="btn btn-sm btn-outline-primary position-absolute top-0 end-0 m-2">
+                <i class="fas fa-copy me-1"></i>コピー
+            </button>
+        </div>
+    </div>
+</div>
+
+{# --- JSON入力フォーム --- #}
+<div class="card shadow-sm">
+    <div class="card-body">
+        <form method="POST" enctype="multipart/form-data" novalidate>
+            {{ form.hidden_tag() }}
+
+            <div class="mb-3">
+                {{ form.json_text.label(class="form-label fw-bold") }}
+                {{ form.json_text(class="form-control font-monospace" + (' is-invalid' if form.json_text.errors else '')) }}
+                <div class="form-text">AIが出力したJSON配列を貼り付けてください。</div>
+                {% for err in form.json_text.errors %}
+                    <div class="invalid-feedback">{{ err }}</div>
+                {% endfor %}
+            </div>
+
+            <div class="mb-3">
+                {{ form.json_file.label(class="form-label fw-bold") }}
+                {{ form.json_file(class="form-control" + (' is-invalid' if form.json_file.errors else '')) }}
+                <div class="form-text">テキスト貼り付けの代わりに .json ファイルをアップロードすることもできます。両方ある場合はファイルを優先します。</div>
+                {% for err in form.json_file.errors %}
+                    <div class="invalid-feedback">{{ err }}</div>
+                {% endfor %}
+            </div>
+
+            <div class="mb-4">
+                {{ form.source_url.label(class="form-label fw-bold") }}
+                {{ form.source_url(class="form-control" + (' is-invalid' if form.source_url.errors else '')) }}
+                <div class="form-text">登録する全ての走行枠に共通のソースURLとして保存されます（任意）。</div>
+                {% for err in form.source_url.errors %}
+                    <div class="invalid-feedback">{{ err }}</div>
+                {% endfor %}
+            </div>
+
+            <div class="d-flex justify-content-between">
+                <a href="{{ url_for('admin_schedule.list_schedules') }}" class="btn btn-outline-secondary">キャンセル</a>
+                {{ form.submit_upload(class="btn btn-primary") }}
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+(function() {
+    const copyBtn = document.getElementById('copyPromptBtn');
+    const promptArea = document.getElementById('promptTemplate');
+    if (!copyBtn || !promptArea) return;
+    copyBtn.addEventListener('click', async function() {
+        try {
+            await navigator.clipboard.writeText(promptArea.value);
+            copyBtn.innerHTML = '<i class="fas fa-check me-1"></i>コピーしました';
+            setTimeout(() => { copyBtn.innerHTML = '<i class="fas fa-copy me-1"></i>コピー'; }, 1800);
+        } catch {
+            promptArea.select();
+            document.execCommand('copy');
+        }
+    });
+})();
+</script>
+{% endblock %}

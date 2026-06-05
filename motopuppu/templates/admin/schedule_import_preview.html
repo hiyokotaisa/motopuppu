@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+
+{% block title %}走行枠インポートのプレビュー - もとぷっぷー{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+    <a href="{{ url_for('admin_schedule.import_schedules') }}" class="text-decoration-none small">
+        <i class="fas fa-arrow-left me-1"></i> 入力画面に戻る
+    </a>
+</div>
+
+<h2 class="fw-bold mb-2 text-dark">
+    <i class="fas fa-list-check me-2 text-primary"></i>インポートのプレビュー
+</h2>
+<p class="text-muted small mb-4">
+    解析結果 <span class="fw-bold">{{ rows|length }}件</span>。
+    {% if warning_count > 0 %}
+        <span class="text-danger fw-bold">うち {{ warning_count }}件に警告があります（黄色の行）。</span>
+        修正が必要な場合は入力画面に戻り、JSONを直して再度貼り付けてください。
+    {% else %}
+        問題は検出されませんでした。
+    {% endif %}
+</p>
+
+{# フラッシュメッセージ #}
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+            <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show shadow-sm" role="alert">
+                {{ message | safe }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
+
+<div class="card shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th style="width: 40px;">#</th>
+                    <th style="width: 110px;">日付</th>
+                    <th>サーキット</th>
+                    <th style="width: 130px;">時間</th>
+                    <th>走行枠名</th>
+                    <th>補足</th>
+                    <th>状態</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in rows %}
+                <tr class="{% if row._warnings %}table-warning{% endif %}">
+                    <td class="text-muted small">{{ loop.index }}</td>
+                    <td><span class="fw-bold">{{ row.date or '—' }}</span></td>
+                    <td>{{ row.circuit_name or '—' }}</td>
+                    <td>
+                        <small>
+                            {{ row.start_time or '-' }} ～ {{ row.end_time or '-' }}
+                        </small>
+                    </td>
+                    <td>{{ row.title or '—' }}</td>
+                    <td><small class="text-muted">{{ row.notes or '' }}</small></td>
+                    <td>
+                        {% if row._warnings %}
+                            {% for w in row._warnings %}
+                                <span class="badge bg-danger mb-1 d-block text-start" style="white-space: normal;">
+                                    <i class="fas fa-exclamation-triangle me-1"></i>{{ w }}
+                                </span>
+                            {% endfor %}
+                        {% else %}
+                            <span class="badge bg-success"><i class="fas fa-check me-1"></i>OK</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7" class="text-center text-muted py-4">
+                        登録できる走行枠がありませんでした。
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="alert alert-info small mt-3 mb-3">
+    <i class="fas fa-info-circle me-1"></i>
+    既に登録済みの走行枠（同じサーキット・日付・開始時刻・走行枠名）は自動でスキップされます。
+    日付・時刻の形式が不正な行も登録されません。
+</div>
+
+{% if rows|length > 0 %}
+<form method="POST" action="{{ url_for('admin_schedule.import_schedules_confirm') }}">
+    {{ confirm_form.hidden_tag() }}
+    <div class="d-flex justify-content-between">
+        <a href="{{ url_for('admin_schedule.import_schedules') }}" class="btn btn-outline-secondary">やり直す</a>
+        {{ confirm_form.submit_confirm(class="btn btn-success") }}
+    </div>
+</form>
+{% else %}
+<a href="{{ url_for('admin_schedule.import_schedules') }}" class="btn btn-outline-secondary">入力画面に戻る</a>
+{% endif %}
+{% endblock %}
