@@ -541,14 +541,28 @@ def index():
         heatmap_data=heatmap_data
     )
 
-@circuit_dashboard_bp.route('/weather/<path:circuit_name>')
-@login_required
-def get_circuit_weather(circuit_name):
-    """Open-Meteo APIから天気予報を取得してHTMLフラグメントを返す"""
-    metadata = CIRCUIT_METADATA.get(circuit_name)
-    
-    if not metadata or 'lat' not in metadata or 'lng' not in metadata:
-        return '<div class="text-muted small">位置情報未定義</div>'
+# --- 天気予報用キャッシュ ---
+# コース名(緯度経度)ごとに Open-Meteo の取得結果(forecastsリスト)をTTL付きで保持し、
+# ページを開くたびに外部APIを叩いてレート制限(429)に達するのを防ぐ。
+# gunicornのワーカー毎に独立するが、それでも外部リクエストは大幅に削減できる。
+_weather_cache = {}  # circuit_name -> {'forecasts': list|None, 'expires_at': datetime}
+_WEATHER_CACHE_TTL_SECONDS = 30 * 60          # 成功時: 30分(Open-Meteoの更新間隔も概ね1時間単位)
+_WEATHER_NEGATIVE_CACHE_TTL_SECONDS = 5 * 60  # 失敗時(429含む): 5分のネガティブキャッシュ
+
+
+def _fetch_weather_forecasts(circuit_name, metadata):
+    """Open-Meteo APIから天気予報(forecastsリスト)を取得する。
+
+    コース名単位でTTL付きのインメモリキャッシュを行い、外部APIアクセスを抑制する。
+    取得に失敗した場合は短時間のネガティブキャッシュを行い、失敗の連打(429誘発)を防ぐ。
+    直近に成功したデータがあれば失敗時もそれを流用する(stale-while-error)。
+
+    :return: forecastsリスト。取得データが一度も得られていない場合は None。
+    """
+    now = datetime.now()
+    cached = _weather_cache.get(circuit_name)
+    if cached and now < cached['expires_at']:
+        return cached['forecasts']
 
     try:
         # Open-Meteo API (無料・認証不要)
@@ -563,97 +577,129 @@ def get_circuit_weather(circuit_name):
         response = requests.get(url, params=params, timeout=5)
         response.raise_for_status()
         data = response.json()
-        
-        # WMO天気コードの簡易変換マップ
-        wmo_codes = {
-            0: ('快晴', 'fa-sun', 'text-warning'),
-            1: ('晴れ', 'fa-sun', 'text-warning'),
-            2: ('曇り時々晴れ', 'fa-cloud-sun', 'text-warning'),
-            3: ('曇り', 'fa-cloud', 'text-secondary'),
-            45: ('霧', 'fa-smog', 'text-secondary'),
-            48: ('霧', 'fa-smog', 'text-secondary'),
-            51: ('小雨', 'fa-cloud-rain', 'text-info'),
-            53: ('雨', 'fa-cloud-rain', 'text-info'),
-            55: ('雨', 'fa-cloud-showers-heavy', 'text-primary'),
-            61: ('雨', 'fa-umbrella', 'text-primary'),
-            63: ('雨', 'fa-umbrella', 'text-primary'),
-            65: ('大雨', 'fa-umbrella', 'text-primary'),
-            80: ('にわか雨', 'fa-cloud-sun-rain', 'text-info'),
-            81: ('にわか雨', 'fa-cloud-sun-rain', 'text-info'),
-            82: ('激しい雨', 'fa-cloud-showers-heavy', 'text-primary'),
+
+        forecasts = _parse_weather_data(data)
+        _weather_cache[circuit_name] = {
+            'forecasts': forecasts,
+            'expires_at': now + timedelta(seconds=_WEATHER_CACHE_TTL_SECONDS),
         }
-        
-        # ▼▼▼【追加】雨天とみなすWMOコード一覧 ▼▼▼
-        # 51-57(霧雨), 61-67(雨), 71-77(雪), 80-82(しゅう雨), 85-86(雪しゅう雨), 95-99(雷雨)
-        BAD_WEATHER_CODES = [
-            51, 53, 55, 56, 57, 
-            61, 63, 65, 66, 67, 
-            71, 73, 75, 77, 
-            80, 81, 82, 
-            85, 86, 
-            95, 96, 99
-        ]
-
-        daily = data.get('daily', {})
-        forecasts = []
-        
-        dates = daily.get('time', [])
-        codes = daily.get('weather_code', [])
-        temps = daily.get('temperature_2m_max', [])
-        probs = daily.get('precipitation_probability_max', [])
-
-        # 直近5日分を表示
-        for i in range(min(5, len(dates))):
-            code = codes[i]
-            max_temp = float(temps[i])
-            
-            # アイコン情報の取得
-            weather_info = wmo_codes.get(code, ('不明', 'fa-cloud', 'text-muted'))
-            
-            dt = datetime.strptime(dates[i], '%Y-%m-%d')
-            is_weekend = dt.weekday() >= 5
-            
-            # ▼▼▼【追加】走行適性判定ロジック ▼▼▼
-            rating_symbol = ''
-            rating_class = ''
-            
-            if code in BAD_WEATHER_CODES:
-                rating_symbol = '☓'
-                rating_class = 'text-danger fw-bold' # 赤・太字
-            elif max_temp < 10.0:
-                rating_symbol = '△'
-                rating_class = 'text-info fw-bold' # 青・太字 (低温注意)
-            else:
-                # 雨でなく、10度以上
-                if code in [0, 1]: # 快晴・晴れ
-                    rating_symbol = '◎'
-                    rating_class = 'text-warning fw-bold' # ゴールド/オレンジっぽく (絶好)
-                elif code in [2, 3]: # 曇り
-                    rating_symbol = '○'
-                    rating_class = 'text-success fw-bold' # 緑 (良好)
-                else:
-                    # それ以外（霧など）
-                    rating_symbol = '△' 
-                    rating_class = 'text-secondary'
-
-            forecasts.append({
-                'date': dt.strftime('%m/%d') + f" ({['月','火','水','木','金','土','日'][dt.weekday()]})",
-                'is_weekend': is_weekend,
-                'label': weather_info[0],
-                'icon': weather_info[1],
-                'color_class': weather_info[2],
-                'temp_max': max_temp,
-                'precip_prob': probs[i],
-                # 判定結果
-                'rating_symbol': rating_symbol,
-                'rating_class': rating_class
-            })
-
-        return render_template('circuit_dashboard/_weather_widget.html', forecasts=forecasts)
+        return forecasts
 
     except Exception as e:
         current_app.logger.error(f"Weather API Error for {circuit_name}: {e}")
+        # 失敗時は直近の成功データ(あれば)を流用しつつ、短時間後に再試行する
+        stale = cached['forecasts'] if cached else None
+        _weather_cache[circuit_name] = {
+            'forecasts': stale,
+            'expires_at': now + timedelta(seconds=_WEATHER_NEGATIVE_CACHE_TTL_SECONDS),
+        }
+        return stale
+
+
+def _parse_weather_data(data):
+    """Open-Meteoのレスポンス(JSON)を、テンプレート描画用のforecastsリストに変換する。"""
+    # WMO天気コードの簡易変換マップ
+    wmo_codes = {
+        0: ('快晴', 'fa-sun', 'text-warning'),
+        1: ('晴れ', 'fa-sun', 'text-warning'),
+        2: ('曇り時々晴れ', 'fa-cloud-sun', 'text-warning'),
+        3: ('曇り', 'fa-cloud', 'text-secondary'),
+        45: ('霧', 'fa-smog', 'text-secondary'),
+        48: ('霧', 'fa-smog', 'text-secondary'),
+        51: ('小雨', 'fa-cloud-rain', 'text-info'),
+        53: ('雨', 'fa-cloud-rain', 'text-info'),
+        55: ('雨', 'fa-cloud-showers-heavy', 'text-primary'),
+        61: ('雨', 'fa-umbrella', 'text-primary'),
+        63: ('雨', 'fa-umbrella', 'text-primary'),
+        65: ('大雨', 'fa-umbrella', 'text-primary'),
+        80: ('にわか雨', 'fa-cloud-sun-rain', 'text-info'),
+        81: ('にわか雨', 'fa-cloud-sun-rain', 'text-info'),
+        82: ('激しい雨', 'fa-cloud-showers-heavy', 'text-primary'),
+    }
+    
+    # ▼▼▼【追加】雨天とみなすWMOコード一覧 ▼▼▼
+    # 51-57(霧雨), 61-67(雨), 71-77(雪), 80-82(しゅう雨), 85-86(雪しゅう雨), 95-99(雷雨)
+    BAD_WEATHER_CODES = [
+        51, 53, 55, 56, 57, 
+        61, 63, 65, 66, 67, 
+        71, 73, 75, 77, 
+        80, 81, 82, 
+        85, 86, 
+        95, 96, 99
+    ]
+
+    daily = data.get('daily', {})
+    forecasts = []
+    
+    dates = daily.get('time', [])
+    codes = daily.get('weather_code', [])
+    temps = daily.get('temperature_2m_max', [])
+    probs = daily.get('precipitation_probability_max', [])
+
+    # 直近5日分を表示
+    for i in range(min(5, len(dates))):
+        code = codes[i]
+        max_temp = float(temps[i])
+        
+        # アイコン情報の取得
+        weather_info = wmo_codes.get(code, ('不明', 'fa-cloud', 'text-muted'))
+        
+        dt = datetime.strptime(dates[i], '%Y-%m-%d')
+        is_weekend = dt.weekday() >= 5
+        
+        # ▼▼▼【追加】走行適性判定ロジック ▼▼▼
+        rating_symbol = ''
+        rating_class = ''
+        
+        if code in BAD_WEATHER_CODES:
+            rating_symbol = '☓'
+            rating_class = 'text-danger fw-bold' # 赤・太字
+        elif max_temp < 10.0:
+            rating_symbol = '△'
+            rating_class = 'text-info fw-bold' # 青・太字 (低温注意)
+        else:
+            # 雨でなく、10度以上
+            if code in [0, 1]: # 快晴・晴れ
+                rating_symbol = '◎'
+                rating_class = 'text-warning fw-bold' # ゴールド/オレンジっぽく (絶好)
+            elif code in [2, 3]: # 曇り
+                rating_symbol = '○'
+                rating_class = 'text-success fw-bold' # 緑 (良好)
+            else:
+                # それ以外（霧など）
+                rating_symbol = '△' 
+                rating_class = 'text-secondary'
+
+        forecasts.append({
+            'date': dt.strftime('%m/%d') + f" ({['月','火','水','木','金','土','日'][dt.weekday()]})",
+            'is_weekend': is_weekend,
+            'label': weather_info[0],
+            'icon': weather_info[1],
+            'color_class': weather_info[2],
+            'temp_max': max_temp,
+            'precip_prob': probs[i],
+            # 判定結果
+            'rating_symbol': rating_symbol,
+            'rating_class': rating_class
+        })
+
+    return forecasts
+
+
+@circuit_dashboard_bp.route('/weather/<path:circuit_name>')
+@login_required
+def get_circuit_weather(circuit_name):
+    """Open-Meteo APIから天気予報を取得してHTMLフラグメントを返す(キャッシュ経由)"""
+    metadata = CIRCUIT_METADATA.get(circuit_name)
+
+    if not metadata or 'lat' not in metadata or 'lng' not in metadata:
+        return '<div class="text-muted small">位置情報未定義</div>'
+
+    forecasts = _fetch_weather_forecasts(circuit_name, metadata)
+    if forecasts is None:
         return '<div class="text-muted small"><i class="fas fa-exclamation-triangle"></i> 天気取得失敗</div>'
+
+    return render_template('circuit_dashboard/_weather_widget.html', forecasts=forecasts)
 
 @circuit_dashboard_bp.route('/set-target/<path:circuit_name>', methods=['POST'])
 @login_required
