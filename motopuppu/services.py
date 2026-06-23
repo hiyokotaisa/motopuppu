@@ -819,10 +819,10 @@ def get_calendar_events_for_user(user, start_date=None, end_date=None):
             })
 
 
-    # 整備記録 (公道車のみ)
-    if user_motorcycle_ids_public:
+    # 整備記録 (全車両対象: レーサーの整備記録も含める)
+    if user_motorcycle_ids_all:
         maint_query = MaintenanceEntry.query.options(db.joinedload(MaintenanceEntry.motorcycle)).filter(
-            MaintenanceEntry.motorcycle_id.in_(user_motorcycle_ids_public),
+            MaintenanceEntry.motorcycle_id.in_(user_motorcycle_ids_all),
             MaintenanceEntry.category != '初期設定'
         )
         if start_date:
@@ -835,13 +835,22 @@ def get_calendar_events_for_user(user, start_date=None, end_date=None):
             event_title = f"🔧 整備: {event_title_base[:15]}" + ("..." if len(event_title_base) > 15 else "")
             total_cost = entry.total_cost
             edit_url = url_for('maintenance.edit_maintenance', entry_id=entry.id)
+            # レーサーは稼働時間(H)、公道車は総走行距離(km)を表示する
+            # operating_hours_at_maintenance は Decimal のため jsonify 用に float へ変換する
+            is_racer = bool(entry.motorcycle.is_racer)
+            if is_racer:
+                odo_value = float(entry.operating_hours_at_maintenance) if entry.operating_hours_at_maintenance is not None else None
+            else:
+                odo_value = entry.total_distance_at_maintenance
             events.append({
                 'id': f'maint-{entry.id}', 'title': event_title,
                 'start': entry.maintenance_date.isoformat(), 'allDay': True, 'url': edit_url,
                 'backgroundColor': '#ffc107', 'borderColor': '#ffc107', 'textColor': 'black',
                 'extendedProps': {
                     'type': 'maintenance', 'motorcycleName': entry.motorcycle.name,
-                    'odometer': entry.total_distance_at_maintenance, 'description': entry.description, 'category': entry.category,
+                    'isRacer': is_racer,
+                    'odometer': odo_value, 'odometerUnit': 'H' if is_racer else 'km',
+                    'description': entry.description, 'category': entry.category,
                     'totalCost': math.ceil(total_cost) if total_cost is not None else None,
                     'location': entry.location, 'notes': entry.notes, 'editUrl': edit_url
                 }
