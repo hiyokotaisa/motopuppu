@@ -276,6 +276,23 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    // --- 満タン給油でない場合は「平均から除外」を無効化 ---
+    // 平均除外は満タン記録（区間の境界）にのみ意味を持つため。
+    const fullTankCheck = document.getElementById('tutorial-full-tank-check');
+    const excludeCheck = document.getElementById('tutorial-exclude-check');
+    if (fullTankCheck && excludeCheck) {
+        const syncExcludeState = function () {
+            if (!fullTankCheck.checked) {
+                excludeCheck.checked = false;
+                excludeCheck.disabled = true;
+            } else {
+                excludeCheck.disabled = false;
+            }
+        };
+        fullTankCheck.addEventListener('change', syncExcludeState);
+        syncExcludeState();
+    }
+
     // --- レシート解析機能 ---
     const btnScan = document.getElementById('btn-scan-receipt');
     const fileInput = document.getElementById('receipt-upload-input');

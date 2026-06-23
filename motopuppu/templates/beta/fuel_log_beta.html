@@ -196,7 +196,7 @@
                             <div class="text-end">
                                 <span class="fw-bold beta-text-mono fs-5 beta-text-primary">
                                     {% set kpl = kpl_map.get(entry.id) if kpl_map is defined else entry.km_per_liter %}
-                                    {% if kpl %}{{ "%.2f"|format(kpl) }}{% else %}--.--{% endif %}
+                                    {% if kpl %}{{ "%.2f"|format(kpl) }}{% elif entry.exclude_from_average %}<span class="beta-badge beta-text-muted" data-bs-toggle="tooltip" title="平均燃費の計算から除外した記録です（区間燃費は表示しません）"><i class="bi bi-calculator me-1"></i>除外</span>{% else %}--.--{% endif %}
                                 </span>
                                 <span class="beta-text-muted small">km/L</span>
                             </div>
@@ -333,7 +333,7 @@
                             <td class="text-end beta-text-mono">{{ entry.total_cost|round|int if entry.total_cost else '-' }}</td>
                             <td class="text-end fw-bold beta-text-mono">
                                 {% set kpl = kpl_map.get(entry.id) if kpl_map is defined else entry.km_per_liter %}
-                                {% if kpl %}{{ "%.2f"|format(kpl) }}{% else %}-{% endif %}
+                                {% if kpl %}{{ "%.2f"|format(kpl) }}{% elif entry.exclude_from_average %}<span class="beta-badge beta-text-muted" data-bs-toggle="tooltip" title="平均燃費の計算から除外した記録です（区間燃費は表示しません）"><i class="bi bi-calculator me-1"></i>除外</span>{% else %}-{% endif %}
                             </td>
                             <td class="text-center text-nowrap">
                                 <a href="{{ url_for('fuel.edit_fuel', entry_id=entry.id) }}" class="beta-btn" style="font-size: 0.7rem; padding: 0.15rem 0.4rem;"><i class="fas fa-edit"></i></a>

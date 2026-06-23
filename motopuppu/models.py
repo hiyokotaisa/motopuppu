@@ -171,7 +171,12 @@ class FuelEntry(db.Model):
 
         if not self.is_full_tank:
             return None
-        
+
+        # 平均除外記録は区間燃費を表示しない（給油つけ忘れ等で異常値になりがちなため）。
+        # calculate_kpl_bulk と挙動を一致させ、一覧・ダッシュボード・CSVで整合させる。
+        if self.exclude_from_average:
+            return None
+
         prev_entry = FuelEntry.query.filter(
             FuelEntry.motorcycle_id == self.motorcycle_id,
             FuelEntry.total_distance < self.total_distance,

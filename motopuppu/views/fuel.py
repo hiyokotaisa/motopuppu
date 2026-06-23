@@ -118,7 +118,8 @@ def _process_fuel_csv_import(file_stream, motorcycle: Motorcycle):
                 is_full_tank_str = row_data.get('is_full_tank', 'true').strip().lower()
                 is_full_tank = is_full_tank_str in ['true', '1', 'yes', 'はい', 't']
                 exclude_str = row_data.get('exclude_from_average', 'false').strip().lower()
-                exclude_from_average = exclude_str in ['true', '1', 'yes', 'はい', 't']
+                # 平均除外は満タン記録にのみ意味を持つため、非満タンでは強制Falseにする
+                exclude_from_average = is_full_tank and (exclude_str in ['true', '1', 'yes', 'はい', 't'])
 
                 offset_at_entry_date = motorcycle.calculate_cumulative_offset_from_logs(target_date=entry_date)
                 total_distance = odometer_reading + offset_at_entry_date
@@ -168,6 +169,7 @@ def get_previous_fuel_entry(motorcycle_id, current_entry_date, current_entry_id=
 
 
 from ..utils.fuel_calculator import calculate_kpl_bulk
+from ..services import calculate_kpl_sums
 
 @fuel_bp.route('/search_gas_station')
 @limiter.limit("30 per minute")
@@ -298,21 +300,30 @@ def fuel_log():
     active_filters = {k: v for k, v in request.args.items() if k not in ['page', 'sort_by', 'order']}
 
     # --- 2. フィルタリングの適用 ---
+    start_date = None
+    end_date = None
     try:
         if start_date_str:
-            base_query = base_query.filter(FuelEntry.entry_date >= date.fromisoformat(start_date_str))
+            start_date = date.fromisoformat(start_date_str)
+            base_query = base_query.filter(FuelEntry.entry_date >= start_date)
         if end_date_str:
-            base_query = base_query.filter(FuelEntry.entry_date <= date.fromisoformat(end_date_str))
+            end_date = date.fromisoformat(end_date_str)
+            base_query = base_query.filter(FuelEntry.entry_date <= end_date)
     except ValueError:
+        start_date = None
+        end_date = None
         flash('日付の形式が無効です。YYYY-MM-DD形式で入力してください。', 'warning')
         active_filters.pop('start_date', None)
         active_filters.pop('end_date', None)
 
+    # 平均燃費の対象車両ID（フィルタと同じスコープ）。
+    avg_scope_ids = active_motorcycle_ids_for_fuel
     if vehicle_id_str:
         try:
             vehicle_id = int(vehicle_id_str)
             if vehicle_id in user_motorcycle_ids_for_fuel:
                 base_query = base_query.filter(FuelEntry.motorcycle_id == vehicle_id)
+                avg_scope_ids = [vehicle_id]
             else:
                 flash('選択された車両は給油記録の対象外か、有効ではありません。', 'warning')
                 active_filters.pop('vehicle_id', None)
@@ -363,45 +374,28 @@ def fuel_log():
     for e in all_filtered_entries:
         # km_per_literはモデルプロパティではなく、一括計算結果を使用
         kpl = kpl_map.get(e.id)
-        if kpl is not None:
+        # 推移チャートには平均除外記録は載せない（異常値でトレンドを歪めないため）
+        if kpl is not None and not e.exclude_from_average:
             chart_labels.append(e.entry_date.strftime('%Y/%m/%d'))
             chart_values.append(round(kpl, 2))
-    
+
     chart_data = {
         'labels': chart_labels,
         'data': chart_values
     }
 
     # 平均燃費の計算 (加重平均方式: 区間の総走行距離 ÷ 総消費燃料)
-    # services.py の calculate_average_kpl() と同じロジックを車両ごとに適用
+    # services.calculate_kpl_sums() を対象車両ごとに呼び、合計値を加重平均する。
+    # これにより calculate_average_kpl() と完全に同じ区間・期間判定になる
+    # （日付フィルタは「区間終了日が期間内か」で判定され、境界区間が欠落しない）。
     total_distance_for_avg = 0.0
     total_fuel_for_avg = 0.0
-
-    # 車両ごとにグループ化して処理（車両をまたいだ計算を防ぐ）
-    from collections import defaultdict
-    entries_by_vehicle = defaultdict(list)
-    for e in all_filtered_entries:
-        if not e.is_odo_pending:
-            entries_by_vehicle[e.motorcycle_id].append(e)
-
-    for m_id, vehicle_entries in entries_by_vehicle.items():
-        vehicle_entries_sorted = sorted(vehicle_entries, key=lambda x: x.total_distance)
-        last_full_entry_for_avg = None
-        accumulated_fuel_for_avg = 0.0
-
-        for e in vehicle_entries_sorted:
-            # 燃料は除外フラグに関係なく常に加算
-            accumulated_fuel_for_avg += e.fuel_volume
-            if e.is_full_tank:
-                if last_full_entry_for_avg is not None:
-                    # 区間を平均に含めるかは、終了記録の除外フラグのみで判定
-                    if not e.exclude_from_average:
-                        dist_diff = e.total_distance - last_full_entry_for_avg.total_distance
-                        if dist_diff > 0 and accumulated_fuel_for_avg > 0:
-                            total_distance_for_avg += dist_diff
-                            total_fuel_for_avg += accumulated_fuel_for_avg
-                last_full_entry_for_avg = e
-                accumulated_fuel_for_avg = 0.0
+    for m in user_motorcycles_for_fuel:
+        if m.id not in avg_scope_ids:
+            continue
+        dist_sum, fuel_sum = calculate_kpl_sums(m, start_date, end_date)
+        total_distance_for_avg += dist_sum
+        total_fuel_for_avg += fuel_sum
 
     calculated_efficiency = 0
     if total_fuel_for_avg > 0 and total_distance_for_avg > 0:
@@ -535,7 +529,9 @@ def add_fuel():
             total_cost=total_cost_val, station_name=form.station_name.data.strip() if form.station_name.data else None,
             fuel_type=form.fuel_type.data if form.fuel_type.data else None,
             notes=form.notes.data.strip() if form.notes.data else None, is_full_tank=form.is_full_tank.data,
-            exclude_from_average=form.exclude_from_average.data,
+            # 平均除外は区間の境界となる満タン記録にのみ意味を持つ。
+            # 非満タン記録では効果がないため、データ整合のため強制的にFalseにする。
+            exclude_from_average=(form.exclude_from_average.data and form.is_full_tank.data),
             is_odo_pending=form.is_odo_pending.data
         )
 
@@ -658,7 +654,8 @@ def edit_fuel(entry_id):
         entry.fuel_type = form.fuel_type.data if form.fuel_type.data else None
         entry.notes = form.notes.data.strip() if form.notes.data else None
         entry.is_full_tank = form.is_full_tank.data
-        entry.exclude_from_average = form.exclude_from_average.data
+        # 非満タン記録では平均除外は効果がないため強制的にFalseにする
+        entry.exclude_from_average = (form.exclude_from_average.data and form.is_full_tank.data)
         entry.is_odo_pending = form.is_odo_pending.data
 
         try:

@@ -152,6 +152,10 @@ def _calculate_kpl_from_simulated_data(target_entry_sim, all_entries_sim):
     if not target_entry_sim['is_full_tank']:
         return None
 
+    # 平均除外記録は区間燃費を表示しない（km_per_liter / calculate_kpl_bulk と一致）
+    if target_entry_sim.get('exclude_from_average'):
+        return None
+
     # target_entryより前の、満タン給油記録をシミュレーションデータから探す
     prev_entry_sim = None
     for entry_sim in sorted(all_entries_sim, key=lambda x: x['total_distance'], reverse=True):
@@ -225,7 +229,8 @@ def recalculate_total_distance_command(motorcycle_id, dry_run):
             'original_total_distance': entry.total_distance,
             'total_distance': new_total_distance, # これが新しい値
             'fuel_volume': entry.fuel_volume,
-            'is_full_tank': entry.is_full_tank
+            'is_full_tank': entry.is_full_tank,
+            'exclude_from_average': entry.exclude_from_average
         })
 
     # 3. シミュレーションデータを使って、修正後の燃費を計算

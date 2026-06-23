@@ -126,38 +126,35 @@ def get_latest_total_distance(motorcycle_id, offset_val):
     return max(latest_fuel_dist, latest_maint_dist, offset_val if offset_val is not None else 0)
 
 
-def calculate_average_kpl(motorcycle: Motorcycle, start_date=None, end_date=None):
-    """車両の平均燃費を計算する（加重平均方式: 総走行距離÷総消費燃料）。
-    
-    期間が指定されていれば、その期間内に終了した区間で計算する。
-    
+def calculate_kpl_sums(motorcycle: Motorcycle, start_date=None, end_date=None):
+    """車両の平均燃費の元になる「総走行距離」「総消費燃料」を算出して返す。
+
+    複数車両をまたいだ加重平均（総距離÷総燃料）を組み立てられるよう、比率ではなく
+    合計値の組 (total_distance_sum, total_fuel_sum) を返す。
+    calculate_average_kpl と fuel_log の平均表示はいずれもこの関数を共通利用する。
+
     除外フラグ (exclude_from_average) の仕様:
-    - 除外フラグは「その区間のkplを平均に含めるか」の判定にのみ使用する
+    - 除外フラグは「その区間を平均に含めるか」の判定にのみ使用する
     - 燃料データ自体は、他の記録の燃費計算に引き続き使用される（常に加算）
     - 満タン記録は除外フラグに関係なく、常に区間の境界として機能する
     - 区間を平均に含めるかは、区間の終了記録（今回の満タン記録）の除外フラグのみで判定
+
+    期間指定 (start_date/end_date) がある場合でも、前回満タンからの消費量を計算するため
+    全件取得し、区間の終了日が期間内の区間のみを合計に算入する。
     """
     if motorcycle.is_racer:
-        return None
+        return 0.0, 0.0
 
-    # 全エントリを一度に取得 (N+1対策)
-    # 期間指定がある場合でも、前回の満タン給油からの消費量を計算するために
-    # 過去の記録が必要なため、全件取得してPython側でフィルタリングする。
-    query = FuelEntry.query.filter(
+    entries = FuelEntry.query.filter(
         FuelEntry.motorcycle_id == motorcycle.id
-    ).order_by(FuelEntry.total_distance.asc())
-    
-    entries = query.all()
-    
-    if not entries:
-        return None
+    ).order_by(FuelEntry.total_distance.asc()).all()
 
     total_distance_sum = 0.0
     total_fuel_sum = 0.0
-    
+
     last_full_entry = None
     accumulated_fuel = 0.0
-    
+
     for entry in entries:
         # ODO保留中の記録は燃費計算対象外（total_distance=0で不正な区間が生まれるため）
         if entry.is_odo_pending:
@@ -166,7 +163,7 @@ def calculate_average_kpl(motorcycle: Motorcycle, start_date=None, end_date=None
         # 燃料は exclude_from_average に関係なく常に加算する。
         # 除外記録の給油量も、区間内で実際に消費されているため。
         accumulated_fuel += entry.fuel_volume
-             
+
         if entry.is_full_tank:
             if last_full_entry:
                 # 満タン〜満タンの区間が確定
@@ -176,19 +173,32 @@ def calculate_average_kpl(motorcycle: Motorcycle, start_date=None, end_date=None
                     is_within_period = False
                 if end_date and entry.entry_date > end_date:
                     is_within_period = False
-                
+
                 # 区間を平均に含めるかは、終了記録の除外フラグのみで判定する。
                 # 開始記録(last_full_entry)が除外でも、この区間自体は有効。
-                if not entry.exclude_from_average:
-                    if is_within_period:
-                        dist_diff = entry.total_distance - last_full_entry.total_distance
-                        if dist_diff > 0 and accumulated_fuel > 0:
-                            total_distance_sum += dist_diff
-                            total_fuel_sum += accumulated_fuel
+                if not entry.exclude_from_average and is_within_period:
+                    dist_diff = entry.total_distance - last_full_entry.total_distance
+                    if dist_diff > 0 and accumulated_fuel > 0:
+                        total_distance_sum += dist_diff
+                        total_fuel_sum += accumulated_fuel
 
             # 次の区間の開始点としてセット（除外フラグに関係なく常にセット）
             last_full_entry = entry
             accumulated_fuel = 0.0
+
+    return total_distance_sum, total_fuel_sum
+
+
+def calculate_average_kpl(motorcycle: Motorcycle, start_date=None, end_date=None):
+    """車両の平均燃費を計算する（加重平均方式: 総走行距離÷総消費燃料）。
+
+    期間が指定されていれば、その期間内に終了した区間で計算する。
+    実体は calculate_kpl_sums の合計値から比率を求めるだけ。
+    """
+    if motorcycle.is_racer:
+        return None
+
+    total_distance_sum, total_fuel_sum = calculate_kpl_sums(motorcycle, start_date, end_date)
 
     if total_fuel_sum > 0 and total_distance_sum > 0:
         try:

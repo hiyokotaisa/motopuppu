@@ -3,13 +3,18 @@ def calculate_kpl_bulk(entries):
     """
     FuelEntryのリスト(辞書またはオブジェクト)を受け取り、IDをキーとした燃費の辞書を返す。
     entriesは (id, motorcycle_id, total_distance, fuel_volume, is_full_tank) を持つ必要がある。
-    exclude_from_average 属性がある場合、除外記録のkplはNoneとする（ただし区間境界は維持）。
     entriesは motorcycle_id, total_distance でソートされていることを前提とする。
-    
+
+    区間燃費(kpl)の扱い:
+    - exclude_from_average の記録は kpl を None とする（区間境界としては機能を維持）。
+      除外記録は「給油つけ忘れ」等で区間燃費が異常値になりがちなため、画面に異常値を
+      表示しない。FuelEntry.km_per_liter プロパティと挙動を一致させる。
+    - 平均燃費(calculate_kpl_sums)も同じ区間を除外するため、表示と平均が整合する。
+
     Args:
         entries: FuelEntryオブジェクト、または同様の属性を持つオブジェクトのリスト。
                  motorcycle_id, total_distance の順で昇順ソートされている必要がある。
-    
+
     Returns:
         dict: { entry_id: kpl_value(float or None) }
     """
@@ -48,8 +53,9 @@ def calculate_kpl_bulk(entries):
             if last_full:
                 distance_diff = dist - last_full.total_distance
                 fuel_consumed = state['accumulated_fuel']
-                
-                # 除外フラグが付いている場合はkplをNoneにする
+
+                # 除外記録は区間燃費を表示しない（異常値表示の防止）。
+                # ただし下のリセットで区間境界としては機能させる。
                 if is_excluded:
                     kpl_map[e_id] = None
                 elif fuel_consumed > 0 and distance_diff > 0:

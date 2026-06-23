@@ -258,6 +258,9 @@
                                 {% set kpl = kpl_map.get(entry.id) if kpl_map is defined else entry.km_per_liter %}
                                 {% if kpl %}
                                 {{ "%.2f"|format(kpl) }}
+                                {% elif entry.exclude_from_average %}
+                                <span class="badge bg-light text-muted border fw-normal align-middle" style="font-size: 0.75rem;"
+                                    data-bs-toggle="tooltip" title="平均燃費の計算から除外した記録です（区間燃費は表示しません）"><i class="bi bi-calculator me-1"></i>除外</span>
                                 {% else %}
                                 --.--
                                 {% endif %}
@@ -423,10 +426,9 @@
                         {% set kpl = kpl_map.get(entry.id) if kpl_map is defined else entry.km_per_liter %}
                         {% if kpl %}
                         {{ "%.2f"|format(kpl) }}
-                        {% if entry.exclude_from_average %}
-                        <i class="bi bi-calculator ms-1 text-muted" data-bs-toggle="tooltip"
-                            title="平均燃費の計算から除外されています"></i>
-                        {% endif %}
+                        {% elif entry.exclude_from_average %}
+                        <span class="badge bg-light text-muted border fw-normal" data-bs-toggle="tooltip"
+                            title="平均燃費の計算から除外した記録です（区間燃費は表示しません）"><i class="bi bi-calculator me-1"></i>除外</span>
                         {% else %}
                         -
                         {% endif %}
