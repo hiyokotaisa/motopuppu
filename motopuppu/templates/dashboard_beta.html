@@ -457,6 +457,24 @@ document.addEventListener('DOMContentLoaded', function () {
         endEditingMode();
     });
 
+    // --- タイムライン フィルタ (給油/整備/すべて 切り替え) ---
+    document.addEventListener('click', function (e) {
+        const filterBtn = e.target.closest('#timeline-filter-buttons button');
+        if (filterBtn) {
+            const filter = filterBtn.dataset.filter;
+            const buttonsContainer = filterBtn.closest('#timeline-filter-buttons');
+            buttonsContainer.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
+            filterBtn.classList.add('active');
+            document.querySelectorAll('.timeline-item').forEach(item => {
+                if (filter === 'all' || item.dataset.eventType === filter) {
+                    item.style.display = '';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        }
+    });
+
     // --- Timeline Modal ---
     const timelineDetailModal = document.getElementById('timelineDetailModal');
     if (timelineDetailModal) {
