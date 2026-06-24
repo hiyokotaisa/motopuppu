@@ -414,6 +414,7 @@ def post_leaderboard_records(dry_run=False, hours_back=25):
             ActivityLog.motorcycle_id,
             ActivityLog.activity_date,
             SessionLog.best_lap_seconds,
+            SessionLog.allow_misskey_post,
             func.row_number().over(
                 partition_by=(ActivityLog.user_id, ActivityLog.motorcycle_id),
                 order_by=SessionLog.best_lap_seconds.asc()
@@ -431,6 +432,7 @@ def post_leaderboard_records(dry_run=False, hours_back=25):
             subquery.c.motorcycle_id,
             subquery.c.activity_date,
             subquery.c.best_lap_seconds,
+            subquery.c.allow_misskey_post,
         ).filter(
             subquery.c.rn == 1
         ).order_by(
@@ -440,6 +442,12 @@ def post_leaderboard_records(dry_run=False, hours_back=25):
         for rank, entry in enumerate(leaderboard_entries, 1):
             session_id = entry.session_id
             notification_type = f'leaderboard_record_{session_id}'
+
+            # ユーザーがこのセッションのMisskey投稿を許可していない場合は投稿のみスキップ
+            # （順位計算には含めたままにするため、ここでの除外は投稿だけに留める）
+            if not entry.allow_misskey_post:
+                skipped_count += 1
+                continue
 
             # 既に通知済みか確認
             existing = BotNotificationLog.query.filter_by(

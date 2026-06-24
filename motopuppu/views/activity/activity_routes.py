@@ -494,6 +494,8 @@ def detail_activity(activity_id):
     if request.method == 'GET':
         next_session_number = len(sessions) + 1
         session_form.session_name.data = f"Session {next_session_number}"
+        # ユーザーの既定設定に応じてMisskey投稿許可の初期チェック状態を決める
+        session_form.allow_misskey_post.data = not current_user.disallow_misskey_post_by_default
 
     setting_sheets = SettingSheet.query.filter_by(motorcycle_id=motorcycle.id, is_archived=False).order_by(SettingSheet.sheet_name).all()
     session_form.setting_sheet_id.choices = [(s.id, s.sheet_name) for s in setting_sheets]
@@ -508,7 +510,8 @@ def detail_activity(activity_id):
             setting_sheet_id=session_form.setting_sheet_id.data if session_form.setting_sheet_id.data != 0 else None,
             rider_feel=session_form.rider_feel.data,
             lap_times=lap_times_list,
-            include_in_leaderboard=session_form.include_in_leaderboard.data
+            include_in_leaderboard=session_form.include_in_leaderboard.data,
+            allow_misskey_post=session_form.allow_misskey_post.data
         )
 
         _calculate_and_set_best_lap(new_session, lap_times_list)

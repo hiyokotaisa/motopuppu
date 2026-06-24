@@ -27,6 +27,7 @@ def settings():
         current_user.display_name = profile_form.display_name.data
         current_user.nyanpuppu_simple_mode = profile_form.nyanpuppu_simple_mode.data
         current_user.use_lite_dashboard = profile_form.use_lite_dashboard.data
+        current_user.disallow_misskey_post_by_default = profile_form.disallow_misskey_post_by_default.data
         try:
             db.session.commit()
             flash('プロフィール情報を更新しました。', 'success')
@@ -80,6 +81,7 @@ def settings():
         profile_form.display_name.data = current_user.display_name or current_user.misskey_username
         profile_form.nyanpuppu_simple_mode.data = current_user.nyanpuppu_simple_mode
         profile_form.use_lite_dashboard.data = current_user.use_lite_dashboard
+        profile_form.disallow_misskey_post_by_default.data = current_user.disallow_misskey_post_by_default
         # ▲▲▲【変更はここまで】▲▲▲
 
     template_name = 'beta/profile_settings_beta.html' if current_user.use_beta_ui else 'profile/settings.html'

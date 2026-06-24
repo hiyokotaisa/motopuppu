@@ -453,6 +453,10 @@
                             {{ session_form.include_in_leaderboard(class="form-check-input") }}
                             {{ session_form.include_in_leaderboard.label(class="form-check-label") }}
                         </div>
+                        <div class="form-check">
+                            {{ session_form.allow_misskey_post(class="form-check-input") }}
+                            {{ session_form.allow_misskey_post.label(class="form-check-label") }}
+                        </div>
                     </div>
 
                     {{ session_form.submit(class="btn btn-primary") }}

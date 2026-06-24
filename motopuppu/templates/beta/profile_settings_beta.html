@@ -82,6 +82,15 @@
                                 {% endif %}
                             </div>
 
+                            {# Misskey自動投稿の既定設定 #}
+                            <div class="form-check form-switch mb-4">
+                                {{ profile_form.disallow_misskey_post_by_default(class="form-check-input") }}
+                                {{ profile_form.disallow_misskey_post_by_default.label(class="form-check-label beta-text-secondary") }}
+                                {% if profile_form.disallow_misskey_post_by_default.description %}
+                                <div class="form-text small beta-text-muted ms-1">{{ profile_form.disallow_misskey_post_by_default.description }}</div>
+                                {% endif %}
+                            </div>
+
                             {{ profile_form.submit_profile(class="beta-btn beta-btn-solid") }}
                         </form>
                     </div>

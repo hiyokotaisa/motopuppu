@@ -61,6 +61,14 @@
                     <div class="form-text small text-muted ms-1">{{ profile_form.use_lite_dashboard.description }}</div>
                     {% endif %}
                 </div>
+
+                <div class="form-check form-switch mb-4">
+                    {{ profile_form.disallow_misskey_post_by_default(class="form-check-input") }}
+                    {{ profile_form.disallow_misskey_post_by_default.label(class="form-check-label") }}
+                    {% if profile_form.disallow_misskey_post_by_default.description %}
+                    <div class="form-text small text-muted ms-1">{{ profile_form.disallow_misskey_post_by_default.description }}</div>
+                    {% endif %}
+                </div>
                 {# ▲▲▲【追記はここまで】▲▲▲ #}
 
                 {{ profile_form.submit_profile(class="btn btn-primary mt-3") }}

@@ -32,6 +32,7 @@ class User(UserMixin, db.Model):
     nyanpuppu_simple_mode = db.Column(db.Boolean, nullable=False, default=False, server_default='false', comment="にゃんぷっぷーの知能を取り上げるか")
     use_lite_dashboard = db.Column(db.Boolean, nullable=False, default=False, server_default='false', comment="ログイン時に軽量ダッシュボードを表示するか")
     use_beta_ui = db.Column(db.Boolean, nullable=False, default=False, server_default='false', comment="Beta UI（ダークテーマ）を使用するか")
+    disallow_misskey_post_by_default = db.Column(db.Boolean, nullable=False, default=False, server_default='false', comment="新規セッション記録のMisskey自動投稿を既定で許可しないか")
 
     encrypted_misskey_api_token = db.Column(db.Text, nullable=True, comment="暗号化されたMisskey APIトークン")
 
@@ -409,6 +410,7 @@ class SessionLog(db.Model):
     session_distance = db.Column(db.Integer, nullable=True)
     best_lap_seconds = db.Column(db.Numeric(8, 3), nullable=True, index=True, comment="このセッションでのベストラップ（秒）")
     include_in_leaderboard = db.Column(db.Boolean, nullable=False, default=True, server_default='true', comment="この記録をリーダーボードに掲載するか")
+    allow_misskey_post = db.Column(db.Boolean, nullable=False, default=True, server_default='true', comment="このセッションのベストラップをMisskey botが自動投稿してよいか")
     public_share_token = db.Column(db.String(36), unique=True, nullable=True, index=True, comment="外部共有用の一意なトークン (UUID)")
     is_public = db.Column(db.Boolean, nullable=False, default=False, server_default='false', comment="このセッションを外部共有するか")
     setting_sheet = db.relationship('SettingSheet', backref='sessions')

@@ -485,6 +485,10 @@ class ProfileForm(FlaskForm):
         '軽量ダッシュボードを優先する',
         description='ONにすると、ログイン時やホーム画面で簡易版のダッシュボードが表示されます（通信量の節約や高速化に有効です）。'
     )
+    disallow_misskey_post_by_default = BooleanField(
+        'Misskeyへの自動投稿を既定で許可しない',
+        description='ONにすると、新しく走行記録（セッション）を作成する際に「Misskey投稿を許可する」が既定でオフになります。既存の記録には影響しません。'
+    )
 
     submit_profile = SubmitField('更新する')
 
@@ -682,7 +686,12 @@ class SessionLogForm(FlaskForm):
         'このセッションの記録をリーダーボードに掲載することを許可する',
         default=True
     )
-    
+
+    allow_misskey_post = BooleanField(
+        'もとぷっぷーbotによるMisskeyへの自動投稿を許可する',
+        default=True
+    )
+
     submit = SubmitField('セッションを記録')
 
 class TouringLogForm(FlaskForm):

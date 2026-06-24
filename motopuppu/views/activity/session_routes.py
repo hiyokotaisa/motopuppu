@@ -460,6 +460,7 @@ def edit_session(session_id):
         _calculate_and_set_best_lap(session, lap_times_list)
         
         session.include_in_leaderboard = form.include_in_leaderboard.data
+        session.allow_misskey_post = form.allow_misskey_post.data
 
         if motorcycle.is_racer:
             new_duration = form.session_duration_hours.data
