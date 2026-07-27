@@ -112,7 +112,7 @@
                 <button type="button" class="btn btn-sm btn-outline-danger" title="削除"
                         data-bs-toggle="modal"
                         data-bs-target="#deleteEventModal"
-                        data-bs-event-id="{{ event.id }}"
+                        data-bs-delete-url="{{ url_for('event.delete_event', event_id=event.id) }}"
                         data-bs-event-title="{{ event.title }}">
                     <i class="fas fa-trash-alt"></i>
                 </button>
@@ -178,15 +178,14 @@ document.addEventListener('DOMContentLoaded', function () {
     if (deleteModal) {
         deleteModal.addEventListener('show.bs.modal', function (event) {
             const button = event.relatedTarget;
-            const eventId = button.getAttribute('data-bs-event-id');
-            const eventTitle = button.getAttribute('data-bs-event-title');
+            if (!button) return;
 
             const modalTitle = deleteModal.querySelector('#modalEventTitle');
             const deleteForm = deleteModal.querySelector('#deleteForm');
 
-            modalTitle.textContent = eventTitle;
+            modalTitle.textContent = button.getAttribute('data-bs-event-title');
             // フォームのaction属性を動的に設定
-            deleteForm.action = `/event/${eventId}/delete`;
+            deleteForm.action = button.getAttribute('data-bs-delete-url');
         });
     }
 });

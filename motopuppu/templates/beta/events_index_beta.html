@@ -240,7 +240,7 @@
                                             title="削除"
                                             data-bs-toggle="modal"
                                             data-bs-target="#deleteEventModal"
-                                            data-bs-event-id="{{ event.id }}"
+                                            data-bs-delete-url="{{ url_for('event.delete_event', event_id=event.id) }}"
                                             data-bs-event-title="{{ event.title }}">
                                         <i class="fas fa-trash-alt"></i>
                                     </button>
@@ -341,32 +341,38 @@
         </div>
         {% endif %}
 
-        {# 削除確認モーダル (主催イベント用) #}
-        <div class="modal fade" id="deleteEventModal" tabindex="-1" aria-labelledby="deleteEventModalLabel" aria-hidden="true">
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="deleteEventModalLabel">イベントの削除</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body">
-                        <p>イベント「<strong id="modalEventTitle"></strong>」を本当に削除しますか？</p>
-                        <p class="text-danger">この操作は取り消せません。参加者情報や集金記録もすべて削除されます。</p>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
-                        <form id="deleteForm" method="POST">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" class="btn btn-danger">削除を実行</button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        </div>
-
     </main>
 
     {% include 'beta/_beta_bottombar.html' %}
+</div>
+{% endblock %}
+
+{% block modals %}
+{{ super() }}
+{# 削除確認モーダル (主催イベント用)
+   - beta-dashboard-wrapperの外に配置（スタッキングコンテキスト問題回避）
+     wrapperは position:relative + z-index:1 でスタッキングコンテキストを作るため、
+     この中に置くとbody直下にappendされる .modal-backdrop の下に沈んで操作不能になる #}
+<div class="modal fade" id="deleteEventModal" tabindex="-1" aria-labelledby="deleteEventModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteEventModalLabel">イベントの削除</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>イベント「<strong id="modalEventTitle"></strong>」を本当に削除しますか？</p>
+                <p class="text-danger">この操作は取り消せません。参加者情報や集金記録もすべて削除されます。</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                <form id="deleteForm" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-danger">削除を実行</button>
+                </form>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}
 
@@ -396,14 +402,13 @@ document.addEventListener('DOMContentLoaded', function () {
     if (deleteModal) {
         deleteModal.addEventListener('show.bs.modal', function (event) {
             const button = event.relatedTarget;
-            const eventId = button.getAttribute('data-bs-event-id');
-            const eventTitle = button.getAttribute('data-bs-event-title');
+            if (!button) return;
 
             const modalTitle = deleteModal.querySelector('#modalEventTitle');
             const deleteForm = deleteModal.querySelector('#deleteForm');
 
-            modalTitle.textContent = eventTitle;
-            deleteForm.action = `/event/${eventId}/delete`;
+            modalTitle.textContent = button.getAttribute('data-bs-event-title');
+            deleteForm.action = button.getAttribute('data-bs-delete-url');
         });
     }
 });
