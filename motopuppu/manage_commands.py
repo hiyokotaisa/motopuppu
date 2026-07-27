@@ -783,13 +783,24 @@ def post_leaderboard_records_command(dry_run):
         raise SystemExit(1)
 
 
+@click.command('post-event-reminders')
+@with_appcontext
+@click.option('--dry-run', is_flag=True, help='実際には投稿せず、投稿内容をプレビューします。')
+def post_event_reminders_command(dry_run):
+    """明日開催イベントの参加者へMisskey公式アカウントから前日リマインド（ダイレクト投稿）を送ります。"""
+    from .misskey_bot import post_event_day_before_reminders
+    result = post_event_day_before_reminders(dry_run=dry_run)
+    if result.get('error'):
+        raise SystemExit(1)
+
+
 @click.command('post-misskey-bot')
 @with_appcontext
 @click.option('--dry-run', is_flag=True, help='実際には投稿せず、投稿内容をプレビューします。')
 def post_misskey_bot_command(dry_run):
-    """Misskey Bot の全自動投稿を実行します（イベント告知 + リーダーボード通知）。
+    """Misskey Bot の全自動投稿を実行します（イベント告知 + リーダーボード通知 + 前日リマインド）。
     Render Cron Job からはこのコマンドを使用してください。"""
-    from .misskey_bot import post_upcoming_events, post_leaderboard_records
+    from .misskey_bot import post_upcoming_events, post_leaderboard_records, post_event_day_before_reminders
 
     click.echo('=== 1. イベント告知 ===')
     event_result = post_upcoming_events(dry_run=dry_run)
@@ -797,7 +808,10 @@ def post_misskey_bot_command(dry_run):
     click.echo('\n=== 2. リーダーボード新記録通知 ===')
     record_result = post_leaderboard_records(dry_run=dry_run)
 
-    if event_result.get('error') or record_result.get('error'):
+    click.echo('\n=== 3. イベント前日リマインド ===')
+    reminder_result = post_event_day_before_reminders(dry_run=dry_run)
+
+    if event_result.get('error') or record_result.get('error') or reminder_result.get('error'):
         raise SystemExit(1)
 
 
@@ -815,6 +829,7 @@ def register_commands(app):
     app.cli.add_command(merge_duplicate_achievements_command)
     app.cli.add_command(post_upcoming_events_command)
     app.cli.add_command(post_leaderboard_records_command)
+    app.cli.add_command(post_event_reminders_command)
     app.cli.add_command(post_misskey_bot_command)
     app.cli.add_command(set_admin_command)
     # ▲▲▲ 登録ここまで ▲▲▲

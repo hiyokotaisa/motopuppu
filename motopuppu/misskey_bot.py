@@ -66,9 +66,8 @@ def _get_best_tier_for_days(days_until_event):
     return best
 
 
-def _build_note_text(event, prefix, app_base_url):
-    """投稿文を生成する"""
-    # JST変換して表示用の日時文字列を作る
+def _format_event_datetime_jst(event):
+    """イベントの開始/終了日時をJSTの表示用文字列にして返す"""
     start_jst = event.start_datetime.replace(tzinfo=timezone.utc).astimezone(JST)
 
     # 曜日の日本語マッピング
@@ -86,6 +85,13 @@ def _build_note_text(event, prefix, app_base_url):
         else:
             end_weekday_str = weekday_names[end_jst.weekday()]
             date_str += f'〜{end_jst.strftime(f"%m/%d ({end_weekday_str}) %H:%M")}'
+
+    return date_str
+
+
+def _build_note_text(event, prefix, app_base_url):
+    """投稿文を生成する"""
+    date_str = _format_event_datetime_jst(event)
 
     # 参加者数をカウント
     attending_count = event.participants.filter_by(
@@ -127,13 +133,21 @@ def _build_note_text(event, prefix, app_base_url):
     return '\n'.join(lines)
 
 
-def _post_to_misskey(note_text, bot_token, misskey_instance_url):
-    """Misskey API notes/create でノートを投稿する"""
+def _post_to_misskey(note_text, bot_token, misskey_instance_url, visibility=None, visible_user_ids=None):
+    """Misskey API notes/create でノートを投稿する
+
+    visibility / visible_user_ids を指定すると限定公開ノート
+    (例: visibility='specified' でダイレクト投稿) になる。省略時は通常の公開投稿。
+    """
     api_url = f'{misskey_instance_url}/api/notes/create'
     payload = {
         'i': bot_token,
         'text': note_text,
     }
+    if visibility:
+        payload['visibility'] = visibility
+    if visible_user_ids:
+        payload['visibleUserIds'] = visible_user_ids
 
     response = requests.post(api_url, json=payload, timeout=15)
     response.raise_for_status()
@@ -539,6 +553,194 @@ def post_leaderboard_records(dry_run=False, hours_back=25):
 
     return {
         'circuits_checked': circuits_checked,
+        'posted': posted_count,
+        'skipped': skipped_count,
+        'errors': errors,
+    }
+
+
+# ============================================================
+# 3. イベント前日リマインド（参加者向けダイレクト投稿）
+# ============================================================
+
+def _build_reminder_note_text(event, mention_usernames, app_base_url):
+    """前日リマインドの投稿文を生成する"""
+    date_str = _format_event_datetime_jst(event)
+
+    lines = [
+        '🔔 明日開催のイベントのリマインドです！',
+        '',
+        f'📌 「{event.title}」',
+        f'📅 {date_str}',
+    ]
+
+    if event.location:
+        lines.append(f'📍 {event.location}')
+
+    if event.collection_enabled:
+        lines.append('💰 当日集金があります（金額はイベントページをご確認ください）')
+
+    lines.extend([
+        '',
+        ' '.join(f'@{name}' for name in mention_usernames),
+        '',
+        'イベントページはこちら👇',
+        f'{app_base_url}/event/public/{event.public_id}',
+    ])
+
+    return '\n'.join(lines)
+
+
+def post_event_day_before_reminders(dry_run=False):
+    """
+    明日(JST)開催のイベントについて、ユーザー連携済みの「参加」参加者へ
+    Misskey公式アカウントからダイレクト投稿 (visibility: specified) でリマインドを送る。
+
+    公開イベントの「明日開催」告知(1dayティア)が不特定多数向けの公開投稿なのに対し、
+    こちらは参加表明した本人にだけ届く通知。ダイレクト投稿のため公開タイムラインには
+    流れず、非公開イベント (is_public=False) も対象にできる。
+
+    Args:
+        dry_run: Trueの場合は実際に投稿せず、投稿予定の内容を表示のみ。
+
+    Returns:
+        dict: 処理結果のサマリー
+    """
+    bot_token = current_app.config.get('MISSKEY_BOT_API_TOKEN')
+    misskey_instance_url = current_app.config.get('MISSKEY_INSTANCE_URL', 'https://misskey.io')
+
+    if not bot_token and not dry_run:
+        current_app.logger.error('MISSKEY_BOT_API_TOKEN が設定されていません。')
+        print('エラー: MISSKEY_BOT_API_TOKEN が設定されていません。')
+        return {'error': 'MISSKEY_BOT_API_TOKEN not configured', 'posted': 0}
+
+    app_base_url = os.environ.get('RENDER_EXTERNAL_URL', 'https://motopuppu.hiyoko.dev').rstrip('/')
+    now_utc = datetime.now(timezone.utc)
+    now_jst = now_utc.astimezone(JST)
+
+    # UTC窓で粗く絞ってから、JST日付ベースで「明日開催」を厳密に判定する
+    cutoff_utc = now_utc + timedelta(days=2)
+    candidate_events = Event.query.filter(
+        Event.start_datetime >= now_utc,
+        Event.start_datetime <= cutoff_utc,
+    ).order_by(Event.start_datetime.asc()).all()
+
+    target_events = []
+    for event in candidate_events:
+        start_jst = event.start_datetime.replace(tzinfo=timezone.utc).astimezone(JST)
+        if (start_jst.date() - now_jst.date()).days == 1:
+            target_events.append(event)
+
+    if not target_events:
+        msg = '前日リマインド対象のイベントはありません。'
+        current_app.logger.info(msg)
+        print(msg)
+        return {'posted': 0, 'skipped': 0, 'events_checked': 0}
+
+    posted_count = 0
+    skipped_count = 0
+    errors = []
+
+    for event in target_events:
+        notification_key = f'event_reminder_{event.id}'
+
+        # 既に送信済みかチェック
+        existing = BotNotificationLog.query.filter_by(
+            notification_type=notification_key
+        ).first()
+
+        if existing:
+            skipped_count += 1
+            current_app.logger.debug(
+                f'スキップ: イベント「{event.title}」(ID:{event.id}) の前日リマインドは送信済み'
+            )
+            continue
+
+        # ユーザー連携済みの「参加」参加者を取得
+        linked_participants = event.participants.filter(
+            EventParticipant.user_id.isnot(None),
+            EventParticipant.status == ParticipationStatus.ATTENDING,
+        ).all()
+
+        # 同一ユーザーが複数の参加者名で登録されていても宛先は1回にする
+        seen_user_ids = set()
+        target_users = []
+        for participant in linked_participants:
+            user = participant.user
+            if (user and user.id not in seen_user_ids
+                    and user.misskey_username and user.misskey_user_id):
+                seen_user_ids.add(user.id)
+                target_users.append(user)
+
+        if not target_users:
+            skipped_count += 1
+            current_app.logger.debug(
+                f'スキップ: イベント「{event.title}」(ID:{event.id}) にユーザー連携済みの参加者がいない'
+            )
+            continue
+
+        mention_usernames = [u.misskey_username for u in target_users]
+        visible_user_ids = [u.misskey_user_id for u in target_users]
+        note_text = _build_reminder_note_text(event, mention_usernames, app_base_url)
+
+        if dry_run:
+            start_jst = event.start_datetime.replace(tzinfo=timezone.utc).astimezone(JST)
+            print(f'\n{"="*60}')
+            print(f'[DRY RUN] 前日リマインド: {event.title} (ID: {event.id})')
+            print(f'  開催日: {start_jst.strftime("%Y/%m/%d %H:%M")} JST')
+            print(f'  宛先: {", ".join("@" + name for name in mention_usernames)} ({len(mention_usernames)}名)')
+            print(f'{"—"*60}')
+            print(note_text)
+            print(f'{"="*60}')
+            posted_count += 1
+            continue
+
+        # 実際に送信
+        try:
+            note_id = _post_to_misskey(
+                note_text, bot_token, misskey_instance_url,
+                visibility='specified', visible_user_ids=visible_user_ids,
+            )
+
+            notification = BotNotificationLog(
+                event_id=event.id,
+                notification_type=notification_key,
+                misskey_note_id=note_id,
+            )
+            db.session.add(notification)
+            db.session.commit()
+
+            posted_count += 1
+            current_app.logger.info(
+                f'送信成功: イベント「{event.title}」(ID:{event.id}) 前日リマインド '
+                f'({len(target_users)}名宛) → Note ID: {note_id}'
+            )
+            print(f'✅ 送信成功: 「{event.title}」 前日リマインド ({len(target_users)}名宛)')
+
+        except requests.exceptions.RequestException as e:
+            db.session.rollback()
+            error_msg = f'Misskey API エラー: イベント「{event.title}」(ID:{event.id}) 前日リマインド - {e}'
+            current_app.logger.error(error_msg)
+            print(f'❌ {error_msg}')
+            errors.append(error_msg)
+
+        except Exception as e:
+            db.session.rollback()
+            error_msg = f'予期せぬエラー: イベント「{event.title}」(ID:{event.id}) 前日リマインド - {e}'
+            current_app.logger.error(error_msg, exc_info=True)
+            print(f'❌ {error_msg}')
+            errors.append(error_msg)
+
+    # サマリー表示
+    print(f'\n--- イベント前日リマインド 処理完了 ---')
+    print(f'  対象イベント数: {len(target_events)}')
+    print(f'  送信{"予定" if dry_run else "成功"}: {posted_count}件')
+    print(f'  スキップ: {skipped_count}件')
+    if errors:
+        print(f'  エラー: {len(errors)}件')
+
+    return {
+        'events_checked': len(target_events),
         'posted': posted_count,
         'skipped': skipped_count,
         'errors': errors,
