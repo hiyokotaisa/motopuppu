@@ -338,7 +338,10 @@ body.beta-ui-body .footer {
     display: flex;
     min-height: 100vh;
     position: relative;
-    z-index: 1;
+    /* z-index は付けないこと。スタッキングコンテキストを作ると、この中に置かれた
+       .modal (1060) が body 直下に append される .modal-backdrop (1055) の下に沈み、
+       モーダルが暗幕の裏に隠れてタップも一切効かなくなる。
+       重なり順の台帳: overlay 1035 < sidebar 1040 < bottombar 1050 < backdrop 1055 < modal 1060 */
 }
 
 /* --- Sidebar Navigation --- */
