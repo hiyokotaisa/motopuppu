@@ -18,17 +18,34 @@ from .utils.lap_time_utils import format_seconds_to_time
 # --- データ取得・計算ヘルパー ---
 
 # --- お知らせ用キャッシュ ---
+# gunicornのワーカー毎に独立するが、それでも外部リクエストは大幅に削減できる。
 _announcement_cache = {
-    'data': None,
-    'expires_at': None,
+    'data': None,        # 直近に取得成功したノートのリスト。一度も成功していない間は None
+    'expires_at': None,  # この時刻までは外部APIを叩かない(失敗時のネガティブキャッシュも含む)
 }
-_ANNOUNCEMENT_CACHE_TTL_SECONDS = 30 * 60  # 30分
+_ANNOUNCEMENT_CACHE_TTL_SECONDS = 30 * 60          # 成功時: 30分
+_ANNOUNCEMENT_NEGATIVE_CACHE_TTL_SECONDS = 5 * 60  # 失敗時: 5分のネガティブキャッシュ
+# お知らせは取得できなくても致命的ではないため、リクエストを長時間ブロックしないよう短めにする
+_ANNOUNCEMENT_REQUEST_TIMEOUT_SECONDS = 4
+
+
+def _cache_announcements(data, now, ttl_seconds):
+    """お知らせのキャッシュ内容と有効期限を更新する。"""
+    _announcement_cache['data'] = data
+    _announcement_cache['expires_at'] = now + timedelta(seconds=ttl_seconds)
+
 
 def get_announcements():
     """
     Misskey.io の @motopuppu 公式アカウントのノートを取得し、お知らせとして返す。
-    API呼び出しの負荷を減らすため、30分間のインメモリキャッシュを使用する。
-    
+
+    API呼び出しの負荷を減らすため、成功時は30分のインメモリキャッシュを使用する。
+    取得に失敗した場合は5分のネガティブキャッシュを行い、失敗の連打を防ぐ。
+    未ログインのトップページ(main.index)や /login_page からも呼ばれ、ヘルスチェックの
+    HEAD / もこの経路を通るため、失敗をキャッシュしないとリクエストのたびに
+    タイムアウト分ブロックし続けることになる。
+    直近に成功したデータがあれば失敗時もそれを流用する(stale-while-error)。
+
     :return: (announcements_for_modal, important_notice_content) のタプル。
              announcements_for_modal: モーダル表示用のノートリスト（新しい順）
              important_notice_content: None（廃止）
@@ -37,11 +54,11 @@ def get_announcements():
     from datetime import datetime, timezone
 
     # キャッシュが有効な場合はキャッシュから返す
+    # (ネガティブキャッシュも兼ねるため、dataがNoneでも期限内なら再取得しない)
     now = datetime.now(timezone.utc)
-    if (_announcement_cache['data'] is not None
-            and _announcement_cache['expires_at'] is not None
+    if (_announcement_cache['expires_at'] is not None
             and now < _announcement_cache['expires_at']):
-        return _announcement_cache['data'], None
+        return _announcement_cache['data'] or [], None
 
     announcements_for_modal = []
     misskey_instance_url = current_app.config.get('MISSKEY_INSTANCE_URL', 'https://misskey.io')
@@ -53,7 +70,7 @@ def get_announcements():
         user_resp = http_requests.post(
             user_show_url,
             json={'username': misskey_account_username},
-            timeout=10
+            timeout=_ANNOUNCEMENT_REQUEST_TIMEOUT_SECONDS
         )
         user_resp.raise_for_status()
         user_data = user_resp.json()
@@ -62,8 +79,7 @@ def get_announcements():
         if not user_id:
             current_app.logger.warning(
                 f"Could not find Misskey user ID for @{misskey_account_username}")
-            _announcement_cache['data'] = []
-            _announcement_cache['expires_at'] = now + timedelta(seconds=_ANNOUNCEMENT_CACHE_TTL_SECONDS)
+            _cache_announcements([], now, _ANNOUNCEMENT_CACHE_TTL_SECONDS)
             return [], None
 
         # 2. ユーザーのノートを取得（最新10件、リプライ・リノートを除外）
@@ -77,7 +93,7 @@ def get_announcements():
                 'includeMyRenotes': False,
                 'withRenotes': False,
             },
-            timeout=10
+            timeout=_ANNOUNCEMENT_REQUEST_TIMEOUT_SECONDS
         )
         notes_resp.raise_for_status()
         notes_data = notes_resp.json()
@@ -93,23 +109,27 @@ def get_announcements():
             })
 
         # キャッシュを更新
-        _announcement_cache['data'] = announcements_for_modal
-        _announcement_cache['expires_at'] = now + timedelta(seconds=_ANNOUNCEMENT_CACHE_TTL_SECONDS)
+        _cache_announcements(announcements_for_modal, now, _ANNOUNCEMENT_CACHE_TTL_SECONDS)
 
         current_app.logger.info(
             f"Fetched {len(announcements_for_modal)} notes from @{misskey_account_username}")
 
     except http_requests.exceptions.RequestException as e:
-        current_app.logger.error(
-            f"Failed to fetch Misskey notes for @{misskey_account_username}: {e}")
-        # エラー時はキャッシュが残っていればそれを使い、なければ空リスト
-        if _announcement_cache['data'] is not None:
-            return _announcement_cache['data'], None
+        # 失敗時は直近の成功データ(あれば)を流用しつつ、短時間後に再試行する。
+        # ネガティブキャッシュを張らないとリクエストの度に再試行してログが溢れる。
+        stale = _announcement_cache['data']
+        _cache_announcements(stale, now, _ANNOUNCEMENT_NEGATIVE_CACHE_TTL_SECONDS)
+        # 外部インスタンス側の一時的な不調で発生しうる想定内の失敗のためwarning止まりとする
+        current_app.logger.warning(
+            f"Failed to fetch Misskey notes for @{misskey_account_username}: {e} "
+            f"(retrying after {_ANNOUNCEMENT_NEGATIVE_CACHE_TTL_SECONDS}s)")
+        return stale or [], None
     except Exception as e:
+        stale = _announcement_cache['data']
+        _cache_announcements(stale, now, _ANNOUNCEMENT_NEGATIVE_CACHE_TTL_SECONDS)
         current_app.logger.error(
             f"Unexpected error fetching Misskey announcements: {e}", exc_info=True)
-        if _announcement_cache['data'] is not None:
-            return _announcement_cache['data'], None
+        return stale or [], None
 
     return announcements_for_modal, None
 
