@@ -681,39 +681,6 @@
                 </div>
             </div>
 
-            {# 目標設定モーダル #}
-            <div class="modal fade" id="targetTimeModal-{{ loop.index }}" tabindex="-1"
-                aria-labelledby="targetTimeModalLabel-{{ loop.index }}" aria-hidden="true">
-                <div class="modal-dialog modal-sm modal-dialog-centered">
-                    <div class="modal-content">
-                        <form method="POST"
-                            action="{{ url_for('circuit_dashboard.set_target_lap_time', circuit_name=circuit.name) }}">
-                            {{ circuit.form.hidden_tag() }}
-                            <div class="modal-header border-0 pb-0">
-                                <h6 class="modal-title fw-bold" id="targetTimeModalLabel-{{ loop.index }}">目標タイム設定</h6>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                            </div>
-                            <div class="modal-body">
-                                <p class="small beta-text-muted mb-2">{{ circuit.name }}</p>
-                                <div class="mb-3">
-                                    {{ circuit.form.target_time(class="form-control form-control-lg text-center fw-bold",
-                                    placeholder="1:23.456") }}
-                                    {% if circuit.form.target_time.errors %}
-                                    <div class="invalid-feedback d-block">
-                                        {% for error in circuit.form.target_time.errors %}{{ error }}{% endfor %}
-                                    </div>
-                                    {% endif %}
-                                </div>
-                            </div>
-                            <div class="modal-footer border-0 pt-0">
-                                <button type="button" class="beta-btn" data-bs-dismiss="modal">キャンセル</button>
-                                {{ circuit.form.submit(class="beta-btn beta-btn-solid px-4") }}
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            </div>
-
             {% endfor %}
         </div>
         {% else %}
@@ -736,33 +703,78 @@
         </div>
         {% endif %}
 
-        {# セッティングプレビュー用モーダル #}
-        <div class="modal fade" id="settingPreviewModal" tabindex="-1" aria-hidden="true">
-            <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title"><i class="fas fa-clipboard-list me-2"></i>Setting Preview</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body" id="settingPreviewModalBody">
-                        <div class="text-center py-5">
-                            <div class="spinner-border text-primary" role="status">
-                                <span class="visually-hidden">Loading...</span>
-                            </div>
+    </main>
+    {% include 'beta/_beta_bottombar.html' %}
+</div>
+{% endblock %}
+
+{% block modals %}
+{{ super() }}
+{# beta-dashboard-wrapperの外に配置（スタッキングコンテキスト問題回避）
+   wrapperは position:relative + z-index:1 でスタッキングコンテキストを作るため、
+   この中に置くとbody直下にappendされる .modal-backdrop の下に沈んで操作不能になる #}
+
+{# 目標設定モーダル
+   NOTE: idの loop.index は content ブロック側の circuit_data ループと同一順序の
+   イテレーションであることが前提。circuit_data はビュー側で name ソート済みの単一リストなので
+   順序は一致する。片方のループだけ並び順やフィルタを変えないこと。 #}
+{% for circuit in circuit_data %}
+<div class="modal fade" id="targetTimeModal-{{ loop.index }}" tabindex="-1"
+    aria-labelledby="targetTimeModalLabel-{{ loop.index }}" aria-hidden="true">
+    <div class="modal-dialog modal-sm modal-dialog-centered">
+        <div class="modal-content">
+            <form method="POST"
+                action="{{ url_for('circuit_dashboard.set_target_lap_time', circuit_name=circuit.name) }}">
+                {{ circuit.form.hidden_tag() }}
+                <div class="modal-header border-0 pb-0">
+                    <h6 class="modal-title fw-bold" id="targetTimeModalLabel-{{ loop.index }}">目標タイム設定</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="small beta-text-muted mb-2">{{ circuit.name }}</p>
+                    <div class="mb-3">
+                        {{ circuit.form.target_time(class="form-control form-control-lg text-center fw-bold",
+                        placeholder="1:23.456") }}
+                        {% if circuit.form.target_time.errors %}
+                        <div class="invalid-feedback d-block">
+                            {% for error in circuit.form.target_time.errors %}{{ error }}{% endfor %}
                         </div>
+                        {% endif %}
                     </div>
-                    <div class="modal-footer">
-                        <a href="#" id="settingPreviewEditLink" class="beta-btn beta-btn-solid">
-                            <i class="fas fa-edit me-1"></i> 編集する
-                        </a>
-                        <button type="button" class="beta-btn" data-bs-dismiss="modal">閉じる</button>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="beta-btn" data-bs-dismiss="modal">キャンセル</button>
+                    {{ circuit.form.submit(class="beta-btn beta-btn-solid px-4") }}
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+{# セッティングプレビュー用モーダル (JSが無条件に参照するためループ外・常に描画) #}
+<div class="modal fade" id="settingPreviewModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-clipboard-list me-2"></i>Setting Preview</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="settingPreviewModalBody">
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
                     </div>
                 </div>
             </div>
+            <div class="modal-footer">
+                <a href="#" id="settingPreviewEditLink" class="beta-btn beta-btn-solid">
+                    <i class="fas fa-edit me-1"></i> 編集する
+                </a>
+                <button type="button" class="beta-btn" data-bs-dismiss="modal">閉じる</button>
+            </div>
         </div>
-
-    </main>
-    {% include 'beta/_beta_bottombar.html' %}
+    </div>
 </div>
 {% endblock %}
 
@@ -859,28 +871,32 @@
         {% endfor %}
 
         // セッティングプレビューボタンの処理
-        const previewModal = new bootstrap.Modal(document.getElementById('settingPreviewModal'));
+        const previewModalEl = document.getElementById('settingPreviewModal');
         const modalBody = document.getElementById('settingPreviewModalBody');
         const editLink = document.getElementById('settingPreviewEditLink');
 
-        document.querySelectorAll('.preview-setting-btn').forEach(btn => {
-            btn.addEventListener('click', async (e) => {
-                e.preventDefault();
-                const settingId = btn.dataset.settingId;
-                modalBody.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></div>';
-                editLink.href = '/activity/settings/' + settingId + '/edit';
-                previewModal.show();
-                try {
-                    const response = await fetch('/activity/settings/' + settingId + '/preview');
-                    if (!response.ok) throw new Error('Network response was not ok');
-                    const html = await response.text();
-                    modalBody.innerHTML = html;
-                } catch (error) {
-                    console.error('Error fetching setting preview:', error);
-                    modalBody.innerHTML = '<div class="alert alert-danger"><i class="fas fa-exclamation-triangle me-2"></i>情報の取得に失敗しました。</div>';
-                }
+        if (previewModalEl && modalBody && editLink) {
+            const previewModal = new bootstrap.Modal(previewModalEl);
+
+            document.querySelectorAll('.preview-setting-btn').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    e.preventDefault();
+                    const settingId = btn.dataset.settingId;
+                    modalBody.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></div>';
+                    editLink.href = '/activity/settings/' + settingId + '/edit';
+                    previewModal.show();
+                    try {
+                        const response = await fetch('/activity/settings/' + settingId + '/preview');
+                        if (!response.ok) throw new Error('Network response was not ok');
+                        const html = await response.text();
+                        modalBody.innerHTML = html;
+                    } catch (error) {
+                        console.error('Error fetching setting preview:', error);
+                        modalBody.innerHTML = '<div class="alert alert-danger"><i class="fas fa-exclamation-triangle me-2"></i>情報の取得に失敗しました。</div>';
+                    }
+                });
             });
-        });
+        }
     });
 </script>
 {% endblock %}
