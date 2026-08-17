@@ -228,6 +228,11 @@ def activity_log():
 def list_activities(vehicle_id):
     """指定された車両の活動ログ一覧を表示する"""
     motorcycle = get_motorcycle_or_404(vehicle_id)
+
+    # Beta UIユーザーは走行ログ+ツーリングログの統合画面へ
+    if current_user.use_beta_ui:
+        return redirect(url_for('activity.activity_log', vehicle_id=motorcycle.id))
+
     page = request.args.get('page', 1, type=int)
     per_page = current_app.config.get('ACTIVITIES_PER_PAGE', 10)
     

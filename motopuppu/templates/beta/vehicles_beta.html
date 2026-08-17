@@ -159,7 +159,7 @@
 
                         {# ナビゲーションリンク #}
                         <div class="d-flex flex-wrap gap-2" style="{% if motorcycle.is_archived %}opacity: 0.6;{% endif %}">
-                            <a href="{{ url_for('activity.list_activities', vehicle_id=motorcycle.id) }}" class="beta-btn" style="font-size: 0.7rem;">
+                            <a href="{{ url_for('activity.activity_log', vehicle_id=motorcycle.id, log_type='activity') }}" class="beta-btn" style="font-size: 0.7rem;">
                                 <i class="fas fa-flag-checkered me-1"></i>走行 <span class="beta-badge beta-badge-teal ms-1">{{ motorcycle.activity_log_count }}</span>
                             </a>
                             <a href="{{ url_for('touring.list_logs', vehicle_id=motorcycle.id) }}" class="beta-btn" style="font-size: 0.7rem;">
@@ -275,7 +275,7 @@
 
                                 {# ナビゲーションリンク #}
                                 <div class="d-flex flex-wrap gap-2" style="opacity: 0.6;">
-                                    <a href="{{ url_for('activity.list_activities', vehicle_id=motorcycle.id) }}" class="beta-btn" style="font-size: 0.7rem;">
+                                    <a href="{{ url_for('activity.activity_log', vehicle_id=motorcycle.id, log_type='activity') }}" class="beta-btn" style="font-size: 0.7rem;">
                                         <i class="fas fa-flag-checkered me-1"></i>走行 <span class="beta-badge beta-badge-teal ms-1">{{ motorcycle.activity_log_count }}</span>
                                     </a>
                                     <a href="{{ url_for('maintenance.maintenance_log', motorcycle_id=motorcycle.id) }}" class="beta-btn" style="font-size: 0.7rem;">
