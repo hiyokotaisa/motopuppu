@@ -1,0 +1,215 @@
+{# motopuppu/templates/beta/reminder_form_beta.html #}
+{% extends "base.html" %}
+
+{% set page_title = "リマインダーの追加" if form_action == 'add' else "リマインダーの編集" %}
+{% block title %}{{ page_title }} ({{ motorcycle.name }}) - もとぷっぷー{% endblock %}
+
+{% block body_attributes %}beta-ui-body{% endblock %}
+
+{% block styles %}
+{{ super() }}
+{% include 'beta/_beta_layout_head.html' %}
+{% endblock %}
+
+{% block content %}
+<style>.beta-ui-body #main-content > .container { max-width: 100%; padding: 0; }</style>
+
+{% set beta_nav_active = 'reminder' %}
+<div class="beta-dashboard-wrapper">
+    <div class="beta-mobile-overlay" id="beta-mobile-overlay"></div>
+    {% include 'beta/_beta_sidebar.html' %}
+
+    <main class="beta-main-content">
+        {% set beta_topbar_title = page_title %}
+        {% set beta_topbar_subtitle = motorcycle.name %}
+        {% include 'beta/_beta_topbar.html' %}
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}{% for category, message in messages %}
+        <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show" role="alert" style="animation: betaFadeIn 0.3s ease;">
+            {{ message | safe }}<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}{% endif %}
+        {% endwith %}
+
+        <form method="POST" action="{{ url_for('reminder.add_reminder', vehicle_id=motorcycle.id) if form_action == 'add' else url_for('reminder.edit_reminder', reminder_id=reminder.id) }}"
+              style="max-width: 800px;">
+            {{ form.hidden_tag() }}
+
+            {# ================= 1. リマインダー設定 ================= #}
+            <div class="beta-widget-card mb-4">
+                <div class="beta-widget-header">
+                    <div class="beta-widget-header-left">
+                        <div class="beta-widget-icon" style="background: rgba(239, 68, 68, 0.15); color: var(--beta-accent-red);"><i class="fas fa-bell"></i></div>
+                        <span class="beta-widget-title">1. リマインダー設定</span>
+                    </div>
+                </div>
+                <div class="beta-widget-body" style="padding: 1.5rem;">
+
+                    {# リマインド内容 #}
+                    <div class="mb-3">
+                        <label for="{{ form.task_description.id }}" class="form-label beta-text-secondary">
+                            <i class="fas fa-tag me-2"></i>{{ form.task_description.label.text }}
+                            {% if form.task_description.flags.required %}<span style="color: var(--beta-accent-red);">*</span>{% endif %}
+                        </label>
+                        {{ form.task_description(class="form-control" + (" is-invalid" if form.task_description.errors else ""), **form.task_description.render_kw) }}
+
+                        <datalist id="maintenance-category-suggestions">
+                            {% for cat in category_suggestions %}
+                                <option value="{{ cat }}">
+                            {% endfor %}
+                        </datalist>
+
+                        {% if form.task_description.errors %}
+                            <div class="invalid-feedback">{% for error in form.task_description.errors %}<span>{{ error }}</span><br>{% endfor %}</div>
+                        {% else %}
+                            <div class="form-text beta-text-muted">リマインドしたい作業内容を入力してください。(例: エンジンオイル交換)</div>
+                        {% endif %}
+                    </div>
+
+                    {# 通知サイクル #}
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="{{ form.interval_km.id }}" class="form-label beta-text-secondary">
+                                <i class="fas fa-road me-2"></i>{{ form.interval_km.label.text }}
+                            </label>
+                            {{ form.interval_km(class="form-control" + (" is-invalid" if form.interval_km.errors else ""), min="1") }}
+                            {% if form.interval_km.errors %}
+                                <div class="invalid-feedback">{% for error in form.interval_km.errors %}<span>{{ error }}</span><br>{% endfor %}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label for="{{ form.interval_months.id }}" class="form-label beta-text-secondary">
+                                <i class="fas fa-calendar-alt me-2"></i>{{ form.interval_months.label.text }}
+                            </label>
+                            {{ form.interval_months(class="form-control" + (" is-invalid" if form.interval_months.errors else ""), min="1") }}
+                            {% if form.interval_months.errors %}
+                                <div class="invalid-feedback">{% for error in form.interval_months.errors %}<span>{{ error }}</span><br>{% endfor %}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-12">
+                            <p class="form-text beta-text-muted mb-0">距離または期間の少なくとも一方を設定してください。</p>
+                        </div>
+                    </div>
+
+                    <hr class="my-4" style="border-color: var(--beta-border);">
+
+                    {# 自動更新 #}
+                    <div class="form-check">
+                        {{ form.auto_update_from_category(class="form-check-input") }}
+                        <label for="{{ form.auto_update_from_category.id }}" class="form-check-label beta-text-secondary">
+                            {{ form.auto_update_from_category.label.text }}
+                        </label>
+                        <div class="form-text beta-text-muted mt-1">
+                            このオプションを有効にすると、整備記録を追加した際にカテゴリ名が一致した場合、このリマインダーの「最終実施記録」が自動で新しいものに更新されます。
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {# ================= 2. 最終実施記録 ================= #}
+            <div class="beta-widget-card mb-4">
+                <div class="beta-widget-header">
+                    <div class="beta-widget-header-left">
+                        <div class="beta-widget-icon" style="background: rgba(59, 130, 246, 0.15); color: var(--beta-accent-blue);"><i class="fas fa-history"></i></div>
+                        <span class="beta-widget-title">2. 最終実施記録 <span class="beta-badge ms-1" style="background: rgba(148, 163, 184, 0.2); color: var(--beta-text-muted);">任意</span></span>
+                    </div>
+                </div>
+                <div class="beta-widget-body" style="padding: 1.5rem;">
+                    <p class="beta-text-muted small">過去の整備ログと連携するか、日付と距離を手動で入力します。自動更新が有効な場合は、ここで手動で設定した連携も上書きされる可能性があります。</p>
+
+                    <div class="mb-3">
+                        <label for="maintenance-entry-select" class="form-label beta-text-secondary">
+                            <i class="fas fa-link me-2"></i>{{ form.maintenance_entry.label.text }}
+                        </label>
+                        {{ form.maintenance_entry(class="form-select" + (" is-invalid" if form.maintenance_entry.errors else ""), id="maintenance-entry-select") }}
+                        {% if form.maintenance_entry.errors %}
+                            <div class="invalid-feedback">{% for error in form.maintenance_entry.errors %}<span>{{ error }}</span><br>{% endfor %}</div>
+                        {% endif %}
+                    </div>
+
+                    <fieldset id="manual-input-fieldset">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label for="last-done-date" class="form-label beta-text-secondary">
+                                    <i class="fas fa-calendar-day me-2"></i>{{ form.last_done_date.label.text }}
+                                </label>
+                                {{ form.last_done_date(class="form-control" + (" is-invalid" if form.last_done_date.errors else ""), id="last-done-date") }}
+                                {% if form.last_done_date.errors %}
+                                    <div class="invalid-feedback">{% for error in form.last_done_date.errors %}<span>{{ error }}</span><br>{% endfor %}</div>
+                                {% endif %}
+                            </div>
+                            {% if not motorcycle.is_racer %}
+                            <div class="col-md-6">
+                                <label for="last-done-odo" class="form-label beta-text-secondary">
+                                    <i class="fas fa-tachometer-alt me-2"></i>{{ form.last_done_odo.label.text }}
+                                </label>
+                                {{ form.last_done_odo(class="form-control" + (" is-invalid" if form.last_done_odo.errors else ""), min="0", id="last-done-odo") }}
+                                {% if form.last_done_odo.errors %}
+                                    <div class="invalid-feedback">{% for error in form.last_done_odo.errors %}<span>{{ error }}</span><br>{% endfor %}</div>
+                                {% else %}
+                                    <div class="form-text beta-text-muted">メーターに表示されている数値を入力します。</div>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </fieldset>
+                </div>
+            </div>
+
+            {# ================= 送信 ================= #}
+            <div class="d-flex gap-2">
+                {{ form.submit(class="beta-btn beta-btn-solid", value=('登録する' if form_action == 'add' else '更新する')) }}
+                <a href="{{ url_for('reminder.list_reminders', vehicle_id=motorcycle.id) }}" class="beta-btn">
+                    <i class="fas fa-times me-1"></i> キャンセル
+                </a>
+            </div>
+        </form>
+
+    </main>
+    {% include 'beta/_beta_bottombar.html' %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+{% include 'beta/_beta_scripts.html' %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 必要なDOM要素を取得
+    const selectEl = document.getElementById('maintenance-entry-select');
+    const dateInput = document.getElementById('last-done-date');
+    const odoInput = document.getElementById('last-done-odo');
+    const fieldset = document.getElementById('manual-input-fieldset');
+
+    const maintenanceData = {
+        {% for entry in maintenance_entries_for_js %}
+            "{{ entry.id }}": {
+                "date": "{{ entry.maintenance_date.isoformat() if entry.maintenance_date else '' }}",
+                "odo": "{{ entry.odometer_reading_at_maintenance if entry.odometer_reading_at_maintenance is not none else '' }}"
+            },
+        {% endfor %}
+    };
+
+    function updateManualFields() {
+        const selectedId = selectEl.value;
+
+        if (selectedId && maintenanceData[selectedId]) {
+            const data = maintenanceData[selectedId];
+            dateInput.value = data.date;
+            if (odoInput) {
+                odoInput.value = data.odo;
+            }
+            fieldset.disabled = true;
+        } else {
+            fieldset.disabled = false;
+        }
+    }
+
+    if (selectEl && dateInput) {
+        selectEl.addEventListener('change', updateManualFields);
+        updateManualFields();
+    }
+});
+</script>
+{% endblock %}

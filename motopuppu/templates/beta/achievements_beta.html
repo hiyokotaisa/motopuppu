@@ -1,0 +1,184 @@
+{# motopuppu/templates/beta/achievements_beta.html #}
+{% extends "base.html" %}
+
+{% block title %}実績一覧 - もとぷっぷー{% endblock %}
+
+{% block body_attributes %}beta-ui-body{% endblock %}
+
+{% block styles %}
+{{ super() }}
+{% include 'beta/_beta_layout_head.html' %}
+{% endblock %}
+
+{% block content %}
+<style>.beta-ui-body #main-content > .container { max-width: 100%; padding: 0; }</style>
+
+<style>
+    .beta-ach-row {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 0.9rem 1.25rem;
+        border-bottom: 1px solid var(--beta-border);
+    }
+    .beta-ach-row:last-child { border-bottom: none; }
+    .beta-ach-row.is-locked { opacity: 0.45; }
+    .beta-ach-icon {
+        width: 48px;
+        flex: 0 0 48px;
+        text-align: center;
+        font-size: 1.6rem;
+    }
+    .beta-ach-body { flex: 1 1 auto; min-width: 0; }
+    @media (max-width: 575.98px) {
+        .beta-ach-row { padding: 0.75rem 1rem; gap: 0.75rem; }
+        .beta-ach-icon { width: 36px; flex: 0 0 36px; font-size: 1.25rem; }
+    }
+</style>
+
+{% set beta_nav_active = 'achievements' %}
+<div class="beta-dashboard-wrapper">
+    <div class="beta-mobile-overlay" id="beta-mobile-overlay"></div>
+    {% include 'beta/_beta_sidebar.html' %}
+
+    <main class="beta-main-content">
+        {% set beta_topbar_title = '実績一覧' %}
+        {% set beta_topbar_subtitle = 'もとぷっぷーの利用で解除できる実績の一覧' %}
+        {% include 'beta/_beta_topbar.html' %}
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}{% for category, message in messages %}
+        <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show" role="alert" style="animation: betaFadeIn 0.3s ease;">
+            {{ message | safe }}<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}{% endif %}
+        {% endwith %}
+
+        {% if categorized_achievements %}
+            {# --- 全体の解除状況サマリー --- #}
+            {% set ns = namespace(total=0, unlocked=0) %}
+            {% for category_name, achievements_in_category in categorized_achievements.items() %}
+                {% for ach in achievements_in_category %}
+                    {% set ns.total = ns.total + 1 %}
+                    {% if ach.is_unlocked %}{% set ns.unlocked = ns.unlocked + 1 %}{% endif %}
+                {% endfor %}
+            {% endfor %}
+
+            <div class="beta-stats-grid mb-4" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem;">
+                <div class="beta-stat-card" style="--stat-accent: var(--beta-accent-amber);">
+                    <div class="beta-stat-card-label">Unlocked</div>
+                    <div class="beta-stat-card-value">{{ ns.unlocked }}<span class="beta-stat-card-unit">/ {{ ns.total }}</span></div>
+                    <div class="beta-stat-card-icon amber"><i class="fas fa-trophy"></i></div>
+                </div>
+                <div class="beta-stat-card" style="--stat-accent: var(--beta-accent-emerald);">
+                    <div class="beta-stat-card-label">Progress</div>
+                    <div class="beta-stat-card-value">
+                        {{ "{:.0f}".format((ns.unlocked / ns.total * 100) if ns.total else 0) }}<span class="beta-stat-card-unit">%</span>
+                    </div>
+                    <div class="beta-stat-card-icon"><i class="fas fa-chart-pie"></i></div>
+                </div>
+                <div class="beta-stat-card" style="--stat-accent: var(--beta-accent-blue);">
+                    <div class="beta-stat-card-label">Categories</div>
+                    <div class="beta-stat-card-value">{{ categorized_achievements | length }}</div>
+                    <div class="beta-stat-card-icon"><i class="fas fa-layer-group"></i></div>
+                </div>
+            </div>
+
+            {# --- カテゴリ別の実績一覧 --- #}
+            {% for category_name, achievements_in_category in categorized_achievements.items() %}
+            {% set cat_unlocked = achievements_in_category | selectattr('is_unlocked') | list | length %}
+            <div class="beta-widget-card mb-4">
+                <div class="beta-widget-header">
+                    <div class="beta-widget-header-left">
+                        <div class="beta-widget-icon" style="background: rgba(245, 158, 11, 0.15); color: var(--beta-accent-amber);"><i class="fas fa-trophy"></i></div>
+                        <span class="beta-widget-title">{{ category_name }}</span>
+                    </div>
+                    <span class="beta-badge beta-badge-amber">{{ cat_unlocked }} / {{ achievements_in_category | length }}</span>
+                </div>
+                <div class="beta-widget-body" style="padding: 0;">
+                    {% for ach in achievements_in_category %}
+                    <div class="beta-ach-row {% if not ach.is_unlocked %}is-locked{% endif %}">
+                        <div class="beta-ach-icon">
+                            <i class="{{ ach.icon_class if ach.icon_class else 'fas fa-trophy' }}"
+                               style="color: {% if ach.is_unlocked %}var(--beta-accent-amber){% else %}var(--beta-text-muted){% endif %};"></i>
+                        </div>
+                        <div class="beta-ach-body">
+                            <h6 class="mb-1 fw-bold beta-text-primary">{{ ach.name }}</h6>
+                            <p class="mb-1 small beta-text-secondary {% if not ach.is_unlocked %}fst-italic{% endif %}">{{ ach.description }}</p>
+                            {% if ach.is_unlocked %}
+                                <span class="beta-badge" style="background: rgba(16, 185, 129, 0.15); color: var(--beta-accent-emerald); border: 1px solid rgba(16, 185, 129, 0.3);">
+                                    <i class="fas fa-check me-1"></i>解除日: {{ ach.unlocked_at | to_jst if ach.unlocked_at else '不明' }}
+                                </span>
+                            {% else %}
+                                <span class="beta-badge" style="background: rgba(148, 163, 184, 0.15); color: var(--beta-text-muted); border: 1px solid rgba(148, 163, 184, 0.3);">
+                                    <i class="fas fa-lock me-1"></i>未達成
+                                </span>
+                            {% endif %}
+                        </div>
+                        <div class="flex-shrink-0">
+                            {% if ach.is_unlocked and ach.share_text_template %}
+                            <button class="beta-btn btn-share-misskey-achievement"
+                                    data-achievement-name="{{ ach.name }}"
+                                    data-share-template="{{ ach.share_text_template }}"
+                                    title="この実績をMisskeyで共有">
+                                <i class="fa-solid fa-share-nodes fa-fw"></i>
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="text-center py-5 beta-text-muted">
+                <i class="fas fa-trophy fa-3x mb-3" style="opacity: 0.3;"></i>
+                <p class="mb-0">表示できる実績情報がありません。</p>
+            </div>
+        {% endif %}
+
+    </main>
+    {% include 'beta/_beta_bottombar.html' %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+{% include 'beta/_beta_scripts.html' %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.btn-share-misskey-achievement').forEach(button => {
+        button.addEventListener('click', function() {
+            const misskeyInstanceDomain = {{ misskey_instance_domain | tojson | safe }};
+            const achievementName = this.dataset.achievementName;
+            let shareTemplate = this.dataset.shareTemplate;
+
+            if (!achievementName || typeof shareTemplate === 'undefined') {
+                console.error("Achievement name or share template is missing from data attributes.");
+                alert("共有に必要な情報が取得できませんでした。");
+                return;
+            }
+
+            let shareText = shareTemplate.replace(/{achievement_name}/g, achievementName);
+
+            if (shareText) {
+                if (!misskeyInstanceDomain) {
+                    console.error("Misskey instance domain is not configured.");
+                    alert("Misskeyインスタンスのドメインが設定されていません。");
+                    return;
+                }
+                const shareUrl = 'https://' + misskeyInstanceDomain + '/share?text=' + encodeURIComponent(shareText);
+                try {
+                    window.open(shareUrl, '_blank', 'width=600,height=400,noopener,noreferrer');
+                } catch (e) {
+                    console.error("Error on window.open:", e);
+                    alert("共有ウィンドウを開く際にエラーが発生しました。URLを確認してください: " + shareUrl);
+                }
+            } else {
+                alert("共有する内容がありません。");
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

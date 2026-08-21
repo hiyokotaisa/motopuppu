@@ -52,8 +52,10 @@ def list_reminders(vehicle_id):
         else:
             active_reminders.append(r)
 
-    return render_template('reminder/list_reminders.html', 
-                           motorcycle=motorcycle, 
+    template_name = 'beta/reminder_list_beta.html' if current_user.use_beta_ui else 'reminder/list_reminders.html'
+
+    return render_template(template_name,
+                           motorcycle=motorcycle,
                            reminders=active_reminders,
                            inactive_reminders=inactive_reminders)
     # ▲▲▲【変更はここまで】▲▲▲
@@ -122,7 +124,9 @@ def add_reminder(vehicle_id):
     
     maintenance_entries_for_js = get_maintenance_entries()
     
-    return render_template('reminder/reminder_form.html',
+    template_name = 'beta/reminder_form_beta.html' if current_user.use_beta_ui else 'reminder/reminder_form.html'
+
+    return render_template(template_name,
                            form=form,
                            form_action='add',
                            motorcycle=motorcycle,
@@ -198,7 +202,9 @@ def edit_reminder(reminder_id):
 
     maintenance_entries_for_js = get_maintenance_entries()
 
-    return render_template('reminder/reminder_form.html',
+    template_name = 'beta/reminder_form_beta.html' if current_user.use_beta_ui else 'reminder/reminder_form.html'
+
+    return render_template(template_name,
                            form=form,
                            form_action='edit',
                            motorcycle=motorcycle,

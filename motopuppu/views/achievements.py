@@ -60,7 +60,9 @@ def index():
     # ロギングはデバッグ時に役立ちますが、本番では必要に応じて調整してください
     # current_app.logger.debug(f"User {current_user.id} achievements page data (categorized and sorted): {categorized_achievements_with_status}")
 
+    template_name = 'beta/achievements_beta.html' if current_user.use_beta_ui else 'achievements/unlocked_list.html'
+
     return render_template(
-        'achievements/unlocked_list.html',
+        template_name,
         categorized_achievements=categorized_achievements_with_status
     )

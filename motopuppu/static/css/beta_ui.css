@@ -2590,3 +2590,26 @@ body.beta-ui-body .modal-footer {
     border-top-color: var(--beta-border);
 }
 
+
+/* --- Progress bar (CSVインポートの進捗表示など) --- */
+body.beta-ui-body .progress {
+    background-color: rgba(148, 163, 184, 0.15);
+    border: 1px solid var(--beta-border);
+}
+
+/* --- details / summary (セッティング詳細の展開など) --- */
+body.beta-ui-body details > summary {
+    color: var(--beta-text-secondary);
+}
+
+body.beta-ui-body details > summary:hover {
+    color: var(--beta-text-primary);
+}
+
+/* --- Disabled state for beta buttons --- */
+body.beta-ui-body .beta-btn:disabled,
+body.beta-ui-body .beta-btn[disabled] {
+    opacity: 0.45;
+    cursor: not-allowed;
+    pointer-events: none;
+}

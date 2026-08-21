@@ -1,0 +1,210 @@
+{# motopuppu/templates/beta/reminder_list_beta.html #}
+{% extends "base.html" %}
+
+{% block title %}メンテナンスリマインダー ({{ motorcycle.name }}) - もとぷっぷー{% endblock %}
+
+{% block body_attributes %}beta-ui-body{% endblock %}
+
+{% block styles %}
+{{ super() }}
+{% include 'beta/_beta_layout_head.html' %}
+{% endblock %}
+
+{% block content %}
+<style>.beta-ui-body #main-content > .container { max-width: 100%; padding: 0; }</style>
+
+<style>
+    /* 折りたたみトグルのシェブロン */
+    .inactive-toggle-icon { transition: transform 0.2s ease; }
+    [aria-expanded="true"] .inactive-toggle-icon { transform: rotate(180deg); }
+</style>
+
+{% set beta_nav_active = 'reminder' %}
+<div class="beta-dashboard-wrapper">
+    <div class="beta-mobile-overlay" id="beta-mobile-overlay"></div>
+    {% include 'beta/_beta_sidebar.html' %}
+
+    <main class="beta-main-content">
+        {% set beta_topbar_title = 'メンテナンスリマインダー' %}
+        {% set beta_topbar_subtitle = motorcycle.name %}
+        {% include 'beta/_beta_topbar.html' %}
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}{% for category, message in messages %}
+        <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show" role="alert" style="animation: betaFadeIn 0.3s ease;">
+            {{ message | safe }}<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}{% endif %}
+        {% endwith %}
+
+        {# Quick Actions #}
+        <div class="beta-quick-actions mb-4">
+            <a href="{{ url_for('reminder.add_reminder', vehicle_id=motorcycle.id) }}" class="beta-quick-btn">
+                <i class="fas fa-plus me-1"></i> 新しいリマインダーを追加
+            </a>
+            <a href="{{ url_for('vehicle.dashboard', vehicle_id=motorcycle.id) }}" class="beta-btn">
+                <i class="fas fa-motorcycle me-1"></i> 車両ダッシュボード
+            </a>
+        </div>
+
+        {# Vehicle Switcher #}
+        {% if g.user_motorcycles | length > 1 %}
+        <div class="d-flex flex-wrap gap-2 mb-4">
+            {% for m in g.user_motorcycles %}
+            <a href="{{ url_for('reminder.list_reminders', vehicle_id=m.id) }}"
+               class="beta-btn {{ 'beta-btn-solid' if m.id == motorcycle.id }}">
+                <i class="fas fa-motorcycle me-1"></i> {{ m.name }}
+            </a>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {# --- アクティブなリマインダー --- #}
+        <div class="d-flex align-items-center mb-3">
+            <h6 class="mb-0 fw-bold beta-text-primary"><i class="fas fa-bell me-2" style="color: var(--beta-accent-red);"></i>アクティブなリマインダー</h6>
+            <span class="beta-badge beta-badge-red ms-2">{{ reminders | length }}</span>
+        </div>
+
+        {% if reminders %}
+        <div class="row row-cols-1 row-cols-md-2 g-4">
+            {% for reminder in reminders %}
+            <div class="col">
+                <div class="beta-widget-card h-100" style="border-top: 3px solid var(--beta-accent-red);">
+                    <div class="beta-widget-body" style="padding: 1rem;">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h6 class="fw-bold mb-0 beta-text-primary flex-grow-1 me-2">{{ reminder.task_description }}</h6>
+                            <div class="d-flex gap-1 flex-shrink-0">
+                                <a href="{{ url_for('reminder.edit_reminder', reminder_id=reminder.id) }}" class="beta-btn" style="font-size: 0.7rem; padding: 0.2rem 0.5rem;" title="編集">
+                                    <i class="fas fa-pen fa-fw"></i>
+                                </a>
+                                <form action="{{ url_for('reminder.delete_reminder', reminder_id=reminder.id) }}" method="POST" class="d-inline" onsubmit="return confirm('このリマインダーを削除してもよろしいですか？');">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                    <button type="submit" class="beta-btn" style="font-size: 0.7rem; padding: 0.2rem 0.5rem; color: var(--beta-accent-red);" title="削除">
+                                        <i class="fas fa-trash fa-fw"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+
+                        {# 通知間隔 #}
+                        <div class="d-flex flex-wrap gap-1 mb-3">
+                            {% if reminder.interval_km %}
+                            <span class="beta-badge beta-badge-blue"><i class="fas fa-road me-1"></i>{{ "{:,}".format(reminder.interval_km) }} km毎</span>
+                            {% endif %}
+                            {% if reminder.interval_months %}
+                            <span class="beta-badge beta-badge-teal"><i class="fas fa-calendar-alt me-1"></i>{{ reminder.interval_months }} ヶ月毎</span>
+                            {% endif %}
+                            {% if not reminder.interval_km and not reminder.interval_months %}
+                            <span class="beta-badge" style="background: rgba(148, 163, 184, 0.15); color: var(--beta-text-muted); border: 1px solid rgba(148, 163, 184, 0.3);">間隔未設定</span>
+                            {% endif %}
+                        </div>
+
+                        <hr style="border-color: var(--beta-border); margin: 0.5rem 0;">
+
+                        {# 最終実施記録 #}
+                        <div class="small">
+                            <div class="beta-text-muted fw-bold text-uppercase mb-1" style="font-size: 0.65rem;">最終実施記録</div>
+                            {% if reminder.last_maintenance_entry %}
+                                <div class="d-flex align-items-center flex-wrap gap-2">
+                                    <a href="{{ url_for('maintenance.edit_maintenance', entry_id=reminder.last_maintenance_entry.id) }}"
+                                       class="text-decoration-none fw-bold" style="color: var(--beta-accent-blue);" title="この整備記録を見る">
+                                        <i class="fas fa-link me-1"></i>{{ reminder.last_maintenance_entry.maintenance_date.strftime('%Y-%m-%d') }}
+                                    </a>
+                                    {% if not motorcycle.is_racer and reminder.last_maintenance_entry.odometer_reading_at_maintenance is not none %}
+                                    <span class="beta-text-secondary">{{ "{:,}".format(reminder.last_maintenance_entry.odometer_reading_at_maintenance) }} km</span>
+                                    {% endif %}
+                                    <span class="beta-badge beta-badge-blue">連携中</span>
+                                </div>
+                            {% elif reminder.last_done_date %}
+                                <div class="d-flex align-items-center flex-wrap gap-2">
+                                    <span class="fw-bold beta-text-primary"><i class="fas fa-pencil-alt me-1 beta-text-muted"></i>{{ reminder.last_done_date.strftime('%Y-%m-%d') }}</span>
+                                    {% if not motorcycle.is_racer and reminder.last_done_odo is not none %}
+                                    <span class="beta-text-secondary">{{ "{:,}".format(reminder.last_done_odo) }} km</span>
+                                    {% endif %}
+                                    <span class="beta-badge" style="background: rgba(148, 163, 184, 0.15); color: var(--beta-text-muted); border: 1px solid rgba(148, 163, 184, 0.3);">手動入力</span>
+                                </div>
+                            {% else %}
+                                <span class="beta-text-muted fst-italic">未設定</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-5 beta-text-muted beta-widget-card">
+            <div class="beta-widget-body">
+                <i class="fas fa-bell-slash fa-3x mb-3" style="opacity: 0.3;"></i>
+                <p class="mb-0">現在アクティブなリマインダーはありません。<br>「新しいリマインダーを追加」から作成しましょう。</p>
+            </div>
+        </div>
+        {% endif %}
+
+        {# --- 非表示のリマインダー (折りたたみ) --- #}
+        <div class="mt-5">
+            <button class="beta-btn w-100 d-flex justify-content-between align-items-center" type="button"
+                    data-bs-toggle="collapse" data-bs-target="#inactiveRemindersCollapse"
+                    aria-expanded="false" aria-controls="inactiveRemindersCollapse"
+                    style="padding: 0.75rem 1rem;">
+                <span>
+                    <i class="fas fa-eye-slash me-2"></i>非表示のリマインダー
+                    <span class="beta-badge ms-1" style="background: rgba(148, 163, 184, 0.2); color: var(--beta-text-muted);">{{ inactive_reminders | length }}</span>
+                </span>
+                <i class="fas fa-chevron-down inactive-toggle-icon"></i>
+            </button>
+            <div class="collapse mt-3" id="inactiveRemindersCollapse">
+                {% if inactive_reminders %}
+                <div class="row row-cols-1 row-cols-md-2 g-4">
+                    {% for item in inactive_reminders %}
+                    <div class="col">
+                        <div class="beta-widget-card h-100" style="opacity: 0.75;">
+                            <div class="beta-widget-body" style="padding: 1rem;">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <h6 class="fw-bold mb-0 beta-text-secondary flex-grow-1 me-2">{{ item.reminder.task_description }}</h6>
+                                    <div class="d-flex gap-1 flex-shrink-0">
+                                        <form action="{{ url_for('reminder.reactivate_reminder', reminder_id=item.reminder.id) }}" method="POST" class="d-inline">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                            <button type="submit" class="beta-btn" style="font-size: 0.7rem; padding: 0.2rem 0.5rem; color: var(--beta-accent-emerald);" title="再表示">
+                                                <i class="fas fa-eye fa-fw"></i>
+                                            </button>
+                                        </form>
+                                        <a href="{{ url_for('reminder.edit_reminder', reminder_id=item.reminder.id) }}" class="beta-btn" style="font-size: 0.7rem; padding: 0.2rem 0.5rem;" title="編集">
+                                            <i class="fas fa-pen fa-fw"></i>
+                                        </a>
+                                    </div>
+                                </div>
+                                <div>
+                                    {% if item.status == 'dismissed' %}
+                                        <span class="beta-badge" style="background: rgba(148, 163, 184, 0.15); color: var(--beta-text-muted); border: 1px solid rgba(148, 163, 184, 0.3);">
+                                            <i class="fas fa-ban me-1"></i>非表示に設定済み
+                                        </span>
+                                    {% elif item.status == 'snoozed' %}
+                                        <span class="beta-badge beta-badge-teal"><i class="fas fa-clock me-1"></i>スヌーズ中</span>
+                                        <small class="beta-text-muted ms-2">({{ item.snoozed_until_aware.astimezone(config.get('TZ')).strftime('%Y-%m-%d %H:%M') }} まで)</small>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-4 beta-text-muted beta-widget-card">
+                    <div class="beta-widget-body">
+                        <p class="mb-0 small">非表示に設定されたリマインダーはありません。</p>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+    </main>
+    {% include 'beta/_beta_bottombar.html' %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+{% include 'beta/_beta_scripts.html' %}
+{% endblock %}

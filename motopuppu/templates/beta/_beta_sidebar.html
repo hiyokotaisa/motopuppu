@@ -102,6 +102,11 @@
             <a href="{{ url_for('maintenance.maintenance_log') }}" class="beta-nav-item {{ 'active' if beta_nav_active == 'maintenance' }}">
                 <i class="fas fa-tools"></i> 整備記録
             </a>
+            {% if g.user_motorcycles|length > 0 %}
+            <a href="{{ url_for('reminder.list_reminders', vehicle_id=g.user_motorcycles[0].id) }}" class="beta-nav-item {{ 'active' if beta_nav_active == 'reminder' }}">
+                <i class="fas fa-bell"></i> リマインダー
+            </a>
+            {% endif %}
             <a href="{{ url_for('notes.notes_log') }}" class="beta-nav-item {{ 'active' if beta_nav_active == 'notes' }}">
                 <i class="fas fa-sticky-note"></i> ノート
             </a>

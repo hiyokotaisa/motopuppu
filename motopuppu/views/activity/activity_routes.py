@@ -337,7 +337,9 @@ def add_activity(vehicle_id):
             form.location_type.data = 'custom'
             form.custom_location.data = custom_location
 
-    return render_template('activity/activity_form.html',
+    template_name = 'beta/activity_form_beta.html' if current_user.use_beta_ui else 'activity/activity_form.html'
+
+    return render_template(template_name,
                            form=form,
                            motorcycle=motorcycle,
                            event_id=event_id,
@@ -391,7 +393,9 @@ def edit_activity(activity_id):
         form.circuit_name.data = activity.circuit_name
         form.custom_location.data = activity.custom_location
 
-    return render_template('activity/activity_form.html',
+    template_name = 'beta/activity_form_beta.html' if current_user.use_beta_ui else 'activity/activity_form.html'
+
+    return render_template(template_name,
                            form=form,
                            motorcycle=motorcycle,
                            activity=activity,
@@ -556,7 +560,9 @@ def detail_activity(activity_id):
             circuit_pb_seconds = float(pb_result)
     # ▲▲▲【追加】ここまで ▲▲▲
 
-    return render_template('activity/detail_activity.html',
+    template_name = 'beta/activity_detail_beta.html' if current_user.use_beta_ui else 'activity/detail_activity.html'
+
+    return render_template(template_name,
                            activity=activity,
                            sessions=sessions,
                            motorcycle=motorcycle,

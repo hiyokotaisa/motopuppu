@@ -1,0 +1,1421 @@
+{# motopuppu/templates/beta/activity_detail_beta.html #}
+{% extends "base.html" %}
+
+{% block title %}走行ログ: {{ activity.activity_title or activity.location_name }} - もとぷっぷー{% endblock %}
+
+{% block body_attributes %}beta-ui-body{% endblock %}
+
+{% block styles %}
+{{ super() }}
+{% include 'beta/_beta_layout_head.html' %}
+{% endblock %}
+
+{% block content %}
+<style>.beta-ui-body #main-content > .container { max-width: 100%; padding: 0; }</style>
+
+{% set ns = namespace(total_laps=0, best_sec=None) %}
+{% for s in sessions %}
+    {% if s.lap_times %}
+        {% set ns.total_laps = ns.total_laps + s.lap_times|length %}
+    {% endif %}
+    {% if s.best_lap_seconds %}
+        {% if ns.best_sec is none or s.best_lap_seconds < ns.best_sec %}
+            {% set ns.best_sec = s.best_lap_seconds %}
+        {% endif %}
+    {% endif %}
+{% endfor %}
+
+{% macro format_sec(sec) %}
+    {% if sec %}
+        {% set m = (sec // 60) | int %}
+        {% set s = sec % 60 %}
+        {{ "%d:%06.3f" | format(m, s) }}
+    {% else %}
+        --:--.---
+    {% endif %}
+{% endmacro %}
+
+<style>
+ .best-lap-time {
+  color: var(--beta-accent-emerald) !important;
+  font-weight: bold;
+ }
+ .lap-time-table {
+   max-height: 250px;
+   overflow-y: auto;
+ }
+ .dropdown-menu {
+   z-index: 1030;
+ }
+
+ /* セッションランクバッジ */
+  .rank-badge-inline {
+      font-size: 0.65rem;
+      padding: 0.15rem 0.4rem;
+      border-radius: 0.25rem;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      vertical-align: middle;
+  }
+  .rank-sp { background: linear-gradient(135deg, #ffc107, #ff9800); color: #000; }
+  .rank-s { background: linear-gradient(135deg, #7c3aed, #a855f7); color: #fff; }
+  .rank-a { background: linear-gradient(135deg, #0d6efd, #0dcaf0); color: #fff; }
+  .rank-b { background: linear-gradient(135deg, #198754, #20c997); color: #fff; }
+  .rank-c { background: #ffc107; color: #000; }
+  .rank-d { background: #6c757d; color: #fff; }
+
+ canvas[id^="lapChart-"] {
+   touch-action: pan-y;
+ }
+
+ /* セッティング詳細 / 走行メモの淡い背景 */
+ .beta-subtle-block {
+    background: rgba(148, 163, 184, 0.06);
+    border: 1px solid var(--beta-border);
+    border-radius: var(--beta-radius, 0.5rem);
+ }
+
+ #mapModal .modal-body {
+    padding: 0;
+ }
+ #telemetry-container {
+    height: calc(100vh - 58px);
+ }
+ #telemetry-controls {
+    padding: 1rem;
+    border-right: 1px solid var(--beta-border);
+    background-color: var(--beta-bg-card);
+    color: var(--beta-text-primary);
+ }
+ #telemetry-main {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+ }
+
+ #map-wrapper {
+    position: relative;
+    flex-grow: 1;
+    min-height: 200px;
+    width: 100%;
+    overflow: hidden; /* 地図外へのあふれ防止 */
+ }
+ #map {
+    width: 100%;
+    height: 100%;
+    position: absolute; /* ラッパー内で広げる */
+    top: 0;
+    left: 0;
+ }
+
+ .chart-container {
+    position: relative;
+    min-height: 0;
+ }
+
+ #gear-display-container {
+    background: rgba(148, 163, 184, 0.08) !important;
+    border: 1px solid var(--beta-border);
+ }
+ #currentGearDisplay {
+    font-size: 4rem;
+    font-weight: bold;
+    line-height: 1;
+    color: #fd7e14;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+ }
+
+ /* HUDスタイル (元々ダーク前提のデザインのため据え置き) */
+ #hud-overlay {
+    position: absolute;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: auto;
+    min-width: 200px;
+
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(5px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 50px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+
+    padding: 5px 25px;
+    color: #fff;
+    z-index: 1000;
+    pointer-events: none;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    overflow: hidden;
+ }
+
+ .hud-gear-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    line-height: 1;
+ }
+ #hud-gear {
+    font-size: 2.2rem;
+    font-weight: 800;
+    color: #fd7e14;
+    text-shadow: 0 0 15px rgba(253, 126, 20, 0.4);
+    margin-bottom: -2px;
+ }
+ .hud-label-gear {
+    font-size: 0.6rem;
+    color: #aaa;
+    font-weight: 600;
+    letter-spacing: 1px;
+ }
+
+ .hud-divider {
+    width: 1px;
+    height: 30px;
+    background-color: rgba(255,255,255,0.2);
+ }
+
+ .hud-speed-container {
+    display: flex;
+    align-items: baseline;
+ }
+ #hud-speed {
+    font-size: 2.2rem;
+    font-weight: 700;
+    font-family: 'Courier New', Courier, monospace;
+    line-height: 1;
+    letter-spacing: -1px;
+ }
+ .hud-unit {
+    font-size: 0.9rem;
+    color: #ccc;
+    margin-left: 4px;
+    font-weight: 400;
+ }
+
+ .hud-rpm-container {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    min-width: 45px;
+ }
+ #hud-rpm-val {
+    font-size: 0.9rem;
+    font-family: monospace;
+    color: #ddd;
+ }
+ .hud-label-rpm {
+    font-size: 0.6rem;
+    color: #888;
+ }
+
+ #hud-rpm-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 4px;
+    background-color: #ffc107;
+    width: 0%;
+    transition: width 0.1s linear, background-color 0.2s;
+    opacity: 0.8;
+ }
+
+ @media (min-width: 768px) {
+    #telemetry-container {
+        display: flex;
+        flex-direction: row;
+        height: calc(100vh - 120px);
+    }
+    #telemetry-controls {
+        flex: 0 0 280px;
+        overflow-y: auto;
+    }
+    #telemetry-graphs {
+        flex-shrink: 0;
+        height: 300px;
+        display: flex;
+        flex-direction: column;
+        border-top: 1px solid var(--beta-border);
+    }
+    .chart-container {
+        flex-grow: 1;
+    }
+ }
+
+ @media (max-width: 767.98px) {
+    #telemetry-container {
+        display: flex;
+        flex-direction: column;
+        height: auto;
+    }
+    #telemetry-controls {
+        flex-shrink: 0;
+        border-right: 0;
+        border-bottom: 1px solid var(--beta-border);
+    }
+    #telemetry-main {
+        height: calc(100vh - 150px);
+    }
+    #telemetry-graphs {
+        flex-shrink: 0;
+        height: 300px;
+        display: flex;
+        flex-direction: column;
+        border-top: 1px solid var(--beta-border);
+    }
+    .chart-container {
+        flex-grow: 1;
+    }
+
+    #hud-overlay {
+        bottom: 20px;
+        padding: 4px 20px;
+        min-width: 160px;
+        gap: 15px;
+    }
+    #hud-gear, #hud-speed { font-size: 1.8rem; }
+    .hud-unit { font-size: 0.75rem; }
+    #hud-rpm-val { font-size: 0.8rem; }
+ }
+</style>
+
+{% set beta_nav_active = 'activity' %}
+<div class="beta-dashboard-wrapper">
+    <div class="beta-mobile-overlay" id="beta-mobile-overlay"></div>
+    {% include 'beta/_beta_sidebar.html' %}
+
+    <main class="beta-main-content">
+        {% set beta_topbar_title = activity.activity_title or activity.location_name or '走行ログ詳細' %}
+        {% set beta_topbar_subtitle = activity.activity_date.strftime('%Y年%m月%d日') ~ ' / ' ~ motorcycle.name %}
+        {% include 'beta/_beta_topbar.html' %}
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}{% for category, message in messages %}
+        <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show" role="alert" style="animation: betaFadeIn 0.3s ease;">
+            {{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}{% endif %}
+        {% endwith %}
+
+        {# --- Quick Actions --- #}
+        <div class="beta-quick-actions mb-4">
+            {% set referer = request.referrer %}
+            {% if referer and 'teams' in referer %}
+            <a href="{{ referer }}" class="beta-btn" title="チームダッシュボードへ戻る">
+                <i class="fas fa-arrow-left me-1"></i> 戻る
+            </a>
+            {% else %}
+            <a href="{{ url_for('activity.activity_log') }}" class="beta-btn" title="走行ログ一覧へ戻る">
+                <i class="fas fa-arrow-left me-1"></i> 走行ログ一覧
+            </a>
+            {% endif %}
+            {% if is_owner %}
+            <a href="{{ url_for('activity.edit_activity', activity_id=activity.id) }}" class="beta-btn">
+                <i class="fas fa-edit me-1"></i> 活動情報を編集
+            </a>
+            {% endif %}
+            {% if is_owner and activity.location_type == 'circuit' %}
+            <a href="{{ url_for('activity.best_settings_finder', vehicle_id=motorcycle.id) }}" class="beta-btn beta-btn-amber">
+                <i class="fas fa-trophy me-1"></i> 各サーキットのベストセッティング
+            </a>
+            {% endif %}
+        </div>
+
+        {# --- 活動情報 --- #}
+        <div class="beta-widget-card mb-4">
+            <div class="beta-widget-header">
+                <div class="beta-widget-header-left">
+                    <div class="beta-widget-icon" style="background: rgba(59, 130, 246, 0.15); color: var(--beta-accent-blue);"><i class="fas fa-flag-checkered"></i></div>
+                    <span class="beta-widget-title">{{ activity.activity_title or activity.location_name }}</span>
+                </div>
+                {% if not is_owner %}
+                <span class="beta-badge" style="background: rgba(148, 163, 184, 0.2); color: var(--beta-text-muted);">
+                    <i class="fas fa-user me-1"></i>{{ activity.user.display_name or activity.user.misskey_username }}
+                </span>
+                {% endif %}
+            </div>
+            <div class="beta-widget-body" style="padding: 1.25rem;">
+                <div class="row g-3 pb-3 mb-3" style="border-bottom: 1px solid var(--beta-border);">
+                    <div class="col-md-5">
+                        <div class="beta-text-muted fw-bold text-uppercase mb-1" style="font-size: 0.65rem;"><i class="fas fa-calendar-alt fa-fw me-1"></i>活動日</div>
+                        <div class="beta-text-primary fw-bold">{{ activity.activity_date.strftime('%Y年%m月%d日') }}</div>
+                    </div>
+                    <div class="col-md-7">
+                        <div class="beta-text-muted fw-bold text-uppercase mb-1" style="font-size: 0.65rem;"><i class="fas fa-map-marked-alt fa-fw me-1"></i>場所</div>
+                        <div>
+                            {% if activity.location_type == 'circuit' %}
+                                <span class="beta-badge beta-badge-blue"><i class="fas fa-flag-checkered me-1"></i>{{ activity.circuit_name }}</span>
+                            {% elif activity.location_type == 'custom' and activity.custom_location %}
+                                <span class="beta-badge beta-badge-teal"><i class="fas fa-map-marker-alt me-1"></i>{{ activity.custom_location }}</span>
+                            {% elif activity.location_name %}
+                                <span class="beta-text-primary">{{ activity.location_name }}</span>
+                                <span class="beta-badge ms-1" style="background: rgba(148, 163, 184, 0.2); color: var(--beta-text-muted);">旧データ</span>
+                            {% else %}
+                                <span class="beta-text-muted">未設定</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="beta-text-muted fw-bold text-uppercase mb-1" style="font-size: 0.65rem;"><i class="fas fa-cloud-sun fa-fw me-1"></i>天候</div>
+                        <div class="beta-text-primary">{{ activity.weather if activity.weather else 'N/A' }}</div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="beta-text-muted fw-bold text-uppercase mb-1" style="font-size: 0.65rem;"><i class="fas fa-thermometer-half fa-fw me-1"></i>気温</div>
+                        <div class="beta-text-primary">{% if activity.temperature is not none %}{{ activity.temperature }} ℃{% else %}N/A{% endif %}</div>
+                    </div>
+                </div>
+                {% if activity.notes %}
+                <div class="mt-3">
+                    <div class="beta-text-muted fw-bold text-uppercase mb-1" style="font-size: 0.65rem;"><i class="fas fa-sticky-note fa-fw me-1"></i>メモ</div>
+                    <div class="beta-subtle-block p-2 beta-text-secondary small" style="white-space: pre-wrap;">{{ activity.notes }}</div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        {# --- サマリー --- #}
+        {% if sessions %}
+        <div class="beta-stats-grid mb-4" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem;">
+            <div class="beta-stat-card" style="--stat-accent: var(--beta-accent-emerald);">
+                <div class="beta-stat-card-label">Overall Best</div>
+                <div class="beta-stat-card-value beta-text-mono" style="font-size: 1.5rem; color: var(--beta-accent-emerald);">{{ format_sec(ns.best_sec) }}</div>
+                <div class="beta-stat-card-icon"><i class="fas fa-stopwatch"></i></div>
+            </div>
+            <div class="beta-stat-card" style="--stat-accent: var(--beta-accent-blue);">
+                <div class="beta-stat-card-label">Sessions</div>
+                <div class="beta-stat-card-value">{{ sessions|length }}</div>
+                <div class="beta-stat-card-icon"><i class="fas fa-list-ol"></i></div>
+            </div>
+            <div class="beta-stat-card" style="--stat-accent: var(--beta-accent-teal);">
+                <div class="beta-stat-card-label">Total Laps</div>
+                <div class="beta-stat-card-value">{{ ns.total_laps }}</div>
+                <div class="beta-stat-card-icon"><i class="fas fa-road"></i></div>
+            </div>
+        </div>
+        {% endif %}
+
+        {# --- セッション記録 --- #}
+        <div class="d-flex align-items-center mb-3">
+            <h6 class="mb-0 fw-bold beta-text-primary"><i class="fas fa-stopwatch me-2" style="color: var(--beta-accent-blue);"></i>セッション記録</h6>
+            <span class="beta-badge beta-badge-blue ms-2">{{ sessions|length }}</span>
+        </div>
+
+        {# --- 新しいセッションを記録する --- #}
+        {% if is_owner %}
+        <div class="accordion mb-4" id="addSessionAccordion">
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="headingOne">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="false" aria-controls="collapseOne">
+                        <i class="fas fa-plus me-2"></i> 新しいセッションを記録する
+                    </button>
+                </h2>
+                <div id="collapseOne" class="accordion-collapse collapse {% if session_form.errors %}show{% endif %}" aria-labelledby="headingOne" data-bs-parent="#addSessionAccordion">
+                    <div class="accordion-body">
+                        <form method="POST" action="{{ url_for('activity.detail_activity', activity_id=activity.id) }}">
+                            {{ session_form.hidden_tag() }}
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    {{ session_form.session_name.label(class="form-label beta-text-secondary") }}
+                                    {{ session_form.session_name(class="form-control" + (" is-invalid" if session_form.session_name.errors else "")) }}
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    {{ session_form.setting_sheet_id.label(class="form-label beta-text-secondary") }}
+                                    <div class="input-group">
+                                        {{ session_form.setting_sheet_id(class="form-select" + (" is-invalid" if session_form.setting_sheet_id.errors else "")) }}
+                                        <a href="{{ url_for('activity.list_settings', vehicle_id=motorcycle.id) }}" class="btn btn-outline-secondary" title="セッティング管理へ"><i class="fas fa-cog"></i></a>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div id="racer-fields" class="mb-3 {% if not motorcycle.is_racer %}d-none{% endif %}">
+                                {{ session_form.session_duration_hours.label(class="form-label beta-text-secondary") }}
+                                {{ session_form.session_duration_hours(class="form-control" + (" is-invalid" if session_form.session_duration_hours.errors else "")) }}
+                                {% if session_form.session_duration_hours.errors %}
+                                    <div class="invalid-feedback">{% for e in session_form.session_duration_hours.errors %}{{e}}{% endfor %}</div>
+                                {% endif %}
+                            </div>
+                            <div id="street-fields" class="mb-3 {% if motorcycle.is_racer %}d-none{% endif %}">
+                                {{ session_form.session_distance.label(class="form-label beta-text-secondary") }}
+                                {{ session_form.session_distance(class="form-control" + (" is-invalid" if session_form.session_distance.errors else "")) }}
+                                {% if session_form.session_distance.errors %}
+                                    <div class="invalid-feedback">{% for e in session_form.session_distance.errors %}{{e}}{% endfor %}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="mb-3">
+                                {{ session_form.rider_feel.label(class="form-label beta-text-secondary") }}
+                                {{ session_form.rider_feel(class="form-control") }}
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label beta-text-secondary">ラップタイム</label>
+                                <div class="d-flex justify-content-end gap-3 mb-2 small beta-text-secondary">
+                                    <span>ベスト: <strong id="bestLap" class="beta-text-mono">N/A</strong></span>
+                                    <span>平均: <strong id="avgLap" class="beta-text-mono">N/A</strong></span>
+                                </div>
+                                <div id="lapTimeContainer"></div>
+                                <button type="button" class="beta-btn mt-2" id="addLapBtn">
+                                    <i class="fas fa-plus me-1"></i> ラップを追加
+                                </button>
+                            </div>
+
+                            <template id="lapTemplate">
+                                <div class="input-group mb-2">
+                                    <input type="text" class="form-control lap-time-input" placeholder="例: 1:58.123">
+                                    <button class="btn btn-outline-danger remove-lap-btn" type="button" title="このラップを削除">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                    <div class="invalid-feedback">
+                                        形式が正しくありません (例: 1:23.456 または 83.456)
+                                    </div>
+                                </div>
+                            </template>
+
+                            <input type="hidden" id="lap_times_json" name="lap_times_json">
+
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    {{ session_form.include_in_leaderboard(class="form-check-input") }}
+                                    {{ session_form.include_in_leaderboard.label(class="form-check-label beta-text-secondary") }}
+                                </div>
+                                <div class="form-check">
+                                    {{ session_form.allow_misskey_post(class="form-check-input") }}
+                                    {{ session_form.allow_misskey_post.label(class="form-check-label beta-text-secondary") }}
+                                </div>
+                            </div>
+
+                            {{ session_form.submit(class="beta-btn beta-btn-solid") }}
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if sessions %}
+        {% if is_owner %}
+        <form id="compare-form" method="GET" action="{{ url_for('activity.compare_sessions') }}">
+            <input type="hidden" name="vehicle_id" value="{{ motorcycle.id }}">
+            <div class="d-flex justify-content-end mb-3">
+                <button type="submit" id="compare-button" class="beta-btn beta-btn-teal" disabled>
+                    <i class="fas fa-balance-scale-right me-1"></i> 選択したセッションを比較 (<span id="selected-count">0</span>)
+                </button>
+            </div>
+        {% endif %}
+
+            <div class="accordion" id="sessionsListAccordion">
+                {% for session in sessions %}
+                {% set gap = none %}
+                {% if ns.best_sec and session.best_lap_seconds %}
+                    {% set gap = session.best_lap_seconds|float - ns.best_sec|float %}
+                {% endif %}
+
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="headingSession{{ session.id }}">
+                        <div class="accordion-button {% if not loop.last %}collapsed{% endif %}"
+                             role="button"
+                             data-bs-toggle="collapse"
+                             data-bs-target="#collapseSession{{ session.id }}"
+                             aria-expanded="{{ 'true' if loop.last else 'false' }}"
+                             aria-controls="collapseSession{{ session.id }}"
+                             style="cursor: pointer;">
+
+                            <div class="d-flex align-items-center w-100 me-2">
+                                <div class="form-check me-3" onclick="event.stopPropagation()">
+                                    <input class="form-check-input session-checkbox" type="checkbox" name="session_ids" value="{{ session.id }}" id="sessionCheck{{ session.id }}" {% if not is_owner %}disabled{% endif %}>
+                                </div>
+                                <div class="flex-grow-1 d-flex align-items-center flex-wrap gap-2">
+                                    <h6 class="mb-0 me-2 fw-bold beta-text-primary">{{ session.session_name }}</h6>
+
+                                    {% if gap is not none %}
+                                        {% if gap == 0 %}
+                                            <span class="beta-badge" style="background: rgba(16, 185, 129, 0.15); color: var(--beta-accent-emerald); border: 1px solid rgba(16, 185, 129, 0.3);" title="This Session is Best!"><i class="fas fa-crown me-1"></i>Best</span>
+                                        {% else %}
+                                            <span class="beta-badge" style="background: rgba(148, 163, 184, 0.15); color: var(--beta-text-muted); border: 1px solid rgba(148, 163, 184, 0.3);" title="Gap to Best">+{{ "%.3f"|format(gap) }}s</span>
+                                        {% endif %}
+                                    {% endif %}
+
+                                    {% if session.best_lap %}
+                                        <span class="beta-badge beta-text-mono" style="background: rgba(148, 163, 184, 0.1); color: var(--beta-text-secondary); border: 1px solid var(--beta-border); font-weight: 400;">{{ session.best_lap }}</span>
+                                    {% endif %}
+
+                                    {# セッションランクバッジ #}
+                                    {% if circuit_pb_seconds and session.best_lap_seconds %}
+                                    {% set pct_off = ((session.best_lap_seconds|float - circuit_pb_seconds) / circuit_pb_seconds) * 100 %}
+                                    {% if session.best_lap_seconds|float <= circuit_pb_seconds %}
+                                        {% set sess_rank = 'S+' %}{% set rank_class = 'rank-sp' %}
+                                    {% elif pct_off <= 0.5 %}
+                                        {% set sess_rank = 'S' %}{% set rank_class = 'rank-s' %}
+                                    {% elif pct_off <= 1.0 %}
+                                        {% set sess_rank = 'A' %}{% set rank_class = 'rank-a' %}
+                                    {% elif pct_off <= 3.0 %}
+                                        {% set sess_rank = 'B' %}{% set rank_class = 'rank-b' %}
+                                    {% elif pct_off <= 5.0 %}
+                                        {% set sess_rank = 'C' %}{% set rank_class = 'rank-c' %}
+                                    {% else %}
+                                        {% set sess_rank = 'D' %}{% set rank_class = 'rank-d' %}
+                                    {% endif %}
+                                    <span class="rank-badge-inline {{ rank_class }}">{{ sess_rank }}</span>
+                                    {% endif %}
+                                </div>
+
+                                <div class="d-flex align-items-center ms-auto ps-2 gap-1" onclick="event.stopPropagation()">
+                                    {% if session.gps_tracks and session.gps_tracks.laps %}
+                                    <button type="button" class="beta-btn view-track-btn" style="font-size: 0.7rem; padding: 0.2rem 0.45rem; color: var(--beta-accent-teal);"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#mapModal"
+                                            data-session-id="{{ session.id }}"
+                                            data-session-name="{{ session.session_name }}"
+                                            title="走行ラインを表示">
+                                        <i class="fas fa-route fa-fw"></i>
+                                    </button>
+                                    {% endif %}
+                                    {% if is_owner %}
+                                    <button type="button" class="beta-btn" style="font-size: 0.7rem; padding: 0.2rem 0.45rem; color: var(--beta-accent-emerald);"
+                                            data-bs-toggle="modal" data-bs-target="#importCsvModal-{{ session.id }}" title="CSVからインポート">
+                                        <i class="fas fa-file-csv fa-fw"></i>
+                                    </button>
+                                    <a href="{{ url_for('activity.edit_session', session_id=session.id) }}" class="beta-btn" style="font-size: 0.7rem; padding: 0.2rem 0.45rem;" title="編集">
+                                        <i class="fas fa-edit fa-fw"></i>
+                                    </a>
+                                    <button type="button" class="beta-btn delete-session-btn" style="font-size: 0.7rem; padding: 0.2rem 0.45rem; color: var(--beta-accent-red);"
+                                            data-delete-url="{{ url_for('activity.delete_session', session_id=session.id) }}"
+                                            data-csrf-token="{{ csrf_token() }}"
+                                            title="削除">
+                                        <i class="fas fa-trash fa-fw"></i>
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </h2>
+                    <div id="collapseSession{{ session.id }}" class="accordion-collapse collapse {% if loop.last %}show{% endif %}" aria-labelledby="headingSession{{ session.id }}" data-bs-parent="#sessionsListAccordion">
+                        <div class="accordion-body">
+                            {% if is_owner and session.gps_tracks and session.gps_tracks.laps %}
+                            <div class="pb-3 mb-3" style="border-bottom: 1px solid var(--beta-border);">
+                                <div class="form-check form-switch mb-2">
+                                    <input class="form-check-input share-session-switch" type="checkbox" role="switch"
+                                           id="shareSwitch-{{ session.id }}"
+                                           data-session-id="{{ session.id }}"
+                                           data-csrf-token="{{ csrf_token() }}"
+                                           {% if session.is_public %}checked{% endif %}>
+                                    <label class="form-check-label beta-text-secondary" for="shareSwitch-{{ session.id }}">
+                                        このセッションを公開共有する
+                                    </label>
+                                </div>
+                                <div id="share-info-{{ session.id }}" class="{% if not session.is_public %}d-none{% endif %}">
+                                    <div class="input-group">
+                                        <input type="text" class="form-control form-control-sm" value="{{ url_for('activity.public_session_view', token=session.public_share_token, _external=True) if session.public_share_token else '' }}" readonly>
+                                        <button class="btn btn-outline-secondary btn-sm copy-btn" type="button" title="リンクをコピー">
+                                            <i class="fas fa-copy"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+
+                            {# 使用セッティング #}
+                            <div class="mb-3">
+                                <div class="beta-text-muted fw-bold text-uppercase mb-1" style="font-size: 0.65rem;"><i class="fas fa-cog fa-fw me-1"></i>使用セッティング</div>
+                                {% if session.setting_sheet %}
+                                    <a href="{{ url_for('activity.edit_setting', setting_id=session.setting_sheet.id) }}"
+                                       class="text-decoration-none fw-bold" style="color: var(--beta-accent-blue);">{{ session.setting_sheet.sheet_name }}</a>
+                                    <details class="mt-2 small beta-subtle-block p-2">
+                                        <summary style="cursor: pointer;" class="beta-text-secondary">詳細を展開</summary>
+                                        <div class="mt-2 beta-text-secondary">
+                                        {% for category_key, items in session.setting_sheet.details.items() %}
+                                            {% set category_info = setting_key_map.get(category_key, {}) %}
+                                            <strong class="beta-text-primary">{{ category_info.get('title', category_key) }}</strong>
+                                            <ul class="list-unstyled ps-3">
+                                            {% for item_key, item_value in items.items() %}
+                                                {% set item_label = category_info.get('keys', {}).get(item_key, item_key) %}
+                                                <li>{{ item_label }}: {{ item_value }}</li>
+                                            {% endfor %}
+                                            </ul>
+                                        {% else %}
+                                            <p class="mb-0">詳細なセッティング項目はありません。</p>
+                                        {% endfor %}
+                                        </div>
+                                    </details>
+                                {% else %}
+                                    <span class="beta-text-muted">セッティング未指定</span>
+                                {% endif %}
+                            </div>
+
+                            {% if session.rider_feel %}
+                            <div class="mb-3">
+                                <div class="beta-text-muted fw-bold text-uppercase mb-1" style="font-size: 0.65rem;"><i class="fas fa-comment-dots fa-fw me-1"></i>走行メモ</div>
+                                <div class="small beta-subtle-block p-2 beta-text-secondary" style="white-space: pre-wrap;">{{ session.rider_feel }}</div>
+                            </div>
+                            {% endif %}
+
+                            {% if session.lap_details %}
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <div class="beta-text-muted fw-bold text-uppercase" style="font-size: 0.65rem;"><i class="fas fa-stopwatch fa-fw me-1"></i>記録ラップ</div>
+                                    <div class="dropdown">
+                                        <button class="beta-btn dropdown-toggle" style="font-size: 0.7rem;" type="button" id="sortLapTimeDropdown-{{ session.id }}" data-bs-toggle="dropdown" aria-expanded="false">
+                                            <i class="fas fa-sort-amount-down me-1"></i>
+                                            {% if current_sort == 'time_asc' %}タイム (速い順)
+                                            {% elif current_sort == 'time_desc' %}タイム (遅い順)
+                                            {% else %}記録順 (デフォルト)
+                                            {% endif %}
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="sortLapTimeDropdown-{{ session.id }}">
+                                            <li><a class="dropdown-item {% if current_sort == 'record_asc' or not current_sort %}active{% endif %}" href="{{ url_for('activity.detail_activity', activity_id=activity.id, sort='record_asc') }}">記録順 (デフォルト)</a></li>
+                                            <li><a class="dropdown-item {% if current_sort == 'time_asc' %}active{% endif %}" href="{{ url_for('activity.detail_activity', activity_id=activity.id, sort='time_asc') }}">タイム (速い順)</a></li>
+                                            <li><a class="dropdown-item {% if current_sort == 'time_desc' %}active{% endif %}" href="{{ url_for('activity.detail_activity', activity_id=activity.id, sort='time_desc') }}">タイム (遅い順)</a></li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                <div class="lap-time-table beta-widget-card mt-1" style="border-radius: var(--beta-radius);">
+                                    <table class="table table-hover table-sm mb-0 small align-middle">
+                                        <thead class="sticky-top">
+                                            <tr>
+                                                <th class="text-center beta-text-muted" scope="col" style="font-size: 0.7rem;">#</th>
+                                                <th class="text-center beta-text-muted" scope="col" style="font-size: 0.7rem;">Lap Time</th>
+                                                <th class="text-center beta-text-muted" scope="col" style="font-size: 0.7rem;">Gap</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for lap in session.lap_details %}
+                                            <tr class="{{ lap.row_class }}">
+                                                <td class="text-center beta-text-muted">{{ lap.lap_num }}</td>
+                                                <td class="text-center beta-text-mono {% if lap.is_best %}best-lap-time{% else %}beta-text-primary{% endif %}">{{ lap.time_str }}</td>
+                                                <td class="text-center beta-text-muted beta-text-mono">{{ lap.diff_str }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div class="d-flex justify-content-end gap-3 mt-2 small beta-text-secondary">
+                                    <span>ベスト: <strong class="beta-text-mono">{{ session.best_lap }}</strong></span>
+                                    <span>平均: <strong class="beta-text-mono">{{ session.average_lap }}</strong></span>
+                                </div>
+
+                                {% if session.lap_chart_dict %}
+                                <div class="mt-3">
+                                    <div class="text-end mb-1">
+                                        <div class="btn-group btn-group-sm" role="group" aria-label="Chart controls">
+                                            <button type="button" class="beta-btn pan-left-btn" data-chart-id="lapChart-{{ session.id }}" title="左へスクロール">
+                                                <i class="fas fa-arrow-left"></i>
+                                            </button>
+                                            <button type="button" class="beta-btn pan-right-btn" data-chart-id="lapChart-{{ session.id }}" title="右へスクロール">
+                                                <i class="fas fa-arrow-right"></i>
+                                            </button>
+                                            <button type="button" class="beta-btn zoom-in-btn" data-chart-id="lapChart-{{ session.id }}" title="拡大">
+                                                <i class="fas fa-search-plus"></i>
+                                            </button>
+                                            <button type="button" class="beta-btn zoom-out-btn" data-chart-id="lapChart-{{ session.id }}" title="縮小">
+                                                <i class="fas fa-search-minus"></i>
+                                            </button>
+                                            <button type="button" class="beta-btn zoom-reset-btn" data-chart-id="lapChart-{{ session.id }}" title="ズームリセット">
+                                                <i class="fas fa-undo"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div style="position: relative; height: 250px; width: 100%;">
+                                        <canvas id="lapChart-{{ session.id }}" data-chart-data='{{ session.lap_chart_dict | tojson }}'></canvas>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+                            {% elif session.lap_times %}
+                             <div class="mb-3">
+                                 <div class="beta-text-muted fw-bold text-uppercase mb-1" style="font-size: 0.65rem;"><i class="fas fa-stopwatch fa-fw me-1"></i>記録ラップ</div>
+                                 <div class="alert alert-warning small p-2 mb-0">ラップタイムはありますが、表示データを作成できませんでした。</div>
+                             </div>
+                            {% endif %}
+
+                            <div class="beta-text-muted small d-flex justify-content-between pt-2 mt-2" style="border-top: 1px solid var(--beta-border);">
+                                <span>
+                                {% if motorcycle.is_racer %}
+                                    {% if session.session_duration_hours is not none %}
+                                        <strong>稼働時間:</strong> {{ session.session_duration_hours }} 時間
+                                    {% elif session.operating_hours_end is not none and session.operating_hours_start is not none %}
+                                        <strong>稼働時間:</strong> {{ (session.operating_hours_end - session.operating_hours_start)|round(2) }} 時間 <span class="beta-badge" style="background: rgba(148, 163, 184, 0.2); color: var(--beta-text-muted);">旧</span>
+                                    {% else %}
+                                        <strong>稼働時間:</strong> N/A
+                                    {% endif %}
+                                {% else %}
+                                    {% if session.session_distance is not none %}
+                                        <strong>走行距離:</strong> {{ "{:,}".format(session.session_distance) }} km
+                                    {% elif session.odo_end is not none and session.odo_start is not none %}
+                                        <strong>走行距離:</strong> {{ "{:,}".format(session.odo_end - session.odo_start) }} km <span class="beta-badge" style="background: rgba(148, 163, 184, 0.2); color: var(--beta-text-muted);">旧</span>
+                                    {% else %}
+                                        <strong>走行距離:</strong> N/A
+                                    {% endif %}
+                                {% endif %}
+                                </span>
+                                <span>
+                                    {% if session.include_in_leaderboard %}
+                                        <i class="fas fa-trophy" style="color: var(--beta-accent-amber);" title="リーダーボード対象"></i>
+                                    {% else %}
+                                        <i class="fas fa-trophy beta-text-muted" title="リーダーボード対象外"></i>
+                                    {% endif %}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        {% if is_owner %}
+        </form>
+        {% endif %}
+
+        {# --- 走行ライン分析モーダル --- #}
+        <div class="modal fade" id="mapModal" tabindex="-1" aria-labelledby="mapModalLabel" aria-hidden="true">
+          <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title" id="mapModalLabel">走行ライン分析</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+              </div>
+              <div class="modal-body p-0">
+                <div id="telemetry-container">
+                    <div id="telemetry-controls">
+                        <h6 id="telemetrySessionName" class="beta-text-primary"></h6>
+
+                        <div id="gear-display-container" class="text-center my-3 p-2 rounded d-none">
+                            <h3 id="currentGearDisplay" class="mb-0">-</h3>
+                            <small class="beta-text-muted">GEAR</small>
+                        </div>
+
+                        <hr style="border-color: var(--beta-border);">
+                        <h6 class="beta-text-secondary">表示ラップ選択</h6>
+                        <div id="lapSelectorContainer">
+                            <p class="beta-text-muted">走行データを読み込んでいます...</p>
+                        </div>
+                        <hr style="border-color: var(--beta-border);">
+                        <h6 class="beta-text-secondary">表示オプション</h6>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" id="toggleBrakingPoints" checked>
+                            <label class="form-check-label beta-text-secondary" for="toggleBrakingPoints">減速ポイント <span style="color: red;">▼</span></label>
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" id="toggleAccelPoints" checked>
+                            <label class="form-check-label beta-text-secondary" for="toggleAccelPoints">加速ポイント <span style="color: limegreen;">▲</span></label>
+                        </div>
+                        <hr style="border-color: var(--beta-border);">
+                        <div class="d-grid">
+                            <button class="beta-btn" id="toggleTelemetryBtn">
+                                <i class="fas fa-chart-line me-1"></i> テレメトリを表示
+                            </button>
+                        </div>
+                    </div>
+                    <div id="telemetry-main">
+                        <div id="map-wrapper">
+                            <div id="map">
+                                <div class="d-flex justify-content-center align-items-center h-100">
+                                    <div class="spinner-border" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {# HUD要素 (mapの外、wrapperの中) #}
+                            <div id="hud-overlay" class="d-none">
+                                <div class="hud-gear-container">
+                                    <span id="hud-gear">-</span>
+                                    <span class="hud-label-gear">GEAR</span>
+                                </div>
+
+                                <div class="hud-divider"></div>
+
+                                <div class="hud-speed-container">
+                                    <span id="hud-speed">0</span>
+                                    <span class="hud-unit">km/h</span>
+                                </div>
+
+                                <div class="hud-rpm-container">
+                                     <span id="hud-rpm-val">0</span>
+                                     <span class="hud-label-rpm">rpm</span>
+                                </div>
+
+                                <div id="hud-rpm-bar"></div>
+                            </div>
+                        </div>
+
+                        <div id="playback-controls" class="p-2 d-none" style="border-top: 1px solid var(--beta-border);">
+                            <div class="d-flex align-items-center">
+                                <button id="playPauseBtn" class="beta-btn beta-btn-solid me-2"><i class="fas fa-play"></i></button>
+                                <span id="playbackTime" class="me-2 font-monospace small beta-text-secondary" style="min-width: 80px;">00:00.000</span>
+                                <input type="range" class="form-range" id="timelineScrubber" min="0" max="1000" value="0">
+                            </div>
+                        </div>
+                        <div id="telemetry-graphs" class="d-none">
+                            <div class="chart-container"><canvas id="gearChart"></canvas></div>
+                            <div class="chart-container"><canvas id="speedChart"></canvas></div>
+                            <div class="chart-container"><canvas id="rpmChart"></canvas></div>
+                            <div class="chart-container"><canvas id="throttleChart"></canvas></div>
+                        </div>
+                    </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {# --- CSVインポートモーダル --- #}
+        {% if is_owner %}
+        {% for session in sessions %}
+            <div class="modal fade" id="importCsvModal-{{ session.id }}" tabindex="-1" aria-labelledby="importCsvModalLabel-{{ session.id }}" aria-hidden="true">
+              <div class="modal-dialog">
+                <div class="modal-content">
+                  <form method="POST" action="{{ url_for('activity.import_laps', session_id=session.id) }}" enctype="multipart/form-data"
+                        class="import-form" data-session-id="{{ session.id }}">
+                    <div class="modal-header">
+                      <h5 class="modal-title" id="importCsvModalLabel-{{ session.id }}">{{ session.session_name }} - CSVインポート</h5>
+                      <button type="button" class="btn-close import-close-btn" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="import-form-fields">
+                        {{ import_form.hidden_tag() }}
+                        <div class="mb-3">
+                            {{ import_form.device_type.label(class="form-label beta-text-secondary") }}
+                            {{ import_form.device_type(class="form-select") }}
+                        </div>
+                        <div class="mb-3">
+                            {{ import_form.csv_file.label(class="form-label beta-text-secondary") }}
+                            {{ import_form.csv_file(class="form-control") }}
+                            <div class="form-text small beta-text-muted">最大50MBまで。</div>
+                        </div>
+
+                        <div class="form-check mb-3">
+                            {{ import_form.append_mode(class="form-check-input") }}
+                            {{ import_form.append_mode.label(class="form-check-label beta-text-secondary") }}
+                            <div class="form-text small" style="color: var(--beta-accent-blue);">
+                                ※ チェックすると、現在の記録を消去せずに後ろに追加します。Droggerの分割ログなどで使用してください。
+                            </div>
+                        </div>
+
+                        <div class="form-check">
+                            {{ import_form.remove_outliers(class="form-check-input", **{'data-bs-toggle': 'collapse', 'data-bs-target': '#outlier-options-' + session.id|string, 'aria-expanded': 'true' }) }}
+                            {{ import_form.remove_outliers.label(class="form-check-label beta-text-secondary") }}
+                        </div>
+
+                        <div class="collapse show mt-3 ps-4" id="outlier-options-{{ session.id }}">
+                            <div class="mb-3">
+                                {{ import_form.outlier_threshold.label(class="form-label beta-text-secondary") }}
+                                {{ import_form.outlier_threshold(class="form-control" + (" is-invalid" if import_form.outlier_threshold.errors else "")) }}
+                                {% if import_form.outlier_threshold.errors %}
+                                    <div class="invalid-feedback">{% for e in import_form.outlier_threshold.errors %}{{e}}{% endfor %}</div>
+                                {% endif %}
+                                <div class="form-text small beta-text-muted">
+                                 ラップタイムの中央値の何倍を異常値とみなすかを設定します。<br>
+                                    例: ラップタイムの中央値が「1:58.8」の場合、デフォルト設定(2.0倍)では「3:57.6」より遅いラップが除外されます。
+                                </div>
+                            </div>
+                        </div>
+                        </div>
+
+                        <div class="import-progress-display d-none">
+                            <div class="text-center mb-3">
+                                <h6 class="import-progress-stage-text mb-1 beta-text-primary">準備中...</h6>
+                                <p class="import-progress-detail small beta-text-muted mb-0"></p>
+                            </div>
+                            <div class="progress mb-2" style="height: 24px;">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated"
+                                     role="progressbar"
+                                     style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+                            </div>
+                            <div class="text-center small beta-text-muted mt-3">
+                                <i class="fas fa-info-circle"></i>
+                                このウィンドウを閉じずにお待ちください
+                            </div>
+                        </div>
+
+                        <div class="import-error-display d-none alert alert-danger mt-3 mb-0">
+                            <strong>エラー:</strong> <span class="import-error-text"></span>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                      <button type="button" class="beta-btn import-cancel-btn" data-bs-dismiss="modal">キャンセル</button>
+                      {{ import_form.submit_import(class="beta-btn beta-btn-solid") }}
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+        {% endfor %}
+        {% endif %}
+
+        {% else %}
+        <div class="text-center py-5 beta-text-muted beta-widget-card">
+            <div class="beta-widget-body">
+                <i class="fas fa-stopwatch fa-3x mb-3" style="opacity: 0.3;"></i>
+                <p class="mb-0">まだセッションが記録されていません。<br>「新しいセッションを記録する」から追加してください。</p>
+            </div>
+        </div>
+        {% endif %}
+
+    </main>
+    {% include 'beta/_beta_bottombar.html' %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+{% include 'beta/_beta_scripts.html' %}
+<script src="{{ url_for('static', filename='js/lap_time_manager.js') }}"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+
+{% if config.GOOGLE_MAPS_API_KEY %}
+<script async defer src="https://maps.googleapis.com/maps/api/js?key={{ config.GOOGLE_MAPS_API_KEY }}&callback=initMap" type="text/javascript"></script>
+<script src="{{ url_for('static', filename='js/map_viewer.js') }}"></script>
+{% endif %}
+
+<script>
+function initMap() {}
+
+document.addEventListener('DOMContentLoaded', () => {
+
+    document.querySelectorAll('.import-form').forEach(form => {
+        const fieldsContainer = form.querySelector('.import-form-fields');
+        const progressContainer = form.querySelector('.import-progress-display');
+        const errorContainer = form.querySelector('.import-error-display');
+        const errorTextEl = form.querySelector('.import-error-text');
+        const stageTextEl = form.querySelector('.import-progress-stage-text');
+        const detailTextEl = form.querySelector('.import-progress-detail');
+        const progressBar = form.querySelector('.progress-bar');
+        const submitBtn = form.querySelector('input[type="submit"]');
+        const cancelBtn = form.querySelector('.import-cancel-btn');
+        const closeBtn = form.querySelector('.import-close-btn');
+
+        const STAGE_LABELS = {
+            uploading: 'ファイルをアップロード中',
+            parsing: 'CSVを解析中',
+            validating: 'ラップタイムを検証中',
+            filtering: '外れ値を除外中',
+            optimizing: 'GPS軌跡を最適化中',
+            saving: 'データベースに保存中',
+            done: '完了',
+            error: 'エラー',
+        };
+
+        const setProgress = (pct, striped, animated) => {
+            const v = Math.max(0, Math.min(100, Math.round(pct)));
+            progressBar.style.width = v + '%';
+            progressBar.setAttribute('aria-valuenow', v);
+            progressBar.textContent = v + '%';
+            progressBar.classList.toggle('progress-bar-striped', !!striped);
+            progressBar.classList.toggle('progress-bar-animated', !!animated);
+        };
+
+        const showProgress = () => {
+            errorContainer.classList.add('d-none');
+            fieldsContainer.classList.add('d-none');
+            progressContainer.classList.remove('d-none');
+            if (submitBtn) submitBtn.disabled = true;
+            if (cancelBtn) cancelBtn.disabled = true;
+            if (closeBtn) closeBtn.disabled = true;
+        };
+
+        const resetForm = () => {
+            fieldsContainer.classList.remove('d-none');
+            progressContainer.classList.add('d-none');
+            if (submitBtn) submitBtn.disabled = false;
+            if (cancelBtn) cancelBtn.disabled = false;
+            if (closeBtn) closeBtn.disabled = false;
+            setProgress(0, true, true);
+        };
+
+        const showError = (message) => {
+            resetForm();
+            errorContainer.classList.remove('d-none');
+            errorTextEl.textContent = message || 'エラーが発生しました。';
+        };
+
+        const handleEvent = (evt) => {
+            const stage = evt.stage;
+            const label = STAGE_LABELS[stage] || stage;
+
+            if (stage === 'error') {
+                showError(evt.message);
+                return;
+            }
+            if (stage === 'done') {
+                stageTextEl.textContent = '完了';
+                detailTextEl.textContent = evt.message || '';
+                setProgress(100, false, false);
+                progressBar.classList.add('bg-success');
+                setTimeout(() => {
+                    if (evt.redirect_url) {
+                        window.location.href = evt.redirect_url;
+                    } else {
+                        window.location.reload();
+                    }
+                }, 700);
+                return;
+            }
+            stageTextEl.textContent = label + '...';
+            if (stage === 'optimizing' && evt.lap && evt.total_laps) {
+                detailTextEl.textContent = `ラップ ${evt.lap} / ${evt.total_laps}`;
+                const pct = (evt.lap / evt.total_laps) * 100;
+                setProgress(pct, false, true);
+            } else {
+                detailTextEl.textContent = evt.message || '';
+                // 確定的な進捗が無いステージは不確定スピナー風
+                setProgress(100, true, true);
+            }
+        };
+
+        form.addEventListener('submit', function(event) {
+            event.preventDefault();
+
+            const appendModeCheckbox = this.querySelector('input[name="append_mode"]');
+            const isAppend = appendModeCheckbox ? appendModeCheckbox.checked : false;
+
+            let message = '既存のラップタイムは上書きされます。よろしいですか？';
+            if (isAppend) {
+                message = '既存の記録の後ろに追記します。よろしいですか？\n(この操作は取り消せません)';
+            }
+            if (!confirm(message)) return;
+
+            showProgress();
+            stageTextEl.textContent = 'アップロード中...';
+            detailTextEl.textContent = '0%';
+            setProgress(0, false, false);
+
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', form.action, true);
+            xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+            xhr.setRequestHeader('Accept', 'application/x-ndjson');
+
+            xhr.upload.onprogress = (e) => {
+                if (e.lengthComputable) {
+                    const pct = (e.loaded / e.total) * 100;
+                    setProgress(pct, false, false);
+                    detailTextEl.textContent = Math.round(pct) + '%';
+                }
+            };
+            xhr.upload.onload = () => {
+                // アップロード完了 → サーバー処理待ち
+                stageTextEl.textContent = 'サーバー処理中...';
+                detailTextEl.textContent = '';
+                setProgress(100, true, true);
+            };
+
+            let buffer = '';
+            let lastIndex = 0;
+            xhr.onreadystatechange = () => {
+                if (xhr.readyState < 3) return;
+                // 受信中 (3) or 完了 (4): 増分テキストを処理
+                const newText = xhr.responseText.substring(lastIndex);
+                lastIndex = xhr.responseText.length;
+                buffer += newText;
+                let nl;
+                while ((nl = buffer.indexOf('\n')) >= 0) {
+                    const line = buffer.substring(0, nl).trim();
+                    buffer = buffer.substring(nl + 1);
+                    if (!line) continue;
+                    try {
+                        const evt = JSON.parse(line);
+                        handleEvent(evt);
+                    } catch (e) {
+                        console.warn('Failed to parse stream line:', line, e);
+                    }
+                }
+            };
+            xhr.onerror = () => {
+                showError('通信エラーが発生しました。');
+            };
+            xhr.onload = () => {
+                // HTTPステータスが 4xx/5xx かつ JSON エラー
+                if (xhr.status >= 400 && buffer) {
+                    try {
+                        const evt = JSON.parse(buffer);
+                        handleEvent(evt);
+                    } catch (e) {
+                        showError(`サーバーエラー (HTTP ${xhr.status})`);
+                    }
+                }
+            };
+            xhr.send(new FormData(form));
+        });
+    });
+
+    document.querySelectorAll('input[name="remove_outliers"]').forEach(checkbox => {
+        const optionsContainerId = checkbox.getAttribute('data-bs-target');
+        const optionsContainer = document.querySelector(optionsContainerId);
+
+        const toggleOptions = () => {
+            if (checkbox.checked) {
+                const bsCollapse = new bootstrap.Collapse(optionsContainer, { toggle: false });
+                bsCollapse.show();
+            } else {
+                const bsCollapse = new bootstrap.Collapse(optionsContainer, { toggle: false });
+                bsCollapse.hide();
+            }
+        };
+
+        checkbox.addEventListener('change', toggleOptions);
+
+        toggleOptions();
+    });
+
+    function formatChartTime(totalSeconds) {
+        if (totalSeconds === null || typeof totalSeconds === 'undefined' || isNaN(totalSeconds)) {
+            return 'N/A';
+        }
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        return `${minutes}:${seconds.toFixed(3).padStart(6, '0')}`;
+    }
+
+    // Beta UI: チャートの軸・グリッド色をテーマ変数から取得
+    const betaTextColor = getComputedStyle(document.body).getPropertyValue('--beta-text-muted').trim() || '#94a3b8';
+    const betaGridColor = getComputedStyle(document.body).getPropertyValue('--beta-border').trim() || 'rgba(148, 163, 184, 0.15)';
+
+    const lapCanvases = document.querySelectorAll('canvas[id^="lapChart-"]');
+    const chartInstances = {};
+
+    lapCanvases.forEach(canvas => {
+        const chartDataJSON = canvas.dataset.chartData;
+        if (!chartDataJSON) return;
+
+        const chartData = JSON.parse(chartDataJSON);
+        if (!chartData || !chartData.percentages || chartData.percentages.length === 0) {
+            return;
+        }
+
+        const ctx = canvas.getContext('2d');
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: chartData.labels.map(l => `Lap ${l}`),
+                datasets: [{
+                    label: 'ベスト比',
+                    data: chartData.percentages,
+                    borderColor: 'rgb(75, 192, 192)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    tension: 0.1,
+                    fill: true,
+                    pointRadius: 4,
+                    pointHoverRadius: 7
+                }]
+            },
+            options: {
+                animation: false,
+                maintainAspectRatio: false,
+                plugins: {
+                    decimation: {
+                        enabled: true,
+                        algorithm: 'min-max',
+                    },
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) { label += ': '; }
+                                if (context.parsed.y !== null) {
+                                    label += context.parsed.y.toFixed(2) + '%';
+                                    const rawTime = chartData.raw_times[context.dataIndex];
+                                    if(rawTime) { label += ` (${formatChartTime(rawTime)})`; }
+                                }
+                                return label;
+                            }
+                        }
+                    },
+                    zoom: {
+                        pan: {
+                            enabled: true,
+                            mode: 'x',
+                            threshold: 10,
+                        },
+                        zoom: {
+                            wheel: {
+                                enabled: true,
+                            },
+                            pinch: {
+                                enabled: true,
+                            },
+                            drag: {
+                                enabled: false
+                            },
+                            mode: 'x',
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        title: { display: true, text: 'ベスト比 (%)', color: betaTextColor },
+                        suggestedMin: 90,
+                        ticks: { color: betaTextColor },
+                        grid: { color: betaGridColor }
+                    },
+                    x: {
+                        title: { display: true, text: 'ラップ数', color: betaTextColor },
+                        ticks: { color: betaTextColor },
+                        grid: { color: betaGridColor }
+                    }
+                }
+            }
+        });
+        chartInstances[canvas.id] = chart;
+    });
+
+    document.querySelectorAll('.pan-left-btn').forEach(button => {
+        button.addEventListener('click', (event) => {
+            const chartId = event.currentTarget.dataset.chartId;
+            const chart = chartInstances[chartId];
+            if (chart) {
+                chart.pan({ x: 50, y: 0 });
+            }
+        });
+    });
+
+    document.querySelectorAll('.pan-right-btn').forEach(button => {
+        button.addEventListener('click', (event) => {
+            const chartId = event.currentTarget.dataset.chartId;
+            const chart = chartInstances[chartId];
+            if (chart) {
+                chart.pan({ x: -50, y: 0 });
+            }
+        });
+    });
+
+    document.querySelectorAll('.zoom-in-btn').forEach(button => {
+        button.addEventListener('click', (event) => {
+            const chartId = event.currentTarget.dataset.chartId;
+            const chart = chartInstances[chartId];
+            if (chart) {
+                chart.zoom(1.1); // 10%拡大
+            }
+        });
+    });
+
+    document.querySelectorAll('.zoom-out-btn').forEach(button => {
+        button.addEventListener('click', (event) => {
+            const chartId = event.currentTarget.dataset.chartId;
+            const chart = chartInstances[chartId];
+            if (chart) {
+                chart.zoom(0.9); // 10%縮小
+            }
+        });
+    });
+
+    document.querySelectorAll('.zoom-reset-btn').forEach(button => {
+        button.addEventListener('click', (event) => {
+            const chartId = event.currentTarget.dataset.chartId;
+            const chart = chartInstances[chartId];
+            if (chart) {
+                chart.resetZoom();
+            }
+        });
+    });
+
+    const compareForm = document.getElementById('compare-form');
+    if (compareForm) {
+        const checkboxes = compareForm.querySelectorAll('.session-checkbox');
+        const compareButton = document.getElementById('compare-button');
+        const selectedCountSpan = document.getElementById('selected-count');
+
+        function updateCompareButtonState() {
+            const checkedCount = Array.from(checkboxes).filter(cb => cb.checked).length;
+            selectedCountSpan.textContent = checkedCount;
+            if (checkedCount >= 2) {
+                compareButton.disabled = false;
+            } else {
+                compareButton.disabled = true;
+            }
+        }
+        checkboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', updateCompareButtonState);
+        });
+        updateCompareButtonState();
+    }
+
+    document.querySelectorAll('.delete-session-btn').forEach(button => {
+        button.addEventListener('click', function(event) {
+            if (confirm('このセッション記録を削除してもよろしいですか？')) {
+                const deleteUrl = this.dataset.deleteUrl;
+                const csrfToken = this.dataset.csrfToken;
+
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = deleteUrl;
+
+                const csrfInput = document.createElement('input');
+                csrfInput.type = 'hidden';
+                csrfInput.name = 'csrf_token';
+                csrfInput.value = csrfToken;
+
+                form.appendChild(csrfInput);
+                document.body.appendChild(form);
+                form.submit();
+            }
+        });
+    });
+
+    document.querySelectorAll('.share-session-switch').forEach(switchEl => {
+        switchEl.addEventListener('change', async function(event) {
+            const sessionId = this.dataset.sessionId;
+            const csrfToken = this.dataset.csrfToken;
+            const shareInfoDiv = document.getElementById(`share-info-${sessionId}`);
+            const urlInput = shareInfoDiv.querySelector('input[type="text"]');
+
+            try {
+                const response = await fetch(`/activity/session/${sessionId}/toggle_share`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrfToken,
+                        'Content-Type': 'application/json'
+                    },
+                });
+
+                if (!response.ok) {
+                    throw new Error('サーバーとの通信に失敗しました。');
+                }
+
+                const data = await response.json();
+
+                if (data.success) {
+                    this.checked = data.is_public;
+
+                    if (data.is_public) {
+                        urlInput.value = data.public_url;
+                        shareInfoDiv.classList.remove('d-none');
+                    } else {
+                        shareInfoDiv.classList.add('d-none');
+                    }
+                } else {
+                    this.checked = !this.checked;
+                    alert(data.message || '処理に失敗しました。');
+                }
+
+            } catch (error) {
+                this.checked = !this.checked;
+                console.error('Share toggle error:', error);
+                alert('エラーが発生しました。');
+            }
+        });
+    });
+
+    document.querySelectorAll('.copy-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const input = this.closest('.input-group').querySelector('input[type="text"]');
+            input.select();
+            document.execCommand('copy');
+
+            const originalIcon = this.innerHTML;
+            this.innerHTML = '<i class="fas fa-check" style="color: var(--beta-accent-emerald);"></i>';
+            setTimeout(() => {
+                this.innerHTML = originalIcon;
+            }, 1500);
+        });
+    });
+});
+</script>
+{% endblock %}
