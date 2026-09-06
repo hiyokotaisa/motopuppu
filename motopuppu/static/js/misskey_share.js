@@ -3,6 +3,38 @@ document.addEventListener('DOMContentLoaded', function() {
     // misskey_instance_domain は base.html でグローバルJavaScript変数として設定されている想定
     // var misskey_instance_domain = {{ misskey_instance_domain | tojson | safe }};
 
+    /**
+     * ODO / 稼働時間の表示値・単位・ラベルを解決する。
+     * data-odo-unit があればそれを優先し、無い場合は data-odo 末尾の単位表記から推定する(後方互換)。
+     * レーサー車両は稼働時間(H)、公道車は走行距離(km)。
+     */
+    function resolveOdoDisplay(dataset) {
+        let value = (dataset.odo || '').trim();
+        let unit = (dataset.odoUnit || '').trim();
+
+        if (!unit) {
+            const matched = value.match(/^(.*?)\s*(H|km)$/i);
+            if (matched) {
+                value = matched[1].trim();
+                unit = matched[2];
+            } else {
+                unit = 'km';
+            }
+        }
+
+        // ODO保留などで値が無い場合は空を返し、呼び出し側で行ごと省略する
+        if (!value || value === 'None') {
+            return { value: '', unit: '', label: '' };
+        }
+
+        const isHours = unit.toLowerCase() === 'h';
+        return {
+            value: value,
+            unit: isHours ? 'H' : 'km',
+            label: isHours ? '稼働時間' : '走行距離'
+        };
+    }
+
     document.body.addEventListener('click', function(event) {
         // ▼▼▼【変更】data-share-url 属性を持つボタンも対象にする ▼▼▼
         const shareButton = event.target.closest('.btn-share-misskey, [data-share-url]');
@@ -71,7 +103,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
         if (recordType === 'fuel') {
-            const odo = dataset.odo;
+            const odoInfo = resolveOdoDisplay(dataset);
             const volume = dataset.volume;
             const kpl = dataset.kpl;
             const cost = dataset.cost;
@@ -80,7 +112,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             shareText = `[${vehicleName}] 給油記録⛽\n` +
                         `日付: ${displayDate}\n` +
-                        `走行距離: ${odo} km\n` +
+                        (odoInfo.value ? `${odoInfo.label}: ${odoInfo.value} ${odoInfo.unit}\n` : '') +
                         `給油量: ${volume} L\n` +
                         (kpl ? `燃費: ${kpl} km/L\n` : '') +
                         (cost ? `費用: ${cost} 円\n` : '') +
@@ -89,7 +121,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         baseHashtags + " #給油記録" + vehicleHashtag;
 
         } else if (recordType === 'maintenance') {
-            const odo = dataset.odo;
+            const odoInfo = resolveOdoDisplay(dataset);
             const category = dataset.category;
             const description = dataset.description;
             const cost = dataset.cost;
@@ -99,7 +131,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             shareText = `[${vehicleName}] 整備記録🔧\n` +
                         `日付: ${displayDate}\n` +
-                        `走行距離: ${odo} km\n` +
+                        (odoInfo.value ? `${odoInfo.label}: ${odoInfo.value} ${odoInfo.unit}\n` : '') +
                         `内容: ${contentSummary}\n` +
                         (cost ? `費用: ${cost} 円\n` : '') +
                         (location ? `場所: ${location}\n` : '') +
