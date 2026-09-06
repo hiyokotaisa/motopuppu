@@ -37,11 +37,11 @@
         {% endif %}
         {% endwith %}
 
-        <form method="POST" enctype="multipart/form-data" action="{{ url_for('vehicle.add_vehicle') if form_action == 'add' else url_for('vehicle.edit_vehicle', vehicle_id=vehicle.id) }}">
-            {{ form.hidden_tag() }}
-
-            <div class="row g-4">
-                <div class="col-lg-8">
+        <div class="row g-4">
+            <div class="col-lg-8">
+                {# 右カラムのODOリセットフォームと入れ子(不正なHTML)にならないよう、車両情報フォームは左カラム内で開閉する #}
+                <form method="POST" enctype="multipart/form-data" action="{{ url_for('vehicle.add_vehicle') if form_action == 'add' else url_for('vehicle.edit_vehicle', vehicle_id=vehicle.id) }}">
+                    {{ form.hidden_tag() }}
                     {# --- 基本情報カード --- #}
                     <div class="beta-widget-card mb-4">
                         <div class="beta-widget-header">
@@ -227,6 +227,7 @@
                             <i class="fas fa-times me-1"></i> キャンセル
                         </a>
                     </div>
+                    </form>
                 </div>
 
                 {# --- 右カラム(編集時のみ): ガレージ設定リンク + ODOリセット --- #}
@@ -358,7 +359,6 @@
                     {% endif %}
                 </div>
             </div>
-        </form>
 
     </main>
 
