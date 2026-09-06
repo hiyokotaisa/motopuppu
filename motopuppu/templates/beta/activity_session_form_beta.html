@@ -1,0 +1,155 @@
+{# motopuppu/templates/beta/activity_session_form_beta.html #}
+{% extends "base.html" %}
+
+{% block title %}セッション記録の編集 - もとぷっぷー{% endblock %}
+
+{% block body_attributes %}beta-ui-body{% endblock %}
+
+{% block styles %}
+{{ super() }}
+{% include 'beta/_beta_layout_head.html' %}
+{% endblock %}
+
+{% block content %}
+<style>.beta-ui-body #main-content > .container { max-width: 100%; padding: 0; }</style>
+
+{% set beta_nav_active = 'activity' %}
+<div class="beta-dashboard-wrapper">
+    <div class="beta-mobile-overlay" id="beta-mobile-overlay"></div>
+    {% include 'beta/_beta_sidebar.html' %}
+
+    <main class="beta-main-content">
+        {% set beta_topbar_title = 'セッション記録の編集' %}
+        {% set beta_topbar_subtitle = motorcycle.name ~ ' - ' ~ (session.activity.activity_title or session.activity.location_name) %}
+        {% include 'beta/_beta_topbar.html' %}
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}{% for category, message in messages %}
+        <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show" role="alert" style="animation: betaFadeIn 0.3s ease;">
+            {{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}{% endif %}
+        {% endwith %}
+
+        <div class="beta-quick-actions mb-4">
+            <a href="{{ url_for('activity.detail_activity', activity_id=session.activity_log_id) }}" class="beta-btn" title="走行ログ詳細へ戻る">
+                <i class="fas fa-arrow-left me-1"></i> 走行ログ詳細
+            </a>
+        </div>
+
+        <div class="beta-widget-card" style="max-width: 900px;">
+            <div class="beta-widget-header">
+                <div class="beta-widget-header-left">
+                    <div class="beta-widget-icon" style="background: rgba(59, 130, 246, 0.15); color: var(--beta-accent-blue);"><i class="fas fa-stopwatch"></i></div>
+                    <span class="beta-widget-title">セッション記録の編集</span>
+                </div>
+            </div>
+            <div class="beta-widget-body" style="padding: 1.5rem;">
+                <form method="POST" action="{{ url_for('activity.edit_session', session_id=session.id) }}">
+                    {{ form.hidden_tag() }}
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            {{ form.session_name.label(class="form-label beta-text-secondary") }}
+                            {{ form.session_name(class="form-control" + (" is-invalid" if form.session_name.errors else "")) }}
+                            {% if form.session_name.errors %}
+                            <div class="invalid-feedback">{% for e in form.session_name.errors %}{{e}}{% endfor %}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            {{ form.setting_sheet_id.label(class="form-label beta-text-secondary") }}
+                            <div class="input-group">
+                                {{ form.setting_sheet_id(class="form-select" + (" is-invalid" if form.setting_sheet_id.errors else "")) }}
+                                <a href="{{ url_for('activity.list_settings', vehicle_id=motorcycle.id) }}"
+                                   class="btn btn-outline-secondary" title="セッティング管理へ"><i class="fas fa-cog"></i></a>
+                            </div>
+                            {% if form.setting_sheet_id.errors %}
+                            <div class="invalid-feedback">{% for e in form.setting_sheet_id.errors %}{{e}}{% endfor %}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div id="racer-fields" class="mb-3 {% if not motorcycle.is_racer %}d-none{% endif %}">
+                        {{ form.session_duration_hours.label(class="form-label beta-text-secondary") }}
+                        {{ form.session_duration_hours(class="form-control" + (" is-invalid" if form.session_duration_hours.errors else "")) }}
+                        {% if form.session_duration_hours.errors %}
+                        <div class="invalid-feedback">{% for e in form.session_duration_hours.errors %}{{e}}{% endfor %}</div>
+                        {% endif %}
+                    </div>
+                    <div id="street-fields" class="mb-3 {% if motorcycle.is_racer %}d-none{% endif %}">
+                        {{ form.session_distance.label(class="form-label beta-text-secondary") }}
+                        {{ form.session_distance(class="form-control" + (" is-invalid" if form.session_distance.errors else "")) }}
+                        {% if form.session_distance.errors %}
+                        <div class="invalid-feedback">{% for e in form.session_distance.errors %}{{e}}{% endfor %}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-3">
+                        {{ form.rider_feel.label(class="form-label beta-text-secondary") }}
+                        {{ form.rider_feel(class="form-control" + (" is-invalid" if form.rider_feel.errors else "")) }}
+                        {% if form.rider_feel.errors %}
+                        <div class="invalid-feedback">{% for e in form.rider_feel.errors %}{{e}}{% endfor %}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label beta-text-secondary">ラップタイム</label>
+                        <div class="d-flex justify-content-end gap-3 mb-2 small beta-text-secondary">
+                            <span>ベスト: <strong id="bestLap" class="beta-text-mono">N/A</strong></span>
+                            <span>平均: <strong id="avgLap" class="beta-text-mono">N/A</strong></span>
+                        </div>
+                        <div id="lapTimeContainer"></div>
+                        <button type="button" class="beta-btn mt-2" id="addLapBtn">
+                            <i class="fas fa-plus me-1"></i> ラップを追加
+                        </button>
+                    </div>
+
+                    <template id="lapTemplate">
+                        <div class="input-group mb-2">
+                            <input type="text" class="form-control lap-time-input" placeholder="例: 1:58.123">
+                            <button class="btn btn-outline-danger remove-lap-btn" type="button" title="このラップを削除">
+                                <i class="fas fa-times"></i>
+                            </button>
+                            <div class="invalid-feedback">
+                                形式が正しくありません (例: 1:23.456 または 83.456)
+                            </div>
+                        </div>
+                    </template>
+
+                    <input type="hidden" id="lap_times_json" name="lap_times_json" value="{{ lap_times_json|e }}">
+                    <input type="hidden" id="lap_time_indices_json" name="lap_time_indices_json" value="">
+
+                    <div class="mb-3">
+                        <div class="form-check">
+                            {{ form.include_in_leaderboard(class="form-check-input") }}
+                            {{ form.include_in_leaderboard.label(class="form-check-label beta-text-secondary") }}
+                        </div>
+                        <div class="form-check">
+                            {{ form.allow_misskey_post(class="form-check-input") }}
+                            {{ form.allow_misskey_post.label(class="form-check-label beta-text-secondary") }}
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-2 mt-4">
+                        {{ form.submit(class="beta-btn beta-btn-solid", value="更新する") }}
+                        <a href="{{ url_for('activity.detail_activity', activity_id=session.activity_log_id) }}" class="beta-btn">
+                            <i class="fas fa-times me-1"></i> キャンセル
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+    </main>
+    {% include 'beta/_beta_bottombar.html' %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+{% include 'beta/_beta_scripts.html' %}
+<script>
+    // グローバルスコープで初期データを設定
+    var initialLapTimes = {{ lap_times_json| safe }};
+</script>
+<script src="{{ url_for('static', filename='js/lap_time_manager.js') }}"></script>
+{% endblock %}

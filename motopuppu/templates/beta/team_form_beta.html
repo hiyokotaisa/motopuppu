@@ -1,0 +1,73 @@
+{# motopuppu/templates/beta/team_form_beta.html #}
+{% extends "base.html" %}
+
+{% set page_title = "チームの編集" if form_action == 'edit' else "新しいチームの作成" %}
+{% block title %}{{ page_title }} - もとぷっぷー{% endblock %}
+
+{% block body_attributes %}beta-ui-body{% endblock %}
+
+{% block styles %}
+{{ super() }}
+{% include 'beta/_beta_layout_head.html' %}
+{% endblock %}
+
+{% block content %}
+<style>.beta-ui-body #main-content > .container { max-width: 100%; padding: 0; }</style>
+
+{% set beta_nav_active = 'team' %}
+<div class="beta-dashboard-wrapper">
+    <div class="beta-mobile-overlay" id="beta-mobile-overlay"></div>
+    {% include 'beta/_beta_sidebar.html' %}
+
+    <main class="beta-main-content">
+        {% set beta_topbar_title = page_title %}
+        {% include 'beta/_beta_topbar.html' %}
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}{% for category, message in messages %}
+        <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show" role="alert" style="animation: betaFadeIn 0.3s ease;">
+            {{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}{% endif %}
+        {% endwith %}
+
+        <div class="beta-widget-card" style="max-width: 700px;">
+            <div class="beta-widget-header">
+                <div class="beta-widget-header-left">
+                    <div class="beta-widget-icon" style="background: rgba(59, 130, 246, 0.15); color: var(--beta-accent-blue);"><i class="fas fa-users"></i></div>
+                    <span class="beta-widget-title">{{ page_title }}</span>
+                </div>
+            </div>
+            <div class="beta-widget-body" style="padding: 1.5rem;">
+                <form method="POST" action="{{ url_for('team.create_team') if form_action == 'create' else url_for('team.edit_team', team_id=team.id) }}">
+                    {{ form.hidden_tag() }}
+
+                    <div class="mb-3">
+                        <label for="{{ form.name.id }}" class="form-label beta-text-secondary">
+                            <i class="fas fa-tag me-2"></i>{{ form.name.label.text }}
+                        </label>
+                        {{ form.name(class="form-control" + (" is-invalid" if form.name.errors else ""), autocomplete="off") }}
+                        {% if form.name.errors %}
+                            <div class="invalid-feedback">{% for error in form.name.errors %}{{ error }}{% endfor %}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="d-flex gap-2 mt-4">
+                        {{ form.submit(class="beta-btn beta-btn-solid") }}
+                        <a href="{{ url_for('team.list_teams') }}" class="beta-btn">
+                            <i class="fas fa-times me-1"></i> キャンセル
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+    </main>
+    {% include 'beta/_beta_bottombar.html' %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+{% include 'beta/_beta_scripts.html' %}
+{% endblock %}

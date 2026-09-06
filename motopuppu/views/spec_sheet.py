@@ -24,6 +24,11 @@ SPEC_SHEET_CATEGORIES = {
     'other': {'title': 'その他', 'icon': 'fa-info-circle'}
 }
 
+def _sheet_form_template():
+    """Beta UI かどうかで整備情報シートのフォームテンプレートを切り替える"""
+    return 'beta/spec_sheet_form_beta.html' if current_user.use_beta_ui else 'spec_sheet/sheet_form.html'
+
+
 # --- ルート定義 ---
 
 @spec_sheet_bp.route('/<int:vehicle_id>')
@@ -32,7 +37,8 @@ def list_sheets(vehicle_id):
     """特定の車両の整備情報シート一覧を表示する"""
     motorcycle = get_motorcycle_or_404(vehicle_id)
     sheets = motorcycle.maintenance_spec_sheets.all()
-    return render_template('spec_sheet/list_sheets.html', motorcycle=motorcycle, sheets=sheets)
+    template_name = 'beta/spec_sheet_list_beta.html' if current_user.use_beta_ui else 'spec_sheet/list_sheets.html'
+    return render_template(template_name, motorcycle=motorcycle, sheets=sheets)
 
 @spec_sheet_bp.route('/<int:sheet_id>/view')
 @login_required # ▼▼▼ デコレータを修正 ▼▼▼
@@ -41,8 +47,9 @@ def view_sheet(sheet_id):
     # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
     sheet = MaintenanceSpecSheet.query.filter_by(id=sheet_id, user_id=current_user.id).first_or_404()
     # ▲▲▲ 変更ここまで ▲▲▲
+    template_name = 'beta/spec_sheet_view_beta.html' if current_user.use_beta_ui else 'spec_sheet/view_sheet.html'
     return render_template(
-        'spec_sheet/view_sheet.html',
+        template_name,
         sheet=sheet,
         motorcycle=sheet.motorcycle,
         categories=SPEC_SHEET_CATEGORIES
@@ -61,7 +68,7 @@ def create_sheet(vehicle_id):
             spec_data_json = json.loads(form.spec_data.data or '{}')
         except json.JSONDecodeError:
             flash('スペックデータの形式が正しくありません。', 'danger')
-            return render_template('spec_sheet/sheet_form.html', form=form, motorcycle=motorcycle, form_action='create')
+            return render_template(_sheet_form_template(), form=form, motorcycle=motorcycle, form_action='create')
 
         new_sheet = MaintenanceSpecSheet(
             # ▼▼▼ g.user.id を current_user.id に変更 ▼▼▼
@@ -82,7 +89,7 @@ def create_sheet(vehicle_id):
             current_app.logger.error(f"Error creating spec sheet for vehicle {vehicle_id}: {e}", exc_info=True)
             flash('シートの作成中にエラーが発生しました。', 'danger')
 
-    return render_template('spec_sheet/sheet_form.html', form=form, motorcycle=motorcycle, form_action='create')
+    return render_template(_sheet_form_template(), form=form, motorcycle=motorcycle, form_action='create')
 
 @spec_sheet_bp.route('/<int:sheet_id>/edit', methods=['GET', 'POST'])
 @limiter.limit("60 per hour")
@@ -100,7 +107,7 @@ def edit_sheet(sheet_id):
             spec_data_json = json.loads(form.spec_data.data or '{}')
         except json.JSONDecodeError:
             flash('スペックデータの形式が正しくありません。', 'danger')
-            return render_template('spec_sheet/sheet_form.html', form=form, motorcycle=motorcycle, sheet=sheet, form_action='edit')
+            return render_template(_sheet_form_template(), form=form, motorcycle=motorcycle, sheet=sheet, form_action='edit')
         
         sheet.sheet_name = form.sheet_name.data
         sheet.spec_data = spec_data_json
@@ -118,7 +125,7 @@ def edit_sheet(sheet_id):
     if request.method == 'GET':
         form.spec_data.data = json.dumps(sheet.spec_data, ensure_ascii=False)
 
-    return render_template('spec_sheet/sheet_form.html', form=form, motorcycle=motorcycle, sheet=sheet, form_action='edit')
+    return render_template(_sheet_form_template(), form=form, motorcycle=motorcycle, sheet=sheet, form_action='edit')
 
 @spec_sheet_bp.route('/<int:sheet_id>/delete', methods=['POST'])
 @limiter.limit("30 per hour")

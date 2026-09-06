@@ -17,12 +17,18 @@ from ...forms import SettingSheetForm
 from ... import limiter
 
 
+def _setting_form_template():
+    """Beta UI かどうかでセッティングシートのフォームテンプレートを切り替える"""
+    return 'beta/activity_setting_form_beta.html' if current_user.use_beta_ui else 'activity/setting_form.html'
+
+
 @activity_bp.route('/<int:vehicle_id>/settings')
 @login_required # ▼▼▼ デコレータを修正 ▼▼▼
 def list_settings(vehicle_id):
     motorcycle = get_motorcycle_or_404(vehicle_id)
     settings = SettingSheet.query.filter_by(motorcycle_id=motorcycle.id).order_by(SettingSheet.is_archived, SettingSheet.sheet_name).all()
-    return render_template('activity/list_settings.html',
+    template_name = 'beta/activity_settings_list_beta.html' if current_user.use_beta_ui else 'activity/list_settings.html'
+    return render_template(template_name,
                            motorcycle=motorcycle,
                            settings=settings)
 
@@ -40,7 +46,7 @@ def add_setting(vehicle_id):
         except (json.JSONDecodeError, TypeError):
             flash('セッティング詳細のデータ形式が無効です。', 'danger')
             # --- ▼▼▼ 変更箇所 ▼▼▼ ---
-            return render_template('activity/setting_form.html', form=form, motorcycle=motorcycle, form_action='add', details_json=details_json_str)
+            return render_template(_setting_form_template(), form=form, motorcycle=motorcycle, form_action='add', details_json=details_json_str)
             # --- ▲▲▲ 変更箇所 ▲▲▲ ---
 
         new_setting = SettingSheet(
@@ -67,7 +73,7 @@ def add_setting(vehicle_id):
         flash(f'入力内容にエラーがあります: {error_messages}', 'danger')
 
     # --- ▼▼▼ 変更箇所 ▼▼▼ ---
-    return render_template('activity/setting_form.html',
+    return render_template(_setting_form_template(),
                            form=form,
                            motorcycle=motorcycle,
                            form_action='add',
@@ -92,7 +98,7 @@ def edit_setting(setting_id):
         except (json.JSONDecodeError, TypeError):
             flash('セッティング詳細のデータ形式が無効です。', 'danger')
             # --- ▼▼▼ 変更箇所 ▼▼▼ ---
-            return render_template('activity/setting_form.html', form=form, motorcycle=motorcycle, setting=setting, form_action='edit', details_json=details_json_str)
+            return render_template(_setting_form_template(), form=form, motorcycle=motorcycle, setting=setting, form_action='edit', details_json=details_json_str)
             # --- ▲▲▲ 変更箇所 ▲▲▲ ---
 
         setting.sheet_name = form.sheet_name.data
@@ -110,7 +116,7 @@ def edit_setting(setting_id):
 
     details_json_for_template = json.dumps(setting.details)
     # --- ▼▼▼ 変更箇所 ▼▼▼ ---
-    return render_template('activity/setting_form.html',
+    return render_template(_setting_form_template(),
                            form=form,
                            motorcycle=motorcycle,
                            setting=setting,

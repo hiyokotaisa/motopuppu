@@ -1,0 +1,322 @@
+{# motopuppu/templates/beta/team_dashboard_beta.html #}
+{% extends "base.html" %}
+
+{% block title %}Team: {{ team.name }} - もとぷっぷー{% endblock %}
+
+{% block body_attributes %}beta-ui-body{% endblock %}
+
+{% block styles %}
+{{ super() }}
+{% include 'beta/_beta_layout_head.html' %}
+{% endblock %}
+
+{% block content %}
+<style>.beta-ui-body #main-content > .container { max-width: 100%; padding: 0; }</style>
+
+<style>
+    /* --- チームダッシュボード (Beta) 専用スタイル --- */
+    .team-row-hover { transition: background-color 0.15s ease; }
+    .team-row-hover:hover { background-color: rgba(148, 163, 184, 0.08); }
+
+    .event-date-badge {
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        width: 60px; height: 60px; border-radius: 10px;
+        background: rgba(148, 163, 184, 0.1);
+        color: var(--beta-text-primary);
+        border: 1px solid var(--beta-border);
+        flex-shrink: 0;
+    }
+    .event-date-month { font-size: 0.7rem; font-weight: bold; text-transform: uppercase; color: var(--beta-text-muted); }
+    .event-date-day { font-size: 1.5rem; font-weight: bold; line-height: 1; }
+
+    /* ランキングメダル */
+    .medal-icon { font-size: 1.2rem; width: 24px; text-align: center; margin-right: 8px; }
+    .medal-gold { color: #ffc107; }
+    .medal-silver { color: #adb5bd; }
+    .medal-bronze { color: #cd7f32; }
+</style>
+
+{% set beta_nav_active = 'team' %}
+<div class="beta-dashboard-wrapper">
+    <div class="beta-mobile-overlay" id="beta-mobile-overlay"></div>
+    {% include 'beta/_beta_sidebar.html' %}
+
+    <main class="beta-main-content">
+        {% set beta_topbar_title = team.name %}
+        {% set beta_topbar_subtitle = 'Team Dashboard' %}
+        {% include 'beta/_beta_topbar.html' %}
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}{% for category, message in messages %}
+        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert" style="animation: betaFadeIn 0.3s ease;">
+            {{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}{% endif %}
+        {% endwith %}
+
+        {# Quick Actions #}
+        <div class="beta-quick-actions mb-4">
+            <a href="{{ url_for('team.list_teams') }}" class="beta-btn">
+                <i class="fas fa-arrow-left me-1"></i> チーム一覧
+            </a>
+            {% if team.owner_id == current_user.id %}
+            <a href="{{ url_for('team.manage_team', team_id=team.id) }}" class="beta-btn">
+                <i class="fas fa-cog me-1"></i> 設定
+            </a>
+            {% else %}
+            <button type="button" class="beta-btn" style="color: var(--beta-accent-red);" data-bs-toggle="modal" data-bs-target="#leaveTeamModal">
+                <i class="fas fa-sign-out-alt me-1"></i> 脱退
+            </button>
+            {% endif %}
+        </div>
+
+        {# --- 1. ヒーロー統計エリア --- #}
+        <div class="beta-stats-grid mb-4" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem;">
+            <div class="beta-stat-card" style="--stat-accent: var(--beta-accent-blue);">
+                <div class="beta-stat-card-label">Members</div>
+                <div class="beta-stat-card-value">{{ team_stats.member_count }}</div>
+                <div class="beta-stat-card-icon"><i class="fas fa-users"></i></div>
+            </div>
+            <div class="beta-stat-card" style="--stat-accent: var(--beta-accent-emerald);">
+                <div class="beta-stat-card-label">Upcoming Events</div>
+                <div class="beta-stat-card-value">{{ team_stats.event_count }}</div>
+                <div class="beta-stat-card-icon"><i class="fas fa-calendar-alt"></i></div>
+            </div>
+            <div class="beta-stat-card" style="--stat-accent: var(--beta-accent-teal);">
+                <div class="beta-stat-card-label">Total Logs</div>
+                <div class="beta-stat-card-value">{{ team_stats.total_logs }}</div>
+                <div class="beta-stat-card-icon"><i class="fas fa-running"></i></div>
+            </div>
+        </div>
+
+        <div class="row g-4">
+            {# --- 左カラム: イベント & タイムライン --- #}
+            <div class="col-lg-8">
+
+                {# イベントセクション #}
+                <div class="beta-widget-card mb-4">
+                    <div class="beta-widget-header">
+                        <div class="beta-widget-header-left">
+                            <div class="beta-widget-icon" style="background: rgba(59, 130, 246, 0.15); color: var(--beta-accent-blue);"><i class="fas fa-calendar-day"></i></div>
+                            <span class="beta-widget-title">Events</span>
+                        </div>
+                        <a href="{{ url_for('event.add_event', team_id=team.id) }}" class="beta-btn" style="font-size: 0.7rem;">
+                            <i class="fas fa-plus me-1"></i> 作成
+                        </a>
+                    </div>
+                    <div class="beta-widget-body" style="padding: 0;">
+                        {% if upcoming_events %}
+                            {% for event in upcoming_events %}
+                            <div class="p-3 team-row-hover position-relative" style="border-bottom: 1px solid var(--beta-border);">
+                                <div class="d-flex align-items-start">
+                                    <div class="event-date-badge me-3">
+                                        <div class="event-date-month">{{ event.start_datetime.strftime('%b') }}</div>
+                                        <div class="event-date-day">{{ event.start_datetime.strftime('%d') }}</div>
+                                    </div>
+
+                                    <div class="flex-grow-1" style="min-width: 0;">
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <h6 class="mb-1 fw-bold text-truncate">
+                                                <a href="{{ url_for('event.event_detail', event_id=event.id) }}" class="beta-text-primary text-decoration-none stretched-link">
+                                                    {{ event.title }}
+                                                </a>
+                                            </h6>
+                                            <div class="d-none d-md-block text-end flex-shrink-0 ms-2">
+                                                {% set attending = event.participants.filter_by(status='attending').count() %}
+                                                <span class="beta-badge" style="background: rgba(148, 163, 184, 0.15); color: var(--beta-text-muted); border: 1px solid var(--beta-border);">
+                                                    <i class="fas fa-user-check me-1"></i>{{ attending }}
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        <p class="mb-1 beta-text-muted small text-truncate">
+                                            <i class="far fa-clock me-1"></i>{{ event.start_datetime.strftime('%H:%M') }}
+                                            {% if event.location %}
+                                                <span class="mx-2">|</span><i class="fas fa-map-marker-alt me-1"></i>{{ event.location }}
+                                            {% endif %}
+                                        </p>
+
+                                        <div class="d-flex align-items-center mt-2">
+                                            <img src="{{ event.owner.avatar_url or url_for('static', filename='images/blobcat_8bit.webp') }}" class="rounded-circle me-2" width="20" height="20" style="object-fit: cover;">
+                                            <span class="small beta-text-muted me-3">{{ event.owner.display_name or event.owner.misskey_username }}</span>
+
+                                            <div class="d-md-none">
+                                                {% set attending = event.participants.filter_by(status='attending').count() %}
+                                                <span class="beta-badge" style="background: rgba(148, 163, 184, 0.15); color: var(--beta-text-muted); border: 1px solid var(--beta-border);">
+                                                    <i class="fas fa-user-check me-1"></i>{{ attending }}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="text-center py-5 beta-text-muted">
+                                <i class="far fa-calendar-times fa-3x mb-3" style="opacity: 0.3;"></i>
+                                <p class="mb-0 small">予定されているイベントはありません</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                {# 活動ログ（タイムライン）セクション #}
+                <div class="beta-widget-card">
+                    <div class="beta-widget-header">
+                        <div class="beta-widget-header-left">
+                            <div class="beta-widget-icon" style="background: rgba(20, 184, 166, 0.15); color: var(--beta-accent-teal);"><i class="fas fa-stream"></i></div>
+                            <span class="beta-widget-title">Recent Activity</span>
+                        </div>
+                    </div>
+                    <div class="beta-widget-body" style="padding: 0;">
+                        {% if recent_activities %}
+                            {% for activity in recent_activities %}
+                            <a href="{{ url_for('activity.detail_activity', activity_id=activity.id) }}" class="d-block p-3 team-row-hover text-decoration-none" style="border-bottom: 1px solid var(--beta-border);">
+                                <div class="d-flex">
+                                    <img src="{{ activity.user.avatar_url or url_for('static', filename='images/blobcat_8bit.webp') }}" class="rounded-circle me-3 flex-shrink-0" width="48" height="48" style="object-fit: cover;">
+                                    <div class="flex-grow-1" style="min-width: 0;">
+                                        <div class="d-flex justify-content-between">
+                                            <h6 class="mb-1 fw-bold" style="color: var(--beta-accent-blue);">{{ activity.activity_title }}</h6>
+                                            <small class="beta-text-muted flex-shrink-0 ms-2">{{ activity.activity_date.strftime('%m/%d') }}</small>
+                                        </div>
+                                        <p class="mb-1 small beta-text-primary">
+                                            {{ activity.user.display_name or activity.user.misskey_username }}
+                                            <span class="beta-text-muted">@ {{ activity.location_name_display }}</span>
+                                        </p>
+                                        <div class="d-flex align-items-center small beta-text-muted">
+                                            <i class="fas fa-motorcycle me-1"></i>{{ activity.motorcycle.name }}
+                                            {% if activity.notes %}
+                                                <span class="mx-2">|</span><span class="text-truncate" style="max-width: 200px;">{{ activity.notes }}</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </a>
+                            {% endfor %}
+                        {% else %}
+                            <div class="text-center py-5 beta-text-muted">
+                                <p class="mb-0 small">まだ活動ログがありません</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+            </div>
+
+            {# --- 右カラム: ランキング & メンバー --- #}
+            <div class="col-lg-4">
+
+                {# サーキットランキング #}
+                <div class="beta-widget-card mb-4">
+                    <div class="beta-widget-header">
+                        <div class="beta-widget-header-left">
+                            <div class="beta-widget-icon" style="background: rgba(245, 158, 11, 0.15); color: var(--beta-accent-amber);"><i class="fas fa-trophy"></i></div>
+                            <span class="beta-widget-title">Top Times</span>
+                        </div>
+                    </div>
+                    <div class="beta-widget-body" style="padding: 0;">
+                        {% if circuit_data %}
+                            <div class="accordion accordion-flush" id="circuitRankingsAccordion">
+                                {% for circuit_name, rankings in circuit_data.items()|sort %}
+                                <div class="accordion-item">
+                                    <h2 class="accordion-header" id="heading-{{ loop.index }}">
+                                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ loop.index }}" aria-expanded="false">
+                                            <div class="d-flex flex-column align-items-start w-100">
+                                                <div class="fw-bold beta-text-primary mb-1">{{ circuit_name }}</div>
+                                                <div class="small beta-text-muted">
+                                                    <i class="fas fa-crown me-1" style="color: var(--beta-accent-amber);"></i>{{ format_seconds_to_time(rankings[0].best_lap) }}
+                                                    <span class="ms-1">({{ rankings[0].user.display_name or rankings[0].user.misskey_username }})</span>
+                                                </div>
+                                            </div>
+                                        </button>
+                                    </h2>
+                                    <div id="collapse-{{ loop.index }}" class="accordion-collapse collapse" aria-labelledby="heading-{{ loop.index }}" data-bs-parent="#circuitRankingsAccordion">
+                                        <div class="accordion-body p-0">
+                                            {% for rank_item in rankings %}
+                                            <div class="d-flex justify-content-between align-items-center px-3 py-2" style="border-bottom: 1px solid var(--beta-border);">
+                                                <div class="d-flex align-items-center text-truncate">
+                                                    <span class="medal-icon">
+                                                        {% if loop.index == 1 %}<i class="fas fa-medal medal-gold"></i>
+                                                        {% elif loop.index == 2 %}<i class="fas fa-medal medal-silver"></i>
+                                                        {% elif loop.index == 3 %}<i class="fas fa-medal medal-bronze"></i>
+                                                        {% else %}<span class="small beta-text-muted fw-bold">{{ loop.index }}</span>{% endif %}
+                                                    </span>
+                                                    <img src="{{ rank_item.user.avatar_url or url_for('static', filename='images/blobcat_8bit.webp') }}" class="rounded-circle me-2" width="24" height="24" style="object-fit: cover;">
+                                                    <span class="small beta-text-secondary text-truncate" style="max-width: 100px;">{{ rank_item.user.display_name or rank_item.user.misskey_username }}</span>
+                                                </div>
+                                                <span class="small fw-bold beta-text-mono beta-text-primary">{{ format_seconds_to_time(rank_item.best_lap) }}</span>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="p-4 text-center beta-text-muted small">
+                                走行データがありません
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                {# メンバーリスト #}
+                <div class="beta-widget-card">
+                    <div class="beta-widget-header">
+                        <div class="beta-widget-header-left">
+                            <div class="beta-widget-icon" style="background: rgba(148, 163, 184, 0.15); color: var(--beta-text-muted);"><i class="fas fa-users"></i></div>
+                            <span class="beta-widget-title">Members</span>
+                        </div>
+                    </div>
+                    <div class="beta-widget-body" style="padding: 0;">
+                        {% for member in members %}
+                        <div class="d-flex align-items-center px-3 py-2" style="border-bottom: 1px solid var(--beta-border);">
+                            <img src="{{ member.avatar_url or url_for('static', filename='images/blobcat_8bit.webp') }}" class="rounded-circle me-3" width="32" height="32" style="object-fit: cover;">
+                            <div class="flex-grow-1 d-flex justify-content-between align-items-center">
+                                <span class="small fw-bold beta-text-primary">{{ member.display_name or member.misskey_username }}</span>
+                                {% if member.id == team.owner_id %}
+                                <span class="beta-badge" style="font-size: 0.6rem; background: rgba(16, 185, 129, 0.15); color: var(--beta-accent-emerald); border: 1px solid rgba(16, 185, 129, 0.3);">OWNER</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        {# チーム脱退モーダル #}
+        {% if team.owner_id != current_user.id %}
+        <div class="modal fade" id="leaveTeamModal" tabindex="-1" aria-hidden="true">
+          <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title">チームからの脱退</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+              </div>
+              <div class="modal-body">
+                <p class="mb-2">本当にチーム「<strong>{{ team.name }}</strong>」から脱退しますか？</p>
+                <p class="small mb-0" style="color: var(--beta-accent-red);"><i class="fas fa-exclamation-triangle me-1"></i>この操作は取り消せません。再参加には招待が必要です。</p>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="beta-btn" data-bs-dismiss="modal">キャンセル</button>
+                <form method="POST" action="{{ url_for('team.leave_team', team_id=team.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    <button type="submit" class="beta-btn" style="color: var(--beta-accent-red); border-color: var(--beta-accent-red);">脱退する</button>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
+    </main>
+    {% include 'beta/_beta_bottombar.html' %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+{% include 'beta/_beta_scripts.html' %}
+{% endblock %}

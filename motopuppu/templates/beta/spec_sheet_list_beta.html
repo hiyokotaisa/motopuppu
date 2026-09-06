@@ -1,0 +1,149 @@
+{# motopuppu/templates/beta/spec_sheet_list_beta.html #}
+{% extends "base.html" %}
+
+{% block title %}整備情報シート ({{ motorcycle.name }}) - もとぷっぷー{% endblock %}
+
+{% block body_attributes %}beta-ui-body{% endblock %}
+
+{% block styles %}
+{{ super() }}
+{% include 'beta/_beta_layout_head.html' %}
+{% endblock %}
+
+{% block content %}
+<style>.beta-ui-body #main-content > .container { max-width: 100%; padding: 0; }</style>
+
+{% set beta_nav_active = 'spec_sheet' %}
+<div class="beta-dashboard-wrapper">
+    <div class="beta-mobile-overlay" id="beta-mobile-overlay"></div>
+    {% include 'beta/_beta_sidebar.html' %}
+
+    <main class="beta-main-content">
+        {% set beta_topbar_title = '整備情報シート' %}
+        {% set beta_topbar_subtitle = motorcycle.name %}
+        {% include 'beta/_beta_topbar.html' %}
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}{% for category, message in messages %}
+        <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show" role="alert" style="animation: betaFadeIn 0.3s ease;">
+            {{ message | safe }}<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}{% endif %}
+        {% endwith %}
+
+        {# Quick Actions #}
+        <div class="beta-quick-actions mb-3">
+            <a href="{{ url_for('spec_sheet.create_sheet', vehicle_id=motorcycle.id) }}" class="beta-quick-btn">
+                <i class="fas fa-plus me-1"></i> 新しいシートを作成
+            </a>
+            <a href="{{ url_for('vehicle.dashboard', vehicle_id=motorcycle.id) }}" class="beta-btn">
+                <i class="fas fa-motorcycle me-1"></i> 車両ダッシュボード
+            </a>
+        </div>
+
+        <p class="beta-text-muted small mb-4">この車両の整備に必要な技術情報（規定トルク、油脂類の量、純正部品品番など）を管理します。</p>
+
+        {# Vehicle Switcher #}
+        {% if g.user_motorcycles | length > 1 %}
+        <div class="d-flex flex-wrap gap-2 mb-4">
+            {% for m in g.user_motorcycles %}
+            <a href="{{ url_for('spec_sheet.list_sheets', vehicle_id=m.id) }}"
+               class="beta-btn {{ 'beta-btn-solid' if m.id == motorcycle.id }}">
+                <i class="fas fa-motorcycle me-1"></i> {{ m.name }}
+            </a>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if sheets %}
+        <div class="table-responsive beta-widget-card" style="border-radius: var(--beta-radius);">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th class="ps-3 beta-text-muted" style="font-size: 0.7rem;">シート名</th>
+                        <th class="beta-text-muted" style="font-size: 0.7rem;">最終更新日時</th>
+                        <th class="text-end pe-3 beta-text-muted" style="font-size: 0.7rem;">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for sheet in sheets %}
+                    <tr>
+                        <td class="ps-3">
+                            <a href="{{ url_for('spec_sheet.view_sheet', sheet_id=sheet.id) }}" class="text-decoration-none">
+                                <strong class="beta-text-primary">
+                                    <i class="fas fa-clipboard-list me-2" style="color: var(--beta-accent-blue);"></i>{{ sheet.sheet_name }}
+                                </strong>
+                            </a>
+                        </td>
+                        <td>
+                            <span class="beta-text-muted small">
+                                <i class="far fa-clock me-1"></i>{{ sheet.updated_at.strftime('%Y-%m-%d %H:%M') }}
+                            </span>
+                        </td>
+                        <td class="text-end pe-3 text-nowrap">
+                            <form action="{{ url_for('spec_sheet.duplicate_sheet', sheet_id=sheet.id) }}" method="POST" class="d-inline">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="beta-btn" style="font-size: 0.7rem; padding: 0.2rem 0.5rem;" title="複製">
+                                    <i class="far fa-copy fa-fw"></i>
+                                </button>
+                            </form>
+                            <a href="{{ url_for('spec_sheet.edit_sheet', sheet_id=sheet.id) }}" class="beta-btn ms-1" style="font-size: 0.7rem; padding: 0.2rem 0.5rem;" title="編集">
+                                <i class="fas fa-edit fa-fw"></i>
+                            </a>
+                            <button type="button" class="beta-btn ms-1" style="font-size: 0.7rem; padding: 0.2rem 0.5rem; color: var(--beta-accent-red);"
+                                    data-bs-toggle="modal" data-bs-target="#deleteModal-{{ sheet.id }}" title="削除">
+                                <i class="fas fa-trash fa-fw"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {# --- 削除確認モーダル (テーブル外に配置) --- #}
+        {% for sheet in sheets %}
+        <div class="modal fade" id="deleteModal-{{ sheet.id }}" tabindex="-1" aria-labelledby="deleteModalLabel-{{ sheet.id }}" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="deleteModalLabel-{{ sheet.id }}">削除の確認</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        整備情報シート「{{ sheet.sheet_name }}」を本当に削除しますか？<br>
+                        この操作は元に戻せません。
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="beta-btn" data-bs-dismiss="modal">キャンセル</button>
+                        <form action="{{ url_for('spec_sheet.delete_sheet', sheet_id=sheet.id) }}" method="POST" class="d-inline">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="beta-btn" style="color: var(--beta-accent-red); border-color: var(--beta-accent-red);">削除する</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div class="text-center py-5 beta-text-muted beta-widget-card">
+            <div class="beta-widget-body">
+                <i class="fas fa-clipboard-list fa-3x mb-3" style="opacity: 0.3;"></i>
+                <h6 class="fw-bold beta-text-primary">まだ整備情報シートがありません</h6>
+                <p class="mb-3 small">「新しいシートを作成」ボタンから最初のシートを登録しましょう。</p>
+                <a href="{{ url_for('spec_sheet.create_sheet', vehicle_id=motorcycle.id) }}" class="beta-btn beta-btn-solid">
+                    <i class="fas fa-plus me-1"></i> 新しいシートを作成
+                </a>
+            </div>
+        </div>
+        {% endif %}
+
+    </main>
+    {% include 'beta/_beta_bottombar.html' %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+{% include 'beta/_beta_scripts.html' %}
+{% endblock %}

@@ -1,0 +1,299 @@
+{# motopuppu/templates/beta/activity_compare_beta.html #}
+{% extends "base.html" %}
+
+{% block title %}セッション比較 - {{ motorcycle.name }} - もとぷっぷー{% endblock %}
+
+{% block body_attributes %}beta-ui-body{% endblock %}
+
+{% block styles %}
+{{ super() }}
+{% include 'beta/_beta_layout_head.html' %}
+{% endblock %}
+
+{% block content %}
+<style>.beta-ui-body #main-content > .container { max-width: 100%; padding: 0; }</style>
+
+<style>
+    .fastest-lap {
+        font-size: 1.2em;
+        font-weight: bold;
+        color: var(--beta-accent-emerald);
+    }
+    .fastest-indicator { color: var(--beta-accent-amber); }
+    /* 差分行のハイライト */
+    body.beta-ui-body .diff-row > td {
+        background-color: rgba(245, 158, 11, 0.12) !important;
+    }
+</style>
+
+{% set beta_nav_active = 'activity' %}
+<div class="beta-dashboard-wrapper">
+    <div class="beta-mobile-overlay" id="beta-mobile-overlay"></div>
+    {% include 'beta/_beta_sidebar.html' %}
+
+    <main class="beta-main-content">
+        {% set beta_topbar_title = 'セッション比較' %}
+        {% set beta_topbar_subtitle = motorcycle.name %}
+        {% include 'beta/_beta_topbar.html' %}
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}{% for category, message in messages %}
+        <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show" role="alert" style="animation: betaFadeIn 0.3s ease;">
+            {{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}{% endif %}
+        {% endwith %}
+
+        <div class="beta-quick-actions mb-4">
+            <a href="{{ url_for('activity.detail_activity', activity_id=(sessions|first).activity_log_id) }}" class="beta-btn" title="走行ログ詳細へ戻る">
+                <i class="fas fa-arrow-left me-1"></i> 走行ログ詳細
+            </a>
+        </div>
+
+        {# --- サマリーセクション --- #}
+        <div class="row mb-4 g-3">
+            {% set best_stats = comparison_data.lap_analysis.stats.values() | selectattr('best_sec', 'number') | list %}
+            {% set min_best_sec = (best_stats | map(attribute='best_sec') | min) if best_stats else none %}
+            {% set avg_stats = comparison_data.lap_analysis.stats.values() | selectattr('avg_sec', 'number') | list %}
+            {% set min_avg_sec = (avg_stats | map(attribute='avg_sec') | min) if avg_stats else none %}
+
+            {% for session in sessions %}
+            {% set stats = comparison_data.lap_analysis.stats.get(session.id) %}
+            <div class="col-md-6 col-lg-4">
+                <div class="beta-widget-card h-100">
+                    <div class="beta-widget-body d-flex flex-column h-100" style="padding: 1.25rem;">
+                        <h6 class="fw-bold beta-text-primary mb-1">{{ session.session_name }}</h6>
+                        <div class="beta-text-muted small mb-2">{{ session.setting_sheet.sheet_name if session.setting_sheet else 'セッティングなし' }}</div>
+                        <hr style="border-color: var(--beta-border);">
+                        <div class="mb-2 beta-text-secondary">
+                            ベストラップ:
+                            {% if stats.best_sec is number and stats.best_sec == min_best_sec %}
+                                <span class="fastest-lap beta-text-mono"><i class="fas fa-crown fastest-indicator me-1"></i>{{ stats.best }}</span>
+                            {% elif stats.best != 'N/A' %}
+                                <span class="beta-text-mono beta-text-primary">{{ stats.best }}</span>
+                                <small style="color: var(--beta-accent-red);">({{ stats.best_diff }})</small>
+                            {% else %}
+                                <span class="beta-text-muted">{{ stats.best }}</span>
+                            {% endif %}
+                        </div>
+                        <div class="mb-2 beta-text-secondary">
+                            平均ラップ:
+                            {% if stats.avg_sec is number and stats.avg_sec == min_avg_sec %}
+                                <span class="fastest-lap beta-text-mono"><i class="fas fa-crown fastest-indicator me-1"></i>{{ stats.avg }}</span>
+                            {% elif stats.avg != 'N/A' %}
+                                <span class="beta-text-mono beta-text-primary">{{ stats.avg }}</span>
+                                <small style="color: var(--beta-accent-red);">({{ stats.avg_diff }})</small>
+                            {% else %}
+                                <span class="beta-text-muted">{{ stats.avg }}</span>
+                            {% endif %}
+                        </div>
+                        <p class="beta-text-muted small mt-auto pt-2 mb-0">
+                            日付: {{ session.activity.activity_date }}
+                            {% if session.activity.weather %}<br>天候: {{ session.activity.weather }}{% endif %}
+                            {% if session.activity.temperature %}<br>気温: {{ session.activity.temperature }}{% if session.activity.temperature is number %}℃{% endif %}{% endif %}
+                        </p>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        {# --- タブナビゲーション --- #}
+        <ul class="nav nav-tabs mb-3" id="comparisonTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="lap-analysis-tab" data-bs-toggle="tab" data-bs-target="#lap-analysis" type="button" role="tab" aria-controls="lap-analysis" aria-selected="true">
+                    <i class="fas fa-chart-line me-2"></i>ラップタイム分析
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="settings-comparison-tab" data-bs-toggle="tab" data-bs-target="#settings-comparison" type="button" role="tab" aria-controls="settings-comparison" aria-selected="false">
+                    <i class="fas fa-sliders-h me-2"></i>セッティング比較
+                </button>
+            </li>
+        </ul>
+
+        <div class="tab-content" id="comparisonTabsContent">
+            {# --- ラップタイム分析タブ --- #}
+            <div class="tab-pane fade show active" id="lap-analysis" role="tabpanel" aria-labelledby="lap-analysis-tab">
+                <div class="beta-widget-card">
+                    <div class="beta-widget-body" style="padding: 1.25rem;">
+                        <div style="height: 400px;">
+                            <canvas id="lapComparisonChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {# --- セッティング比較タブ --- #}
+            <div class="tab-pane fade" id="settings-comparison" role="tabpanel" aria-labelledby="settings-comparison-tab">
+                <div class="beta-widget-card">
+                    <div class="beta-widget-header">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="diffOnlyCheckbox">
+                            <label class="form-check-label beta-text-secondary" for="diffOnlyCheckbox">値が異なる項目のみ表示</label>
+                        </div>
+                    </div>
+                    <div class="beta-widget-body" style="padding: 1.25rem;">
+                        <div class="accordion" id="settingsAccordion">
+                            {% for group in comparison_data.settings_comparison | groupby('category') %}
+                            <div class="accordion-item">
+                                <h2 class="accordion-header" id="heading{{ loop.index }}">
+                                    <button class="accordion-button {% if not loop.first %}collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ loop.index }}" aria-expanded="{{ 'true' if loop.first else 'false' }}" aria-controls="collapse{{ loop.index }}">
+                                        {{ group.grouper }}
+                                    </button>
+                                </h2>
+                                <div id="collapse{{ loop.index }}" class="accordion-collapse collapse {% if loop.first %}show{% endif %}" aria-labelledby="heading{{ loop.index }}" data-bs-parent="#settingsAccordion">
+                                    <div class="accordion-body table-responsive">
+                                        <table class="table table-bordered table-sm align-middle">
+                                            <thead>
+                                                <tr>
+                                                    <th class="beta-text-muted" style="font-size: 0.7rem;">項目</th>
+                                                    {% for session in sessions %}
+                                                    <th class="text-center beta-text-muted" style="font-size: 0.7rem;">{{ session.session_name }}</th>
+                                                    {% endfor %}
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for row in group.list %}
+                                                <tr {% if row.is_diff %}class="diff-row"{% endif %} data-diff="{{ row.is_diff|lower }}">
+                                                    <td class="beta-text-secondary">{{ row.item }}</td>
+                                                    {% for session in sessions %}
+                                                    <td class="text-center beta-text-primary">{{ row['values'].get(session.id, 'N/A') }}</td>
+                                                    {% endfor %}
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                            {% else %}
+                            <div class="text-center p-3 beta-text-muted">
+                                <p class="mb-0">比較できるセッティング項目がありません。</p>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+    {% include 'beta/_beta_bottombar.html' %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+{% include 'beta/_beta_scripts.html' %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Beta UI: チャートの軸・グリッド色をテーマ変数から取得
+        const betaTextColor = getComputedStyle(document.body).getPropertyValue('--beta-text-muted').trim() || '#94a3b8';
+        const betaGridColor = getComputedStyle(document.body).getPropertyValue('--beta-border').trim() || 'rgba(148, 163, 184, 0.15)';
+
+        // ラップタイムグラフの描画処理
+        const ctx = document.getElementById('lapComparisonChart');
+        if (ctx) {
+            const chartData = {{ comparison_data.lap_analysis.chart_data | tojson }};
+
+            function formatChartTime(totalSeconds) {
+                if (totalSeconds === null || typeof totalSeconds === 'undefined' || isNaN(totalSeconds)) {
+                    return 'N/A';
+                }
+                const minutes = Math.floor(totalSeconds / 60);
+                const seconds = totalSeconds % 60;
+                return `${minutes}:${seconds.toFixed(3).padStart(6, '0')}`;
+            }
+
+            new Chart(ctx, {
+                type: 'line',
+                data: chartData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: { color: betaTextColor }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed.y !== null) {
+                                        label += formatChartTime(context.parsed.y);
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Lap Time (seconds)',
+                                color: betaTextColor
+                            },
+                            ticks: {
+                                color: betaTextColor,
+                                callback: function(value, index, ticks) {
+                                    return value.toFixed(1) + 's';
+                                }
+                            },
+                            grid: { color: betaGridColor }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Lap Number',
+                                color: betaTextColor
+                            },
+                            ticks: { color: betaTextColor },
+                            grid: { color: betaGridColor }
+                        }
+                    }
+                }
+            });
+        }
+
+        // 「値が異なる項目のみ表示」チェックボックスの処理
+        const diffOnlyCheckbox = document.getElementById('diffOnlyCheckbox');
+        if (diffOnlyCheckbox) {
+            diffOnlyCheckbox.addEventListener('change', function() {
+                const accordionItems = document.querySelectorAll('#settingsAccordion .accordion-item');
+
+                accordionItems.forEach(item => {
+                    const rows = item.querySelectorAll('tbody tr');
+                    let hasVisibleRow = false;
+
+                    rows.forEach(row => {
+                        if (this.checked) {
+                            if (row.dataset.diff === 'false') {
+                                row.style.display = 'none';
+                            } else {
+                                row.style.display = '';
+                                hasVisibleRow = true;
+                            }
+                        } else {
+                            row.style.display = '';
+                            hasVisibleRow = true;
+                        }
+                    });
+
+                    if (this.checked && !hasVisibleRow) {
+                        item.style.display = 'none';
+                    } else {
+                        item.style.display = '';
+                    }
+                });
+            });
+        }
+    });
+</script>
+{% endblock %}

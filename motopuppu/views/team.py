@@ -26,7 +26,8 @@ team_bp = Blueprint(
 def list_teams():
     """ユーザーが所属するチームの一覧を表示する"""
     teams = current_user.teams.order_by(Team.name.asc()).all()
-    return render_template('team/list_teams.html', teams=teams)
+    template_name = 'beta/team_list_beta.html' if current_user.use_beta_ui else 'team/list_teams.html'
+    return render_template(template_name, teams=teams)
 
 
 @team_bp.route('/create', methods=['GET', 'POST'])
@@ -50,7 +51,8 @@ def create_team():
             db.session.rollback()
             current_app.logger.error(f"Error creating team: {e}", exc_info=True)
             flash('チームの作成中にエラーが発生しました。', 'danger')
-    return render_template('team/team_form.html', form=form, form_action='create')
+    template_name = 'beta/team_form_beta.html' if current_user.use_beta_ui else 'team/team_form.html'
+    return render_template(template_name, form=form, form_action='create')
 
 
 @team_bp.route('/<int:team_id>/edit', methods=['GET', 'POST'])
@@ -76,7 +78,8 @@ def edit_team(team_id):
             current_app.logger.error(f"Error editing team {team_id}: {e}", exc_info=True)
             flash('チーム名の更新中にエラーが発生しました。', 'danger')
 
-    return render_template('team/team_form.html', form=form, form_action='edit', team=team)
+    template_name = 'beta/team_form_beta.html' if current_user.use_beta_ui else 'team/team_form.html'
+    return render_template(template_name, form=form, form_action='edit', team=team)
 
 
 @team_bp.route('/<int:team_id>/manage')
@@ -90,7 +93,8 @@ def manage_team(team_id):
     members = team.members.order_by(User.display_name.asc()).all()
     invite_url = url_for('team.join_team', token=team.invite_token, _external=True)
     
-    return render_template('team/manage_team.html', team=team, invite_url=invite_url, members=members)
+    template_name = 'beta/team_manage_beta.html' if current_user.use_beta_ui else 'team/manage_team.html'
+    return render_template(template_name, team=team, invite_url=invite_url, members=members)
 
 
 @team_bp.route('/join/<token>', methods=['GET', 'POST'])
@@ -115,7 +119,8 @@ def join_team(token):
             flash('チームへの参加中にエラーが発生しました。', 'danger')
             return redirect(url_for('team.list_teams'))
 
-    return render_template('team/join_team.html', team=team)
+    template_name = 'beta/team_join_beta.html' if current_user.use_beta_ui else 'team/join_team.html'
+    return render_template(template_name, team=team)
 
 
 @team_bp.route('/<int:team_id>/dashboard')
@@ -207,8 +212,10 @@ def dashboard(team_id):
     }
     # ▲▲▲【追加ここまで】▲▲▲
 
+    template_name = 'beta/team_dashboard_beta.html' if current_user.use_beta_ui else 'team/team_dashboard.html'
+
     return render_template(
-        'team/team_dashboard.html',
+        template_name,
         team=team,
         members=members,
         circuit_data=circuit_data,

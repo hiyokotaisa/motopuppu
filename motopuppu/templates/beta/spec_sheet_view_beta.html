@@ -1,0 +1,278 @@
+{# motopuppu/templates/beta/spec_sheet_view_beta.html #}
+{% extends "base.html" %}
+
+{% block title %}{{ sheet.sheet_name }} - 整備情報シート - もとぷっぷー{% endblock %}
+
+{% block body_attributes %}beta-ui-body{% endblock %}
+
+{% block styles %}
+{{ super() }}
+{% include 'beta/_beta_layout_head.html' %}
+{% endblock %}
+
+{% block content %}
+<style>.beta-ui-body #main-content > .container { max-width: 100%; padding: 0; }</style>
+
+<style>
+/* カテゴリアイコンボックス */
+.spec-cat-icon {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+    background: rgba(59, 130, 246, 0.15);
+    color: var(--beta-accent-blue);
+}
+
+/* トグルボタン */
+.spec-toggle-btn {
+    border: none;
+    background: transparent;
+    color: var(--beta-text-primary);
+    transition: background-color 0.15s ease;
+}
+.spec-toggle-btn:hover {
+    background-color: rgba(148, 163, 184, 0.08);
+    color: var(--beta-text-primary);
+}
+.spec-toggle-btn:focus {
+    box-shadow: none;
+}
+
+/* シェブロンの回転 */
+.spec-chevron {
+    transition: transform 0.3s ease;
+    font-size: 0.8rem;
+}
+.spec-toggle-btn[aria-expanded="false"] .spec-chevron {
+    transform: rotate(-90deg);
+}
+
+/* サブグループタイトル */
+.spec-group-title {
+    font-weight: 700;
+    color: var(--beta-text-secondary);
+    padding-left: 0.75rem;
+    border-left: 3px solid var(--beta-accent-blue);
+    font-size: 0.95rem;
+}
+
+/* スペック行 */
+.spec-row {
+    display: flex;
+    align-items: baseline;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.375rem;
+    gap: 1rem;
+}
+.spec-row:nth-child(odd) {
+    background-color: rgba(148, 163, 184, 0.06);
+}
+.spec-row:hover {
+    background-color: rgba(148, 163, 184, 0.12);
+}
+
+.dl-horizontal {
+    margin-bottom: 0;
+}
+.dl-horizontal dt {
+    font-weight: 600;
+    color: var(--beta-text-secondary);
+    min-width: 140px;
+    flex-shrink: 0;
+    font-size: 0.9rem;
+    margin-bottom: 0;
+}
+.dl-horizontal dd {
+    margin-left: 0;
+    margin-bottom: 0;
+    padding-left: 0;
+    border-left: none;
+    word-wrap: break-word;
+    color: var(--beta-text-primary);
+    flex: 1;
+}
+
+/* 消耗品・品番の購入リンク */
+.parts-number-row {
+    display: flex;
+    align-items: baseline;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+}
+.parts-number-text {
+    font-size: 0.95em;
+    font-family: 'Monaco', 'Consolas', monospace;
+}
+.parts-buy-links {
+    font-size: 0.78em;
+    white-space: nowrap;
+}
+.parts-buy-link {
+    text-decoration: none;
+    color: var(--beta-accent-blue);
+}
+.parts-buy-link:hover {
+    text-decoration: underline;
+}
+.parts-buy-sep {
+    color: var(--beta-text-muted);
+    margin: 0 0.15rem;
+}
+
+@media (max-width: 576px) {
+    .spec-row {
+        flex-direction: column;
+        gap: 0.15rem;
+    }
+    .dl-horizontal dt {
+        min-width: unset;
+    }
+}
+</style>
+
+{% set beta_nav_active = 'spec_sheet' %}
+<div class="beta-dashboard-wrapper">
+    <div class="beta-mobile-overlay" id="beta-mobile-overlay"></div>
+    {% include 'beta/_beta_sidebar.html' %}
+
+    <main class="beta-main-content">
+        {% set beta_topbar_title = sheet.sheet_name %}
+        {% set beta_topbar_subtitle = motorcycle.name ~ ' / 整備情報シート' %}
+        {% include 'beta/_beta_topbar.html' %}
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}{% for category, message in messages %}
+        <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show" role="alert" style="animation: betaFadeIn 0.3s ease;">
+            {{ message | safe }}<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}{% endif %}
+        {% endwith %}
+
+        {# Quick Actions #}
+        <div class="beta-quick-actions mb-4">
+            <a href="{{ url_for('spec_sheet.list_sheets', vehicle_id=motorcycle.id) }}" class="beta-btn" title="シート一覧へ戻る">
+                <i class="fas fa-arrow-left me-1"></i> シート一覧
+            </a>
+            <form action="{{ url_for('spec_sheet.duplicate_sheet', sheet_id=sheet.id) }}" method="POST" class="d-inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="beta-btn" title="複製">
+                    <i class="far fa-copy me-1"></i> 複製
+                </button>
+            </form>
+            <a href="{{ url_for('spec_sheet.edit_sheet', sheet_id=sheet.id) }}" class="beta-btn beta-btn-solid" title="編集">
+                <i class="fas fa-edit me-1"></i> 編集
+            </a>
+            <button type="button" class="beta-btn" style="color: var(--beta-accent-red);"
+                    data-bs-toggle="modal" data-bs-target="#deleteModal-{{ sheet.id }}" title="削除">
+                <i class="fas fa-trash me-1"></i> 削除
+            </button>
+        </div>
+
+        {# --- カテゴリ別スペック表示 --- #}
+        <div class="spec-view-accordion" id="spec-view-accordion">
+        {% for category_id, groups in sheet.spec_data.items() | sort %}
+            {% if categories.get(category_id) and groups %}
+            <div class="beta-widget-card mb-3" style="border-top: 3px solid var(--beta-accent-blue);">
+                <div class="p-0" id="heading-{{ category_id }}">
+                    <button class="btn w-100 text-start d-flex align-items-center p-3 spec-toggle-btn" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ category_id }}" aria-expanded="true" aria-controls="collapse-{{ category_id }}">
+                        <div class="spec-cat-icon me-3">
+                            <i class="fas {{ categories[category_id].icon }}"></i>
+                        </div>
+                        <h6 class="mb-0 fw-bold beta-text-primary">{{ categories[category_id].title }}</h6>
+                        <i class="fas fa-chevron-down ms-auto spec-chevron beta-text-muted"></i>
+                    </button>
+                </div>
+                <div id="collapse-{{ category_id }}" class="collapse show" aria-labelledby="heading-{{ category_id }}">
+                    <div class="pt-0 pb-3 px-4">
+                        {% for group in groups %}
+                            {% if group.group_name %}
+                                <h6 class="spec-group-title mt-3 mb-2">{{ group.group_name }}</h6>
+                            {% endif %}
+                            <dl class="dl-horizontal mb-0">
+                                {% for item in group['items'] %}
+                                    <div class="spec-row">
+                                        <dt>{{ item.key }}</dt>
+                                        <dd>
+                                            {# 「消耗品・品番」カテゴリは品番リンクを生成する #}
+                                            {% if category_id == 'parts' and item.value %}
+                                                {% for line in item.value.splitlines() %}
+                                                    {% if line.strip() %}
+                                                        {% if line.strip() | is_part_number %}
+                                                            <span class="parts-number-row">
+                                                                <span class="parts-number-text">{{ line.strip() }}</span>
+                                                                <span class="parts-buy-links">
+                                                                    <a href="https://www.webike.net/tab/parts/?q={{ line.strip() | urlencode }}"
+                                                                       target="_blank"
+                                                                       rel="noopener noreferrer"
+                                                                       class="parts-buy-link"
+                                                                       title="Webikeで「{{ line.strip() }}」を検索">
+                                                                        Webike <i class="fas fa-external-link-alt fa-xs"></i>
+                                                                    </a>
+                                                                    <span class="parts-buy-sep">|</span>
+                                                                    <a href="https://www.monotaro.com/s/?c=&q={{ line.strip() | urlencode }}"
+                                                                       target="_blank"
+                                                                       rel="noopener noreferrer"
+                                                                       class="parts-buy-link"
+                                                                       title="モノタロウで「{{ line.strip() }}」を検索">
+                                                                        モノタロウ <i class="fas fa-external-link-alt fa-xs"></i>
+                                                                    </a>
+                                                                </span>
+                                                            </span>
+                                                        {% else %}
+                                                            {{ line.strip() }}
+                                                        {% endif %}
+                                                        <br>
+                                                    {% endif %}
+                                                {% endfor %}
+                                            {% else %}
+                                                {{ item.value if item.value else '-' }}
+                                            {% endif %}
+                                        </dd>
+                                    </div>
+                                {% endfor %}
+                            </dl>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        {% endfor %}
+        </div>
+
+        {# --- 削除確認モーダル --- #}
+        <div class="modal fade" id="deleteModal-{{ sheet.id }}" tabindex="-1" aria-labelledby="deleteModalLabel-{{ sheet.id }}" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="deleteModalLabel-{{ sheet.id }}">削除の確認</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        整備情報シート「{{ sheet.sheet_name }}」を本当に削除しますか？<br>
+                        この操作は元に戻せません。
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="beta-btn" data-bs-dismiss="modal">キャンセル</button>
+                        <form action="{{ url_for('spec_sheet.delete_sheet', sheet_id=sheet.id) }}" method="POST" class="d-inline">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="beta-btn" style="color: var(--beta-accent-red); border-color: var(--beta-accent-red);">削除する</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+    {% include 'beta/_beta_bottombar.html' %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+{% include 'beta/_beta_scripts.html' %}
+{% endblock %}

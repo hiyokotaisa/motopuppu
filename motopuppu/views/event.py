@@ -23,6 +23,11 @@ except ImportError:
 event_bp = Blueprint('event', __name__, url_prefix='/event')
 
 
+def _event_form_template():
+    """Beta UI かどうかでイベントフォームのテンプレートを切り替える"""
+    return 'beta/event_form_beta.html' if current_user.use_beta_ui else 'event/event_form.html'
+
+
 def _redirect_after_participant_update(event, participant_id=None):
     """主催者操作の戻り先を呼び出し元 (redirect_to パラメータ) に応じて切り替える"""
     redirect_to = request.form.get('redirect_to')
@@ -487,7 +492,7 @@ def add_event():
             if not ok:
                 db.session.rollback()
                 flash(err, 'danger')
-                return render_template('event/event_form.html', form=form, mode='add', target_team=target_team, plans=_plans_from_request(request.form))
+                return render_template(_event_form_template(), form=form, mode='add', target_team=target_team, plans=_plans_from_request(request.form))
 
             db.session.commit()
 
@@ -503,7 +508,7 @@ def add_event():
             flash('イベントの保存中にエラーが発生しました。', 'danger')
 
     plans_data = _plans_from_request(request.form) if request.method == 'POST' else []
-    return render_template('event/event_form.html', form=form, mode='add', target_team=target_team, plans=plans_data)
+    return render_template(_event_form_template(), form=form, mode='add', target_team=target_team, plans=plans_data)
 
 
 @event_bp.route('/<int:event_id>/edit', methods=['GET', 'POST'])
@@ -546,7 +551,7 @@ def edit_event(event_id):
         if not ok:
             db.session.rollback()
             flash(err, 'danger')
-            return render_template('event/event_form.html', form=form, mode='edit', event=event, plans=_plans_from_request(request.form))
+            return render_template(_event_form_template(), form=form, mode='edit', event=event, plans=_plans_from_request(request.form))
 
         try:
             db.session.commit()
@@ -576,7 +581,7 @@ def edit_event(event_id):
         plans_data = _plans_from_request(request.form)
     else:
         plans_data = _plans_from_event(event)
-    return render_template('event/event_form.html', form=form, mode='edit', event=event, plans=plans_data)
+    return render_template(_event_form_template(), form=form, mode='edit', event=event, plans=plans_data)
 
 
 @event_bp.route('/<int:event_id>/delete', methods=['POST'])
@@ -713,8 +718,10 @@ def event_detail(event_id):
             user_id=current_user.id, is_archived=False
         ).order_by(Motorcycle.is_default.desc(), Motorcycle.name).all()
 
+    template_name = 'beta/event_detail_beta.html' if current_user.use_beta_ui else 'event/event_detail.html'
+
     return render_template(
-        'event/event_detail.html',
+        template_name,
         event=event,
         participants_attending=participants_attending,
         participants_tentative=participants_tentative,
@@ -782,8 +789,10 @@ def day_view(event_id):
         (str(p.id), f'{p.name} ({p.amount:,}円)') for p in collection_plans
     ]
 
+    template_name = 'beta/event_day_view_beta.html' if current_user.use_beta_ui else 'event/day_view.html'
+
     return render_template(
-        'event/day_view.html',
+        template_name,
         event=event,
         participants=participants,
         collection_plans=collection_plans,

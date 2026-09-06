@@ -1,0 +1,668 @@
+{# motopuppu/templates/beta/event_detail_beta.html #}
+{% extends "base.html" %}
+
+{% block title %}{{ event.title }} - イベント詳細{% endblock %}
+
+{% block body_attributes %}beta-ui-body{% endblock %}
+
+{% block styles %}
+{{ super() }}
+{% include 'beta/_beta_layout_head.html' %}
+{% endblock %}
+
+{% block content %}
+<style>.beta-ui-body #main-content > .container { max-width: 100%; padding: 0; }</style>
+
+<style>
+    .beta-subtle-block {
+        background: rgba(148, 163, 184, 0.06);
+        border: 1px solid var(--beta-border);
+        border-radius: var(--beta-radius, 0.5rem);
+    }
+    .beta-participant-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid var(--beta-border);
+    }
+    .beta-participant-row:last-child { border-bottom: none; }
+</style>
+
+{# --- 参加者行のマクロ (参加/保留/不参加で再利用) --- #}
+{% macro participant_row(p, show_vehicle=true) %}
+<div class="beta-participant-row">
+    <div>
+        {% if p.user and p.user.is_garage_public and p.user.public_id %}
+        <a href="{{ url_for('garage.garage_detail', public_id=p.user.public_id) }}" class="fw-bold text-decoration-none beta-text-primary" title="ガレージを見る">
+            {{ p.name }} <i class="fas fa-external-link-alt" style="font-size: 0.55rem; opacity: 0.5;"></i>
+        </a>
+        {% else %}
+        <span class="fw-bold beta-text-primary">{{ p.name }}</span>
+        {% endif %}
+        {% if show_vehicle and p.vehicle_name %}
+        <div class="small beta-text-muted">
+            <i class="fas fa-motorcycle me-1"></i>{{ p.vehicle_name }}
+        </div>
+        {% endif %}
+        {% if p.comment %}
+        <div class="small beta-text-muted mt-1">
+            <i class="fas fa-comment-dots me-1"></i>{{ p.comment }}
+        </div>
+        {% endif %}
+    </div>
+    <button type="button" class="beta-btn" style="font-size: 0.7rem; padding: 0.2rem 0.45rem; color: var(--beta-accent-red);"
+            data-bs-toggle="modal" data-bs-target="#deleteParticipantModal"
+            data-bs-participant-id="{{ p.id }}" data-bs-participant-name="{{ p.name }}">
+        <i class="fas fa-times fa-fw"></i>
+    </button>
+</div>
+{% endmacro %}
+
+{% set beta_nav_active = 'event' %}
+<div class="beta-dashboard-wrapper">
+    <div class="beta-mobile-overlay" id="beta-mobile-overlay"></div>
+    {% include 'beta/_beta_sidebar.html' %}
+
+    <main class="beta-main-content">
+        {% set beta_topbar_title = event.title %}
+        {% set beta_topbar_subtitle = event.start_datetime | to_jst %}
+        {% include 'beta/_beta_topbar.html' %}
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}{% for category, message in messages %}
+        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert" style="animation: betaFadeIn 0.3s ease;">
+            {{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}{% endif %}
+        {% endwith %}
+
+        <div class="beta-quick-actions mb-4">
+            <a href="{{ url_for('event.events_index') }}" class="beta-btn">
+                <i class="fas fa-arrow-left me-1"></i> イベント一覧
+            </a>
+            <a href="{{ url_for('event.public_event_view', public_id=event.public_id) }}" class="beta-quick-btn">
+                <i class="fas fa-check-circle me-1"></i> 出欠を登録・変更する
+            </a>
+            {% if is_owner %}
+            <a href="{{ url_for('event.day_view', event_id=event.id) }}" class="beta-btn" style="color: var(--beta-accent-red);">
+                <i class="fas fa-bolt me-1"></i> 当日モード
+            </a>
+            {% endif %}
+        </div>
+
+        <div class="row g-4">
+            {# ================= 左カラム ================= #}
+            <div class="col-lg-8">
+
+                {# --- イベント情報 --- #}
+                <div class="beta-widget-card mb-4">
+                    <div class="beta-widget-header">
+                        <div class="beta-widget-header-left">
+                            <div class="beta-widget-icon" style="background: rgba(59, 130, 246, 0.15); color: var(--beta-accent-blue);"><i class="fas fa-calendar-day"></i></div>
+                            <span class="beta-widget-title">{{ event.title }}</span>
+                        </div>
+                        {% if event.team %}
+                        <span class="beta-badge beta-badge-blue"><i class="fas fa-users me-1"></i>{{ event.team.name }}</span>
+                        {% endif %}
+                    </div>
+                    <div class="beta-widget-body" style="padding: 1.25rem;">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="beta-text-muted fw-bold text-uppercase mb-1" style="font-size: 0.65rem;"><i class="fas fa-clock fa-fw me-1"></i>日時</div>
+                                <div class="beta-text-primary">
+                                    {{ event.start_datetime | to_jst }}
+                                    {% if event.end_datetime %} ～ {{ event.end_datetime | to_jst }}{% endif %}
+                                </div>
+                            </div>
+                            {% if event.location %}
+                            <div class="col-md-6">
+                                <div class="beta-text-muted fw-bold text-uppercase mb-1" style="font-size: 0.65rem;"><i class="fas fa-map-marker-alt fa-fw me-1"></i>場所</div>
+                                <div class="beta-text-primary">{{ event.location }}</div>
+                            </div>
+                            {% endif %}
+                            {% if event.motorcycle %}
+                            <div class="col-md-6">
+                                <div class="beta-text-muted fw-bold text-uppercase mb-1" style="font-size: 0.65rem;"><i class="fas fa-motorcycle fa-fw me-1"></i>関連車両</div>
+                                <div class="beta-text-primary">{{ event.motorcycle.name }}</div>
+                            </div>
+                            {% endif %}
+                            {% if event.album_url %}
+                            <div class="col-md-6">
+                                <div class="beta-text-muted fw-bold text-uppercase mb-1" style="font-size: 0.65rem;"><i class="fas fa-images fa-fw me-1"></i>写真置き場</div>
+                                <a href="{{ event.album_url }}" target="_blank" rel="noopener noreferrer" class="text-decoration-none" style="color: var(--beta-accent-blue);">
+                                    アルバムを開く <i class="fas fa-external-link-alt ms-1 small"></i>
+                                </a>
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% if event.description %}
+                        <hr style="border-color: var(--beta-border);">
+                        <div class="beta-text-secondary" style="white-space: pre-wrap;">{{ event.description | urlize(target='_blank', rel='noopener noreferrer') }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                {# --- 関連する活動ログ --- #}
+                {% if event.activity_logs.all() %}
+                <div class="beta-widget-card mb-4">
+                    <div class="beta-widget-header">
+                        <div class="beta-widget-header-left">
+                            <div class="beta-widget-icon" style="background: rgba(20, 184, 166, 0.15); color: var(--beta-accent-teal);"><i class="fas fa-flag-checkered"></i></div>
+                            <span class="beta-widget-title">関連する活動ログ</span>
+                        </div>
+                    </div>
+                    <div class="beta-widget-body" style="padding: 0;">
+                        {% for log in event.activity_logs %}
+                        <a href="{{ url_for('activity.detail_activity', activity_id=log.id) }}"
+                           class="d-flex justify-content-between align-items-center px-3 py-2 text-decoration-none beta-text-primary"
+                           style="border-bottom: 1px solid var(--beta-border);">
+                            <span>{{ log.activity_date.strftime('%Y/%m/%d') }} - {{ log.activity_title or '無題の活動' }}</span>
+                            <i class="fas fa-chevron-right beta-text-muted"></i>
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+                {# --- 当日集金セクション (主催者のみ) --- #}
+                {% if is_owner and event.collection_enabled and collection_summary %}
+                <div class="beta-widget-card mb-4" id="collectionSection" style="border-top: 3px solid var(--beta-accent-amber);">
+                    <div class="beta-widget-header">
+                        <div class="beta-widget-header-left">
+                            <div class="beta-widget-icon" style="background: rgba(245, 158, 11, 0.15); color: var(--beta-accent-amber);"><i class="fas fa-yen-sign"></i></div>
+                            <span class="beta-widget-title">当日集金</span>
+                        </div>
+                        {% if event.collection_note %}
+                        <span class="beta-badge beta-badge-amber">{{ event.collection_note }}</span>
+                        {% endif %}
+                    </div>
+                    <div class="beta-widget-body" style="padding: 1.25rem;">
+                        {# 全体サマリー #}
+                        <div class="row text-center g-2 mb-3">
+                            <div class="col-6 col-md-3">
+                                <div class="beta-subtle-block p-2 h-100">
+                                    <div class="small beta-text-muted">予定総額</div>
+                                    <div class="fw-bold beta-text-primary">{{ "{:,}".format(collection_summary.expected_total) }}円</div>
+                                </div>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <div class="p-2 h-100 rounded" style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3);">
+                                    <div class="small" style="color: var(--beta-accent-emerald);">集金済み</div>
+                                    <div class="fw-bold" style="color: var(--beta-accent-emerald);">{{ "{:,}".format(collection_summary.collected_total) }}円</div>
+                                    <div class="small beta-text-muted">{{ collection_summary.paid_count }}名</div>
+                                </div>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <div class="p-2 h-100 rounded" style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3);">
+                                    <div class="small" style="color: var(--beta-accent-red);">未収</div>
+                                    <div class="fw-bold" style="color: var(--beta-accent-red);">{{ "{:,}".format(collection_summary.outstanding_total) }}円</div>
+                                    <div class="small beta-text-muted">{{ collection_summary.unpaid_count }}名</div>
+                                </div>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <div class="beta-subtle-block p-2 h-100">
+                                    <div class="small beta-text-muted">免除</div>
+                                    <div class="fw-bold beta-text-primary">{{ collection_summary.exempt_count }}名</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {# プログレスバー #}
+                        {% if collection_summary.expected_total > 0 %}
+                        {% set progress_pct = (collection_summary.collected_total / collection_summary.expected_total * 100) | round(0, 'floor') %}
+                        <div class="progress mb-3" style="height: 10px;">
+                            <div class="progress-bar bg-success" role="progressbar" style="width: {{ progress_pct }}%;" aria-valuenow="{{ progress_pct }}" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                        {% endif %}
+
+                        {# プラン別内訳 #}
+                        {% set non_empty_breakdown = collection_summary.plan_breakdown | selectattr('count', 'gt', 0) | list %}
+                        {% if non_empty_breakdown %}
+                        <div class="mb-3">
+                            <div class="small fw-bold beta-text-muted mb-2"><i class="fas fa-tags me-1"></i>プラン別内訳</div>
+                            <div class="table-responsive">
+                                <table class="table table-sm mb-0 align-middle">
+                                    <thead>
+                                        <tr>
+                                            <th class="beta-text-muted" style="font-size: 0.7rem;">プラン</th>
+                                            <th class="text-end beta-text-muted" style="font-size: 0.7rem;">単価</th>
+                                            <th class="text-center beta-text-muted" style="font-size: 0.7rem;">人数</th>
+                                            <th class="text-end beta-text-muted" style="font-size: 0.7rem;">予定</th>
+                                            <th class="text-end beta-text-muted" style="font-size: 0.7rem;">集金済</th>
+                                            <th class="text-end beta-text-muted" style="font-size: 0.7rem;">未収</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for b in non_empty_breakdown %}
+                                        <tr>
+                                            <td>
+                                                {% if b.plan_id is none %}
+                                                <span class="beta-text-muted">{{ b.name }}</span>
+                                                {% else %}
+                                                <span class="fw-bold beta-text-primary">{{ b.name }}</span>
+                                                {% endif %}
+                                            </td>
+                                            <td class="text-end beta-text-secondary">{{ "{:,}".format(b.amount or 0) }}円</td>
+                                            <td class="text-center beta-text-secondary">
+                                                {{ b.count }}名
+                                                <span class="small beta-text-muted">(済{{ b.paid_count }}/未{{ b.unpaid_count }}{% if b.exempt_count %}/免{{ b.exempt_count }}{% endif %})</span>
+                                            </td>
+                                            <td class="text-end beta-text-secondary">{{ "{:,}".format(b.expected) }}円</td>
+                                            <td class="text-end" style="color: var(--beta-accent-emerald);">{{ "{:,}".format(b.collected) }}円</td>
+                                            <td class="text-end" style="color: var(--beta-accent-red);">{{ "{:,}".format(b.outstanding) }}円</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {# 集金チェックリスト #}
+                        {% set payment_targets = participants_attending + participants_tentative %}
+                        {% if payment_targets %}
+                        <div class="small fw-bold beta-text-muted mb-2"><i class="fas fa-list-check me-1"></i>参加者ごとの支払い状況</div>
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th class="beta-text-muted" style="font-size: 0.7rem;">参加者</th>
+                                        <th class="text-center beta-text-muted" style="width: 80px; font-size: 0.7rem;">出欠</th>
+                                        <th class="beta-text-muted" style="width: 200px; font-size: 0.7rem;">プラン</th>
+                                        <th class="text-end beta-text-muted" style="width: 240px; font-size: 0.7rem;">支払い</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for p in payment_targets %}
+                                    <tr>
+                                        <td>
+                                            <div class="fw-bold beta-text-primary">{{ p.name }}</div>
+                                            {% if p.vehicle_name %}
+                                            <div class="small beta-text-muted"><i class="fas fa-motorcycle me-1"></i>{{ p.vehicle_name }}</div>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-center">
+                                            {% if p.status.value == 'attending' %}
+                                            <span class="beta-badge" style="background: rgba(16, 185, 129, 0.15); color: var(--beta-accent-emerald); border: 1px solid rgba(16, 185, 129, 0.3);">参加</span>
+                                            {% elif p.status.value == 'tentative' %}
+                                            <span class="beta-badge beta-badge-amber">保留</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <form action="{{ url_for('event.update_participant_plan', participant_id=p.id) }}" method="POST" class="d-flex align-items-center gap-1">
+                                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                <select name="collection_plan_id" class="form-select form-select-sm" onchange="this.form.submit()">
+                                                    <option value="" {% if not p.collection_plan_id %}selected{% endif %}>
+                                                        デフォルト ({{ "{:,}".format(event.collection_amount or 0) }}円)
+                                                    </option>
+                                                    {% for plan in collection_plans %}
+                                                    <option value="{{ plan.id }}" {% if p.collection_plan_id == plan.id %}selected{% endif %}>
+                                                        {{ plan.name }} ({{ "{:,}".format(plan.amount) }}円)
+                                                    </option>
+                                                    {% endfor %}
+                                                </select>
+                                            </form>
+                                        </td>
+                                        <td class="text-end">
+                                            <form action="{{ url_for('event.update_participant_payment', participant_id=p.id) }}" method="POST" class="d-inline">
+                                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                <div class="btn-group btn-group-sm" role="group" aria-label="支払いステータス">
+                                                    <button type="submit" name="payment_status" value="unpaid" class="btn {% if p.payment_status == PaymentStatus.UNPAID %}btn-danger{% else %}btn-outline-danger{% endif %}" title="未払い">
+                                                        未払
+                                                    </button>
+                                                    <button type="submit" name="payment_status" value="paid" class="btn {% if p.payment_status == PaymentStatus.PAID %}btn-success{% else %}btn-outline-success{% endif %}" title="支払済">
+                                                        <i class="fas fa-check me-1"></i>済
+                                                    </button>
+                                                    <button type="submit" name="payment_status" value="exempt" class="btn {% if p.payment_status == PaymentStatus.EXEMPT %}btn-secondary{% else %}btn-outline-secondary{% endif %}" title="免除">
+                                                        免除
+                                                    </button>
+                                                </div>
+                                            </form>
+                                            {% if p.payment_status == PaymentStatus.PAID and p.paid_at %}
+                                            <div class="small beta-text-muted mt-1">{{ p.paid_at | to_jst('%m/%d %H:%M') }} 記録</div>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="d-flex justify-content-end mt-2">
+                            <button type="button" class="beta-btn" style="font-size: 0.75rem;" data-bs-toggle="modal" data-bs-target="#resetPaymentsModal">
+                                <i class="fas fa-undo me-1"></i>すべて未払いにリセット
+                            </button>
+                        </div>
+                        {% else %}
+                        <div class="text-center beta-text-muted py-3">
+                            <p class="mb-0 small">集金対象（参加・保留）の参加者がまだいません。</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="modal fade" id="resetPaymentsModal" tabindex="-1" aria-labelledby="resetPaymentsModalLabel" aria-hidden="true">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="resetPaymentsModalLabel">支払い状況のリセット</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <p>集金対象の参加者全員を「未払い」状態に戻します。</p>
+                                <p class="beta-text-muted small">記録済みの支払い日時もクリアされます。</p>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="beta-btn" data-bs-dismiss="modal">キャンセル</button>
+                                <form action="{{ url_for('event.bulk_update_payments', event_id=event.id) }}" method="POST" class="d-inline">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <input type="hidden" name="action" value="reset_unpaid">
+                                    <button type="submit" class="beta-btn beta-btn-amber">リセットを実行</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                {# --- 準備ノート --- #}
+                {% if is_owner %}
+                <div class="beta-widget-card mb-4">
+                    <div class="beta-widget-header">
+                        <div class="beta-widget-header-left">
+                            <div class="beta-widget-icon" style="background: rgba(148, 163, 184, 0.15); color: var(--beta-text-muted);"><i class="fas fa-clipboard-list"></i></div>
+                            <span class="beta-widget-title">準備ノート</span>
+                        </div>
+                        <div class="d-flex gap-1">
+                            <a href="{{ url_for('notes.add_note', event_id=event.id, category='task') }}" class="beta-btn" style="font-size: 0.7rem;" title="チェックリストを追加">
+                                <i class="fas fa-tasks me-1"></i>チェックリスト
+                            </a>
+                            <a href="{{ url_for('notes.add_note', event_id=event.id, category='note') }}" class="beta-btn" style="font-size: 0.7rem;" title="メモを追加">
+                                <i class="fas fa-sticky-note me-1"></i>メモ
+                            </a>
+                        </div>
+                    </div>
+                    <div class="beta-widget-body" style="padding: 0;">
+                        {% if event_notes %}
+                        {% for note in event_notes %}
+                        <div class="px-3 py-2" style="border-bottom: 1px solid var(--beta-border);">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="flex-grow-1">
+                                    <div class="d-flex align-items-center mb-1">
+                                        {% if note.category == 'task' %}
+                                        <span class="beta-badge beta-badge-blue me-2">TASK</span>
+                                        {% else %}
+                                        <span class="beta-badge me-2" style="background: rgba(148, 163, 184, 0.15); color: var(--beta-text-muted); border: 1px solid rgba(148, 163, 184, 0.3);">NOTE</span>
+                                        {% endif %}
+                                        {% if note.is_pinned %}
+                                        <i class="fas fa-thumbtack me-1" style="color: var(--beta-accent-amber);" title="ピン留め"></i>
+                                        {% endif %}
+                                        <a href="{{ url_for('notes.edit_note', note_id=note.id) }}" class="beta-text-primary text-decoration-none fw-bold">
+                                            {{ note.title if note.title else '(タイトルなし)' }}
+                                        </a>
+                                    </div>
+                                    {% if note.category == 'task' and note.todos %}
+                                    {% set total = note.todos|length %}
+                                    {% set done = note.todos|selectattr('checked')|list|length %}
+                                    <div class="progress mb-1" style="height: 6px;">
+                                        <div class="progress-bar {% if done == total %}bg-success{% else %}bg-primary{% endif %}" style="width: {{ (done / total * 100) if total > 0 else 0 }}%;"></div>
+                                    </div>
+                                    <small class="beta-text-muted">{{ done }}/{{ total }} 完了</small>
+                                    {% elif note.category == 'note' and note.content %}
+                                    <p class="beta-text-muted small mb-0" style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+                                        {{ note.content | striptags | truncate(80) }}
+                                    </p>
+                                    {% endif %}
+                                </div>
+                                <a href="{{ url_for('notes.edit_note', note_id=note.id) }}" class="beta-btn ms-2" style="font-size: 0.7rem; padding: 0.2rem 0.45rem;" title="編集">
+                                    <i class="fas fa-pen fa-fw"></i>
+                                </a>
+                            </div>
+                        </div>
+                        {% endfor %}
+                        {% else %}
+                        <div class="text-center beta-text-muted py-4">
+                            <i class="fas fa-clipboard fa-2x mb-2" style="opacity: 0.3;"></i>
+                            <p class="mb-0 small">まだ準備ノートはありません。<br>上のボタンからチェックリストやメモを追加しましょう。</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+
+                {# --- 参加者リスト --- #}
+                <div class="d-flex align-items-center mb-3">
+                    <h6 class="mb-0 fw-bold beta-text-primary"><i class="fas fa-users me-2" style="color: var(--beta-accent-blue);"></i>参加者リスト</h6>
+                </div>
+                <div class="accordion" id="participantsAccordion">
+                    {# 参加 #}
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="headingAttending">
+                            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseAttending" aria-expanded="true" aria-controls="collapseAttending">
+                                <span class="beta-badge me-2" style="background: rgba(16, 185, 129, 0.15); color: var(--beta-accent-emerald); border: 1px solid rgba(16, 185, 129, 0.3);">参加</span>
+                                {{ participants_attending | length }} 名
+                            </button>
+                        </h2>
+                        <div id="collapseAttending" class="accordion-collapse collapse show" aria-labelledby="headingAttending" data-bs-parent="#participantsAccordion">
+                            <div class="accordion-body p-0">
+                                {% if participants_attending %}
+                                    {% for p in participants_attending %}{{ participant_row(p) }}{% endfor %}
+                                {% else %}
+                                <div class="p-3 beta-text-muted">まだいません</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    {# 保留 #}
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="headingTentative">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTentative" aria-expanded="false" aria-controls="collapseTentative">
+                                <span class="beta-badge beta-badge-amber me-2">保留</span>
+                                {{ participants_tentative | length }} 名
+                            </button>
+                        </h2>
+                        <div id="collapseTentative" class="accordion-collapse collapse" aria-labelledby="headingTentative" data-bs-parent="#participantsAccordion">
+                            <div class="accordion-body p-0">
+                                {% if participants_tentative %}
+                                    {% for p in participants_tentative %}{{ participant_row(p) }}{% endfor %}
+                                {% else %}
+                                <div class="p-3 beta-text-muted">まだいません</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    {# 不参加 #}
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="headingNotAttending">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseNotAttending" aria-expanded="false" aria-controls="collapseNotAttending">
+                                <span class="beta-badge me-2" style="background: rgba(148, 163, 184, 0.2); color: var(--beta-text-muted);">不参加</span>
+                                {{ participants_not_attending | length }} 名
+                            </button>
+                        </h2>
+                        <div id="collapseNotAttending" class="accordion-collapse collapse" aria-labelledby="headingNotAttending" data-bs-parent="#participantsAccordion">
+                            <div class="accordion-body p-0">
+                                {% if participants_not_attending %}
+                                    {% for p in participants_not_attending %}{{ participant_row(p, show_vehicle=false) }}{% endfor %}
+                                {% else %}
+                                <div class="p-3 beta-text-muted">まだいません</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {# ================= 右カラム ================= #}
+            <div class="col-lg-4">
+
+                {# 出欠確認 #}
+                <div class="beta-widget-card mb-4" style="border-top: 3px solid var(--beta-accent-emerald);">
+                    <div class="beta-widget-body text-center" style="padding: 1.25rem;">
+                        <h6 class="fw-bold mb-2" style="color: var(--beta-accent-emerald);"><i class="fas fa-check-circle me-2"></i>出欠確認</h6>
+                        <p class="small beta-text-muted">参加・不参加の登録や、コメントの修正はこちらから行えます。</p>
+                        <a href="{{ url_for('event.public_event_view', public_id=event.public_id) }}" class="beta-btn beta-btn-emerald w-100">
+                            <i class="fas fa-edit me-1"></i> 出欠を登録・変更する
+                        </a>
+                    </div>
+                </div>
+
+                {# 当日モード #}
+                {% if is_owner %}
+                <div class="beta-widget-card mb-4" style="border-top: 3px solid var(--beta-accent-red);">
+                    <div class="beta-widget-body text-center" style="padding: 1.25rem;">
+                        <h6 class="fw-bold mb-2" style="color: var(--beta-accent-red);"><i class="fas fa-bolt me-2"></i>当日モード</h6>
+                        <p class="small beta-text-muted">当日の来場チェックと集金管理に最適化された専用ページです。スマホでの操作に向いています。</p>
+                        <a href="{{ url_for('event.day_view', event_id=event.id) }}" class="beta-btn w-100" style="color: var(--beta-accent-red); border-color: var(--beta-accent-red);">
+                            <i class="fas fa-tasks me-1"></i> 当日モードを開く
+                        </a>
+                    </div>
+                </div>
+                {% endif %}
+
+                {# 共有と連携 #}
+                <div class="beta-widget-card mb-4">
+                    <div class="beta-widget-header">
+                        <div class="beta-widget-header-left">
+                            <div class="beta-widget-icon" style="background: rgba(20, 184, 166, 0.15); color: var(--beta-accent-teal);"><i class="fas fa-share-alt"></i></div>
+                            <span class="beta-widget-title">共有と連携</span>
+                        </div>
+                    </div>
+                    <div class="beta-widget-body" style="padding: 1.25rem;">
+                        <label for="publicUrl" class="form-label beta-text-secondary">公開URL</label>
+                        <div class="input-group mb-3">
+                            <input type="text" id="publicUrl" class="form-control" value="{{ url_for('event.public_event_view', public_id=event.public_id, _external=True) }}" readonly>
+                            <button class="btn btn-outline-secondary" type="button" id="copyUrlBtn" title="URLをコピー">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                        <div class="d-grid gap-2">
+                            {% if ical_available %}
+                            <a href="{{ url_for('event.export_ics', event_id=event.id) }}" class="beta-btn">
+                                <i class="fas fa-calendar-plus me-1"></i> カレンダーに登録
+                            </a>
+                            {% endif %}
+                            {% if is_owner %}
+                            {% set log_vehicle_id = event.motorcycle_id if event.motorcycle else (user_motorcycles[0].id if user_motorcycles else none) %}
+                            {% if log_vehicle_id %}
+                            <a href="{{ url_for('activity.add_activity', vehicle_id=log_vehicle_id, event_id=event.id, activity_title=event.title, activity_date=(event.start_datetime|to_jst('%Y-%m-%d')), custom_location=event.location) }}" class="beta-btn beta-btn-teal">
+                                <i class="fas fa-flag-checkered me-1"></i> このイベントの活動ログを作成
+                            </a>
+                            {% endif %}
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                {# イベント管理 #}
+                <div class="beta-widget-card">
+                    <div class="beta-widget-header">
+                        <div class="beta-widget-header-left">
+                            <div class="beta-widget-icon" style="background: rgba(148, 163, 184, 0.15); color: var(--beta-text-muted);"><i class="fas fa-cogs"></i></div>
+                            <span class="beta-widget-title">イベント管理</span>
+                        </div>
+                    </div>
+                    <div class="beta-widget-body" style="padding: 1.25rem;">
+                        <div class="d-grid gap-2">
+                            <a href="{{ url_for('event.edit_event', event_id=event.id) }}" class="beta-btn">
+                                <i class="fas fa-edit me-1"></i> イベントを編集
+                            </a>
+                            <button type="button" class="beta-btn" style="color: var(--beta-accent-red); border-color: var(--beta-accent-red);" data-bs-toggle="modal" data-bs-target="#deleteEventModal">
+                                <i class="fas fa-trash-alt me-1"></i> イベントを削除
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {# --- モーダル --- #}
+        <div class="modal fade" id="deleteEventModal" tabindex="-1" aria-labelledby="deleteEventModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="deleteEventModalLabel">イベントの削除</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>イベント「<strong>{{ event.title }}</strong>」を本当に削除しますか？</p>
+                        <p style="color: var(--beta-accent-red);">この操作は取り消せません。参加者情報もすべて削除されます。</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="beta-btn" data-bs-dismiss="modal">キャンセル</button>
+                        <form action="{{ url_for('event.delete_event', event_id=event.id) }}" method="POST" class="d-inline">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="beta-btn" style="color: var(--beta-accent-red); border-color: var(--beta-accent-red);">削除を実行</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal fade" id="deleteParticipantModal" tabindex="-1" aria-labelledby="deleteParticipantModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="deleteParticipantModalLabel">参加者の削除</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>参加者「<strong id="modalParticipantName"></strong>」を本当に削除しますか？</p>
+                        <p class="beta-text-muted small">この操作は、参加者がパスコードを忘れた場合などに使用します。</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="beta-btn" data-bs-dismiss="modal">キャンセル</button>
+                        <form id="deleteParticipantForm" method="POST">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="beta-btn" style="color: var(--beta-accent-red); border-color: var(--beta-accent-red);">削除</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+    {% include 'beta/_beta_bottombar.html' %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+{% include 'beta/_beta_scripts.html' %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const copyBtn = document.getElementById('copyUrlBtn');
+    if (copyBtn) {
+        copyBtn.addEventListener('click', function() {
+            const urlInput = document.getElementById('publicUrl');
+            navigator.clipboard.writeText(urlInput.value).then(function() {
+                const originalIcon = copyBtn.innerHTML;
+                copyBtn.innerHTML = '<i class="fas fa-check"></i>';
+                setTimeout(function() {
+                    copyBtn.innerHTML = originalIcon;
+                }, 2000);
+            }, function(err) {
+                alert('URLのコピーに失敗しました。');
+            });
+        });
+    }
+
+    const deleteParticipantModal = document.getElementById('deleteParticipantModal');
+    if (deleteParticipantModal) {
+        deleteParticipantModal.addEventListener('show.bs.modal', function(event) {
+            const button = event.relatedTarget;
+            const participantId = button.getAttribute('data-bs-participant-id');
+            const participantName = button.getAttribute('data-bs-participant-name');
+
+            const modalName = deleteParticipantModal.querySelector('#modalParticipantName');
+            const deleteForm = deleteParticipantModal.querySelector('#deleteParticipantForm');
+
+            modalName.textContent = participantName;
+            deleteForm.action = `/event/participant/${participantId}/delete`;
+        });
+    }
+});
+</script>
+{% endblock %}

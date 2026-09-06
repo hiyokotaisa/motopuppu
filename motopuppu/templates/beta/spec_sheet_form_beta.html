@@ -1,0 +1,291 @@
+{# motopuppu/templates/beta/spec_sheet_form_beta.html #}
+{% extends "base.html" %}
+
+{% set page_title = "新しい整備情報シートの作成" if form_action == 'create' else "整備情報シートの編集" %}
+{% block title %}{{ page_title }} ({{ motorcycle.name }}) - もとぷっぷー{% endblock %}
+
+{% block body_attributes %}beta-ui-body{% endblock %}
+
+{% block styles %}
+{{ super() }}
+{% include 'beta/_beta_layout_head.html' %}
+{% endblock %}
+
+{% block content %}
+<style>.beta-ui-body #main-content > .container { max-width: 100%; padding: 0; }</style>
+
+<style>
+/* カテゴリアイコンボックス */
+.spec-form-cat-icon {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    font-size: 1rem;
+    flex-shrink: 0;
+    background: rgba(59, 130, 246, 0.15);
+    color: var(--beta-accent-blue);
+}
+
+/* トグルボタン */
+.spec-form-toggle-btn {
+    border: none;
+    background: transparent;
+    color: var(--beta-text-primary);
+    transition: background-color 0.15s ease;
+}
+.spec-form-toggle-btn:hover {
+    background-color: rgba(148, 163, 184, 0.08);
+    color: var(--beta-text-primary);
+}
+.spec-form-toggle-btn:focus {
+    box-shadow: none;
+}
+
+/* シェブロンの回転 */
+.spec-form-chevron {
+    transition: transform 0.3s ease;
+    font-size: 0.8rem;
+}
+.spec-form-toggle-btn[aria-expanded="false"] .spec-form-chevron {
+    transform: rotate(-90deg);
+}
+
+/* グループブロック */
+.spec-group {
+    background: rgba(148, 163, 184, 0.06) !important;
+    border: 1px solid var(--beta-border);
+}
+.spec-group .group-name {
+    background: var(--beta-bg-card) !important;
+    color: var(--beta-text-primary);
+}
+</style>
+
+{% set beta_nav_active = 'spec_sheet' %}
+<div class="beta-dashboard-wrapper">
+    <div class="beta-mobile-overlay" id="beta-mobile-overlay"></div>
+    {% include 'beta/_beta_sidebar.html' %}
+
+    <main class="beta-main-content">
+        {% set beta_topbar_title = page_title %}
+        {% set beta_topbar_subtitle = motorcycle.name %}
+        {% include 'beta/_beta_topbar.html' %}
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}{% for category, message in messages %}
+        <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show" role="alert" style="animation: betaFadeIn 0.3s ease;">
+            {{ message | safe }}<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}{% endif %}
+        {% endwith %}
+
+        <div class="beta-quick-actions mb-4">
+            <a href="{{ url_for('spec_sheet.list_sheets', vehicle_id=motorcycle.id) }}" class="beta-btn" title="シート一覧へ戻る">
+                <i class="fas fa-arrow-left me-1"></i> シート一覧
+            </a>
+        </div>
+
+        <form method="POST" id="spec-sheet-form">
+            {{ form.hidden_tag() }} {# CSRFトークンとspec_data隠しフィールド #}
+
+            {# --- シート名入力カード --- #}
+            <div class="beta-widget-card mb-4">
+                <div class="beta-widget-body" style="padding: 1.5rem;">
+                    <div class="mb-0">
+                        <label for="{{ form.sheet_name.id }}" class="form-label beta-text-secondary fw-bold">
+                            <i class="fas fa-tag me-2"></i>{{ form.sheet_name.label.text }}
+                        </label>
+                        {{ form.sheet_name(class="form-control" + (" is-invalid" if form.sheet_name.errors else ""), placeholder="例: 標準スペック、サーキット用セット") }}
+                        {% if form.sheet_name.errors %}
+                            <div class="invalid-feedback">{{ form.sheet_name.errors[0] }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            {# --- カテゴリアコーディオン (JSで挿入) --- #}
+            <div class="spec-form-accordion" id="spec-categories-accordion"></div>
+
+            {# --- 送信ボタン --- #}
+            <div class="mt-4 d-flex gap-2">
+                <button type="submit" class="beta-btn beta-btn-solid">
+                    <i class="fas fa-save me-1"></i> {{ form.submit.label.text }}
+                </button>
+                <a href="{{ url_for('spec_sheet.list_sheets', vehicle_id=motorcycle.id) }}" class="beta-btn">
+                    <i class="fas fa-times me-1"></i> キャンセル
+                </a>
+            </div>
+        </form>
+
+        {# --- カテゴリのアコーディオン項目のテンプレート --- #}
+        <template id="category-template">
+            <div class="beta-widget-card mb-3 spec-form-category-card" style="border-top: 3px solid var(--beta-accent-blue);">
+                <div class="p-0">
+                    <button class="btn w-100 text-start d-flex align-items-center p-3 spec-form-toggle-btn" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{categoryId}" aria-expanded="false" aria-controls="collapse-{categoryId}">
+                        <div class="spec-form-cat-icon me-3">
+                            <i class="fas {iconClass}"></i>
+                        </div>
+                        <span class="fw-bold beta-text-primary">{categoryTitle}</span>
+                        <i class="fas fa-chevron-down ms-auto spec-form-chevron beta-text-muted"></i>
+                    </button>
+                </div>
+                <div id="collapse-{categoryId}" class="collapse" data-bs-parent="#spec-categories-accordion">
+                    <div class="pt-0 px-4 pb-3">
+                        <div class="groups-container">
+                            {# ここにサブカテゴリのグループが追加される #}
+                        </div>
+                        <button type="button" class="beta-btn mt-2 add-group-btn">
+                            <i class="fas fa-plus me-1"></i> グループを追加
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </template>
+
+        {# --- サブカテゴリ（グループ）のテンプレート --- #}
+        <template id="group-template">
+            <div class="rounded-3 p-3 mb-3 spec-group">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <input type="text" class="form-control form-control-sm w-50 group-name" placeholder="グループ名 (例: エンジン)">
+                    <button type="button" class="btn-close remove-group-btn" aria-label="このグループを削除"></button>
+                </div>
+                <div class="items-container ps-3">
+                    {# ここにスペック項目が追加される #}
+                </div>
+                <button type="button" class="beta-btn mt-2 ms-3 add-item-btn" style="color: var(--beta-accent-emerald);">
+                    <i class="fas fa-plus me-1"></i> 項目を追加
+                </button>
+            </div>
+        </template>
+
+        {# --- スペック項目の入力欄テンプレート --- #}
+        <template id="spec-item-template">
+            <div class="row g-2 mb-2 spec-item align-items-center">
+                <div class="col-5">
+                    <input type="text" class="form-control form-control-sm item-key" placeholder="項目名 (例: ドレンボルト)">
+                </div>
+                <div class="col-5">
+                    <input type="text" class="form-control form-control-sm item-value" placeholder="値 (例: 20 N・m)">
+                </div>
+                <div class="col-2 text-end">
+                    <button type="button" class="beta-btn remove-item-btn" style="font-size: 0.7rem; padding: 0.2rem 0.45rem; color: var(--beta-accent-red);" title="この項目を削除">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        </template>
+
+    </main>
+    {% include 'beta/_beta_bottombar.html' %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+{% include 'beta/_beta_scripts.html' %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const categories = [
+        { id: 'torque', title: '締め付けトルク', icon: 'fa-wrench' },
+        { id: 'fluids', title: '油脂類・液量', icon: 'fa-tint' },
+        { id: 'tires', title: 'タイヤ', icon: 'fa-dot-circle' },
+        { id: 'parts', title: '消耗品・品番', icon: 'fa-cogs' },
+        { id: 'suspension', title: 'サスペンション', icon: 'fa-sliders-h' },
+        { id: 'other', title: 'その他', icon: 'fa-info-circle' }
+    ];
+
+    const accordionContainer = document.getElementById('spec-categories-accordion');
+    const categoryTemplate = document.getElementById('category-template');
+    const groupTemplate = document.getElementById('group-template');
+    const specItemTemplate = document.getElementById('spec-item-template');
+    const specDataInput = document.getElementById('spec_data');
+    const form = document.getElementById('spec-sheet-form');
+
+    let initialData = {};
+    try {
+        initialData = JSON.parse(specDataInput.value || '{}');
+    } catch (e) {
+        console.error("Failed to parse initial spec data:", e);
+    }
+
+    function addSpecItem(container, key = '', value = '') {
+        const itemClone = specItemTemplate.content.cloneNode(true);
+        itemClone.querySelector('.item-key').value = key;
+        itemClone.querySelector('.item-value').value = value;
+        container.appendChild(itemClone);
+    }
+
+    function addGroup(container, groupName = '', items = []) {
+        const groupClone = groupTemplate.content.cloneNode(true);
+        groupClone.querySelector('.group-name').value = groupName;
+        const itemsContainer = groupClone.querySelector('.items-container');
+        items.forEach(item => addSpecItem(itemsContainer, item.key, item.value));
+        container.appendChild(groupClone);
+    }
+
+    categories.forEach(cat => {
+        let templateHtml = categoryTemplate.innerHTML.replace(/{categoryId}/g, cat.id)
+                                   .replace('{categoryTitle}', cat.title)
+                                   .replace('{iconClass}', cat.icon);
+        accordionContainer.insertAdjacentHTML('beforeend', templateHtml);
+
+        const groupsContainer = accordionContainer.querySelector(`#collapse-${cat.id} .groups-container`);
+        if (initialData[cat.id] && Array.isArray(initialData[cat.id])) {
+            initialData[cat.id].forEach(group => {
+                addGroup(groupsContainer, group.group_name, group.items);
+            });
+        }
+    });
+
+    accordionContainer.addEventListener('click', function(e) {
+        const target = e.target;
+        const addGroupBtn = target.closest('.add-group-btn');
+        if (addGroupBtn) {
+            addGroup(addGroupBtn.previousElementSibling);
+            return;
+        }
+        if (target.closest('.remove-group-btn')) {
+            target.closest('.spec-group').remove();
+            return;
+        }
+        const addItemBtn = target.closest('.add-item-btn');
+        if (addItemBtn) {
+            addSpecItem(addItemBtn.previousElementSibling);
+            return;
+        }
+        if (target.closest('.remove-item-btn')) {
+            target.closest('.spec-item').remove();
+        }
+    });
+
+    form.addEventListener('submit', function(e) {
+        const finalData = {};
+        categories.forEach(cat => {
+            const groups = [];
+            const groupsContainer = accordionContainer.querySelector(`#collapse-${cat.id} .groups-container`);
+            groupsContainer.querySelectorAll('.spec-group').forEach(groupEl => {
+                const groupName = groupEl.querySelector('.group-name').value.trim();
+                const items = [];
+                groupEl.querySelectorAll('.spec-item').forEach(itemEl => {
+                    const key = itemEl.querySelector('.item-key').value.trim();
+                    const value = itemEl.querySelector('.item-value').value.trim();
+                    if (key) {
+                        items.push({ key, value });
+                    }
+                });
+                if (groupName || items.length > 0) {
+                    groups.push({ group_name: groupName, items: items });
+                }
+            });
+            if (groups.length > 0) {
+                finalData[cat.id] = groups;
+            }
+        });
+        specDataInput.value = JSON.stringify(finalData);
+    });
+});
+</script>
+{% endblock %}

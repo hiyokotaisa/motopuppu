@@ -1,0 +1,358 @@
+{# motopuppu/templates/beta/event_form_beta.html #}
+{% extends "base.html" %}
+
+{% block title %}{% if mode == 'add' %}新しいイベントの作成{% else %}イベントの編集{% endif %} - もとぷっぷー{% endblock %}
+
+{% block body_attributes %}beta-ui-body{% endblock %}
+
+{% block styles %}
+{{ super() }}
+{% include 'beta/_beta_layout_head.html' %}
+{% endblock %}
+
+{% block content %}
+<style>.beta-ui-body #main-content > .container { max-width: 100%; padding: 0; }</style>
+
+<style>
+    /* Beta UI: 淡い囲みブロック */
+    .beta-subtle-block {
+        background: rgba(148, 163, 184, 0.06);
+        border: 1px solid var(--beta-border);
+        border-radius: var(--beta-radius, 0.5rem);
+    }
+</style>
+
+{% if mode == 'add' %}
+    {% if target_team %}
+        {% set page_title = 'チームイベントの作成' %}
+        {% set page_subtitle = target_team.name %}
+    {% else %}
+        {% set page_title = '新しいイベントの作成' %}
+    {% endif %}
+{% else %}
+    {% set page_title = 'イベントの編集' %}
+    {% set page_subtitle = event.title %}
+{% endif %}
+
+{% set beta_nav_active = 'event' %}
+<div class="beta-dashboard-wrapper">
+    <div class="beta-mobile-overlay" id="beta-mobile-overlay"></div>
+    {% include 'beta/_beta_sidebar.html' %}
+
+    <main class="beta-main-content">
+        {% set beta_topbar_title = page_title %}
+        {% set beta_topbar_subtitle = page_subtitle %}
+        {% include 'beta/_beta_topbar.html' %}
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}{% for category, message in messages %}
+        <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show" role="alert" style="animation: betaFadeIn 0.3s ease;">
+            {{ message | safe }}<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}{% endif %}
+        {% endwith %}
+
+        <div class="beta-quick-actions mb-4">
+            <a href="{{ url_for('event.events_index', view='owned') }}" class="beta-btn">
+                <i class="fas fa-arrow-left me-1"></i> イベント一覧
+            </a>
+        </div>
+
+        <div class="beta-widget-card" style="max-width: 860px;">
+            <div class="beta-widget-header">
+                <div class="beta-widget-header-left">
+                    <div class="beta-widget-icon" style="background: rgba(59, 130, 246, 0.15); color: var(--beta-accent-blue);">
+                        <i class="fas {% if mode == 'add' %}fa-calendar-plus{% else %}fa-edit{% endif %}"></i>
+                    </div>
+                    <span class="beta-widget-title">{{ page_title }}</span>
+                </div>
+            </div>
+            <div class="beta-widget-body" style="padding: 1.5rem;">
+                <form method="POST" action="{% if mode == 'add' %}{{ url_for('event.add_event', team_id=target_team.id if target_team else None) }}{% else %}{{ url_for('event.edit_event', event_id=event.id) }}{% endif %}" novalidate>
+                    {{ form.hidden_tag() }}
+
+                    {# タイトル #}
+                    <div class="mb-3">
+                        <label for="{{ form.title.id }}" class="form-label beta-text-secondary">
+                            <i class="fas fa-heading me-2"></i>{{ form.title.label.text }}
+                        </label>
+                        {{ form.title(class="form-control" + (" is-invalid" if form.title.errors else "")) }}
+                        {% if form.title.errors %}
+                        <div class="invalid-feedback">{% for error in form.title.errors %}{{ error }}{% endfor %}</div>
+                        {% endif %}
+                    </div>
+
+                    {# 日時 #}
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.start_datetime.id }}" class="form-label beta-text-secondary">
+                                <i class="fas fa-play me-2"></i>{{ form.start_datetime.label.text }}
+                            </label>
+                            {{ form.start_datetime(class="form-control" + (" is-invalid" if form.start_datetime.errors else ""), type="datetime-local") }}
+                            {% if form.start_datetime.errors %}
+                            <div class="invalid-feedback">{% for error in form.start_datetime.errors %}{{ error }}{% endfor %}</div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.end_datetime.id }}" class="form-label beta-text-secondary">
+                                <i class="fas fa-stop me-2"></i>{{ form.end_datetime.label.text }}
+                            </label>
+                            {{ form.end_datetime(class="form-control" + (" is-invalid" if form.end_datetime.errors else ""), type="datetime-local") }}
+                            {% if form.end_datetime.errors %}
+                            <div class="invalid-feedback">{% for error in form.end_datetime.errors %}{{ error }}{% endfor %}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    {# 場所 #}
+                    <div class="mb-3">
+                        <label for="{{ form.location.id }}" class="form-label beta-text-secondary">
+                            <i class="fas fa-map-marker-alt me-2"></i>{{ form.location.label.text }}
+                        </label>
+                        {{ form.location(class="form-control" + (" is-invalid" if form.location.errors else "")) }}
+                        {% if form.location.errors %}
+                        <div class="invalid-feedback">{% for error in form.location.errors %}{{ error }}{% endfor %}</div>
+                        {% endif %}
+                    </div>
+
+                    {# 車両 #}
+                    <div class="mb-3">
+                        <label for="{{ form.motorcycle_id.id }}" class="form-label beta-text-secondary">
+                            <i class="fas fa-motorcycle me-2"></i>{{ form.motorcycle_id.label.text }}
+                        </label>
+                        {{ form.motorcycle_id(class="form-select" + (" is-invalid" if form.motorcycle_id.errors else "")) }}
+                        {% if form.motorcycle_id.errors %}
+                        <div class="invalid-feedback">{% for error in form.motorcycle_id.errors %}{{ error }}{% endfor %}</div>
+                        {% endif %}
+                    </div>
+
+                    {# 説明 #}
+                    <div class="mb-3">
+                        <label for="{{ form.description.id }}" class="form-label beta-text-secondary">
+                            <i class="fas fa-align-left me-2"></i>{{ form.description.label.text }}
+                        </label>
+                        {{ form.description(class="form-control" + (" is-invalid" if form.description.errors else "")) }}
+                        <div class="form-text beta-text-muted">集合場所、時間、ルート、持ち物など、イベントに関する詳細を自由に記述できます。</div>
+                        {% if form.description.errors %}
+                        <div class="invalid-feedback">{% for error in form.description.errors %}{{ error }}{% endfor %}</div>
+                        {% endif %}
+                    </div>
+
+                    {# --- 当日集金設定 --- #}
+                    <div class="beta-subtle-block p-3 mb-3">
+                        <div class="form-check mb-2">
+                            {{ form.collection_enabled(class="form-check-input", id="collectionEnabledCheck") }}
+                            <label class="form-check-label fw-bold beta-text-primary" for="collectionEnabledCheck">
+                                <i class="fas fa-yen-sign me-2"></i>{{ form.collection_enabled.label.text }}
+                            </label>
+                        </div>
+                        <div class="form-text beta-text-muted mb-2">
+                            参加者ごとに支払い状況（未払/支払済/免除）を管理できます。当日現金を受け取ったときの記録用です。
+                        </div>
+                        <div id="collectionFieldsWrapper" {% if not form.collection_enabled.data %}class="d-none"{% endif %}>
+                            <div class="row g-2 mb-3">
+                                <div class="col-md-5">
+                                    <label for="{{ form.collection_amount.id }}" class="form-label small mb-1 beta-text-secondary">{{ form.collection_amount.label.text }}</label>
+                                    <div class="input-group input-group-sm">
+                                        {{ form.collection_amount(class="form-control" + (" is-invalid" if form.collection_amount.errors else ""), type="number") }}
+                                        <span class="input-group-text">円</span>
+                                    </div>
+                                    <div class="form-text beta-text-muted">プラン未割当ての参加者に適用される基本金額です。</div>
+                                    {% if form.collection_amount.errors %}
+                                    <div class="invalid-feedback d-block">{% for error in form.collection_amount.errors %}{{ error }}{% endfor %}</div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-7">
+                                    <label for="{{ form.collection_note.id }}" class="form-label small mb-1 beta-text-secondary">{{ form.collection_note.label.text }}</label>
+                                    {{ form.collection_note(class="form-control form-control-sm" + (" is-invalid" if form.collection_note.errors else "")) }}
+                                    {% if form.collection_note.errors %}
+                                    <div class="invalid-feedback">{% for error in form.collection_note.errors %}{{ error }}{% endfor %}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            {# --- 料金プラン --- #}
+                            <div class="pt-3" style="border-top: 1px solid var(--beta-border);">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <label class="form-label fw-bold mb-0 beta-text-primary">料金プラン (任意)</label>
+                                    <button type="button" class="beta-btn" style="font-size: 0.7rem;" id="addPlanBtn">
+                                        <i class="fas fa-plus me-1"></i>プランを追加
+                                    </button>
+                                </div>
+                                <div class="form-text beta-text-muted mb-2">
+                                    「走行料 5,000円」「見学費 1,000円」のように、参加者ごとに金額が変わる場合に追加します。プランを作成しても、参加者がプラン未割当てなら上のデフォルト金額が適用されます。
+                                </div>
+                                <input type="hidden" name="plan_count" id="planCount" value="{{ plans|length }}">
+                                <div id="planList">
+                                    {% for plan in plans %}
+                                    <div class="row g-2 align-items-start mb-2 plan-row">
+                                        <input type="hidden" name="plan_id_{{ loop.index0 }}" value="{{ plan.id }}">
+                                        <div class="col-md-5">
+                                            <input type="text" name="plan_name_{{ loop.index0 }}" value="{{ plan.name }}" class="form-control form-control-sm" placeholder="プラン名 (例: 走行料)" maxlength="50">
+                                        </div>
+                                        <div class="col-md-5">
+                                            <div class="input-group input-group-sm">
+                                                <input type="number" name="plan_amount_{{ loop.index0 }}" value="{{ plan.amount }}" class="form-control" placeholder="金額" min="0" step="100">
+                                                <span class="input-group-text">円</span>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-2 text-end">
+                                            <button type="button" class="beta-btn remove-plan-btn" style="font-size: 0.7rem; padding: 0.2rem 0.45rem; color: var(--beta-accent-red);" title="このプランを削除">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                {% if not plans %}
+                                <div class="beta-text-muted small" id="planEmptyHint">プランは追加されていません。一律料金の場合は不要です。</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    {# --- 写真置き場 --- #}
+                    <div class="beta-subtle-block p-3 mb-3">
+                        <label class="form-label fw-bold mb-1 beta-text-primary" for="{{ form.album_url.id }}">
+                            <i class="fas fa-images me-2"></i>{{ form.album_url.label.text }}
+                        </label>
+                        <div class="form-text beta-text-muted mb-2">
+                            <a href="https://media-share.misskey.workers.dev/" target="_blank" rel="noopener noreferrer" style="color: var(--beta-accent-blue);">Misskey Media Share</a> でアルバムを作成し、そのアルバムURLを貼り付けると、イベント詳細ページから写真置き場にリンクされます。<br>
+                            <span class="small">※ アルバムの閲覧には Misskey.io アカウントでのログインが必要です。参加者にもその旨を伝えてください。</span>
+                        </div>
+                        {{ form.album_url(class="form-control" + (" is-invalid" if form.album_url.errors else "")) }}
+                        {% if form.album_url.errors %}
+                        <div class="invalid-feedback d-block">{% for error in form.album_url.errors %}{{ error }}{% endfor %}</div>
+                        {% endif %}
+                        {% if form.album_url.data %}
+                        <div class="mt-2">
+                            <a href="{{ form.album_url.data }}" target="_blank" rel="noopener noreferrer" class="beta-btn" style="font-size: 0.75rem;">
+                                <i class="fas fa-external-link-alt me-1"></i>現在のアルバムを開く
+                            </a>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    {# --- 公開設定 --- #}
+                    {% if target_team or (event and event.team_id) %}
+                        <div class="alert alert-info py-2">
+                            <i class="fas fa-info-circle me-1"></i> このイベントはチーム「{{ target_team.name if target_team else event.team.name }}」内限定で公開されます。
+                        </div>
+                        <div class="d-none">
+                            {{ form.is_public(checked=False) }}
+                        </div>
+                    {% else %}
+                        <div class="mb-3 form-check">
+                            {{ form.is_public(class="form-check-input" + (" is-invalid" if form.is_public.errors else "")) }}
+                            <label class="form-check-label beta-text-secondary" for="{{ form.is_public.id }}">{{ form.is_public.label.text }}</label>
+                            <div class="form-text beta-text-muted mt-1">
+                                チェックを入れると、公開イベント一覧にこのイベントが表示されます。
+                            </div>
+                            {% if form.is_public.errors %}
+                            <div class="invalid-feedback">{% for error in form.is_public.errors %}{{ error }}{% endfor %}</div>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+
+                    <div class="d-flex gap-2 mt-4">
+                        {{ form.submit(class="beta-btn beta-btn-solid") }}
+                        <a href="{{ url_for('event.events_index', view='owned') }}" class="beta-btn">
+                            <i class="fas fa-times me-1"></i> キャンセル
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+    </main>
+    {% include 'beta/_beta_bottombar.html' %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+{% include 'beta/_beta_scripts.html' %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const chk = document.getElementById('collectionEnabledCheck');
+    const wrapper = document.getElementById('collectionFieldsWrapper');
+    if (chk && wrapper) {
+        chk.addEventListener('change', function() {
+            if (chk.checked) {
+                wrapper.classList.remove('d-none');
+            } else {
+                wrapper.classList.add('d-none');
+            }
+        });
+    }
+
+    // --- 料金プラン 動的追加・削除 ---
+    const MAX_PLANS = 20;
+    const planList = document.getElementById('planList');
+    const planCountInput = document.getElementById('planCount');
+    const addPlanBtn = document.getElementById('addPlanBtn');
+    const emptyHint = document.getElementById('planEmptyHint');
+
+    function reindexPlans() {
+        const rows = planList.querySelectorAll('.plan-row');
+        rows.forEach((row, idx) => {
+            row.querySelectorAll('input[type="hidden"], input[type="text"], input[type="number"]').forEach((el) => {
+                if (el.name.startsWith('plan_id_')) el.name = 'plan_id_' + idx;
+                else if (el.name.startsWith('plan_name_')) el.name = 'plan_name_' + idx;
+                else if (el.name.startsWith('plan_amount_')) el.name = 'plan_amount_' + idx;
+            });
+        });
+        planCountInput.value = rows.length;
+        if (emptyHint) emptyHint.classList.toggle('d-none', rows.length > 0);
+    }
+
+    function attachRemove(row) {
+        const btn = row.querySelector('.remove-plan-btn');
+        if (btn) {
+            btn.addEventListener('click', function() {
+                row.remove();
+                reindexPlans();
+            });
+        }
+    }
+
+    if (planList) {
+        planList.querySelectorAll('.plan-row').forEach(attachRemove);
+    }
+
+    if (addPlanBtn && planList) {
+        addPlanBtn.addEventListener('click', function() {
+            const current = planList.querySelectorAll('.plan-row').length;
+            if (current >= MAX_PLANS) {
+                alert('プランは最大 ' + MAX_PLANS + ' 件まで追加できます。');
+                return;
+            }
+            const idx = current;
+            const div = document.createElement('div');
+            div.className = 'row g-2 align-items-start mb-2 plan-row';
+            div.innerHTML = `
+                <input type="hidden" name="plan_id_${idx}" value="">
+                <div class="col-md-5">
+                    <input type="text" name="plan_name_${idx}" value="" class="form-control form-control-sm" placeholder="プラン名 (例: 走行料)" maxlength="50">
+                </div>
+                <div class="col-md-5">
+                    <div class="input-group input-group-sm">
+                        <input type="number" name="plan_amount_${idx}" value="" class="form-control" placeholder="金額" min="0" step="100">
+                        <span class="input-group-text">円</span>
+                    </div>
+                </div>
+                <div class="col-md-2 text-end">
+                    <button type="button" class="beta-btn remove-plan-btn" style="font-size: 0.7rem; padding: 0.2rem 0.45rem; color: var(--beta-accent-red);" title="このプランを削除">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            `;
+            planList.appendChild(div);
+            attachRemove(div);
+            reindexPlans();
+        });
+    }
+
+});
+</script>
+{% endblock %}

@@ -1,0 +1,141 @@
+{# motopuppu/templates/beta/activity_settings_list_beta.html #}
+{% extends "base.html" %}
+
+{% block title %}セッティングシート管理 ({{ motorcycle.name }}) - もとぷっぷー{% endblock %}
+
+{% block body_attributes %}beta-ui-body{% endblock %}
+
+{% block styles %}
+{{ super() }}
+{% include 'beta/_beta_layout_head.html' %}
+{% endblock %}
+
+{% block content %}
+<style>.beta-ui-body #main-content > .container { max-width: 100%; padding: 0; }</style>
+
+{% set beta_nav_active = 'activity' %}
+<div class="beta-dashboard-wrapper">
+    <div class="beta-mobile-overlay" id="beta-mobile-overlay"></div>
+    {% include 'beta/_beta_sidebar.html' %}
+
+    <main class="beta-main-content">
+        {% set beta_topbar_title = 'セッティングシート管理' %}
+        {% set beta_topbar_subtitle = motorcycle.name %}
+        {% include 'beta/_beta_topbar.html' %}
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}{% for category, message in messages %}
+        <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show" role="alert" style="animation: betaFadeIn 0.3s ease;">
+            {{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}{% endif %}
+        {% endwith %}
+
+        <div class="beta-quick-actions mb-3">
+            <a href="{{ url_for('activity.add_setting', vehicle_id=motorcycle.id) }}" class="beta-quick-btn">
+                <i class="fas fa-plus me-1"></i> 新しいセッティングシートを追加
+            </a>
+            <a href="{{ url_for('activity.activity_log') }}" class="beta-btn">
+                <i class="fas fa-flag-checkered me-1"></i> 走行ログ
+            </a>
+            <a href="{{ url_for('activity.best_settings_finder', vehicle_id=motorcycle.id) }}" class="beta-btn beta-btn-amber">
+                <i class="fas fa-trophy me-1"></i> ベストセッティング
+            </a>
+        </div>
+
+        <p class="beta-text-muted small mb-4">
+            セッティングシートは、サスペンションやタイヤなどの設定を保存しておくためのテンプレートです。<br>
+            ここで作成したシートを、各走行ログのセッション記録で呼び出して使用できます。
+        </p>
+
+        {% if settings %}
+        <div class="table-responsive beta-widget-card" style="border-radius: var(--beta-radius);">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th class="ps-3 beta-text-muted" style="font-size: 0.7rem;">シート名</th>
+                        <th class="beta-text-muted d-none d-md-table-cell" style="font-size: 0.7rem;">メモ</th>
+                        <th class="text-center beta-text-muted" style="font-size: 0.7rem;">状態</th>
+                        <th class="beta-text-muted d-none d-md-table-cell" style="font-size: 0.7rem;">最終更新日</th>
+                        <th class="text-end pe-3 beta-text-muted" style="font-size: 0.7rem;">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for setting in settings %}
+                    <tr {% if setting.is_archived %}style="opacity: 0.55;"{% endif %}>
+                        <td class="ps-3">
+                            <a href="{{ url_for('activity.edit_setting', setting_id=setting.id) }}" class="text-decoration-none fw-bold beta-text-primary">
+                                <i class="fas fa-sliders-h me-2" style="color: var(--beta-accent-blue);"></i>{{ setting.sheet_name }}
+                            </a>
+                            {% if setting.is_archived %}<i class="fas fa-archive ms-1 small beta-text-muted"></i>{% endif %}
+                        </td>
+                        <td class="d-none d-md-table-cell">
+                            {% if setting.notes %}
+                            <span class="beta-text-secondary small" title="{{ setting.notes }}" data-bs-toggle="tooltip" data-bs-placement="top">
+                                {{ setting.notes|truncate(40) }}
+                            </span>
+                            {% else %}
+                            <span class="beta-text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% if setting.is_archived %}
+                                <span class="beta-badge" style="background: rgba(148, 163, 184, 0.2); color: var(--beta-text-muted);">アーカイブ済</span>
+                            {% else %}
+                                <span class="beta-badge" style="background: rgba(16, 185, 129, 0.15); color: var(--beta-accent-emerald); border: 1px solid rgba(16, 185, 129, 0.3);">有効</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-nowrap beta-text-muted small d-none d-md-table-cell">{{ setting.updated_at.strftime('%Y-%m-%d') }}</td>
+                        <td class="text-nowrap text-end pe-3">
+                            <a href="{{ url_for('activity.edit_setting', setting_id=setting.id) }}" class="beta-btn" style="font-size: 0.7rem; padding: 0.2rem 0.5rem;" title="編集"><i class="fas fa-edit fa-fw"></i></a>
+
+                            <form action="{{ url_for('activity.toggle_archive_setting', setting_id=setting.id) }}" method="POST" class="d-inline">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                {% if setting.is_archived %}
+                                    <button type="submit" class="beta-btn ms-1" style="font-size: 0.7rem; padding: 0.2rem 0.5rem; color: var(--beta-accent-emerald);" title="有効化"><i class="fas fa-undo fa-fw"></i></button>
+                                {% else %}
+                                    <button type="submit" class="beta-btn ms-1" style="font-size: 0.7rem; padding: 0.2rem 0.5rem; color: var(--beta-accent-amber);" title="アーカイブ"><i class="fas fa-archive fa-fw"></i></button>
+                                {% endif %}
+                            </form>
+
+                            <form action="{{ url_for('activity.delete_setting', setting_id=setting.id) }}" method="POST" class="d-inline" onsubmit="return confirm('このセッティングシートを完全に削除してもよろしいですか？\nこのシートを使用しているセッションからは関連付けが解除されます。');">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                <button type="submit" class="beta-btn ms-1" style="font-size: 0.7rem; padding: 0.2rem 0.5rem; color: var(--beta-accent-red);" title="完全に削除"><i class="fas fa-trash fa-fw"></i></button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5 beta-text-muted beta-widget-card">
+            <div class="beta-widget-body">
+                <i class="fas fa-sliders-h fa-3x mb-3" style="opacity: 0.3;"></i>
+                <h6 class="fw-bold beta-text-primary">まだセッティングシートがありません</h6>
+                <p class="mb-3 small">上のボタンから最初のセッティングシートを追加しましょう！</p>
+                <a href="{{ url_for('activity.add_setting', vehicle_id=motorcycle.id) }}" class="beta-btn beta-btn-solid">
+                    <i class="fas fa-plus me-1"></i> 新しいセッティングシートを追加
+                </a>
+            </div>
+        </div>
+        {% endif %}
+
+    </main>
+    {% include 'beta/_beta_bottombar.html' %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+{% include 'beta/_beta_scripts.html' %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Bootstrap Tooltipの初期化
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl)
+    })
+});
+</script>
+{% endblock %}

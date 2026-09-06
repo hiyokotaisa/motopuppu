@@ -1,0 +1,78 @@
+{# motopuppu/templates/beta/team_join_beta.html #}
+{% extends "base.html" %}
+
+{% block title %}チームへの参加 - もとぷっぷー{% endblock %}
+
+{% block body_attributes %}beta-ui-body{% endblock %}
+
+{% block styles %}
+{{ super() }}
+{% include 'beta/_beta_layout_head.html' %}
+{% endblock %}
+
+{% block content %}
+<style>.beta-ui-body #main-content > .container { max-width: 100%; padding: 0; }</style>
+
+{% set beta_nav_active = 'team' %}
+<div class="beta-dashboard-wrapper">
+    <div class="beta-mobile-overlay" id="beta-mobile-overlay"></div>
+    {% include 'beta/_beta_sidebar.html' %}
+
+    <main class="beta-main-content">
+        {% set beta_topbar_title = 'チームへの参加' %}
+        {% set beta_topbar_subtitle = '招待の確認' %}
+        {% include 'beta/_beta_topbar.html' %}
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}{% for category, message in messages %}
+        <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show" role="alert" style="animation: betaFadeIn 0.3s ease;">
+            {{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}{% endif %}
+        {% endwith %}
+
+        <div class="beta-widget-card" style="max-width: 640px; margin: 0 auto;">
+            <div class="beta-widget-header">
+                <div class="beta-widget-header-left">
+                    <div class="beta-widget-icon" style="background: rgba(59, 130, 246, 0.15); color: var(--beta-accent-blue);"><i class="fas fa-user-plus"></i></div>
+                    <span class="beta-widget-title">チームへの参加確認</span>
+                </div>
+            </div>
+            <div class="beta-widget-body text-center" style="padding: 2rem 1.5rem;">
+                <p class="beta-text-secondary">以下のチームへの招待が届いています。</p>
+
+                <h4 class="fw-bold my-3 beta-text-primary">
+                    <i class="fas fa-users me-2" style="color: var(--beta-accent-blue);"></i>{{ team.name }}
+                </h4>
+                <p class="beta-text-muted small">
+                    オーナー: {{ team.owner.display_name or team.owner.misskey_username }}
+                </p>
+
+                <form method="POST" action="{{ url_for('team.join_team', token=team.invite_token) }}" class="mt-4">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    <p class="beta-text-secondary">このチームに参加しますか？</p>
+                    <div class="d-flex gap-2 justify-content-center">
+                        <button type="submit" class="beta-btn beta-btn-solid">
+                            <i class="fas fa-check me-1"></i> はい、参加します
+                        </button>
+                        <a href="{{ url_for('team.list_teams') }}" class="beta-btn">
+                            <i class="fas fa-times me-1"></i> キャンセル
+                        </a>
+                    </div>
+                </form>
+
+                <div class="beta-text-muted small mt-4 pt-3" style="border-top: 1px solid var(--beta-border);">
+                    参加後はチームのダッシュボードにアクセスできるようになります。
+                </div>
+            </div>
+        </div>
+
+    </main>
+    {% include 'beta/_beta_bottombar.html' %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+{% include 'beta/_beta_scripts.html' %}
+{% endblock %}

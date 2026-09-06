@@ -260,7 +260,8 @@ def compare_sessions():
         
     comparison_data = _prepare_comparison_data(sessions)
 
-    return render_template('activity/compare_sessions.html',
+    template_name = 'beta/activity_compare_beta.html' if current_user.use_beta_ui else 'activity/compare_sessions.html'
+    return render_template(template_name,
                            motorcycle=motorcycle,
                            sessions=sessions,
                            comparison_data=comparison_data,
@@ -298,7 +299,8 @@ def best_settings_finder(vehicle_id):
         ActivityLog.circuit_name.asc()
     ).all()
     
-    return render_template('activity/best_settings.html',
+    template_name = 'beta/activity_best_settings_beta.html' if current_user.use_beta_ui else 'activity/best_settings.html'
+    return render_template(template_name,
                            motorcycle=motorcycle,
                            best_sessions=best_sessions,
                            setting_key_map=SETTING_KEY_MAP,
@@ -482,7 +484,8 @@ def edit_session(session_id):
 
     lap_times_json = json.dumps(session.lap_times) if session.lap_times else '[]'
 
-    return render_template('activity/session_form.html',
+    template_name = 'beta/activity_session_form_beta.html' if current_user.use_beta_ui else 'activity/session_form.html'
+    return render_template(template_name,
                            form=form,
                            session=session,
                            motorcycle=motorcycle,

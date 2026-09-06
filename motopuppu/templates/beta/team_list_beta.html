@@ -1,0 +1,88 @@
+{# motopuppu/templates/beta/team_list_beta.html #}
+{% extends "base.html" %}
+
+{% block title %}参加チーム一覧 - もとぷっぷー{% endblock %}
+
+{% block body_attributes %}beta-ui-body{% endblock %}
+
+{% block styles %}
+{{ super() }}
+{% include 'beta/_beta_layout_head.html' %}
+{% endblock %}
+
+{% block content %}
+<style>.beta-ui-body #main-content > .container { max-width: 100%; padding: 0; }</style>
+
+{% set beta_nav_active = 'team' %}
+<div class="beta-dashboard-wrapper">
+    <div class="beta-mobile-overlay" id="beta-mobile-overlay"></div>
+    {% include 'beta/_beta_sidebar.html' %}
+
+    <main class="beta-main-content">
+        {% set beta_topbar_title = '参加チーム一覧' %}
+        {% set beta_topbar_subtitle = '仲間と走行ログやイベントを共有' %}
+        {% include 'beta/_beta_topbar.html' %}
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}{% for category, message in messages %}
+        <div class="alert alert-{{ category if category else 'info' }} alert-dismissible fade show" role="alert" style="animation: betaFadeIn 0.3s ease;">
+            {{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}{% endif %}
+        {% endwith %}
+
+        <div class="beta-quick-actions mb-4">
+            <a href="{{ url_for('team.create_team') }}" class="beta-quick-btn">
+                <i class="fas fa-plus me-1"></i> 新しいチームを作成
+            </a>
+        </div>
+
+        {% if teams %}
+        <div class="row row-cols-1 row-cols-md-2 g-4">
+            {% for team in teams %}
+            <div class="col">
+                <a href="{{ url_for('team.dashboard', team_id=team.id) }}" class="text-decoration-none">
+                    <div class="beta-widget-card h-100" style="border-top: 3px solid {% if team.owner_id == current_user.id %}var(--beta-accent-emerald){% else %}var(--beta-accent-blue){% endif %};">
+                        <div class="beta-widget-body d-flex justify-content-between align-items-center" style="padding: 1.25rem;">
+                            <div class="flex-grow-1 me-2">
+                                <h6 class="mb-1 fw-bold beta-text-primary">
+                                    <i class="fas fa-users me-2" style="color: var(--beta-accent-blue);"></i>{{ team.name }}
+                                </h6>
+                                <div class="beta-text-muted small">
+                                    <i class="fas fa-user-friends me-1"></i>メンバー: {{ team.members.count() }}人
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                                {% if team.owner_id == current_user.id %}
+                                <span class="beta-badge" style="background: rgba(16, 185, 129, 0.15); color: var(--beta-accent-emerald); border: 1px solid rgba(16, 185, 129, 0.3);">オーナー</span>
+                                {% endif %}
+                                <i class="fas fa-chevron-right beta-text-muted"></i>
+                            </div>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-5 beta-text-muted beta-widget-card">
+            <div class="beta-widget-body">
+                <i class="fas fa-users fa-3x mb-3" style="opacity: 0.3;"></i>
+                <h6 class="fw-bold beta-text-primary">まだチームに参加していません</h6>
+                <p class="mb-3 small">新しいチームを作成するか、既存のチームから招待を受けて参加しましょう。</p>
+                <a href="{{ url_for('team.create_team') }}" class="beta-btn beta-btn-solid">
+                    <i class="fas fa-plus me-1"></i> 新しいチームを作成
+                </a>
+            </div>
+        </div>
+        {% endif %}
+
+    </main>
+    {% include 'beta/_beta_bottombar.html' %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+{% include 'beta/_beta_scripts.html' %}
+{% endblock %}
