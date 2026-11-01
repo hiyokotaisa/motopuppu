@@ -328,6 +328,11 @@
                         <div>
                             <a href="{{ url_for('fuel.edit_fuel', entry_id=entry.id) }}"
                                 class="btn btn-sm btn-link text-decoration-none text-secondary p-0 me-3">編集</a>
+                            <form action="{{ url_for('fuel.delete_fuel', entry_id=entry.id) }}" method="POST"
+                                class="d-inline" onsubmit="return confirm('削除しますか？');">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                                <button type="submit" class="btn btn-sm btn-link text-decoration-none text-danger p-0 me-3">削除</button>
+                            </form>
                             <button class="btn btn-sm btn-link text-decoration-none text-info p-0 btn-share-misskey"
                                 data-type="fuel" data-vehicle-name="{{ entry.motorcycle.name }}"
                                 data-date="{{ entry.entry_date.isoformat() }}" data-odo="{{ entry.odometer_reading }}"
