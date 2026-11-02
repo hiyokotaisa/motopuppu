@@ -98,6 +98,32 @@ podman-compose exec web flask post-misskey-bot
 | **Instance Type** | Starter（最小で十分） |
 | **環境変数** | `DATABASE_URI`, `SECRET_KEY`, `SECRET_CRYPTO_KEY`, `MISSKEY_BOT_API_TOKEN`, `FLASK_APP=motopuppu` |
 
+### PostgreSQLドライバーとRenderへのデプロイ
+
+Webサービス・Cron Jobともに **Psycopg 3** を使用します。`requirements.txt` の
+`psycopg[binary]` にはPostgreSQLクライアントライブラリも含まれるため、Render側で
+`libpq` を別途インストールする必要はありません。
+
+`DATABASE_URI` は `postgresql+psycopg://user:password@host:port/dbname` の形式を推奨します。
+既存の `postgresql://`、`postgres://`、復旧時に設定した `postgresql+psycopg2://` も、
+アプリ起動時にPsycopg 3用のURLへ変換します。認証情報・接続先・`sslmode` などの
+接続パラメーターは維持されます。この初期化はGunicorn、Flask CLI、Cron Job、
+Flask-Migrateで共通です。
+
+移行時は次の手順で反映します。
+
+1. WebサービスとCron Jobの両方で、同じ修正済みコミットをデプロイします。
+   PythonランタイムのBuild Commandは `pip install -r requirements.txt` とし、
+   Docker利用時は更新したイメージをビルドします。
+2. 既存の `DATABASE_URI` はそのまま利用できます。新規設定・設定整理時は、
+   WebサービスとCron Jobの両方で `postgresql+psycopg://` を明示してください。
+3. Webサービスの起動・DBへの読み書きを確認し、Cron Jobは
+   `flask --app motopuppu post-misskey-bot --dry-run` で実際に投稿せず確認します。
+
+この変更によるDBスキーマの変更・データ移行は不要です。
+導入方法は [Psycopg公式ドキュメント](https://www.psycopg.org/psycopg3/docs/basic/install.html#binary-installation)、
+SQLAlchemyでの接続方法は [Psycopg用dialectの説明](https://docs.sqlalchemy.org/en/21/dialects/postgresql.html#module-sqlalchemy.dialects.postgresql.psycopg) を参照してください。
+
 ### 重複防止の仕組み
 
 `bot_notification_logs` テーブルに投稿記録を保存し、同じ通知を2回投稿しないようにしています。
@@ -249,8 +275,7 @@ podman-compose down
 3.  **依存ライブラリをインストールします:**
     ```bash
     pip install -r requirements.txt
-    # PostgreSQL を使う場合は psycopg2-binary も必要 (requirements.txtに含まれていればOK)
-    # pip install psycopg2-binary
+    # PostgreSQL用のPsycopg 3もrequirements.txtからインストールされます
     ```
 4.  **環境変数ファイルを作成します:**
     `.env.example` (もし存在すれば) をコピーして `.env` を作成するか、新規に `.env` を作成します。
@@ -260,7 +285,7 @@ podman-compose down
     ```
     ファイル内の指示に従って必要な値を設定してください。
     * **`SECRET_KEY`**: **必須。** Flaskのセッション等で使用する秘密鍵。`python -c "import secrets; print(secrets.token_hex(16))"` などで生成し、**必ずランダムな文字列に変更してください。**
-    * **`DATABASE_URI`**: PostgreSQL などの外部データベースを使用する場合に設定します (例: `postgresql://user:pass@host:port/dbname`)。設定しない場合は、デフォルトでプロジェクトルート下の `instance/app.db` という SQLite データベースが使用されます。
+    * **`DATABASE_URI`**: PostgreSQL などの外部データベースを使用する場合に設定します (例: `postgresql+psycopg://user:pass@host:port/dbname`)。設定しない場合は、デフォルトでプロジェクトルート下の `instance/app.db` という SQLite データベースが使用されます。
     * **`MISSKEY_INSTANCE_URL`**: (任意) MiAuthで使用するMisskeyインスタンスのURL（デフォルト: `https://misskey.io`）。
     * **`LOCAL_DEV_USER_ID`**: (任意) ローカルログインで使用するユーザーID（DB初期化後にユーザーを作成して設定）。
 

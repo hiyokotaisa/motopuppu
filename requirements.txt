@@ -1,13 +1,13 @@
 Flask>=2.0
 Flask-SQLAlchemy>=3.0
+SQLAlchemy>=2.0,<3
 python-dotenv>=0.20
 requests>=2.20
 gunicorn # 本番環境用WSGIサーバー
-psycopg2-binary # PostgreSQLドライバー (PaaSでの利用を推奨)
+psycopg[binary]>=3.2,<4 # PostgreSQLドライバー (Psycopg 3、libpq同梱)
 Flask-Migrate>=4.0 # DBスキーマ変更の管理に (強く推奨)
 python-dateutil
 jpholiday # 日本の祝日を取得するためのライブラリ
-psycopg2-binary
 Flask-WTF
 wtforms-sqlalchemy
 icalendar

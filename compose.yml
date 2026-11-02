@@ -34,7 +34,7 @@ services:
       FLASK_APP: motopuppu
       FLASK_ENV: development
       # DBサービス名(db)をホスト名として指定
-      DATABASE_URI: postgresql://${POSTGRES_USER:-motopuppu_user}:${POSTGRES_PASSWORD?err}@db:5432/${POSTGRES_DB:-motopuppu_dev}
+      DATABASE_URI: postgresql+psycopg://${POSTGRES_USER:-motopuppu_user}:${POSTGRES_PASSWORD?err}@db:5432/${POSTGRES_DB:-motopuppu_dev}
       # .envファイルから読み込む (必須)
       SECRET_KEY: ${SECRET_KEY?err}
       # .envファイルから読み込むか、なければデフォルト値

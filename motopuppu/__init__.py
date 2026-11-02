@@ -4,6 +4,7 @@ import datetime
 import click
 from flask import Flask, g
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.engine import make_url
 from dotenv import load_dotenv
 from flask_migrate import Migrate
 from flask_wtf.csrf import CSRFProtect
@@ -40,11 +41,18 @@ def create_app(config_name=None):
     """Flaskアプリケーションインスタンスを作成するファクトリ関数"""
     app = Flask(__name__, instance_relative_config=True)
 
+    database_url = make_url(os.environ.get(
+        'DATABASE_URI', f"sqlite:///{os.path.join(app.instance_path, 'app.db')}"
+    ))
+    # Web・CLI共通でPsycopg 3を使用し、既存の接続URLも引き継ぐ。
+    if database_url.drivername in ('postgres', 'postgresql', 'postgresql+psycopg2'):
+        database_url = database_url.set(drivername='postgresql+psycopg')
+
     # ▼▼▼ 修正: MAX_CONTENT_LENGTHのデフォルト値を 16 から 64 に変更 ▼▼▼
     app.config.from_mapping(
         SECRET_KEY=os.environ.get('SECRET_KEY', 'dev-secret-key-replace-me'),
         SECRET_CRYPTO_KEY=os.environ.get('SECRET_CRYPTO_KEY'),
-        SQLALCHEMY_DATABASE_URI=os.environ.get('DATABASE_URI', f"sqlite:///{os.path.join(app.instance_path, 'app.db')}"),
+        SQLALCHEMY_DATABASE_URI=database_url,
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
         MAX_CONTENT_LENGTH = int(os.environ.get('MAX_CONTENT_LENGTH', 64)) * 1024 * 1024,
         MISSKEY_INSTANCE_URL=os.environ.get('MISSKEY_INSTANCE_URL', 'https://misskey.io'),

@@ -11,7 +11,7 @@ ENV PYTHONUNBUFFERED=1
 WORKDIR /app
 
 # 依存関係ファイルをコピーしてインストール
-# (requirements.txt に psycopg2-binary が含まれていることを想定)
+# (requirements.txt の psycopg[binary] で PostgreSQL クライアントライブラリも導入)
 COPY requirements.txt .
 # pipで依存関係をインストール
 RUN pip install --no-cache-dir -r requirements.txt
