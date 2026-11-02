@@ -316,6 +316,11 @@
             <a href="{{ url_for('activity.edit_activity', activity_id=activity.id) }}" class="beta-btn">
                 <i class="fas fa-edit me-1"></i> 活動情報を編集
             </a>
+            <form action="{{ url_for('activity.delete_activity', activity_id=activity.id) }}" method="POST"
+                class="m-0" onsubmit="return confirm('この走行ログを削除してもよろしいですか？\n関連するセッション記録も全て削除されます。');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                <button type="submit" class="beta-btn" style="color: var(--beta-accent-red);"><i class="fas fa-trash me-1"></i> ログ全体を削除</button>
+            </form>
             {% endif %}
             {% if is_owner and activity.location_type == 'circuit' %}
             <a href="{{ url_for('activity.best_settings_finder', vehicle_id=motorcycle.id) }}" class="beta-btn beta-btn-amber">

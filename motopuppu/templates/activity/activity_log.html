@@ -327,6 +327,11 @@
                         {% if log.type == 'activity' %}
                         <a href="{{ url_for('activity.edit_activity', activity_id=log.obj.id) }}"
                             class="btn btn-sm btn-link text-decoration-none text-secondary p-0 me-3">編集</a>
+                        <form action="{{ url_for('activity.delete_activity', activity_id=log.obj.id) }}" method="POST"
+                            class="d-inline" onsubmit="return confirm('この走行ログを削除してもよろしいですか？\n関連するセッション記録も全て削除されます。');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                            <button type="submit" class="btn btn-sm btn-link text-decoration-none text-danger p-0 me-3" title="ログ全体を削除">削除</button>
+                        </form>
                         {% else %}
                         <a href="{{ url_for('touring.edit_log', log_id=log.obj.id) }}"
                             class="btn btn-sm btn-link text-decoration-none text-secondary p-0 me-3">編集</a>
@@ -431,6 +436,11 @@
                         {% if log.type == 'activity' %}
                         <a href="{{ url_for('activity.edit_activity', activity_id=log.obj.id) }}"
                             class="btn btn-sm btn-outline-secondary border-0"><i class="fas fa-edit"></i></a>
+                        <form action="{{ url_for('activity.delete_activity', activity_id=log.obj.id) }}" method="POST"
+                            class="d-inline" onsubmit="return confirm('この走行ログを削除してもよろしいですか？\n関連するセッション記録も全て削除されます。');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                            <button type="submit" class="btn btn-sm btn-outline-danger border-0" title="ログ全体を削除" aria-label="ログ全体を削除"><i class="fas fa-trash"></i></button>
+                        </form>
                         {% else %}
                         <a href="{{ url_for('touring.edit_log', log_id=log.obj.id) }}"
                             class="btn btn-sm btn-outline-secondary border-0"><i class="fas fa-edit"></i></a>
