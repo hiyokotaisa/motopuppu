@@ -22,12 +22,7 @@ from ...forms import ActivityLogForm, SessionLogForm, LapTimeImportForm
 from ... import limiter
 from ...utils.search_helpers import escape_like
 from ...utils.view_helpers import get_motorcycle_or_404
-
-# session_routes.py のRDP関数を遅延インポートで使用（循環インポート回避）
-def _get_rdp_func():
-    from .session_routes import _ramer_douglas_peucker
-    return _ramer_douglas_peucker
-
+from ...utils.activity_helpers import can_view_activity, has_gps_tracks_expression
 
 @activity_bp.route('/')
 @login_required
@@ -430,19 +425,20 @@ def detail_activity(activity_id):
     ).filter_by(id=activity_id).first_or_404()
 
     is_owner = (activity.user_id == current_user.id)
-    is_team_member = False
-    
-    if not is_owner:
-        owner_teams = set(team.id for team in activity.user.teams)
-        current_user_teams = set(team.id for team in current_user.teams)
-        if owner_teams.intersection(current_user_teams):
-            is_team_member = True
-
-    if not is_owner and not is_team_member:
+    if not can_view_activity(activity, current_user):
         abort(403)
         
     motorcycle = activity.motorcycle
-    sessions = SessionLog.query.filter_by(activity_log_id=activity.id).order_by(SessionLog.id.asc()).all()
+    session_rows = db.session.query(
+        SessionLog, has_gps_tracks_expression().label('has_gps_tracks')
+    ).options(
+        defer(SessionLog.gps_tracks, raiseload=True),
+        joinedload(SessionLog.setting_sheet),
+    ).filter(SessionLog.activity_log_id == activity.id).order_by(SessionLog.id.asc()).all()
+    sessions = []
+    for session, has_gps in session_rows:
+        session.has_gps_tracks = has_gps
+        sessions.append(session)
 
     sort_order = request.args.get('sort', 'record_asc')
 
@@ -621,64 +617,11 @@ def public_session_view(token):
 def public_gps_data(token):
     """【公開】共有セッションのGPSデータをJSONで返す"""
     session = SessionLog.query.options(
+        defer(SessionLog.gps_tracks, raiseload=True),
         joinedload(SessionLog.activity).joinedload(ActivityLog.motorcycle),
-        joinedload(SessionLog.setting_sheet)
-    ).filter_by(
-        public_share_token=str(token), 
-        is_public=True
-    ).first()
-
-    if not session or not session.gps_tracks or not session.gps_tracks.get('laps'):
+        joinedload(SessionLog.setting_sheet),
+    ).filter_by(public_share_token=str(token), is_public=True).first()
+    if not session:
         return jsonify({'error': 'No GPS data available'}), 404
-
-    motorcycle = session.activity.motorcycle
-    setting_sheet = session.setting_sheet
-    vehicle_specs = {
-        'primary_ratio': float(motorcycle.primary_ratio) if motorcycle.primary_ratio else None,
-        'gear_ratios': {k: float(v) for k, v in motorcycle.gear_ratios.items()} if motorcycle.gear_ratios else None,
-        'front_sprocket': None,
-        'rear_sprocket': None,
-        'rear_tyre_size': None,
-    }
-
-    if setting_sheet and setting_sheet.details:
-        sprocket_settings = setting_sheet.details.get('sprocket', {})
-        tyre_settings = setting_sheet.details.get('tire_rear', {}) 
-        try:
-            front = sprocket_settings.get('front_teeth')
-            if front: vehicle_specs['front_sprocket'] = int(front)
-        except (ValueError, TypeError): pass
-        try:
-            rear = sprocket_settings.get('rear_teeth')
-            if rear: vehicle_specs['rear_sprocket'] = int(rear)
-        except (ValueError, TypeError): pass
-        
-        rear_size = tyre_settings.get('tire_size')
-        if rear_size: vehicle_specs['rear_tyre_size'] = rear_size
-
-    response_data = {
-        'laps': [],
-        'lap_times': session.lap_times or [],
-        'vehicle_specs': vehicle_specs
-    }
-    
-    raw_laps = session.gps_tracks.get('laps', [])
-    for lap in raw_laps:
-        raw_track = lap.get('track', [])
-        if len(raw_track) > 500:
-            simplified_track = _get_rdp_func()(raw_track, 0.000003)
-        else:
-            simplified_track = raw_track
-            
-        response_data['laps'].append({
-            'lap_number': lap.get('lap_number'),
-            'track': raw_track,
-            'map_track': simplified_track
-        })
-    
-    response = jsonify(response_data)
-    
-    response.headers['Cache-Control'] = 'public, max-age=31536000'
-    response.add_etag()
-    
-    return response
+    from .session_routes import _build_gps_response
+    return _build_gps_response(session)

@@ -61,6 +61,18 @@ GPS付きCSVはラップ番号が時系列順に並ぶものを使用してく�
 `python -m unittest discover -s tests -v` を実行してください。
 この環境変数が未指定の場合、DB連携試験はスキップします。
 
+GPSビューアは、最初にラップ番号一覧を取得し、選択した周のGPSだけを読み込みます。
+走行ログの詳細・サーキットダッシュボードの初期表示ではGPS本体を取得しません。
+チームメンバーが走行ログ・GPSを閲覧するには、そのログのチーム共有が有効である必要があります。
+
+JavaScriptの回帰テストはNode.js 22とjsdom 26で手動実行できます。
+テスト用依存関係を一時ディレクトリにインストールして実行します。
+
+```bash
+npm install --prefix /tmp/motopuppu-js-tests --no-save jsdom@26
+NODE_PATH=/tmp/motopuppu-js-tests/node_modules node --test tests/test_circuit_frontend.cjs
+```
+
 ## Misskey Bot 自動投稿
 
 公式Misskeyアカウント (`@motopuppu@misskey.io`) から、以下の情報を自動投稿する機能です。

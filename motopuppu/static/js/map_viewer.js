@@ -1,5 +1,13 @@
 // motopuppu/static/js/map_viewer.js
 window.motopuppuMapViewer = {
+    instances: new WeakMap(),
+    destroy: function(container) {
+        const instance = container && this.instances.get(container);
+        if (instance) {
+            this.instances.delete(container);
+            instance.destroy();
+        }
+    },
     init: async function(options) {
         // オプションから設定を取得
         const sessionId = options.sessionId;
@@ -10,6 +18,14 @@ window.motopuppuMapViewer = {
         // 実行コンテナ
         const container = isPublicPage ? document.body : document.getElementById('mapModal');
         if (!container) return;
+        this.destroy(container);
+        const requestController = new AbortController();
+        let lapController = null;
+        let disposed = false;
+        let lapRequestId = 0;
+        let resizeTimer = null;
+        const listeners = [];
+        const lapCache = new Map();
         
         // --- グローバル変数 ---
         let map;
@@ -18,7 +34,7 @@ window.motopuppuMapViewer = {
         let accelMarkers = [];
         let bikeMarker = null;
         let bounds;
-        let charts = { speed: null, rpm: null, throttle: null, gear: null };
+        const charts = { speedChart: null, rpmChart: null, throttleChart: null, gearChart: null };
         let currentLapData = null;
         let smoothedGears = [];
         let animationFrameId = null;
@@ -31,6 +47,72 @@ window.motopuppuMapViewer = {
         let lastChartUpdateTime = 0;
         const CHART_UPDATE_INTERVAL = 100;
 
+        function listen(target, event, handler) {
+            if (!target) return;
+            target.addEventListener(event, handler);
+            listeners.push(() => target.removeEventListener(event, handler));
+        }
+        function destroyChart(id) {
+            if (charts[id]) charts[id].destroy();
+            charts[id] = null;
+        }
+        function clearTrack() {
+            polylines.flat().forEach(line => line.setMap(null));
+            brakingMarkers.flat().forEach(marker => marker.setMap(null));
+            accelMarkers.flat().forEach(marker => marker.setMap(null));
+            if (bikeMarker) bikeMarker.setMap(null);
+            polylines = []; brakingMarkers = []; accelMarkers = [];
+            bikeMarker = null;
+        }
+        function setPlaybackEnabled(enabled) {
+            for (const id of ['playPauseBtn', 'timelineScrubber']) {
+                const element = container.querySelector('#' + id);
+                if (element) element.disabled = !enabled;
+            }
+        }
+        function resetTelemetry() {
+            const playButton = container.querySelector('#playPauseBtn');
+            if (playButton) playButton.innerHTML = '<i class="fas fa-play"></i>';
+            const scrubber = container.querySelector('#timelineScrubber');
+            if (scrubber) scrubber.value = 0;
+            const hud = container.querySelector('#hud-overlay');
+            if (hud) hud.classList.add('d-none');
+            if (!isPublicPage) {
+                const dialog = container.querySelector('.modal-dialog');
+                dialog?.classList.remove('modal-fullscreen');
+                dialog?.classList.add('modal-xl');
+                container.querySelector('#playback-controls')?.classList.add('d-none');
+                container.querySelector('#telemetry-graphs')?.classList.add('d-none');
+                const toggle = container.querySelector('#toggleTelemetryBtn');
+                if (toggle) {
+                    toggle.innerHTML = '<i class="fas fa-chart-line me-1"></i> テレメトリを表示';
+                    toggle.classList.remove('btn-success');
+                    toggle.classList.add('btn-outline-primary');
+                }
+            }
+        }
+        this.instances.set(container, { destroy: () => {
+            disposed = true;
+            isPlaying = false;
+            cancelAnimationFrame(animationFrameId);
+            clearTimeout(resizeTimer);
+            requestController.abort();
+            lapController?.abort();
+            listeners.forEach(remove => remove());
+            Object.keys(charts).forEach(destroyChart);
+            clearTrack();
+            lapCache.clear();
+            currentLapData = null;
+            if (map) google.maps.event.clearInstanceListeners(map);
+            map = null;
+            container.querySelector('#map')?.replaceChildren();
+            resetTelemetry();
+            setPlaybackEnabled(false);
+        }});
+        resetTelemetry();
+        setPlaybackEnabled(false);
+
+
         // --- ヘルパー関数 ---
         function initializeMap(containerId) {
             const mapContainer = document.getElementById(containerId);
@@ -40,7 +122,7 @@ window.motopuppuMapViewer = {
             });
         }
         function setupChart(canvasId, label, color, chartType = 'line', yAxisOptions = {}) {
-            if (charts[canvasId]) charts[canvasId].destroy();
+            destroyChart(canvasId);
             const canvasEl = document.getElementById(canvasId);
             if (!canvasEl) return null;
             const ctx = canvasEl.getContext('2d');
@@ -49,7 +131,7 @@ window.motopuppuMapViewer = {
                 ticks: { font: { size: 10 } },
                 title: { display: true, text: label, font: { size: 12 } }
             };
-            return new Chart(ctx, {
+            const chart = new Chart(ctx, {
                 type: 'line',
                 data: {
                     labels: [],
@@ -64,6 +146,8 @@ window.motopuppuMapViewer = {
                     scales: { x: { ticks: { display: false }, grid: { display: false } }, y: { ...defaultYAxisOptions, ...yAxisOptions } }
                 }
             });
+            charts[canvasId] = chart;
+            return chart;
         }
         function getColorForSpeed(speed, minSpeed, maxSpeed) {
             if (speed < minSpeed) speed = minSpeed;
@@ -187,7 +271,7 @@ window.motopuppuMapViewer = {
         }
 
         function updateDashboard(index, ratio = 0) {
-            if (!currentLapData || index < 0 || index >= currentLapData.track.length) return;
+            if (disposed || !currentLapData || index < 0 || index >= currentLapData.track.length) return;
             
             const p1 = currentLapData.track[index];
             const p2 = currentLapData.track[index + 1] || p1; 
@@ -209,7 +293,7 @@ window.motopuppuMapViewer = {
                 
                 const currentGear = smoothedGears[index];
                 const hudGearEl = container.querySelector('#hud-gear');
-                if (hudGearEl) hudGearEl.textContent = currentGear !== null ? currentGear : '-';
+                if (hudGearEl) hudGearEl.textContent = currentGear ?? '-';
                 
                 const hudSpeedEl = container.querySelector('#hud-speed');
                 if (hudSpeedEl) hudSpeedEl.textContent = Math.round(speed);
@@ -230,7 +314,7 @@ window.motopuppuMapViewer = {
             const gearDisplay = container.querySelector('#currentGearDisplay');
             if (gearDisplay) {
                 const currentGear = smoothedGears[index];
-                gearDisplay.textContent = currentGear !== null ? currentGear : 'N';
+                gearDisplay.textContent = currentGear ?? '-';
             }
 
             const now = Date.now();
@@ -255,7 +339,7 @@ window.motopuppuMapViewer = {
         }
 
         function playLoop() {
-            if (!isPlaying) return;
+            if (disposed || !isPlaying) return;
             const elapsedTime = (Date.now() - playbackStartTime) / 1000 + playbackStartOffset;
             const totalDuration = currentLapData.track[currentLapData.track.length - 1].runtime || 0;
             
@@ -295,7 +379,7 @@ window.motopuppuMapViewer = {
         }
 
         function startPlayback() {
-            if (isPlaying || !currentLapData) return;
+            if (disposed || isPlaying || !currentLapData) return;
             isPlaying = true;
             const scrubber = container.querySelector('#timelineScrubber');
             const currentIndex = parseInt(scrubber.value, 10);
@@ -326,9 +410,12 @@ window.motopuppuMapViewer = {
         if (!map) { map = initializeMap('map'); }
         
         try {
-            const response = await fetch(dataUrl);
+            const summaryUrl = new URL(dataUrl, window.location.href);
+            summaryUrl.searchParams.set('summary', '1');
+            const response = await fetch(summaryUrl, { signal: requestController.signal, cache: 'no-store' });
             if (!response.ok) throw new Error('Failed to load GPS data.');
             const data = await response.json();
+            if (disposed) return;
             
             if (!data.laps || data.laps.length === 0 || !data.lap_times || data.lap_times.length === 0) {
                 if(mapContainerEl) mapContainerEl.innerHTML = '';
@@ -352,27 +439,30 @@ window.motopuppuMapViewer = {
                 if (time < minTime) { minTime = time; bestLapIndex = index; }
             });
 
+            const availableLaps = new Set(data.laps.map(lap => Number(lap.lap_number)));
+            const lapStatus = document.createElement('p');
+            lapStatus.className = 'small text-muted mt-2';
+            lapStatus.setAttribute('role', 'status');
             if (lapSelectorContainer) {
                 lapSelectorContainer.innerHTML = '';
                 const lapSelect = document.createElement('select');
                 lapSelect.className = 'form-select';
                 data.lap_times.forEach((lapTime, index) => {
                     const option = document.createElement('option');
-                    option.value = index;
+                    const lapNumber = index + 1;
+                    option.value = lapNumber;
+                    option.disabled = !availableLaps.has(lapNumber);
                     const isBest = index === bestLapIndex;
-                    option.textContent = `${isBest ? '👑 ' : ''}Lap ${index + 1} (${lapTime})`;
+                    option.textContent = `${isBest ? '👑 ' : ''}Lap ${lapNumber} (${lapTime})${option.disabled ? ' — GPSなし' : ''}`;
                     lapSelect.appendChild(option);
                 });
-                lapSelectorContainer.appendChild(lapSelect);
+                lapSelectorContainer.append(lapSelect, lapStatus);
             }
 
-            const loadLapData = (lapIndex) => {
-                stopPlayback();
+            const renderLapData = (lap) => {
                 lastPlaybackIndex = 0;
                 lastChartUpdateTime = 0;
-                lastChartUpdateIndex = -1;
-
-                currentLapData = data.laps[lapIndex];
+                currentLapData = lap;
                 if (!currentLapData || !currentLapData.track || currentLapData.track.length < 2) return;
                 
                 const mapTrackData = currentLapData.map_track || currentLapData.track;
@@ -408,11 +498,7 @@ window.motopuppuMapViewer = {
                 }
 
                 lapStartTime = currentLapData.track[0]?.runtime || 0;
-                polylines.flat().forEach(p => p.setMap(null));
-                brakingMarkers.flat().forEach(m => m.setMap(null));
-                accelMarkers.flat().forEach(m => m.setMap(null));
-                if (bikeMarker) bikeMarker.setMap(null);
-                polylines = []; brakingMarkers = []; accelMarkers = [];
+                clearTrack();
 
                 const speeds = mapTrackData.map(p => p.speed).filter(s => s > 0);
                 const minSpeed = speeds.length > 0 ? Math.min(...speeds) : 0;
@@ -442,73 +528,118 @@ window.motopuppuMapViewer = {
                     const gearKeys = Object.keys(vehicleSpecs.gear_ratios);
                     const maxGear = gearKeys.length > 0 ? Math.max(...gearKeys.map(Number)) : 6; 
                     
-                    charts.gear = setupChart('gearChart', '使用ギア', 'rgba(255, 159, 64, 1)', 'step', {
+                    charts.gearChart = setupChart('gearChart', '使用ギア', 'rgba(255, 159, 64, 1)', 'step', {
                          ticks: { stepSize: 1, callback: function(value) { if (Number.isInteger(value)) { return value; } } },
                          suggestedMin: 1, suggestedMax: maxGear
                     });
                     const estimatedGears = currentLapData.track.map(p => estimateGear(p, vehicleSpecs));
                     smoothedGears = applySmoothingFilter(estimatedGears, 5);
-                    if (charts.gear) {
-                        charts.gear.data.labels = labels;
-                        charts.gear.data.datasets[0].data = smoothedGears;
+                    if (charts.gearChart) {
+                        charts.gearChart.data.labels = labels;
+                        charts.gearChart.data.datasets[0].data = smoothedGears;
                     }
                     if (gearDisplayContainer) gearDisplayContainer.classList.remove('d-none');
                     if (gearChartCanvas) gearChartCanvas.parentElement.style.display = 'block';
                 } else {
                     smoothedGears = [];
-                    if (charts.gear) charts.gear.destroy();
+                    destroyChart('gearChart');
                     if (gearDisplayContainer) gearDisplayContainer.classList.add('d-none');
                     if (gearChartCanvas) gearChartCanvas.parentElement.style.display = 'none';
                 }
                 
-                charts.speed = setupChart('speedChart', '速度 (km/h)', 'rgba(54, 162, 235, 1)');
+                charts.speedChart = setupChart('speedChart', '速度 (km/h)', 'rgba(54, 162, 235, 1)');
                 
                 const rpmChartCanvas = document.getElementById('rpmChart');
                 if (hasRpm) {
-                    charts.rpm = setupChart('rpmChart', 'エンジン回転数 (rpm)', 'rgba(255, 99, 132, 1)');
+                    charts.rpmChart = setupChart('rpmChart', 'エンジン回転数 (rpm)', 'rgba(255, 99, 132, 1)');
                     if (rpmChartCanvas) rpmChartCanvas.parentElement.style.display = 'block';
                 } else {
-                    if (charts.rpm) charts.rpm.destroy();
+                    destroyChart('rpmChart');
                     if (rpmChartCanvas) rpmChartCanvas.parentElement.style.display = 'none';
                 }
 
                 const throttleChartCanvas = document.getElementById('throttleChart');
                 if (hasThrottle) {
-                    charts.throttle = setupChart('throttleChart', 'スロットル開度 (%)', 'rgba(75, 192, 192, 1)');
+                    charts.throttleChart = setupChart('throttleChart', 'スロットル開度 (%)', 'rgba(75, 192, 192, 1)');
                     if (throttleChartCanvas) throttleChartCanvas.parentElement.style.display = 'block';
                 } else {
-                    if (charts.throttle) charts.throttle.destroy();
+                    destroyChart('throttleChart');
                     if (throttleChartCanvas) throttleChartCanvas.parentElement.style.display = 'none';
                 }
                 
-                if(charts.speed) {
-                    charts.speed.data.labels = labels;
-                    charts.speed.data.datasets[0].data = currentLapData.track.map(p => p.speed);
+                if(charts.speedChart) {
+                    charts.speedChart.data.labels = labels;
+                    charts.speedChart.data.datasets[0].data = currentLapData.track.map(p => p.speed);
                 }
-                if(charts.rpm && hasRpm) {
-                    charts.rpm.data.labels = labels;
-                    charts.rpm.data.datasets[0].data = currentLapData.track.map(p => p.rpm);
+                if(charts.rpmChart && hasRpm) {
+                    charts.rpmChart.data.labels = labels;
+                    charts.rpmChart.data.datasets[0].data = currentLapData.track.map(p => p.rpm);
                 }
-                if(charts.throttle && hasThrottle) {
-                    charts.throttle.data.labels = labels;
-                    charts.throttle.data.datasets[0].data = currentLapData.track.map(p => p.throttle);
+                if(charts.throttleChart && hasThrottle) {
+                    charts.throttleChart.data.labels = labels;
+                    charts.throttleChart.data.datasets[0].data = currentLapData.track.map(p => p.throttle);
                 }
                 Object.values(charts).forEach(chart => { if (chart) chart.update(); });
 
                 const scrubber = container.querySelector('#timelineScrubber');
                 if (scrubber) scrubber.max = currentLapData.track.length - 1;
+                if (scrubber) scrubber.value = 0;
+                setPlaybackEnabled(true);
+                brakingMarkers.forEach(marker => marker.setVisible(container.querySelector('#toggleBrakingPoints')?.checked ?? true));
+                accelMarkers.forEach(marker => marker.setVisible(container.querySelector('#toggleAccelPoints')?.checked ?? true));
                 updateDashboard(0);
                 playbackStartOffset = 0;
             };
 
+            const loadLapData = async (lapNumber) => {
+                const requestId = ++lapRequestId;
+                lapController?.abort();
+                lapController = new AbortController();
+                stopPlayback();
+                Object.keys(charts).forEach(destroyChart);
+                clearTrack();
+                currentLapData = null;
+                setPlaybackEnabled(false);
+                container.querySelector('#hud-overlay')?.classList.add('d-none');
+                lapStatus.textContent = `Lap ${lapNumber}のGPSを読み込んでいます...`;
+                try {
+                    let lap = lapCache.get(lapNumber);
+                    if (!lap) {
+                        const lapUrl = new URL(dataUrl, window.location.href);
+                        lapUrl.searchParams.delete('summary');
+                        lapUrl.searchParams.set('lap_number', lapNumber);
+                        const response = await fetch(lapUrl, { signal: lapController.signal, cache: 'no-store' });
+                        if (!response.ok) throw new Error('Failed to load lap GPS data.');
+                        const payload = await response.json();
+                        if (disposed || requestId !== lapRequestId) return;
+                        lap = payload.laps?.find(item => Number(item.lap_number) === lapNumber);
+                        if (!lap?.track || lap.track.length < 2) throw new Error('No usable GPS data.');
+                        lapCache.set(lapNumber, lap);
+                        if (lapCache.size > 3) lapCache.delete(lapCache.keys().next().value);
+                    }
+                    if (disposed || requestId !== lapRequestId) return;
+                    renderLapData(lap);
+                    lapStatus.textContent = '';
+                } catch (error) {
+                    if (disposed || requestId !== lapRequestId || error.name === 'AbortError') return;
+                    Object.keys(charts).forEach(destroyChart);
+                    clearTrack();
+                    currentLapData = null;
+                    setPlaybackEnabled(false);
+                    container.querySelector('#hud-overlay')?.classList.add('d-none');
+                    lapStatus.textContent = 'このラップのGPSを読み込めませんでした。別のラップを選択してください。';
+                    console.error(error);
+                }
+            };
+
             const lapSelect = container.querySelector('#lapSelectorContainer select');
             if (lapSelect) {
-                lapSelect.addEventListener('change', (e) => loadLapData(parseInt(e.target.value, 10)));
+                listen(lapSelect, 'change', (e) => loadLapData(parseInt(e.target.value, 10)));
             }
 
             const scrubber = container.querySelector('#timelineScrubber');
             if (scrubber) {
-                scrubber.addEventListener('input', (e) => {
+                listen(scrubber, 'input', (e) => {
                     stopPlayback(); 
                     const newIndex = parseInt(e.target.value, 10);
                     lastPlaybackIndex = newIndex;
@@ -519,20 +650,20 @@ window.motopuppuMapViewer = {
 
             const playPauseBtn = container.querySelector('#playPauseBtn');
             if (playPauseBtn) {
-                playPauseBtn.addEventListener('click', () => {
+                listen(playPauseBtn, 'click', () => {
                     if (isPlaying) stopPlayback(); else startPlayback();
                 });
             }
             
             const toggleBrakingPoints = container.querySelector('#toggleBrakingPoints');
             if (toggleBrakingPoints) {
-                toggleBrakingPoints.addEventListener('change', (e) => {
+                listen(toggleBrakingPoints, 'change', (e) => {
                     brakingMarkers.forEach(m => m.setVisible(e.target.checked));
                 });
             }
             const toggleAccelPoints = container.querySelector('#toggleAccelPoints');
             if (toggleAccelPoints) {
-                toggleAccelPoints.addEventListener('change', (e) => {
+                listen(toggleAccelPoints, 'change', (e) => {
                     accelMarkers.forEach(m => m.setVisible(e.target.checked));
                 });
             }
@@ -540,7 +671,7 @@ window.motopuppuMapViewer = {
             if (!isPublicPage) {
                 const toggleTelemetryBtn = container.querySelector('#toggleTelemetryBtn');
                 if (toggleTelemetryBtn) {
-                    toggleTelemetryBtn.addEventListener('click', (e) => {
+                    listen(toggleTelemetryBtn, 'click', (e) => {
                         const btn = e.currentTarget;
                         const modalDialog = container.querySelector('.modal-dialog');
                         const playbackControls = container.querySelector('#playback-controls');
@@ -557,14 +688,22 @@ window.motopuppuMapViewer = {
                             btn.innerHTML = '<i class="fas fa-map-marked-alt me-1"></i> シンプル表示に戻す';
                             btn.classList.remove('btn-outline-primary'); btn.classList.add('btn-success');
                         }
-                        setTimeout(() => { if(map && bounds && !bounds.isEmpty()){ google.maps.event.trigger(map, 'resize'); map.fitBounds(bounds); } }, 200);
+                        clearTimeout(resizeTimer);
+                        resizeTimer = setTimeout(() => { if(!disposed && map && bounds && !bounds.isEmpty()){ google.maps.event.trigger(map, 'resize'); map.fitBounds(bounds); } }, 200);
                     });
                 }
             }
 
-            loadLapData(0);
+            const firstLap = data.lap_times.findIndex((_, index) => availableLaps.has(index + 1)) + 1;
+            if (firstLap) {
+                if (lapSelect) lapSelect.value = firstLap;
+                await loadLapData(firstLap);
+            } else {
+                lapStatus.textContent = '対応するラップのGPSデータがありません。';
+            }
 
         } catch (error) {
+            if (disposed || error.name === 'AbortError') return;
             console.error('Error:', error);
             if(mapContainerEl) mapContainerEl.innerHTML = '';
             if(lapSelectorContainer) lapSelectorContainer.innerHTML = `<div class="alert alert-danger">データの読み込みに失敗しました。</div>`;
@@ -576,8 +715,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const mapModalElement = document.getElementById('mapModal');
     if (!mapModalElement) return;
 
+    mapModalElement.addEventListener('hidden.bs.modal', () => window.motopuppuMapViewer.destroy(mapModalElement));
     mapModalElement.addEventListener('shown.bs.modal', (event) => {
         const button = event.relatedTarget;
+        if (!button) return;
         const sessionId = button.dataset.sessionId;
         
         window.motopuppuMapViewer.init({
@@ -587,4 +728,9 @@ document.addEventListener('DOMContentLoaded', () => {
             isPublicPage: false
         });
     });
+});
+window.addEventListener('pagehide', (event) => {
+    // 戻る操作で復元されるページの地図は維持する。
+    if (event.persisted) return;
+    window.motopuppuMapViewer.destroy(document.getElementById('mapModal') || document.body);
 });

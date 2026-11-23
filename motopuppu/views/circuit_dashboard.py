@@ -207,6 +207,8 @@ def index():
     }
     
     best_sessions = db.session.query(SessionLog).options(
+        defer(SessionLog.lap_times, raiseload=True),
+        defer(SessionLog.gps_tracks, raiseload=True),
         joinedload(SessionLog.activity).joinedload(ActivityLog.motorcycle),
         joinedload(SessionLog.setting_sheet)
     ).filter(

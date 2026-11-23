@@ -11,7 +11,8 @@ from flask import (
     Response, stream_with_context
 )
 from sqlalchemy.orm import joinedload, defer
-from sqlalchemy import func
+from sqlalchemy import func, cast
+from sqlalchemy.dialects.postgresql import JSONPATH
 
 # 分割したBlueprintとユーティリティをインポート
 from . import activity_bp
@@ -22,6 +23,7 @@ from ...utils.lap_time_utils import (
 from ...constants import SETTING_KEY_MAP
 
 from ...utils.view_helpers import get_motorcycle_or_404
+from ...utils.activity_helpers import can_view_activity
 from flask_login import login_required, current_user
 from ...models import db, ActivityLog, SessionLog
 from ...forms import SessionLogForm, LapTimeImportForm
@@ -311,25 +313,45 @@ def best_settings_finder(vehicle_id):
 @login_required
 def get_gps_data(session_id):
     session = SessionLog.query.options(
-        joinedload(SessionLog.activity).joinedload(ActivityLog.user),
+        defer(SessionLog.gps_tracks, raiseload=True),
         joinedload(SessionLog.activity).joinedload(ActivityLog.motorcycle),
-        joinedload(SessionLog.setting_sheet)
+        joinedload(SessionLog.setting_sheet),
     ).filter_by(id=session_id).first_or_404()
-
-    is_owner = (session.activity.user_id == current_user.id)
-    is_team_member = False
-
-    if not is_owner:
-        owner_teams = set(team.id for team in session.activity.user.teams)
-        current_user_teams = set(team.id for team in current_user.teams)
-        if owner_teams.intersection(current_user_teams):
-            is_team_member = True
-    
-    if not is_owner and not is_team_member:
+    if not can_view_activity(session.activity, current_user):
         abort(403)
+    return _build_gps_response(session)
 
-    if not session.gps_tracks or not session.gps_tracks.get('laps'):
-        return jsonify({'error': 'No GPS data available'}), 404
+
+def _build_gps_response(session):
+    """一覧はラップ番号のみ、選択時はその周のGPSだけをDBから取得する。"""
+    lap_arg = request.args.get('lap_number')
+    if lap_arg is not None:
+        try:
+            lap_number = int(lap_arg)
+            if lap_number < 1:
+                raise ValueError
+        except ValueError:
+            return jsonify({'error': 'Invalid lap number'}), 400
+        path = cast(f'$.laps[*] ? (@.lap_number == {lap_number})', JSONPATH)
+        lap = db.session.query(
+            func.jsonb_path_query_first(SessionLog.gps_tracks, path)
+        ).filter(SessionLog.id == session.id).scalar()
+        if not lap:
+            return jsonify({'error': 'No GPS data available for this lap'}), 404
+        raw_laps = [lap]
+    elif request.args.get('summary') == '1':
+        numbers = db.session.query(func.jsonb_path_query_array(
+            SessionLog.gps_tracks, cast('$.laps[*].lap_number', JSONPATH)
+        )).filter(SessionLog.id == session.id).scalar() or []
+        if not numbers:
+            return jsonify({'error': 'No GPS data available'}), 404
+        raw_laps = [{'lap_number': number} for number in numbers]
+    else:
+        # 従来の全周取得APIも維持する。新しいビューアは上の軽量APIを使う。
+        gps = db.session.query(SessionLog.gps_tracks).filter(SessionLog.id == session.id).scalar() or {}
+        raw_laps = gps.get('laps', []) if isinstance(gps, dict) else []
+        if not raw_laps:
+            return jsonify({'error': 'No GPS data available'}), 404
 
     motorcycle = session.activity.motorcycle
     setting_sheet = session.setting_sheet
@@ -371,9 +393,10 @@ def get_gps_data(session_id):
     }
     
     # マップ表示用に、すでに保存されているデータをさらに軽量化して返す
-    raw_laps = session.gps_tracks.get('laps', [])
-    
     for lap in raw_laps:
+        if 'track' not in lap:
+            response_data['laps'].append({'lap_number': lap['lap_number']})
+            continue
         raw_track = lap.get('track', [])
         
         # ▼▼▼ 修正: 再生・チャート用のデータも、点数が多すぎる場合は間引く ▼▼▼
@@ -398,7 +421,9 @@ def get_gps_data(session_id):
             'map_track': simplified_track # 地図表示用（軽量）
         })
     
-    return jsonify(response_data)
+    response = jsonify(response_data)
+    response.headers['Cache-Control'] = 'no-store'
+    return response
 
 
 @activity_bp.route('/session/<int:session_id>/edit', methods=['GET', 'POST'])

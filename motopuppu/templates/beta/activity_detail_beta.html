@@ -570,7 +570,7 @@
                                 </div>
 
                                 <div class="d-flex align-items-center ms-auto ps-2 gap-1" onclick="event.stopPropagation()">
-                                    {% if session.gps_tracks and session.gps_tracks.laps %}
+                                    {% if session.has_gps_tracks %}
                                     <button type="button" class="beta-btn view-track-btn" style="font-size: 0.7rem; padding: 0.2rem 0.45rem; color: var(--beta-accent-teal);"
                                             data-bs-toggle="modal"
                                             data-bs-target="#mapModal"
@@ -601,7 +601,7 @@
                     </h2>
                     <div id="collapseSession{{ session.id }}" class="accordion-collapse collapse {% if loop.last %}show{% endif %}" aria-labelledby="headingSession{{ session.id }}" data-bs-parent="#sessionsListAccordion">
                         <div class="accordion-body">
-                            {% if is_owner and session.gps_tracks and session.gps_tracks.laps %}
+                            {% if is_owner and session.has_gps_tracks %}
                             <div class="pb-3 mb-3" style="border-bottom: 1px solid var(--beta-border);">
                                 <div class="form-check form-switch mb-2">
                                     <input class="form-check-input share-session-switch" type="checkbox" role="switch"
@@ -976,177 +976,13 @@
 {% if config.GOOGLE_MAPS_API_KEY %}
 <script async defer src="https://maps.googleapis.com/maps/api/js?key={{ config.GOOGLE_MAPS_API_KEY }}&callback=initMap" type="text/javascript"></script>
 <script src="{{ url_for('static', filename='js/map_viewer.js') }}"></script>
+<script src="{{ url_for('static', filename='js/lap_import.js') }}"></script>
 {% endif %}
 
 <script>
 function initMap() {}
 
 document.addEventListener('DOMContentLoaded', () => {
-
-    document.querySelectorAll('.import-form').forEach(form => {
-        const fieldsContainer = form.querySelector('.import-form-fields');
-        const progressContainer = form.querySelector('.import-progress-display');
-        const errorContainer = form.querySelector('.import-error-display');
-        const errorTextEl = form.querySelector('.import-error-text');
-        const stageTextEl = form.querySelector('.import-progress-stage-text');
-        const detailTextEl = form.querySelector('.import-progress-detail');
-        const progressBar = form.querySelector('.progress-bar');
-        const submitBtn = form.querySelector('input[type="submit"]');
-        const cancelBtn = form.querySelector('.import-cancel-btn');
-        const closeBtn = form.querySelector('.import-close-btn');
-
-        const STAGE_LABELS = {
-            uploading: 'ファイルをアップロード中',
-            parsing: 'CSVを解析中',
-            validating: 'ラップタイムを検証中',
-            filtering: '外れ値を除外中',
-            optimizing: 'GPS軌跡を最適化中',
-            saving: 'データベースに保存中',
-            done: '完了',
-            error: 'エラー',
-        };
-
-        const setProgress = (pct, striped, animated) => {
-            const v = Math.max(0, Math.min(100, Math.round(pct)));
-            progressBar.style.width = v + '%';
-            progressBar.setAttribute('aria-valuenow', v);
-            progressBar.textContent = v + '%';
-            progressBar.classList.toggle('progress-bar-striped', !!striped);
-            progressBar.classList.toggle('progress-bar-animated', !!animated);
-        };
-
-        const showProgress = () => {
-            errorContainer.classList.add('d-none');
-            fieldsContainer.classList.add('d-none');
-            progressContainer.classList.remove('d-none');
-            if (submitBtn) submitBtn.disabled = true;
-            if (cancelBtn) cancelBtn.disabled = true;
-            if (closeBtn) closeBtn.disabled = true;
-        };
-
-        const resetForm = () => {
-            fieldsContainer.classList.remove('d-none');
-            progressContainer.classList.add('d-none');
-            if (submitBtn) submitBtn.disabled = false;
-            if (cancelBtn) cancelBtn.disabled = false;
-            if (closeBtn) closeBtn.disabled = false;
-            setProgress(0, true, true);
-        };
-
-        const showError = (message) => {
-            resetForm();
-            errorContainer.classList.remove('d-none');
-            errorTextEl.textContent = message || 'エラーが発生しました。';
-        };
-
-        const handleEvent = (evt) => {
-            const stage = evt.stage;
-            const label = STAGE_LABELS[stage] || stage;
-
-            if (stage === 'error') {
-                showError(evt.message);
-                return;
-            }
-            if (stage === 'done') {
-                stageTextEl.textContent = '完了';
-                detailTextEl.textContent = evt.message || '';
-                setProgress(100, false, false);
-                progressBar.classList.add('bg-success');
-                setTimeout(() => {
-                    if (evt.redirect_url) {
-                        window.location.href = evt.redirect_url;
-                    } else {
-                        window.location.reload();
-                    }
-                }, 700);
-                return;
-            }
-            stageTextEl.textContent = label + '...';
-            if (stage === 'optimizing' && evt.lap && evt.total_laps) {
-                detailTextEl.textContent = `ラップ ${evt.lap} / ${evt.total_laps}`;
-                const pct = (evt.lap / evt.total_laps) * 100;
-                setProgress(pct, false, true);
-            } else {
-                detailTextEl.textContent = evt.message || '';
-                // 確定的な進捗が無いステージは不確定スピナー風
-                setProgress(100, true, true);
-            }
-        };
-
-        form.addEventListener('submit', function(event) {
-            event.preventDefault();
-
-            const appendModeCheckbox = this.querySelector('input[name="append_mode"]');
-            const isAppend = appendModeCheckbox ? appendModeCheckbox.checked : false;
-
-            let message = '既存のラップタイムは上書きされます。よろしいですか？';
-            if (isAppend) {
-                message = '既存の記録の後ろに追記します。よろしいですか？\n(この操作は取り消せません)';
-            }
-            if (!confirm(message)) return;
-
-            showProgress();
-            stageTextEl.textContent = 'アップロード中...';
-            detailTextEl.textContent = '0%';
-            setProgress(0, false, false);
-
-            const xhr = new XMLHttpRequest();
-            xhr.open('POST', form.action, true);
-            xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-            xhr.setRequestHeader('Accept', 'application/x-ndjson');
-
-            xhr.upload.onprogress = (e) => {
-                if (e.lengthComputable) {
-                    const pct = (e.loaded / e.total) * 100;
-                    setProgress(pct, false, false);
-                    detailTextEl.textContent = Math.round(pct) + '%';
-                }
-            };
-            xhr.upload.onload = () => {
-                // アップロード完了 → サーバー処理待ち
-                stageTextEl.textContent = 'サーバー処理中...';
-                detailTextEl.textContent = '';
-                setProgress(100, true, true);
-            };
-
-            let buffer = '';
-            let lastIndex = 0;
-            xhr.onreadystatechange = () => {
-                if (xhr.readyState < 3) return;
-                // 受信中 (3) or 完了 (4): 増分テキストを処理
-                const newText = xhr.responseText.substring(lastIndex);
-                lastIndex = xhr.responseText.length;
-                buffer += newText;
-                let nl;
-                while ((nl = buffer.indexOf('\n')) >= 0) {
-                    const line = buffer.substring(0, nl).trim();
-                    buffer = buffer.substring(nl + 1);
-                    if (!line) continue;
-                    try {
-                        const evt = JSON.parse(line);
-                        handleEvent(evt);
-                    } catch (e) {
-                        console.warn('Failed to parse stream line:', line, e);
-                    }
-                }
-            };
-            xhr.onerror = () => {
-                showError('通信エラーが発生しました。');
-            };
-            xhr.onload = () => {
-                // HTTPステータスが 4xx/5xx かつ JSON エラー
-                if (xhr.status >= 400 && buffer) {
-                    try {
-                        const evt = JSON.parse(buffer);
-                        handleEvent(evt);
-                    } catch (e) {
-                        showError(`サーバーエラー (HTTP ${xhr.status})`);
-                    }
-                }
-            };
-            xhr.send(new FormData(form));
-        });
-    });
 
     document.querySelectorAll('input[name="remove_outliers"]').forEach(checkbox => {
         const optionsContainerId = checkbox.getAttribute('data-bs-target');
