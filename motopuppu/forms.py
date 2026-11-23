@@ -13,6 +13,7 @@ from .constants import (
     JAPANESE_CIRCUITS
 )
 from .utils.lap_time_utils import is_valid_lap_time_format
+from .utils.file_validators import StreamFileSize
 
 
 class FuelForm(FlaskForm):
@@ -555,7 +556,7 @@ class LapTimeImportForm(FlaskForm):
         validators=[
             FileRequired(message="ファイルを選択してください。"),
             FileAllowed(['csv', 'txt'], 'CSVまたはTXTファイルのみアップロードできます'),
-            FileSize(max_size=50 * 1024 * 1024, message='ファイルサイズは50MB以下にしてください。')
+            StreamFileSize(max_size=150 * 1024 * 1024, message='ファイルサイズは150MB以下にしてください。')
         ]
     )
     remove_outliers = BooleanField(

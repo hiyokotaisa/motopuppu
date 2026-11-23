@@ -121,32 +121,36 @@ def _calculate_and_set_best_lap(session, lap_times_list):
     else:
         session.best_lap_seconds = None
 
-def filter_outlier_laps(lap_times_list: list, threshold_multiplier: float = 2.0) -> list:
+def non_outlier_lap_indices(lap_times_list: list, threshold_multiplier: float = 2.0) -> list:
     """
-    ラップタイムのリストから外れ値（極端に遅いラップ）を除外する。
+    外れ値以外のラップの元インデックスを返し、GPSとの対応を保持する。
     中央値の threshold_multiplier 倍より遅いラップを外れ値とみなす。
     """
     if not lap_times_list or len(lap_times_list) < 3:
-        return lap_times_list # データが少ない場合は何もしない
+        return list(range(len(lap_times_list))) # データが少ない場合は何もしない
 
     # 文字列のラップタイムをDecimalの秒に変換
-    lap_seconds = [s for s in (parse_time_to_seconds(t) for t in lap_times_list) if s is not None and s > 0]
-    if not lap_seconds:
+    indexed_seconds = [
+        (i, seconds) for i, time in enumerate(lap_times_list)
+        if (seconds := parse_time_to_seconds(time)) is not None and seconds > 0
+    ]
+    if not indexed_seconds:
         return []
 
     # 中央値を計算
-    median_lap = statistics.median(lap_seconds)
+    median_lap = statistics.median(seconds for _, seconds in indexed_seconds)
     
     # 閾値を設定 (中央値の N 倍)
     threshold = median_lap * Decimal(str(threshold_multiplier))
 
-    # 閾値を超えないラップタイムのみをフィルタリング
-    # 元の文字列リストのインデックスと秒リストのインデックスは一致すると仮定
-    filtered_laps = [
-        lap_str for lap_str, lap_sec in zip(lap_times_list, lap_seconds) if lap_sec <= threshold
-    ]
-    
-    return filtered_laps
+    return [i for i, seconds in indexed_seconds if seconds <= threshold]
+
+
+def filter_outlier_laps(lap_times_list: list, threshold_multiplier: float = 2.0) -> list:
+    """ラップタイムのリストから極端に遅いラップを除外する。"""
+    if not lap_times_list:
+        return lap_times_list
+    return [lap_times_list[i] for i in non_outlier_lap_indices(lap_times_list, threshold_multiplier)]
 
 def is_valid_lap_time_format(s: str) -> bool:
     """

@@ -1,167 +1,98 @@
 # motopuppu/parsers/drogger_parser.py
 import csv
-from decimal import Decimal, InvalidOperation
-from .base_parser import BaseLapTimeParser
-from collections import defaultdict
-import io
+from decimal import Decimal
+from .base_parser import BaseLapTimeParser, open_text_stream
+
 
 class DroggerParser(BaseLapTimeParser):
-    """
-    DroggerのCSVログファイルからラップタイムとGPS軌跡を抽出するパーサー
-    必要なカラムのみを抽出し、メモリ使用量を抑える。
-    """
+    """Droggerログを行単位で読み、確定したラップから順に返す。"""
+
     def parse(self, file_stream):
-        # file_streamがバイナリモードの場合を想定
-        file_stream.seek(0)
-        try:
-            # BOM付きUTF-8を考慮
-            decoded_stream = [line.decode('utf-8-sig') for line in file_stream.readlines()]
-        except UnicodeDecodeError:
-            file_stream.seek(0)
-            decoded_stream = [line.decode('utf-8', errors='replace') for line in file_stream.readlines()]
-        
-        return self._process_data(decoded_stream)
+        return self.collect_laps(file_stream)
 
     def probe(self, file_stream) -> bool:
-        file_stream.seek(0)
-        try:
-            # ヘッダー行を読んでDroggerらしさを判定
-            header_line = file_stream.readline().decode('utf-8-sig').lower()
-            # 最低限必要なカラムが含まれているか
-            return 'lap' in header_line and 'latitude' in header_line and 'longitude' in header_line
-        except (IOError, UnicodeDecodeError):
-            try:
-                file_stream.seek(0)
-                header_line = file_stream.readline().decode('utf-8', errors='replace').lower()
-                return 'lap' in header_line and 'latitude' in header_line
-            except:
-                return False
-    
-    def _process_data(self, decoded_stream):
-        lap_times = []
-        gps_tracks = defaultdict(list)
-        processed_lap_numbers = set()
-        
-        try:
-            reader = csv.DictReader(decoded_stream)
-            if not reader.fieldnames:
-                return {'lap_times': [], 'gps_tracks': {}}
-        except Exception:
-            return {'lap_times': [], 'gps_tracks': {}}
+        with open_text_stream(file_stream) as stream:
+            header = stream.readline(65536).lower()
+            return all(column in header for column in ('lap', 'latitude', 'longitude'))
 
-        # カラム名のマッピング（小文字化して正規化）
-        field_map = {f.lower().strip(): f for f in reader.fieldnames}
-        
-        # 必須カラム
-        col_lap = field_map.get('lap')
-        col_time = field_map.get('laptime')
-        col_lat = field_map.get('latitude')
-        col_lon = field_map.get('longitude')
-        
-        # 取得するオプションカラム（これ以外は無視してメモリ節約）
-        col_speed = field_map.get('speed')
-        col_rpm = field_map.get('rpm')
-        col_throttle = field_map.get('throttolepos') # DroggerのTypos対応
-        if not col_throttle:
-            col_throttle = field_map.get('throttlepos')
-        if not col_throttle:
-            col_throttle = field_map.get('throttle')
-            
-        col_runtime = field_map.get('runtime')
+    def iter_laps(self, file_stream):
+        with open_text_stream(file_stream) as stream:
+            yield from self._iter_laps(csv.reader(stream))
 
-        if not col_lap or not col_lat or not col_lon:
-            raise ValueError("CSVに必須列(Lap, Latitude, Longitude)が見つかりません。")
-        
-        current_lap_number = None
+    def _iter_laps(self, reader):
+        header = next(reader, None)
+        if not header:
+            return
+        columns = {name.lstrip('\ufeff').lower().strip(): i for i, name in enumerate(header)}
+        if not all(name in columns for name in ('lap', 'latitude', 'longitude')):
+            raise ValueError('CSVに必須列(Lap, Latitude, Longitude)が見つかりません。')
+
+        def value(row, name):
+            index = columns.get(name)
+            return row[index].strip() if index is not None and index < len(row) else ''
+
+        throttle_column = next(
+            (name for name in ('throttolepos', 'throttlepos', 'throttle') if name in columns),
+            'throttle',
+        )
+        optional_columns = (
+            ('speed', 'speed', float),
+            ('rpm', 'rpm', lambda raw: int(float(raw))),
+            (throttle_column, 'throttle', float),
+            ('runtime', 'runtime', float),
+        )
+        current_lap = None
+        lap_time = None
+        points = []
+        lap_count = 0
 
         for row in reader:
             try:
-                lap_val = row.get(col_lap, "").strip()
-                if not lap_val:
-                    continue
-                
-                current_lap_number = int(float(lap_val))
-                
-                # GPSデータの抽出（必要な項目のみ辞書化）
-                try:
-                    lat = float(row[col_lat])
-                    lng = float(row[col_lon])
-                    
-                    # 緯度経度が0でない場合のみ有効な点とする
-                    if lat != 0 or lng != 0:
-                        point_data = {'lat': lat, 'lng': lng}
-                        
-                        # 速度
-                        if col_speed and row.get(col_speed):
-                            try: point_data['speed'] = float(row[col_speed])
-                            except: pass
-                        
-                        # 回転数 (整数化)
-                        if col_rpm and row.get(col_rpm):
-                            try: point_data['rpm'] = int(float(row[col_rpm]))
-                            except: pass
-                            
-                        # スロットル
-                        if col_throttle and row.get(col_throttle):
-                            try: point_data['throttle'] = float(row[col_throttle])
-                            except: pass
-                            
-                        # 経過時間
-                        if col_runtime and row.get(col_runtime):
-                            try: point_data['runtime'] = float(row[col_runtime])
-                            except: pass
-
-                        gps_tracks[current_lap_number].append(point_data)
-                        
-                except (ValueError, TypeError):
-                    pass # 数値変換エラーの行はスキップ
-
-                # ラップタイムの抽出
-                # LapTimeカラムがあり、かつまだそのラップを処理していない場合
-                if col_time and current_lap_number not in processed_lap_numbers:
-                    if len(lap_times) >= self.MAX_LAPS:
-                        continue
-
-                    t_str = row.get(col_time, "0").strip()
-                    try:
-                        lap_ms = int(float(t_str))
-                        if lap_ms > 0:
-                            # ミリ秒 -> "M:SS.ms" 形式へ変換
-                            lap_sec = Decimal(lap_ms) / 1000
-                            mins = int(lap_sec // 60)
-                            secs = lap_sec % 60
-                            formatted_time = f"{mins}:{secs:06.3f}"
-                            lap_times.append(formatted_time)
-                            processed_lap_numbers.add(current_lap_number)
-                    except:
-                        pass
-
-            except (ValueError, IndexError):
+                lap_number = int(float(value(row, 'lap')))
+            except (ValueError, OverflowError):
                 continue
-        
-        # データの紐付けロジック
-        # Droggerでは、Lap N の行に Lap N の走行データが入っている
-        # しかし、LapTimeが記録されるのはそのラップの「最後」の行付近
-        # motopuppuのDB構造では、ラップリストのindex 0 が 1周目 となる
-        
-        # 検出されたラップ番号（タイムが記録された周）をソート
-        sorted_trigger_laps = sorted(list(processed_lap_numbers))
-        
-        final_gps_tracks = {}
-        
-        # タイム記録がある周について、その走行データを紐付ける
-        for i, lap_time in enumerate(lap_times):
-            if i < len(sorted_trigger_laps):
-                target_lap_num = sorted_trigger_laps[i]
-                
-                # アプリ上のラップ番号 (1始まりの連番)
-                app_lap_key = i + 1
-                
-                if target_lap_num in gps_tracks:
-                    final_gps_tracks[app_lap_key] = gps_tracks[target_lap_num]
-        
-        # 補足: タイムが記録されなかった最終周（チェッカー後など）や
-        # アウトラップ（Lap 0/-1）の扱いが必要な場合はここで調整するが、
-        # 基本は「タイムが確定した周」を保存対象とする
-        
-        return {'lap_times': lap_times, 'gps_tracks': final_gps_tracks}
+
+            if current_lap is not None and lap_number != current_lap:
+                if lap_number < current_lap:
+                    raise ValueError('ラップ番号が逆順です。時系列順のCSVを使用してください。')
+                if lap_time is not None:
+                    lap_count += 1
+                    if lap_count > self.MAX_LAPS:
+                        raise ValueError(f'ラップ数が多すぎます。最大{self.MAX_LAPS}ラップまでです。')
+                    yield lap_time, points
+                # 次の周の読み込み前に、前の周の元データへの参照を手放す。
+                points = []
+                lap_time = None
+            current_lap = lap_number
+
+            if lap_time is None:
+                try:
+                    milliseconds = int(float(value(row, 'laptime')))
+                    if milliseconds > 0:
+                        seconds = Decimal(milliseconds) / 1000
+                        lap_time = f'{int(seconds // 60)}:{seconds % 60:06.3f}'
+                except (ValueError, OverflowError):
+                    pass
+
+            try:
+                lat = float(value(row, 'latitude'))
+                lng = float(value(row, 'longitude'))
+            except ValueError:
+                continue
+            if lat == 0 and lng == 0:
+                continue
+
+            point = {'lat': lat, 'lng': lng}
+            for source, target, convert in optional_columns:
+                raw = value(row, source)
+                if raw:
+                    try:
+                        point[target] = convert(raw)
+                    except (ValueError, OverflowError):
+                        pass
+            points.append(point)
+
+        if lap_time is not None:
+            if lap_count >= self.MAX_LAPS:
+                raise ValueError(f'ラップ数が多すぎます。最大{self.MAX_LAPS}ラップまでです。')
+            yield lap_time, points

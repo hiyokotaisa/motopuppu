@@ -48,13 +48,13 @@ def create_app(config_name=None):
     if database_url.drivername in ('postgres', 'postgresql', 'postgresql+psycopg2'):
         database_url = database_url.set(drivername='postgresql+psycopg')
 
-    # ▼▼▼ 修正: MAX_CONTENT_LENGTHのデフォルト値を 16 から 64 に変更 ▼▼▼
+    # 150MBのCSVに加え、multipartの境界・ヘッダー・フォーム項目用に1MBを確保する。
     app.config.from_mapping(
         SECRET_KEY=os.environ.get('SECRET_KEY', 'dev-secret-key-replace-me'),
         SECRET_CRYPTO_KEY=os.environ.get('SECRET_CRYPTO_KEY'),
         SQLALCHEMY_DATABASE_URI=database_url,
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
-        MAX_CONTENT_LENGTH = int(os.environ.get('MAX_CONTENT_LENGTH', 64)) * 1024 * 1024,
+        MAX_CONTENT_LENGTH = int(os.environ.get('MAX_CONTENT_LENGTH', 151)) * 1024 * 1024,
         MISSKEY_INSTANCE_URL=os.environ.get('MISSKEY_INSTANCE_URL', 'https://misskey.io'),
         ENV=os.environ.get('FLASK_ENV', 'production'),
         LOCAL_DEV_USER_ID=os.environ.get('LOCAL_DEV_USER_ID'),
@@ -74,7 +74,6 @@ def create_app(config_name=None):
         GOOGLE_ADSENSE_CLIENT_ID=os.environ.get('GOOGLE_ADSENSE_CLIENT_ID'),
         GOOGLE_ADSENSE_SLOT_ID=os.environ.get('GOOGLE_ADSENSE_SLOT_ID'),
     )
-    # ▲▲▲ 修正ここまで ▲▲▲
 
     if app.config['SECRET_KEY'] == 'dev-secret-key-replace-me' and app.config['ENV'] != 'development':
         app.logger.warning("CRITICAL: SECRET_KEY is set to the default development value in a non-development environment. This is a security risk!")

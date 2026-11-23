@@ -1,196 +1,88 @@
 # motopuppu/parsers/racechrono_parser.py
 import csv
-from collections import defaultdict
-import io
-from .base_parser import BaseLapTimeParser
+from .base_parser import BaseLapTimeParser, open_text_stream
+
 
 class RaceChronoParser(BaseLapTimeParser):
-    """
-    RaceChrono (v3 CSV) ログファイルからラップタイムとGPS軌跡を抽出するパーサー
-    """
+    """RaceChrono v3 CSVを、1周分の元GPS点群だけを保持して解析する。"""
+
     def parse(self, file_stream):
-        # file_streamを先頭に戻す
-        file_stream.seek(0)
-        
-        lines = []
-        
-        # 入力がテキストモード(TextIOWrapper)かバイナリモードかを判定して読み込む
-        if isinstance(file_stream, io.TextIOWrapper):
-            # テキストモードの場合、そのまま読み込む
-            # BOM付きUTF-8の場合、先頭に \ufeff が残ることがあるため除去する
-            raw_lines = file_stream.readlines()
-            lines = [line.lstrip('\ufeff') for line in raw_lines]
-        else:
-            # バイナリモードの場合、デコード処理を行う
-            try:
-                # BOM付きUTF-8として読み込む
-                lines = [line.decode('utf-8-sig') for line in file_stream.readlines()]
-            except UnicodeDecodeError:
-                file_stream.seek(0)
-                # 失敗した場合はエラー無視でUTF-8読み込み
-                lines = [line.decode('utf-8', errors='replace') for line in file_stream.readlines()]
-            
-        return self._process_data(lines)
+        return self.collect_laps(file_stream)
 
     def probe(self, file_stream) -> bool:
-        """
-        ファイルヘッダーを読み込み、RaceChrono形式かどうかを判定する
-        """
-        file_stream.seek(0)
-        try:
-            # 最初の2KB程度を読んで判定
-            content = file_stream.read(2048)
-            
-            # bytesならデコード、strならそのまま使う
-            if isinstance(content, bytes):
-                content = content.decode('utf-8', errors='ignore')
-            
-            # RaceChrono固有のメタデータチェック
-            if 'RaceChrono' in content and 'Format,3' in content:
-                return True
+        with open_text_stream(file_stream) as stream:
+            # 形式推測のために巨大ファイル全体を読み込まない。
+            content = stream.read(65536)
+        if 'RaceChrono' in content and 'Format,3' in content:
+            return True
+        return any(
+            all(column in line.lower() for column in ('timestamp', 'lap_number', 'elapsed_time', 'latitude'))
+            for line in content.splitlines()[:30]
+        )
 
-            # ヘッダー列構造による判定 (メタデータがない場合などの保険)
-            # read()した後なのでseekしなおす
-            file_stream.seek(0)
-            lines = file_stream.readlines()
-            # linesがbytesのリストかstrのリストか確認して処理
-            for line in lines[:30]: 
-                if isinstance(line, bytes):
-                    l = line.decode('utf-8', errors='ignore').lower()
-                else:
-                    l = line.lower()
-                
-                # RaceChrono v3の典型的な必須カラム構成
-                if 'timestamp' in l and 'lap_number' in l and 'elapsed_time' in l and 'latitude' in l:
-                    return True
-            return False
-        except Exception:
-            return False
+    def iter_laps(self, file_stream):
+        with open_text_stream(file_stream) as stream:
+            yield from self._iter_laps(csv.reader(stream))
 
-    def _process_data(self, lines):
-        # ヘッダー行を探す
-        header_index = -1
-        for i, line in enumerate(lines):
-            l = line.lower()
-            if 'timestamp' in l and 'latitude' in l and 'lap_number' in l:
-                header_index = i
+    def _iter_laps(self, reader):
+        for row in reader:
+            fields = [field.lstrip('\ufeff').strip().lower() for field in row]
+            if all(name in fields for name in ('timestamp', 'latitude', 'lap_number')):
                 break
-        
-        if header_index == -1:
-             return {'lap_times': [], 'gps_tracks': {}}
+        else:
+            return
 
-        # ヘッダー行の解析
-        header_line = lines[header_index].strip()
-        # カラム名のリスト作成（小文字化して正規化）
-        fieldnames = [f.strip().lower() for f in header_line.split(',')]
-        
-        # 必須カラムのインデックス特定
         try:
-            col_lap = fieldnames.index('lap_number')
-            col_lat = fieldnames.index('latitude')
-            col_lon = fieldnames.index('longitude')
-            col_elapsed = fieldnames.index('elapsed_time')
-            
-            # 速度: 複数ある場合は最初のもの(通常GPS速度)を採用
-            # RaceChronoには 'speed' カラムが複数ある場合がある (GPS速度, OBD速度など)
-            # list.index('speed') は最初に見つかったインデックス(通常左側)を返す
-            col_speed = fieldnames.index('speed')
+            col_lap = fields.index('lap_number')
+            col_lat = fields.index('latitude')
+            col_lon = fields.index('longitude')
+            col_elapsed = fields.index('elapsed_time')
+            col_speed = fields.index('speed')
         except ValueError:
-            # 必須カラム不足の場合は空を返す
-             return {'lap_times': [], 'gps_tracks': {}}
+            return
 
-        # データ開始行（ヘッダー + 単位行 + デバイス行 + etc の次から）
-        data_start_index = header_index + 1
+        current_lap = None
+        points = []
+        last_end_time = None
+        lap_count = 0
 
-        # データをラップ番号ごとにグルーピング
-        # lap_number -> list of dict
-        laps_data = defaultdict(list)
-        
-        for line in lines[data_start_index:]:
-            if not line.strip(): continue
-            parts = line.split(',')
-            
-            # 列数が足りない行はスキップ
-            if len(parts) < len(fieldnames): continue
-            
-            try:
-                # ラップ番号の取得
-                lap_val_str = parts[col_lap].strip()
-                if not lap_val_str:
-                    continue
-                
-                lap_num = int(lap_val_str)
-                
-                # GPS座標
-                lat_str = parts[col_lat].strip()
-                lng_str = parts[col_lon].strip()
-                
-                if not lat_str or not lng_str: continue
+        def finish_lap():
+            end_time = points[-1]['runtime']
+            start_time = points[0]['runtime'] if last_end_time is None else last_end_time
+            seconds = end_time - start_time
+            time_string = f'{int(seconds // 60)}:{seconds % 60:06.3f}' if seconds > 0 else None
+            return time_string, end_time
 
-                lat = float(lat_str)
-                lng = float(lng_str)
-                
-                # 緯度経度が0の無効データは除外
-                if lat == 0 and lng == 0: continue
-                
-                # 速度 (m/s -> km/h 変換)
-                speed_str = parts[col_speed].strip() if parts[col_speed] else "0"
-                speed_ms = float(speed_str) if speed_str else 0.0
-                speed_kmh = speed_ms * 3.6
-                
-                # 経過時間 (セッション開始からの秒数)
-                elapsed_str = parts[col_elapsed].strip() if parts[col_elapsed] else "0"
-                elapsed = float(elapsed_str) if elapsed_str else 0.0
-                
-                point_data = {
-                    'lat': lat,
-                    'lng': lng,
-                    'speed': speed_kmh,
-                    'runtime': elapsed
-                }
-                
-                laps_data[lap_num].append(point_data)
-                
-            except (ValueError, IndexError):
-                # 数値変換エラー（単位行やデバイス名行など）は安全にスキップ
+        for row in reader:
+            if len(row) < len(fields):
                 continue
-        
-        # 結果データの構築
-        final_lap_times = []
-        final_gps_tracks = {}
-        
-        # ラップ番号順に処理
-        sorted_lap_nums = sorted(laps_data.keys())
-        
-        # 前のラップの終了時間（初期値）
-        last_lap_end_time = 0.0
-        
-        # 計測ラップ (1以上) の処理
-        for i, lap_num in enumerate(sorted_lap_nums):
-            points = laps_data[lap_num]
-            if not points: continue
-            
-            # このラップの終了時間
-            current_lap_end_time = points[-1]['runtime']
-            
-            # 初回ラップの場合の開始時間補正
-            if i == 0 and last_lap_end_time == 0.0:
-                 last_lap_end_time = points[0]['runtime']
+            try:
+                lap_number = int(row[col_lap].strip())
+                lat = float(row[col_lat])
+                lng = float(row[col_lon])
+                if lat == 0 and lng == 0:
+                    continue
+                speed = float(row[col_speed].strip() or '0') * 3.6
+                runtime = float(row[col_elapsed].strip() or '0')
+            except (ValueError, OverflowError):
+                continue
 
-            lap_time_sec = current_lap_end_time - last_lap_end_time
-            
-            if lap_time_sec > 0:
-                # 文字列形式 "M:SS.ms" に変換
-                mins = int(lap_time_sec // 60)
-                secs = lap_time_sec % 60
-                formatted_time = f"{mins}:{secs:06.3f}"
-                
-                final_lap_times.append(formatted_time)
-                
-                # アプリケーション用のラップインデックス (1, 2, 3...)
-                app_lap_index = len(final_lap_times)
-                final_gps_tracks[app_lap_index] = points
-            
-            last_lap_end_time = current_lap_end_time
-            
-        return {'lap_times': final_lap_times, 'gps_tracks': final_gps_tracks}
+            if current_lap is not None and lap_number != current_lap:
+                if lap_number < current_lap:
+                    raise ValueError('ラップ番号が逆順です。時系列順のCSVを使用してください。')
+                lap_time, last_end_time = finish_lap()
+                if lap_time is not None:
+                    lap_count += 1
+                    if lap_count > self.MAX_LAPS:
+                        raise ValueError(f'ラップ数が多すぎます。最大{self.MAX_LAPS}ラップまでです。')
+                    yield lap_time, points
+                points = []
+            current_lap = lap_number
+            points.append({'lat': lat, 'lng': lng, 'speed': speed, 'runtime': runtime})
+
+        if points:
+            lap_time, _ = finish_lap()
+            if lap_time is not None:
+                if lap_count >= self.MAX_LAPS:
+                    raise ValueError(f'ラップ数が多すぎます。最大{self.MAX_LAPS}ラップまでです。')
+                yield lap_time, points

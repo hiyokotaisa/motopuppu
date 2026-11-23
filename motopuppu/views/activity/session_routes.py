@@ -10,14 +10,14 @@ from flask import (
     flash, redirect, render_template, request, url_for, abort, current_app, jsonify,
     Response, stream_with_context
 )
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, defer
 from sqlalchemy import func
 
 # 分割したBlueprintとユーティリティをインポート
 from . import activity_bp
 from ...utils.lap_time_utils import (
     calculate_lap_stats, parse_time_to_seconds, _calculate_and_set_best_lap,
-    is_valid_lap_time_format, filter_outlier_laps, format_seconds_to_time
+    is_valid_lap_time_format, non_outlier_lap_indices, format_seconds_to_time
 )
 from ...constants import SETTING_KEY_MAP
 
@@ -26,6 +26,7 @@ from flask_login import login_required, current_user
 from ...models import db, ActivityLog, SessionLog
 from ...forms import SessionLogForm, LapTimeImportForm
 from ...parsers import get_parser, PARSERS
+from ...parsers.base_parser import open_text_stream
 from ... import limiter
 
 # --- RDPアルゴリズム (Douglas-Peucker) のヘルパー関数 ---
@@ -509,217 +510,142 @@ def delete_session(session_id):
     return redirect(url_for('activity.detail_activity', activity_id=activity_id))
 
 
-def _find_best_parser_type(file_storage, excluded_type):
-    """
-    アップロードされたファイルを各パーサーで試し、最適な形式を推測する。
-    """
-    PARSER_NAMES = dict(LapTimeImportForm().device_type.choices)
-
-    for device_type, parser_class in PARSERS.items():
-        if device_type == excluded_type:
-            continue
-
-        try:
-            file_storage.seek(0)
-
-            current_app.logger.debug(f"Probing with parser: {device_type}")
-
-            parser = parser_class()
-
-            if device_type == 'drogger':
-                if parser.probe(file_storage.stream):
-                     return PARSER_NAMES.get(device_type, device_type)
-            else:
-                encoding = 'shift_jis' if device_type == 'ziix' else 'utf-8'
-                text_stream = io.TextIOWrapper(file_storage.stream, encoding=encoding, errors='replace', newline='')
-                if parser.probe(text_stream):
-                    text_stream.detach()
-                    return PARSER_NAMES.get(device_type, device_type)
-                text_stream.detach()
-
-        except Exception as e:
-            current_app.logger.debug(f"Probe for {device_type} failed: {e}")
-            continue
-
-
-def _find_best_parser_type_from_bytes(file_bytes, excluded_type):
-    """bytes 版の _find_best_parser_type (streaming import 用)"""
-    PARSER_NAMES = dict(LapTimeImportForm().device_type.choices)
+def _find_best_parser_type(file_stream, excluded_type):
+    """先頭64KBだけで形式を推測し、入力ストリームの位置を復元する。"""
+    parser_names = dict(LapTimeImportForm().device_type.choices)
+    position = file_stream.tell()
+    try:
+        file_stream.seek(0)
+        sample = file_stream.read(65536)
+    finally:
+        file_stream.seek(position)
 
     for device_type, parser_class in PARSERS.items():
         if device_type == excluded_type:
             continue
         try:
-            parser = parser_class()
-            byte_stream = io.BytesIO(file_bytes)
-            if device_type == 'drogger':
-                if parser.probe(byte_stream):
-                    return PARSER_NAMES.get(device_type, device_type)
-            else:
-                encoding = 'shift_jis' if device_type == 'ziix' else 'utf-8'
-                text_stream = io.TextIOWrapper(byte_stream, encoding=encoding, errors='replace', newline='')
-                if parser.probe(text_stream):
-                    text_stream.detach()
-                    return PARSER_NAMES.get(device_type, device_type)
-                text_stream.detach()
-        except Exception as e:
-            current_app.logger.debug(f"Probe (bytes) for {device_type} failed: {e}")
-            continue
+            encoding = 'shift_jis' if device_type == 'ziix' else 'utf-8-sig'
+            with open_text_stream(io.BytesIO(sample), encoding) as text_stream:
+                if parser_class().probe(text_stream):
+                    return parser_names.get(device_type, device_type)
+        except Exception as error:
+            current_app.logger.debug(f'Probe for {device_type} failed: {error}')
     return None
 
+
 def _import_laps_generator(
-    session_id, activity_log_id, file_bytes, device_type,
+    session_id, activity_log_id, file_stream, device_type,
     remove_outliers_flag, threshold, is_append_mode, redirect_url
 ):
-    """import_laps の処理を進捗イベントを yield しながら実行するジェネレータ。
-
-    各 yield は {'stage': str, 'message': str, ...} 形式の dict。
-    終端は 'done' か 'error' のいずれか1回。
-    """
-    PARSER_NAMES = dict(LapTimeImportForm().device_type.choices)
-    parsed_data = None
-    gps_tracks_dict = None
+    """一時ファイルを逐次解析し、1周ずつGPSを軽量化して進捗を返す。"""
+    parser_names = dict(LapTimeImportForm().device_type.choices)
+    lap_times = []
+    tracks = {}
 
     try:
         yield {'stage': 'parsing', 'message': 'CSVファイルを解析中...'}
-
-        parser = get_parser(device_type)
-        if device_type == 'drogger':
-            file_stream = io.BytesIO(file_bytes)
-        else:
-            encoding = 'shift_jis' if device_type == 'ziix' else 'utf-8'
-            file_stream = io.TextIOWrapper(io.BytesIO(file_bytes), encoding=encoding, errors='replace')
-
         try:
-            parsed_data = parser.parse(file_stream)
-            lap_times_list = parsed_data.get('lap_times', [])
-            if not lap_times_list:
-                raise ValueError("No lap times parsed")
-            for lap in lap_times_list:
-                if not is_valid_lap_time_format(lap):
-                    raise ValueError(f"Invalid lap time format detected: {lap}")
-        except Exception as e:
-            current_app.logger.warning(f"Parser '{device_type}' failed: {e}")
-            suggested_format = _find_best_parser_type_from_bytes(file_bytes, device_type)
-            display_name_failed = PARSER_NAMES.get(device_type, device_type)
+            parser = get_parser(device_type)
+            encoding = 'shift_jis' if device_type == 'ziix' else 'utf-8-sig'
+            with open_text_stream(file_stream, encoding) as text_stream:
+                laps = parser.iter_laps(text_stream)
+                try:
+                    for lap_number, (lap_time, raw_points) in enumerate(laps, 1):
+                        if not is_valid_lap_time_format(lap_time):
+                            raise ValueError(f'Invalid lap time format detected: {lap_time}')
+                        lap_times.append(lap_time)
+                        if raw_points:
+                            tracks[lap_number] = _optimize_track_points(
+                                _ramer_douglas_peucker(raw_points, 0.000002)
+                            )
+                            yield {
+                                'stage': 'optimizing',
+                                'message': f'CSVを解析し、GPS軌跡を最適化中... ({lap_number}周処理済み)',
+                                'lap': lap_number,
+                            }
+                        # 次の周の読み込み時に、元の点群を解放できるようにする。
+                        del raw_points
+                finally:
+                    laps.close()
+            if not lap_times:
+                raise ValueError('No lap times parsed')
+        except Exception as error:
+            current_app.logger.warning(f"Parser '{device_type}' failed: {error}")
+            suggested_format = _find_best_parser_type(file_stream, device_type)
+            failed_name = parser_names.get(device_type, device_type)
             if suggested_format:
-                yield {
-                    'stage': 'error',
-                    'message': f'「{display_name_failed}」形式では読み込めませんでした。このファイルは「{suggested_format}」形式ではありませんか？'
-                }
+                message = f'「{failed_name}」形式では読み込めませんでした。このファイルは「{suggested_format}」形式ではありませんか？'
+            elif isinstance(error, ValueError) and str(error).startswith(('ラップ番号', 'ラップ数')):
+                message = str(error)
             else:
-                yield {
-                    'stage': 'error',
-                    'message': 'CSVファイルからラップタイムを読み込めませんでした。ファイルが空か、サポートされていない形式の可能性があります。'
-                }
+                message = 'CSVファイルからラップタイムを読み込めませんでした。ファイルが空か、サポートされていない形式の可能性があります。'
+            yield {'stage': 'error', 'message': message}
             return
 
-        gps_tracks_dict = parsed_data.get('gps_tracks', {}) or {}
-        parsed_data = None  # 早期解放
-
-        original_lap_count = len(lap_times_list)
-        laps_removed_count = 0
+        original_lap_count = len(lap_times)
+        indices = list(range(original_lap_count))
         if remove_outliers_flag:
-            yield {'stage': 'filtering', 'message': '外れ値となるラップを除外中...'}
-            filtered = filter_outlier_laps(lap_times_list, threshold_multiplier=float(threshold))
-            laps_removed_count = original_lap_count - len(filtered)
-            lap_times_list = filtered
+            yield {'stage': 'filtering', 'message': '外れ値となるラップとGPS軌跡を除外中...'}
+            indices = non_outlier_lap_indices(lap_times, threshold_multiplier=float(threshold))
+        laps_removed_count = original_lap_count - len(indices)
+        lap_times = [lap_times[index] for index in indices]
+        new_laps = []
+        for new_number, index in enumerate(indices, 1):
+            points = tracks.pop(index + 1, None)
+            if points:
+                new_laps.append({'lap_number': new_number, 'track': points})
+        tracks.clear()
 
-        # ジェネレータ内で再取得 (元の session オブジェクトはこの時点で参照不可の可能性)
-        session_obj = SessionLog.query.get(session_id)
+        session_obj = db.session.get(SessionLog, session_id, options=[defer(SessionLog.gps_tracks)])
         if not session_obj:
             yield {'stage': 'error', 'message': 'セッションが見つかりません。'}
             return
 
-        sorted_keys = sorted(gps_tracks_dict.keys()) if gps_tracks_dict else []
-        total_laps = len(sorted_keys)
-
         if is_append_mode:
-            current_gps_data = session_obj.gps_tracks or {}
-            if not isinstance(current_gps_data, dict):
-                current_gps_data = {}
-            current_laps_list = current_gps_data.get('laps', [])
-
-            offset = len(current_laps_list)
-            new_laps_list = []
-
-            for idx, lap_num in enumerate(sorted_keys):
-                yield {
-                    'stage': 'optimizing',
-                    'message': f'GPS軌跡を最適化中... ({idx + 1}/{total_laps})',
-                    'lap': idx + 1,
-                    'total_laps': total_laps,
-                }
-                raw_track_points = gps_tracks_dict[lap_num]
-                simplified_points = _ramer_douglas_peucker(raw_track_points, 0.000002)
-                optimized_points = _optimize_track_points(simplified_points)
-                new_laps_list.append({"lap_number": offset + lap_num, "track": optimized_points})
-                gps_tracks_dict[lap_num] = None
-            gps_tracks_dict = None
-
-            session_obj.gps_tracks = {"laps": current_laps_list + new_laps_list}
             current_times = session_obj.lap_times or []
-            combined_lap_times = current_times + lap_times_list
-            session_obj.lap_times = combined_lap_times
-            _calculate_and_set_best_lap(session_obj, combined_lap_times)
-            success_action = "追記"
+            # GPSのないラップも含め、タイム一覧の周回数に合わせて採番する。
+            offset = len(current_times)
+            for lap in new_laps:
+                lap['lap_number'] += offset
+            current_gps = session_obj.gps_tracks or {}
+            current_laps = current_gps.get('laps', []) if isinstance(current_gps, dict) else []
+            all_laps = current_laps + new_laps
+            session_obj.gps_tracks = {'laps': all_laps} if all_laps else None
+            session_obj.lap_times = current_times + lap_times
+            success_action = '追記'
         else:
-            session_obj.lap_times = lap_times_list
-            _calculate_and_set_best_lap(session_obj, lap_times_list)
-
-            if total_laps > 0:
-                laps_data_for_db = []
-                for idx, lap_num in enumerate(sorted_keys):
-                    yield {
-                        'stage': 'optimizing',
-                        'message': f'GPS軌跡を最適化中... ({idx + 1}/{total_laps})',
-                        'lap': idx + 1,
-                        'total_laps': total_laps,
-                    }
-                    raw_track_points = gps_tracks_dict[lap_num]
-                    simplified_points = _ramer_douglas_peucker(raw_track_points, 0.000002)
-                    optimized_points = _optimize_track_points(simplified_points)
-                    laps_data_for_db.append({"lap_number": lap_num, "track": optimized_points})
-                    gps_tracks_dict[lap_num] = None
-                session_obj.gps_tracks = {"laps": laps_data_for_db} if laps_data_for_db else None
-            else:
-                session_obj.gps_tracks = None
-            gps_tracks_dict = None
-            success_action = "インポート"
+            session_obj.lap_times = lap_times
+            session_obj.gps_tracks = {'laps': new_laps} if new_laps else None
+            success_action = 'インポート'
+        _calculate_and_set_best_lap(session_obj, session_obj.lap_times)
 
         yield {'stage': 'saving', 'message': 'データベースに保存中...'}
         db.session.commit()
 
-        success_message = f'{len(lap_times_list)}件のラップタイムを正常に{success_action}しました。'
+        success_message = f'{len(lap_times)}件のラップタイムを正常に{success_action}しました。'
         if laps_removed_count > 0:
             success_message += f' ({laps_removed_count}件の異常なラップを除外しました)'
+        yield {'stage': 'done', 'message': success_message, 'redirect_url': redirect_url}
 
-        yield {
-            'stage': 'done',
-            'message': success_message,
-            'redirect_url': redirect_url,
-        }
-
-    except Exception as e:
-        try:
-            db.session.rollback()
-        except Exception:
-            pass
+    except Exception as error:
+        db.session.rollback()
         current_app.logger.error(
-            f"Error processing lap data for session {session_id}: {e}",
-            exc_info=True,
+            f'Error processing lap data for session {session_id}: {error}', exc_info=True
         )
         yield {
             'stage': 'error',
             'message': 'ラップデータの処理中にエラーが発生しました。データサイズが大きすぎる可能性があります。',
         }
+    finally:
+        # 正常終了・解析エラー・クライアントの切断時に一時ファイルを閉じる。
+        file_stream.close()
 
 
 @activity_bp.route('/session/<int:session_id>/import_laps', methods=['POST'])
 @limiter.limit("10 per hour")
 @login_required
 def import_laps(session_id):
-    session = SessionLog.query.join(ActivityLog).filter(
+    session = SessionLog.query.options(defer(SessionLog.gps_tracks)).join(ActivityLog).filter(
         SessionLog.id == session_id, ActivityLog.user_id == current_user.id
     ).first_or_404()
     form = LapTimeImportForm()
@@ -752,33 +678,44 @@ def import_laps(session_id):
         return redirect(redirect_url)
 
     file_storage = form.csv_file.data
-    file_storage.stream.seek(0)
-    file_bytes = file_storage.stream.read()
+    file_stream = file_storage.stream
     device_type = form.device_type.data
     remove_outliers_flag = form.remove_outliers.data
     threshold = form.outlier_threshold.data
     is_append_mode = form.append_mode.data
 
+    # Flaskは応答本文の消費前にrequest.filesを閉じる場合がある。
+    # コピーせず、アップロード済み一時ファイルの所有権を応答側へ移す。
+    file_storage.stream = io.BytesIO()
+    events = _import_laps_generator(
+        session_id, activity_log_id, file_stream, device_type,
+        remove_outliers_flag, threshold, is_append_mode, redirect_url,
+    )
+
     if wants_stream:
         def json_lines():
-            for event in _import_laps_generator(
-                session_id, activity_log_id, file_bytes, device_type,
-                remove_outliers_flag, threshold, is_append_mode, redirect_url,
-            ):
-                yield json.dumps(event, ensure_ascii=False) + '\n'
+            try:
+                for event in events:
+                    yield json.dumps(event, ensure_ascii=False) + '\n'
+            finally:
+                events.close()
 
-        return Response(
+        response = Response(
             stream_with_context(json_lines()),
             mimetype='application/x-ndjson',
         )
+        # 本文の消費が始まる前の切断でも一時ファイルを解放する。
+        response.call_on_close(file_stream.close)
+        return response
 
     # 非AJAX フォールバック: ジェネレータを同期消費して flash + redirect
     last_event = None
-    for event in _import_laps_generator(
-        session_id, activity_log_id, file_bytes, device_type,
-        remove_outliers_flag, threshold, is_append_mode, redirect_url,
-    ):
-        last_event = event
+    try:
+        for event in events:
+            last_event = event
+    finally:
+        events.close()
+        file_stream.close()
 
     if last_event and last_event.get('stage') == 'done':
         flash(last_event.get('message', 'インポートが完了しました。'), 'success')
