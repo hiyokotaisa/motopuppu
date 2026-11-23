@@ -1,5 +1,6 @@
 {# motopuppu/templates/beta/activity_detail_beta.html #}
 {% extends "base.html" %}
+{% import "beta/_lap_import.html" as csv_ui %}
 
 {% block title %}走行ログ: {{ activity.activity_title or activity.location_name }} - もとぷっぷー{% endblock %}
 
@@ -8,6 +9,7 @@
 {% block styles %}
 {{ super() }}
 {% include 'beta/_beta_layout_head.html' %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/circuit_ui.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -288,7 +290,7 @@
     {% include 'beta/_beta_sidebar.html' %}
 
     <main class="beta-main-content">
-        {% set beta_topbar_title = activity.activity_title or activity.location_name or '走行ログ詳細' %}
+        {% set beta_topbar_title = activity.activity_title or activity.location_name_display or '走行ログ詳細' %}
         {% set beta_topbar_subtitle = activity.activity_date.strftime('%Y年%m月%d日') ~ ' / ' ~ motorcycle.name %}
         {% include 'beta/_beta_topbar.html' %}
 
@@ -302,17 +304,10 @@
 
         {# --- Quick Actions --- #}
         <div class="beta-quick-actions mb-4">
-            {% set referer = request.referrer %}
-            {% if referer and 'teams' in referer %}
-            <a href="{{ referer }}" class="beta-btn" title="チームダッシュボードへ戻る">
-                <i class="fas fa-arrow-left me-1"></i> 戻る
-            </a>
-            {% else %}
-            <a href="{{ url_for('activity.activity_log') }}" class="beta-btn" title="走行ログ一覧へ戻る">
-                <i class="fas fa-arrow-left me-1"></i> 走行ログ一覧
-            </a>
-            {% endif %}
+            <a href="{{ back_url }}" class="beta-btn"><i class="fas fa-arrow-left me-1"></i> {% if '/circuit-dashboard' in back_url %}サーキット分析へ戻る{% elif '/teams' in back_url %}チームへ戻る{% else %}一覧へ戻る{% endif %}</a>
             {% if is_owner %}
+            <button type="button" class="beta-btn beta-btn-solid" data-bs-toggle="modal" data-bs-target="#activityCsvImportModal"><i class="fas fa-file-import me-1"></i> CSVから取り込む</button>
+            <button type="button" class="beta-btn" data-bs-toggle="collapse" data-bs-target="#collapseOne"><i class="fas fa-plus me-1"></i> セッションを手入力</button>
             <a href="{{ url_for('activity.edit_activity', activity_id=activity.id) }}" class="beta-btn">
                 <i class="fas fa-edit me-1"></i> 活動情報を編集
             </a>
@@ -330,18 +325,16 @@
         </div>
 
         {# --- 活動情報 --- #}
-        <div class="beta-widget-card mb-4">
-            <div class="beta-widget-header">
-                <div class="beta-widget-header-left">
-                    <div class="beta-widget-icon" style="background: rgba(59, 130, 246, 0.15); color: var(--beta-accent-blue);"><i class="fas fa-flag-checkered"></i></div>
-                    <span class="beta-widget-title">{{ activity.activity_title or activity.location_name }}</span>
-                </div>
+        <details class="beta-widget-card mb-4 circuit-activity-meta">
+            <summary class="beta-widget-header">
+                <span class="beta-widget-title">{{ activity.location_name_display or '走行日の情報' }}</span>
+                <span class="small beta-text-secondary ms-2">天候・気温・メモ</span>
                 {% if not is_owner %}
                 <span class="beta-badge" style="background: rgba(148, 163, 184, 0.2); color: var(--beta-text-muted);">
                     <i class="fas fa-user me-1"></i>{{ activity.user.display_name or activity.user.misskey_username }}
                 </span>
                 {% endif %}
-            </div>
+            </summary>
             <div class="beta-widget-body" style="padding: 1.25rem;">
                 <div class="row g-3 pb-3 mb-3" style="border-bottom: 1px solid var(--beta-border);">
                     <div class="col-md-5">
@@ -381,23 +374,23 @@
                 </div>
                 {% endif %}
             </div>
-        </div>
+        </details>
 
         {# --- サマリー --- #}
         {% if sessions %}
         <div class="beta-stats-grid mb-4" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem;">
             <div class="beta-stat-card" style="--stat-accent: var(--beta-accent-emerald);">
-                <div class="beta-stat-card-label">Overall Best</div>
+                <div class="beta-stat-card-label">この日のベスト</div>
                 <div class="beta-stat-card-value beta-text-mono" style="font-size: 1.5rem; color: var(--beta-accent-emerald);">{{ format_sec(ns.best_sec) }}</div>
                 <div class="beta-stat-card-icon"><i class="fas fa-stopwatch"></i></div>
             </div>
             <div class="beta-stat-card" style="--stat-accent: var(--beta-accent-blue);">
-                <div class="beta-stat-card-label">Sessions</div>
+                <div class="beta-stat-card-label">セッション数</div>
                 <div class="beta-stat-card-value">{{ sessions|length }}</div>
                 <div class="beta-stat-card-icon"><i class="fas fa-list-ol"></i></div>
             </div>
             <div class="beta-stat-card" style="--stat-accent: var(--beta-accent-teal);">
-                <div class="beta-stat-card-label">Total Laps</div>
+                <div class="beta-stat-card-label">ラップ数</div>
                 <div class="beta-stat-card-value">{{ ns.total_laps }}</div>
                 <div class="beta-stat-card-icon"><i class="fas fa-road"></i></div>
             </div>
@@ -520,17 +513,17 @@
                     {% set gap = session.best_lap_seconds|float - ns.best_sec|float %}
                 {% endif %}
 
-                <div class="accordion-item">
+                <div class="accordion-item session-card" id="session-{{ session.id }}">
                     <h2 class="accordion-header" id="headingSession{{ session.id }}">
-                        <div class="accordion-button {% if not loop.last %}collapsed{% endif %}"
-                             role="button"
+                        <div class="accordion-button {% if session.id != selected_session_id %}collapsed{% endif %}"
+                             role="button" tabindex="0"
                              data-bs-toggle="collapse"
                              data-bs-target="#collapseSession{{ session.id }}"
-                             aria-expanded="{{ 'true' if loop.last else 'false' }}"
+                             aria-expanded="{{ 'true' if session.id == selected_session_id else 'false' }}"
                              aria-controls="collapseSession{{ session.id }}"
                              style="cursor: pointer;">
 
-                            <div class="d-flex align-items-center w-100 me-2">
+                            <div class="d-flex align-items-center w-100 me-2 session-header-content">
                                 <div class="form-check me-3" onclick="event.stopPropagation()">
                                     <input class="form-check-input session-checkbox" type="checkbox" name="session_ids" value="{{ session.id }}" id="sessionCheck{{ session.id }}" {% if not is_owner %}disabled{% endif %}>
                                 </div>
@@ -569,7 +562,7 @@
                                     {% endif %}
                                 </div>
 
-                                <div class="d-flex align-items-center ms-auto ps-2 gap-1" onclick="event.stopPropagation()">
+                                <div class="d-flex align-items-center ms-auto ps-2 gap-1 session-actions" onclick="event.stopPropagation()">
                                     {% if session.has_gps_tracks %}
                                     <button type="button" class="beta-btn view-track-btn" style="font-size: 0.7rem; padding: 0.2rem 0.45rem; color: var(--beta-accent-teal);"
                                             data-bs-toggle="modal"
@@ -577,29 +570,29 @@
                                             data-session-id="{{ session.id }}"
                                             data-session-name="{{ session.session_name }}"
                                             title="走行ラインを表示">
-                                        <i class="fas fa-route fa-fw"></i>
+                                        <i class="fas fa-route fa-fw me-1"></i> GPS
                                     </button>
                                     {% endif %}
                                     {% if is_owner %}
                                     <button type="button" class="beta-btn" style="font-size: 0.7rem; padding: 0.2rem 0.45rem; color: var(--beta-accent-emerald);"
                                             data-bs-toggle="modal" data-bs-target="#importCsvModal-{{ session.id }}" title="CSVからインポート">
-                                        <i class="fas fa-file-csv fa-fw"></i>
+                                        <i class="fas fa-file-csv fa-fw me-1"></i> CSV
                                     </button>
                                     <a href="{{ url_for('activity.edit_session', session_id=session.id) }}" class="beta-btn" style="font-size: 0.7rem; padding: 0.2rem 0.45rem;" title="編集">
-                                        <i class="fas fa-edit fa-fw"></i>
+                                        <i class="fas fa-edit fa-fw me-1"></i> 編集
                                     </a>
                                     <button type="button" class="beta-btn delete-session-btn" style="font-size: 0.7rem; padding: 0.2rem 0.45rem; color: var(--beta-accent-red);"
                                             data-delete-url="{{ url_for('activity.delete_session', session_id=session.id) }}"
                                             data-csrf-token="{{ csrf_token() }}"
                                             title="削除">
-                                        <i class="fas fa-trash fa-fw"></i>
+                                        <i class="fas fa-trash fa-fw me-1"></i> 削除
                                     </button>
                                     {% endif %}
                                 </div>
                             </div>
                         </div>
                     </h2>
-                    <div id="collapseSession{{ session.id }}" class="accordion-collapse collapse {% if loop.last %}show{% endif %}" aria-labelledby="headingSession{{ session.id }}" data-bs-parent="#sessionsListAccordion">
+                    <div id="collapseSession{{ session.id }}" class="accordion-collapse collapse {% if session.id == selected_session_id %}show{% endif %}" aria-labelledby="headingSession{{ session.id }}" data-bs-parent="#sessionsListAccordion">
                         <div class="accordion-body">
                             {% if is_owner and session.has_gps_tracks %}
                             <div class="pb-3 mb-3" style="border-bottom: 1px solid var(--beta-border);">
@@ -628,7 +621,7 @@
                             <div class="mb-3">
                                 <div class="beta-text-muted fw-bold text-uppercase mb-1" style="font-size: 0.65rem;"><i class="fas fa-cog fa-fw me-1"></i>使用セッティング</div>
                                 {% if session.setting_sheet %}
-                                    <a href="{{ url_for('activity.edit_setting', setting_id=session.setting_sheet.id) }}"
+                                    <a href="{{ url_for('activity.edit_setting', setting_id=session.setting_sheet.id) if is_owner else '#' }}"
                                        class="text-decoration-none fw-bold" style="color: var(--beta-accent-blue);">{{ session.setting_sheet.sheet_name }}</a>
                                     <details class="mt-2 small beta-subtle-block p-2">
                                         <summary style="cursor: pointer;" class="beta-text-secondary">詳細を展開</summary>
@@ -672,9 +665,9 @@
                                             {% endif %}
                                         </button>
                                         <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="sortLapTimeDropdown-{{ session.id }}">
-                                            <li><a class="dropdown-item {% if current_sort == 'record_asc' or not current_sort %}active{% endif %}" href="{{ url_for('activity.detail_activity', activity_id=activity.id, sort='record_asc') }}">記録順 (デフォルト)</a></li>
-                                            <li><a class="dropdown-item {% if current_sort == 'time_asc' %}active{% endif %}" href="{{ url_for('activity.detail_activity', activity_id=activity.id, sort='time_asc') }}">タイム (速い順)</a></li>
-                                            <li><a class="dropdown-item {% if current_sort == 'time_desc' %}active{% endif %}" href="{{ url_for('activity.detail_activity', activity_id=activity.id, sort='time_desc') }}">タイム (遅い順)</a></li>
+                                            <li><a class="dropdown-item {% if current_sort == 'record_asc' or not current_sort %}active{% endif %}" href="{{ url_for('activity.detail_activity', activity_id=activity.id, sort='record_asc', session_id=session.id, return_to=back_url, _anchor='session-' ~ session.id) }}">記録順 (デフォルト)</a></li>
+                                            <li><a class="dropdown-item {% if current_sort == 'time_asc' %}active{% endif %}" href="{{ url_for('activity.detail_activity', activity_id=activity.id, sort='time_asc', session_id=session.id, return_to=back_url, _anchor='session-' ~ session.id) }}">タイム (速い順)</a></li>
+                                            <li><a class="dropdown-item {% if current_sort == 'time_desc' %}active{% endif %}" href="{{ url_for('activity.detail_activity', activity_id=activity.id, sort='time_desc', session_id=session.id, return_to=back_url, _anchor='session-' ~ session.id) }}">タイム (遅い順)</a></li>
                                         </ul>
                                     </div>
                                 </div>
@@ -683,16 +676,17 @@
                                         <thead class="sticky-top">
                                             <tr>
                                                 <th class="text-center beta-text-muted" scope="col" style="font-size: 0.7rem;">#</th>
-                                                <th class="text-center beta-text-muted" scope="col" style="font-size: 0.7rem;">Lap Time</th>
-                                                <th class="text-center beta-text-muted" scope="col" style="font-size: 0.7rem;">Gap</th>
+                                                <th class="text-center beta-text-muted" scope="col" style="font-size: 0.7rem;">ラップタイム</th>
+                                                <th class="text-center beta-text-muted" scope="col" style="font-size: 0.7rem;">ベストとの差</th>{% if session.has_gps_tracks %}<th scope="col" class="text-center">GPS</th>{% endif %}
                                             </tr>
                                         </thead>
                                         <tbody>
                                             {% for lap in session.lap_details %}
-                                            <tr class="{{ lap.row_class }}">
+                                            <tr class="circuit-lap-row {% if lap.is_best %}is-best{% endif %}">
                                                 <td class="text-center beta-text-muted">{{ lap.lap_num }}</td>
                                                 <td class="text-center beta-text-mono {% if lap.is_best %}best-lap-time{% else %}beta-text-primary{% endif %}">{{ lap.time_str }}</td>
-                                                <td class="text-center beta-text-muted beta-text-mono">{{ lap.diff_str }}</td>
+                                                <td class="text-center beta-text-muted beta-text-mono">{% if lap.is_best %}<span style="color:var(--beta-accent-emerald)"><i class="fas fa-crown me-1"></i>ベスト</span>{% else %}{{ lap.diff_str.split(' (')[0] }}{% endif %}</td>
+                                                {% if session.has_gps_tracks %}<td class="text-center"><button type="button" class="beta-btn view-track-btn" data-bs-toggle="modal" data-bs-target="#mapModal" data-session-id="{{ session.id }}" data-session-name="{{ session.session_name }}" data-lap-number="{{ lap.lap_num }}" aria-label="Lap {{ lap.lap_num }}の走行ラインを見る">見る</button></td>{% endif %}
                                             </tr>
                                             {% endfor %}
                                         </tbody>
@@ -775,7 +769,7 @@
         {% endif %}
 
         {# --- 走行ライン分析モーダル --- #}
-        <div class="modal fade" id="mapModal" tabindex="-1" aria-labelledby="mapModalLabel" aria-hidden="true">
+        <div class="modal fade" id="mapModal" data-prefer-best="true" data-telemetry-label="再生・グラフを表示" tabindex="-1" aria-labelledby="mapModalLabel" aria-hidden="true">
           <div class="modal-dialog modal-xl">
             <div class="modal-content">
               <div class="modal-header">
@@ -797,6 +791,9 @@
                         <div id="lapSelectorContainer">
                             <p class="beta-text-muted">走行データを読み込んでいます...</p>
                         </div>
+                        <div class="circuit-lap-nav" role="group" aria-label="ラップの移動">
+                          <button type="button" id="previousLapBtn" class="beta-btn" disabled>← 前の周</button><button type="button" id="bestLapBtn" class="beta-btn" title="GPS付きラップの最速周" disabled>ベスト周</button><button type="button" id="nextLapBtn" class="beta-btn" disabled>次の周 →</button>
+                        </div>
                         <hr style="border-color: var(--beta-border);">
                         <h6 class="beta-text-secondary">表示オプション</h6>
                         <div class="form-check form-switch">
@@ -809,8 +806,8 @@
                         </div>
                         <hr style="border-color: var(--beta-border);">
                         <div class="d-grid">
-                            <button class="beta-btn" id="toggleTelemetryBtn">
-                                <i class="fas fa-chart-line me-1"></i> テレメトリを表示
+                            <button type="button" class="beta-btn" id="toggleTelemetryBtn" disabled>
+                                <i class="fas fa-chart-line me-1"></i> 再生・グラフを表示
                             </button>
                         </div>
                     </div>
@@ -849,10 +846,15 @@
 
                         <div id="playback-controls" class="p-2 d-none" style="border-top: 1px solid var(--beta-border);">
                             <div class="d-flex align-items-center">
-                                <button id="playPauseBtn" class="beta-btn beta-btn-solid me-2"><i class="fas fa-play"></i></button>
+                                <button aria-label="走行を再生・一時停止" id="playPauseBtn" class="beta-btn beta-btn-solid me-2"><i class="fas fa-play"></i></button>
                                 <span id="playbackTime" class="me-2 font-monospace small beta-text-secondary" style="min-width: 80px;">00:00.000</span>
-                                <input type="range" class="form-range" id="timelineScrubber" min="0" max="1000" value="0">
+                                <input type="range" class="form-range" aria-label="再生位置" id="timelineScrubber" min="0" max="1000" value="0">
                             </div>
+                        </div>
+                        <div id="telemetry-metrics" class="circuit-metrics" hidden role="group" aria-label="表示するグラフ">
+                            {% for key, label in [('speedChart','速度'),('rpmChart','回転数'),('throttleChart','スロットル'),('gearChart','ギア')] %}
+                            <button type="button" class="beta-btn" data-metric="{{ key }}" aria-pressed="{{ 'true' if loop.first else 'false' }}">{{ label }}</button>
+                            {% endfor %}
                         </div>
                         <div id="telemetry-graphs" class="d-none">
                             <div class="chart-container"><canvas id="gearChart"></canvas></div>
@@ -867,87 +869,26 @@
           </div>
         </div>
 
-        {# --- CSVインポートモーダル --- #}
         {% if is_owner %}
         {% for session in sessions %}
-            <div class="modal fade" id="importCsvModal-{{ session.id }}" tabindex="-1" aria-labelledby="importCsvModalLabel-{{ session.id }}" aria-hidden="true">
-              <div class="modal-dialog">
-                <div class="modal-content">
-                  <form method="POST" action="{{ url_for('activity.import_laps', session_id=session.id) }}" enctype="multipart/form-data"
-                        class="import-form" data-session-id="{{ session.id }}">
+        <div class="modal fade" id="importCsvModal-{{ session.id }}" tabindex="-1" aria-labelledby="importCsvModalLabel-{{ session.id }}" aria-hidden="true">
+            <div class="modal-dialog"><div class="modal-content">
+                <form class="import-form" method="POST" enctype="multipart/form-data" action="{{ url_for('activity.import_laps', session_id=session.id, return_to=back_url) }}">
                     <div class="modal-header">
-                      <h5 class="modal-title" id="importCsvModalLabel-{{ session.id }}">{{ session.session_name }} - CSVインポート</h5>
-                      <button type="button" class="btn-close import-close-btn" data-bs-dismiss="modal" aria-label="Close"></button>
+                        <h5 class="modal-title" id="importCsvModalLabel-{{ session.id }}">{{ session.session_name }}へ取り込む</h5>
+                        <button type="button" class="btn-close import-close-btn" data-bs-dismiss="modal" aria-label="閉じる"></button>
                     </div>
                     <div class="modal-body">
-                        <div class="import-form-fields">
-                        {{ import_form.hidden_tag() }}
-                        <div class="mb-3">
-                            {{ import_form.device_type.label(class="form-label beta-text-secondary") }}
-                            {{ import_form.device_type(class="form-select") }}
-                        </div>
-                        <div class="mb-3">
-                            {{ import_form.csv_file.label(class="form-label beta-text-secondary") }}
-                            {{ import_form.csv_file(class="form-control") }}
-                            <div class="form-text small beta-text-muted">最大150MBまで。</div>
-                        </div>
-
-                        <div class="form-check mb-3">
-                            {{ import_form.append_mode(class="form-check-input") }}
-                            {{ import_form.append_mode.label(class="form-check-label beta-text-secondary") }}
-                            <div class="form-text small" style="color: var(--beta-accent-blue);">
-                                ※ チェックすると、現在の記録を消去せずに後ろに追加します。Droggerの分割ログなどで使用してください。
-                            </div>
-                        </div>
-
-                        <div class="form-check">
-                            {{ import_form.remove_outliers(class="form-check-input", **{'data-bs-toggle': 'collapse', 'data-bs-target': '#outlier-options-' + session.id|string, 'aria-expanded': 'true' }) }}
-                            {{ import_form.remove_outliers.label(class="form-check-label beta-text-secondary") }}
-                        </div>
-
-                        <div class="collapse show mt-3 ps-4" id="outlier-options-{{ session.id }}">
-                            <div class="mb-3">
-                                {{ import_form.outlier_threshold.label(class="form-label beta-text-secondary") }}
-                                {{ import_form.outlier_threshold(class="form-control" + (" is-invalid" if import_form.outlier_threshold.errors else "")) }}
-                                {% if import_form.outlier_threshold.errors %}
-                                    <div class="invalid-feedback">{% for e in import_form.outlier_threshold.errors %}{{e}}{% endfor %}</div>
-                                {% endif %}
-                                <div class="form-text small beta-text-muted">
-                                 ラップタイムの中央値の何倍を異常値とみなすかを設定します。<br>
-                                    例: ラップタイムの中央値が「1:58.8」の場合、デフォルト設定(2.0倍)では「3:57.6」より遅いラップが除外されます。
-                                </div>
-                            </div>
-                        </div>
-                        </div>
-
-                        <div class="import-progress-display d-none">
-                            <div class="text-center mb-3">
-                                <h6 class="import-progress-stage-text mb-1 beta-text-primary">準備中...</h6>
-                                <p class="import-progress-detail small beta-text-muted mb-0"></p>
-                            </div>
-                            <div class="progress mb-2" style="height: 24px;">
-                                <div class="progress-bar progress-bar-striped progress-bar-animated"
-                                     role="progressbar"
-                                     style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
-                            </div>
-                            <div class="text-center small beta-text-muted mt-3">
-                                <i class="fas fa-info-circle"></i>
-                                このウィンドウを閉じずにお待ちください
-                            </div>
-                        </div>
-
-                        <div class="import-error-display d-none alert alert-danger mt-3 mb-0">
-                            <strong>エラー:</strong> <span class="import-error-text"></span>
-                        </div>
+                        <div class="import-form-fields">{{ csv_ui.fields(import_form, 'session-csv-' ~ session.id) }}</div>
+                        {{ csv_ui.feedback() }}
                     </div>
                     <div class="modal-footer">
-                      <button type="button" class="beta-btn import-cancel-btn" data-bs-dismiss="modal">キャンセル</button>
-                      {{ import_form.submit_import(class="beta-btn beta-btn-solid") }}
+                        <button type="button" class="beta-btn import-cancel-btn" data-bs-dismiss="modal">キャンセル</button>
+                        {{ import_form.submit_import(id='session-import-submit-' ~ session.id, class='beta-btn beta-btn-solid') }}
                     </div>
-                  </form>
-                </div>
-              </div>
-            </div>
+                </form>
+            </div></div>
+        </div>
         {% endfor %}
         {% endif %}
 
@@ -955,11 +896,46 @@
         <div class="text-center py-5 beta-text-muted beta-widget-card">
             <div class="beta-widget-body">
                 <i class="fas fa-stopwatch fa-3x mb-3" style="opacity: 0.3;"></i>
-                <p class="mb-0">まだセッションが記録されていません。<br>「新しいセッションを記録する」から追加してください。</p>
+                <h5 class="beta-text-primary">最初のセッションを記録しましょう</h5>
+                <p class="circuit-import-help">CSVを選ぶと、ラップタイムとGPSからセッションを作成できます。手入力でも記録できます。</p>
+                {% if is_owner %}
+                <button type="button" class="beta-btn beta-btn-solid" data-bs-toggle="modal" data-bs-target="#activityCsvImportModal">CSVからセッションを作成</button>
+                {% endif %}
             </div>
         </div>
         {% endif %}
 
+        {% if is_owner %}
+        <div class="modal fade" id="activityCsvImportModal" tabindex="-1" aria-labelledby="activityCsvImportTitle" aria-hidden="true">
+            <div class="modal-dialog"><div class="modal-content">
+                <form class="import-form" data-activity-import method="POST" enctype="multipart/form-data" action="{{ url_for('activity.import_activity_laps', activity_id=activity.id, return_to=back_url) }}">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="activityCsvImportTitle">CSVから取り込む</h5>
+                        <button type="button" class="btn-close import-close-btn" data-bs-dismiss="modal" aria-label="閉じる"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="import-form-fields">
+                            <p class="circuit-import-help">{{ activity.activity_date.strftime('%Y/%m/%d') }}・{{ motorcycle.name }}の走行記録に取り込みます。</p>
+                            <div class="circuit-import-destination">
+                                <label for="activity-import-target" class="form-label beta-text-secondary">取り込み先</label>
+                                {{ activity_import_form.target_session(id='activity-import-target', class='form-select') }}
+                                <div class="mt-3" data-new-session-fields>
+                                    <label for="activity-import-name" class="form-label beta-text-secondary">セッション名</label>
+                                    {{ activity_import_form.new_session_name(id='activity-import-name', class='form-control') }}
+                                </div>
+                            </div>
+                            {{ csv_ui.fields(activity_import_form, 'activity-csv') }}
+                        </div>
+                        {{ csv_ui.feedback() }}
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="beta-btn import-cancel-btn" data-bs-dismiss="modal">キャンセル</button>
+                        {{ activity_import_form.submit_import(id='activity-import-submit', class='beta-btn beta-btn-solid') }}
+                    </div>
+                </form>
+            </div></div>
+        </div>
+        {% endif %}
     </main>
     {% include 'beta/_beta_bottombar.html' %}
 </div>
@@ -976,11 +952,12 @@
 {% if config.GOOGLE_MAPS_API_KEY %}
 <script async defer src="https://maps.googleapis.com/maps/api/js?key={{ config.GOOGLE_MAPS_API_KEY }}&callback=initMap" type="text/javascript"></script>
 <script src="{{ url_for('static', filename='js/map_viewer.js') }}"></script>
-<script src="{{ url_for('static', filename='js/lap_import.js') }}"></script>
 {% endif %}
 
+<script src="{{ url_for('static', filename='js/lap_import.js') }}"></script>
+<script src="{{ url_for('static', filename='js/activity_beta.js') }}"></script>
 <script>
-function initMap() {}
+function initMap() { window.dispatchEvent(new Event('motopuppu:maps-ready')); }
 
 document.addEventListener('DOMContentLoaded', () => {
 

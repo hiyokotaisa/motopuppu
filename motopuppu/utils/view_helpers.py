@@ -7,6 +7,22 @@ from flask_login import current_user
 from ..models import Motorcycle
 
 
+def safe_local_url(candidate, fallback_url):
+    """画面の戻り先は、アプリ内のURLだけを受け付ける。"""
+    if not candidate or '\\' in candidate or any(ord(char) < 32 for char in candidate):
+        return fallback_url
+    try:
+        parsed = urlparse(candidate)
+        if parsed.scheme or parsed.netloc:
+            if parsed.scheme not in ('http', 'https') or parsed.netloc != request.host:
+                return fallback_url
+        elif not candidate.startswith('/') or candidate.startswith('//'):
+            return fallback_url
+        return candidate
+    except ValueError:
+        return fallback_url
+
+
 def get_motorcycle_or_404(vehicle_id):
     """
     指定されたIDの車両を取得し、ログインユーザーの所有でなければ404を返す。

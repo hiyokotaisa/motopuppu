@@ -580,6 +580,12 @@ class LapTimeImportForm(FlaskForm):
     submit_import = SubmitField('インポート実行')
 
 
+class ActivityLapTimeImportForm(LapTimeImportForm):
+    """走行日の画面から、CSVと同時にセッションを作成・選択する。"""
+    target_session = SelectField('取り込み先', validators=[DataRequired()])
+    new_session_name = StringField('新しいセッション名', validators=[Optional(), Length(max=100)])
+
+
 class SettingSheetForm(FlaskForm):
     """セッティングシート用のフォーム"""
     sheet_name = StringField(

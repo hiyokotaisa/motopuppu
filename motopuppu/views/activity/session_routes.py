@@ -22,11 +22,11 @@ from ...utils.lap_time_utils import (
 )
 from ...constants import SETTING_KEY_MAP
 
-from ...utils.view_helpers import get_motorcycle_or_404
+from ...utils.view_helpers import get_motorcycle_or_404, safe_local_url
 from ...utils.activity_helpers import can_view_activity
 from flask_login import login_required, current_user
 from ...models import db, ActivityLog, SessionLog
-from ...forms import SessionLogForm, LapTimeImportForm
+from ...forms import SessionLogForm, LapTimeImportForm, ActivityLapTimeImportForm
 from ...parsers import get_parser, PARSERS
 from ...parsers.base_parser import open_text_stream
 from ... import limiter
@@ -560,7 +560,7 @@ def _find_best_parser_type(file_stream, excluded_type):
 
 def _import_laps_generator(
     session_id, activity_log_id, file_stream, device_type,
-    remove_outliers_flag, threshold, is_append_mode, redirect_url
+    remove_outliers_flag, threshold, is_append_mode, redirect_url, new_session_name=None
 ):
     """一時ファイルを逐次解析し、1周ずつGPSを軽量化して進捗を返す。"""
     parser_names = dict(LapTimeImportForm().device_type.choices)
@@ -621,7 +621,12 @@ def _import_laps_generator(
                 new_laps.append({'lap_number': new_number, 'track': points})
         tracks.clear()
 
-        session_obj = db.session.get(SessionLog, session_id, options=[defer(SessionLog.gps_tracks)])
+        if session_id is None:
+            session_obj = SessionLog(activity_log_id=activity_log_id, session_name=new_session_name,
+                                     allow_misskey_post=not current_user.disallow_misskey_post_by_default)
+            db.session.add(session_obj)
+        else:
+            session_obj = db.session.get(SessionLog, session_id, options=[defer(SessionLog.gps_tracks)])
         if not session_obj:
             yield {'stage': 'error', 'message': 'セッションが見つかりません。'}
             return
@@ -645,12 +650,24 @@ def _import_laps_generator(
         _calculate_and_set_best_lap(session_obj, session_obj.lap_times)
 
         yield {'stage': 'saving', 'message': 'データベースに保存中...'}
+        db.session.flush()
+        saved_session_id = session_obj.id
+        best_lap = format_seconds_to_time(session_obj.best_lap_seconds)
+        has_gps = bool(all_laps) if is_append_mode else bool(new_laps)
         db.session.commit()
 
         success_message = f'{len(lap_times)}件のラップタイムを正常に{success_action}しました。'
         if laps_removed_count > 0:
             success_message += f' ({laps_removed_count}件の異常なラップを除外しました)'
-        yield {'stage': 'done', 'message': success_message, 'redirect_url': redirect_url}
+        back_url = safe_local_url(request.args.get('return_to'), url_for('activity.activity_log'))
+        detail_args = dict(activity_id=activity_log_id, session_id=saved_session_id,
+                           return_to=back_url, _anchor=f'session-{saved_session_id}')
+        yield {'stage': 'done', 'message': success_message, 'session_id': saved_session_id,
+               'redirect_url': url_for('activity.detail_activity', **detail_args),
+               'gps_url': url_for('activity.detail_activity', gps=1, **detail_args) if has_gps else None,
+               'summary': {'imported_laps': len(lap_times), 'removed_laps': laps_removed_count,
+                           'gps_laps': len(new_laps), 'best_lap': best_lap}}
+
 
     except Exception as error:
         db.session.rollback()
@@ -675,8 +692,28 @@ def import_laps(session_id):
     ).first_or_404()
     form = LapTimeImportForm()
 
-    activity_log_id = session.activity_log_id
-    redirect_url = url_for('activity.detail_activity', activity_id=activity_log_id)
+    return _lap_import_response(form, session.activity_log_id, session_id)
+
+
+@activity_bp.route('/<int:activity_id>/import_laps', methods=['POST'])
+@limiter.limit('10 per hour')
+@login_required
+def import_activity_laps(activity_id):
+    activity = ActivityLog.query.filter_by(id=activity_id, user_id=current_user.id).first_or_404()
+    sessions = db.session.query(SessionLog.id, SessionLog.session_name).filter_by(
+        activity_log_id=activity.id).order_by(SessionLog.id).all()
+    form = ActivityLapTimeImportForm()
+    form.target_session.choices = [('new', '新しいセッションを作成')] + [
+        (str(row.id), row.session_name) for row in sessions
+    ]
+    session_id = int(form.target_session.data) if form.target_session.data in {str(row.id) for row in sessions} else None
+    name = (form.new_session_name.data or '').strip() or f'Session {len(sessions) + 1}'
+    return _lap_import_response(form, activity_id, session_id, new_session_name=name)
+
+
+def _lap_import_response(form, activity_log_id, session_id, new_session_name=None):
+    back_url = safe_local_url(request.args.get('return_to'), url_for('activity.activity_log'))
+    redirect_url = url_for('activity.detail_activity', activity_id=activity_log_id, return_to=back_url)
 
     # AJAX/ndjson ストリーミング希望かどうか
     accept_header = request.headers.get('Accept', '') or ''
@@ -714,7 +751,7 @@ def import_laps(session_id):
     file_storage.stream = io.BytesIO()
     events = _import_laps_generator(
         session_id, activity_log_id, file_stream, device_type,
-        remove_outliers_flag, threshold, is_append_mode, redirect_url,
+        remove_outliers_flag, threshold, is_append_mode, redirect_url, new_session_name=new_session_name,
     )
 
     if wants_stream:
@@ -747,7 +784,7 @@ def import_laps(session_id):
     elif last_event and last_event.get('stage') == 'error':
         flash(last_event.get('message', 'エラーが発生しました。'), 'danger')
 
-    return redirect(redirect_url)
+    return redirect(last_event.get('redirect_url', redirect_url) if last_event and last_event.get('stage') == 'done' else redirect_url)
 
 
 @activity_bp.route('/session/<int:session_id>/toggle_share', methods=['POST'])

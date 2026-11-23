@@ -12,19 +12,22 @@ async function ready(dom) {
     }
 }
 
-async function importPage() {
-    const dom = new JSDOM(`<form class="import-form" action="/import" method="post">
+async function importPage(beta = false) {
+    const dom = new JSDOM(`<div class="modal"><form class="import-form" action="/import" method="post">
       <div class="import-form-fields"><input name="csrf_token" value="test"><input type="file" name="csv_file"></div>
       <div class="import-progress-display d-none"><span class="import-progress-stage-text"></span>
         <span class="import-progress-detail"></span><div class="progress-bar"></div></div>
       <div class="import-error-display d-none"><span class="import-error-text"></span></div>
+      ${beta ? `<div class="import-success-display d-none"><span data-import-laps></span><span data-import-removed></span>
+        <span data-import-gps></span><span data-import-best></span><a data-import-gps-link></a><a data-import-detail-link></a></div>` : ''}
       <input type="submit"><button class="import-cancel-btn" type="button"></button>
-      <button class="import-close-btn" type="button"></button></form>`,
+      <button class="import-close-btn" type="button"></button></form></div>`,
       {url: 'https://example.test/activity/1/detail', runScripts: 'outside-only'});
     const window = dom.window;
     const requests = [];
     window.confirm = () => true;
-    window.setTimeout = () => 1; // 成功後のページ遷移は行わず、表示結果を検証する。
+    const timers = [];
+    window.setTimeout = callback => { timers.push(callback); return 1; };
     window.XMLHttpRequest = class {
         constructor() { this.upload = {}; this.responseText = ''; this.status = 0; requests.push(this); }
         open() {}
@@ -45,8 +48,53 @@ async function importPage() {
         xhr.onreadystatechange();
         xhr.onload();
     };
-    return {dom, document, requests, submit, respond};
+    return {dom, document, requests, timers, submit, respond};
 }
+
+test('Beta CSV: 結果とGPSへのリンクを残し、自動遷移・再送信しない', async () => {
+    const page = await importPage(true);
+    try {
+        page.submit();
+        page.respond(200, JSON.stringify({stage: 'done', summary: {
+            imported_laps: 203, removed_laps: 2, gps_laps: 203, best_lap: '0:42.000',
+        }, redirect_url: '/activity/1/detail?session_id=2#session-2', gps_url: '/activity/1/detail?session_id=2&gps=1'}));
+        const result = page.document.querySelector('.import-success-display');
+        assert.equal(result.classList.contains('d-none'), false);
+        assert.equal(result.querySelector('[data-import-laps]').textContent, '203');
+        assert.equal(result.querySelector('[data-import-removed]').textContent, '2');
+        assert.equal(result.querySelector('[data-import-best]').textContent, '0:42.000');
+        assert.equal(new URL(result.querySelector('[data-import-gps-link]').href).searchParams.get('gps'), '1');
+        assert.equal(new URL(result.querySelector('[data-import-detail-link]').href).hash, '#session-2');
+        assert.equal(page.timers.length, 0);
+        assert.equal(page.document.querySelector('.import-close-btn').disabled, false);
+        page.submit();
+        assert.equal(page.requests.length, 1);
+    } finally { page.dom.window.close(); }
+});
+
+test('Beta CSV: GPSのない取り込み結果では走行ラインへのリンクを隠す', async () => {
+    const page = await importPage(true);
+    try {
+        page.submit();
+        page.respond(200, JSON.stringify({stage: 'done', summary: {imported_laps: 2, gps_laps: 0}, gps_url: null}));
+        assert.equal(page.document.querySelector('[data-import-gps-link]').hidden, true);
+    } finally { page.dom.window.close(); }
+});
+
+test('CSV: 処理中のEsc・背景クリックで閉じるのを防ぎ、失敗後は閉じられる', async () => {
+    const page = await importPage(true);
+    try {
+        const modal = page.document.querySelector('.modal');
+        page.submit();
+        const closing = new page.dom.window.Event('hide.bs.modal', {cancelable: true});
+        modal.dispatchEvent(closing);
+        assert.equal(closing.defaultPrevented, true);
+        page.respond(400, '{"stage":"error","message":"形式エラー"}');
+        const afterError = new page.dom.window.Event('hide.bs.modal', {cancelable: true});
+        modal.dispatchEvent(afterError);
+        assert.equal(afterError.defaultPrevented, false);
+    } finally { page.dom.window.close(); }
+});
 
 for (const [name, status, body, expected] of [
     ['HTMLの413', 413, '<html>too large</html>\n', 'HTTP 413'],
@@ -132,8 +180,11 @@ function lapData(number) {
         ...(number === 3 ? {rpm: 8000, throttle: 50} : {}),
     }))}]};
 }
-async function mapPage(fetchOverride) {
-    const dom = new JSDOM(mapHtml, {url: 'https://example.test/activity/1/detail', runScripts: 'outside-only'});
+async function mapPage(fetchOverride, beta = false) {
+    const betaControls = `<button id="previousLapBtn"></button><button id="nextLapBtn"></button><button id="bestLapBtn"></button>
+      <div id="telemetry-metrics" hidden>${['speedChart','rpmChart','throttleChart','gearChart'].map(key => `<button data-metric="${key}"></button>`).join('')}</div>`;
+    const dom = new JSDOM(beta ? mapHtml.replace('<div id="mapModal">', `<div id="mapModal" data-prefer-best="true">${betaControls}`) : mapHtml,
+      {url: 'https://example.test/activity/1/detail', runScripts: 'outside-only'});
     const window = dom.window;
     const requests = [], charts = new Map(), frames = new Map(), maps = [], overlays = [];
     let frameId = 0;
@@ -183,6 +234,48 @@ async function mapPage(fetchOverride) {
     };
     return {dom, window, document, requests, charts, frames, maps, overlays, init, select};
 }
+
+test('Beta GPS: 指定した周・前後・GPS付きのベスト周を表示し、データのある指標だけ切り替える', async () => {
+    const page = await mapPage(null, true);
+    try {
+        await page.init({lapNumber: 4});
+        const byId = id => page.document.getElementById(id);
+        const metric = id => page.document.querySelector(`[data-metric="${id}"]`);
+        assert.equal(page.document.querySelector('select').value, '4');
+        assert.equal(byId('nextLapBtn').disabled, true);
+        assert.equal(metric('rpmChart').hidden, true);
+        byId('previousLapBtn').click(); await settle();
+        assert.equal(page.document.querySelector('select').value, '3');
+        assert.equal(byId('previousLapBtn').disabled, true, 'GPSのないLap 1/2を選ばない');
+        assert.equal(byId('bestLapBtn').disabled, true);
+        assert.equal(metric('rpmChart').hidden, false);
+        metric('rpmChart').click();
+        assert.equal(metric('rpmChart').getAttribute('aria-pressed'), 'true');
+        assert.equal(byId('speedChart').parentElement.style.display, 'none');
+        assert.equal(byId('rpmChart').parentElement.style.display, 'block');
+        const speed = page.charts.get('speedChart');
+        assert.equal(speed.options.scales.x.type, 'linear');
+        assert.deepEqual(Array.from(speed.data.datasets[0].data, point => point.x), [0, 1, 2]);
+        byId('nextLapBtn').click(); await settle();
+        assert.equal(metric('rpmChart').hidden, true);
+        assert.equal(metric('speedChart').getAttribute('aria-pressed'), 'true');
+        byId('bestLapBtn').click(); await settle();
+        assert.equal(page.document.querySelector('select').value, '3');
+    } finally { page.window.motopuppuMapViewer.destroy(page.document.querySelector('#mapModal')); page.dom.window.close(); }
+});
+
+test('Beta GPS: GPSのない周を指定したら理由を表示し、別の周を自動表示しない', async () => {
+    const page = await mapPage(null, true);
+    try {
+        await page.init({lapNumber: 2});
+        assert.equal(page.requests.length, 1, '別ラップを取得しない');
+        assert.match(page.document.querySelector('[role="status"]').textContent, /Lap 2にはGPSがありません/);
+        assert.equal(page.document.querySelector('select').value, '2');
+        page.document.getElementById('nextLapBtn').click(); await settle();
+        assert.equal(page.document.querySelector('select').value, '3');
+        assert.equal(page.document.getElementById('toggleTelemetryBtn').disabled, false);
+    } finally { page.window.motopuppuMapViewer.destroy(page.document.querySelector('#mapModal')); page.dom.window.close(); }
+});
 
 test('GPS: GPSなしの周を無効化し、ラップ番号で取得・表示・切り替えする', async () => {
     const page = await mapPage();

@@ -26,6 +26,9 @@ window.motopuppuMapViewer = {
         let resizeTimer = null;
         const listeners = [];
         const lapCache = new Map();
+        const metricControls = container.querySelector('#telemetry-metrics');
+        let activeMetric = 'speedChart';
+        const telemetryLabel = container.dataset.telemetryLabel || 'テレメトリを表示';
         
         // --- グローバル変数 ---
         let map;
@@ -56,6 +59,18 @@ window.motopuppuMapViewer = {
             if (charts[id]) charts[id].destroy();
             charts[id] = null;
         }
+        function updateMetricControls() {
+            if (!metricControls) return;
+            if (!charts[activeMetric]) activeMetric = Object.keys(charts).find(key => charts[key]) || 'speedChart';
+            metricControls.querySelectorAll('[data-metric]').forEach(button => {
+                button.hidden = !charts[button.dataset.metric];
+                button.setAttribute('aria-pressed', String(button.dataset.metric === activeMetric));
+            });
+            Object.keys(charts).forEach(key => {
+                const canvas = container.querySelector('#' + key);
+                if (canvas) canvas.parentElement.style.display = charts[key] && key === activeMetric ? 'block' : 'none';
+            });
+        }
         function clearTrack() {
             polylines.flat().forEach(line => line.setMap(null));
             brakingMarkers.flat().forEach(marker => marker.setMap(null));
@@ -65,10 +80,11 @@ window.motopuppuMapViewer = {
             bikeMarker = null;
         }
         function setPlaybackEnabled(enabled) {
-            for (const id of ['playPauseBtn', 'timelineScrubber']) {
+            for (const id of ['playPauseBtn', 'timelineScrubber', 'toggleTelemetryBtn']) {
                 const element = container.querySelector('#' + id);
                 if (element) element.disabled = !enabled;
             }
+            metricControls?.querySelectorAll('button').forEach(button => { button.disabled = !enabled; });
         }
         function resetTelemetry() {
             const playButton = container.querySelector('#playPauseBtn');
@@ -85,7 +101,8 @@ window.motopuppuMapViewer = {
                 container.querySelector('#telemetry-graphs')?.classList.add('d-none');
                 const toggle = container.querySelector('#toggleTelemetryBtn');
                 if (toggle) {
-                    toggle.innerHTML = '<i class="fas fa-chart-line me-1"></i> テレメトリを表示';
+                    toggle.innerHTML = `<i class="fas fa-chart-line me-1"></i> ${telemetryLabel}`;
+                    if (metricControls) metricControls.hidden = true;
                     toggle.classList.remove('btn-success');
                     toggle.classList.add('btn-outline-primary');
                 }
@@ -126,10 +143,14 @@ window.motopuppuMapViewer = {
             const canvasEl = document.getElementById(canvasId);
             if (!canvasEl) return null;
             const ctx = canvasEl.getContext('2d');
+            const theme = getComputedStyle(container);
+            const textColor = theme.getPropertyValue('--beta-text-secondary').trim() || '#6c757d';
+            const gridColor = theme.getPropertyValue('--beta-border').trim() || 'rgba(128,128,128,.15)';
             const defaultYAxisOptions = {
                 beginAtZero: true,
-                ticks: { font: { size: 10 } },
-                title: { display: true, text: label, font: { size: 12 } }
+                ticks: { color: textColor, font: { size: 11 } },
+                grid: { color: gridColor },
+                title: { display: true, text: label, color: textColor, font: { size: 12 } }
             };
             const chart = new Chart(ctx, {
                 type: 'line',
@@ -143,7 +164,7 @@ window.motopuppuMapViewer = {
                 options: {
                     responsive: true, maintainAspectRatio: false, animation: false,
                     plugins: { legend: { display: false }, tooltip: { enabled: false }, annotation: { annotations: { line1: { type: 'line', scaleID: 'x', value: 0, borderColor: 'rgba(255, 99, 132, 0.8)', borderWidth: 1, display: false } } } },
-                    scales: { x: { ticks: { display: false }, grid: { display: false } }, y: { ...defaultYAxisOptions, ...yAxisOptions } }
+                    scales: { x: { type: metricControls ? 'linear' : 'category', title: {display: !!metricControls, text: '経過時間（秒）', color: textColor}, ticks: { display: !!metricControls, color: textColor, maxTicksLimit: 6 }, grid: { color: gridColor } }, y: { ...defaultYAxisOptions, ...yAxisOptions } }
                 }
             });
             charts[canvasId] = chart;
@@ -321,7 +342,9 @@ window.motopuppuMapViewer = {
             if (now - lastChartUpdateTime > CHART_UPDATE_INTERVAL || !isPlaying) {
                 Object.values(charts).forEach(chart => {
                     if (chart) {
-                        chart.options.plugins.annotation.annotations.line1.value = index + ratio;
+                        chart.options.plugins.annotation.annotations.line1.value = metricControls
+                            ? (p1.runtime || 0) + ((p2.runtime || 0) - (p1.runtime || 0)) * ratio - lapStartTime
+                            : index + ratio;
                         chart.options.plugins.annotation.annotations.line1.display = true;
                         chart.update('none');
                     }
@@ -443,6 +466,11 @@ window.motopuppuMapViewer = {
             const lapStatus = document.createElement('p');
             lapStatus.className = 'small text-muted mt-2';
             lapStatus.setAttribute('role', 'status');
+            const orderedLaps = [...availableLaps].filter(number => number > 0 && number <= data.lap_times.length).sort((a,b) => a-b);
+            const bestGpsLap = orderedLaps.reduce((best, number) => !best || parseTimeToSeconds(data.lap_times[number - 1]) < parseTimeToSeconds(data.lap_times[best - 1]) ? number : best, null);
+            const previousButton = container.querySelector('#previousLapBtn');
+            const nextButton = container.querySelector('#nextLapBtn');
+            const bestButton = container.querySelector('#bestLapBtn');
             if (lapSelectorContainer) {
                 lapSelectorContainer.innerHTML = '';
                 const lapSelect = document.createElement('select');
@@ -536,7 +564,7 @@ window.motopuppuMapViewer = {
                     smoothedGears = applySmoothingFilter(estimatedGears, 5);
                     if (charts.gearChart) {
                         charts.gearChart.data.labels = labels;
-                        charts.gearChart.data.datasets[0].data = smoothedGears;
+                        charts.gearChart.data.datasets[0].data = metricControls ? smoothedGears.map((value, i) => ({x: currentLapData.track[i].runtime - lapStartTime, y: value})) : smoothedGears;
                     }
                     if (gearDisplayContainer) gearDisplayContainer.classList.remove('d-none');
                     if (gearChartCanvas) gearChartCanvas.parentElement.style.display = 'block';
@@ -569,16 +597,17 @@ window.motopuppuMapViewer = {
                 
                 if(charts.speedChart) {
                     charts.speedChart.data.labels = labels;
-                    charts.speedChart.data.datasets[0].data = currentLapData.track.map(p => p.speed);
+                    charts.speedChart.data.datasets[0].data = currentLapData.track.map(p => metricControls ? ({x: (p.runtime || 0) - lapStartTime, y: p.speed}) : p.speed);
                 }
                 if(charts.rpmChart && hasRpm) {
                     charts.rpmChart.data.labels = labels;
-                    charts.rpmChart.data.datasets[0].data = currentLapData.track.map(p => p.rpm);
+                    charts.rpmChart.data.datasets[0].data = currentLapData.track.map(p => metricControls ? ({x: (p.runtime || 0) - lapStartTime, y: p.rpm}) : p.rpm);
                 }
                 if(charts.throttleChart && hasThrottle) {
                     charts.throttleChart.data.labels = labels;
-                    charts.throttleChart.data.datasets[0].data = currentLapData.track.map(p => p.throttle);
+                    charts.throttleChart.data.datasets[0].data = currentLapData.track.map(p => metricControls ? ({x: (p.runtime || 0) - lapStartTime, y: p.throttle}) : p.throttle);
                 }
+                updateMetricControls();
                 Object.values(charts).forEach(chart => { if (chart) chart.update(); });
 
                 const scrubber = container.querySelector('#timelineScrubber');
@@ -592,6 +621,12 @@ window.motopuppuMapViewer = {
             };
 
             const loadLapData = async (lapNumber) => {
+                const select = container.querySelector('#lapSelectorContainer select');
+                if (select) select.value = lapNumber;
+                const position = orderedLaps.indexOf(lapNumber);
+                if (previousButton) previousButton.disabled = position <= 0;
+                if (nextButton) nextButton.disabled = position < 0 || position >= orderedLaps.length - 1;
+                if (bestButton) bestButton.disabled = !bestGpsLap || lapNumber === bestGpsLap;
                 const requestId = ++lapRequestId;
                 lapController?.abort();
                 lapController = new AbortController();
@@ -637,6 +672,20 @@ window.motopuppuMapViewer = {
                 listen(lapSelect, 'change', (e) => loadLapData(parseInt(e.target.value, 10)));
             }
 
+            listen(previousButton, 'click', () => {
+                const previous = orderedLaps.filter(number => number < Number(lapSelect?.value)).at(-1);
+                if (previous) loadLapData(previous);
+            });
+            listen(nextButton, 'click', () => {
+                const next = orderedLaps.find(number => number > Number(lapSelect?.value));
+                if (next) loadLapData(next);
+            });
+            listen(bestButton, 'click', () => { if (bestGpsLap) loadLapData(bestGpsLap); });
+            metricControls?.querySelectorAll('[data-metric]').forEach(button => listen(button, 'click', () => {
+                activeMetric = button.dataset.metric;
+                updateMetricControls();
+            }));
+
             const scrubber = container.querySelector('#timelineScrubber');
             if (scrubber) {
                 listen(scrubber, 'input', (e) => {
@@ -680,12 +729,15 @@ window.motopuppuMapViewer = {
                         if (isTelemetryVisible) {
                             modalDialog.classList.remove('modal-fullscreen'); modalDialog.classList.add('modal-xl');
                             playbackControls.classList.add('d-none'); graphsContainer.classList.add('d-none');
-                            btn.innerHTML = '<i class="fas fa-chart-line me-1"></i> テレメトリを表示';
+                            btn.innerHTML = `<i class="fas fa-chart-line me-1"></i> ${telemetryLabel}`;
+                            if (metricControls) metricControls.hidden = true;
                             btn.classList.remove('btn-success'); btn.classList.add('btn-outline-primary');
                         } else {
                             modalDialog.classList.remove('modal-xl'); modalDialog.classList.add('modal-fullscreen');
                             playbackControls.classList.remove('d-none'); graphsContainer.classList.remove('d-none');
-                            btn.innerHTML = '<i class="fas fa-map-marked-alt me-1"></i> シンプル表示に戻す';
+                            btn.innerHTML = '<i class="fas fa-map-marked-alt me-1"></i> 地図だけに戻す';
+                            if (metricControls) metricControls.hidden = false;
+                            updateMetricControls();
                             btn.classList.remove('btn-outline-primary'); btn.classList.add('btn-success');
                         }
                         clearTimeout(resizeTimer);
@@ -694,7 +746,18 @@ window.motopuppuMapViewer = {
                 }
             }
 
-            const firstLap = data.lap_times.findIndex((_, index) => availableLaps.has(index + 1)) + 1;
+            const requestedLap = Number(options.lapNumber);
+            if (Number.isInteger(requestedLap) && requestedLap > 0 && requestedLap <= data.lap_times.length
+                    && !availableLaps.has(requestedLap)) {
+                if (lapSelect) lapSelect.value = requestedLap;
+                lapStatus.textContent = `Lap ${requestedLap}にはGPSがありません。GPS付きの周を選択してください。`;
+                if (previousButton) previousButton.disabled = !orderedLaps.some(number => number < requestedLap);
+                if (nextButton) nextButton.disabled = !orderedLaps.some(number => number > requestedLap);
+                if (bestButton) bestButton.disabled = !bestGpsLap;
+                return;
+            }
+            const firstLap = availableLaps.has(requestedLap) ? requestedLap
+                : container.dataset.preferBest === 'true' ? bestGpsLap : orderedLaps[0];
             if (firstLap) {
                 if (lapSelect) lapSelect.value = firstLap;
                 await loadLapData(firstLap);
@@ -725,7 +788,8 @@ document.addEventListener('DOMContentLoaded', () => {
             sessionId: sessionId,
             sessionName: button.dataset.sessionName,
             dataUrl: `/activity/session/${sessionId}/gps_data`,
-            isPublicPage: false
+            isPublicPage: false,
+            lapNumber: Number(button.dataset.lapNumber),
         });
     });
 });

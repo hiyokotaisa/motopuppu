@@ -942,11 +942,11 @@
 {% if config.GOOGLE_MAPS_API_KEY %}
 <script async defer src="https://maps.googleapis.com/maps/api/js?key={{ config.GOOGLE_MAPS_API_KEY }}&callback=initMap" type="text/javascript"></script>
 <script src="{{ url_for('static', filename='js/map_viewer.js') }}"></script>
-<script src="{{ url_for('static', filename='js/lap_import.js') }}"></script>
 {% endif %}
 
+<script src="{{ url_for('static', filename='js/lap_import.js') }}"></script>
 <script>
-function initMap() {}
+function initMap() { window.dispatchEvent(new Event('motopuppu:maps-ready')); }
 
 document.addEventListener('DOMContentLoaded', () => {
 

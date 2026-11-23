@@ -18,10 +18,10 @@ from ...constants import SETTING_KEY_MAP
 
 from flask_login import login_required, current_user
 from ...models import db, Motorcycle, ActivityLog, SessionLog, SettingSheet, User, TouringLog, TouringSpot, TouringScrapbookEntry 
-from ...forms import ActivityLogForm, SessionLogForm, LapTimeImportForm
+from ...forms import ActivityLogForm, SessionLogForm, LapTimeImportForm, ActivityLapTimeImportForm
 from ... import limiter
 from ...utils.search_helpers import escape_like
-from ...utils.view_helpers import get_motorcycle_or_404
+from ...utils.view_helpers import get_motorcycle_or_404, safe_local_url
 from ...utils.activity_helpers import can_view_activity, has_gps_tracks_expression
 
 @activity_bp.route('/')
@@ -46,7 +46,8 @@ def activity_log():
         flash('ログを閲覧するには、まず車両を登録してください。', 'info')
         return redirect(url_for('vehicle.add_vehicle'))
 
-    log_type = request.args.get('log_type', '')
+    circuit_name = request.args.get('circuit_name', '').strip()
+    log_type = 'activity' if circuit_name else request.args.get('log_type', '')
 
     # --- 1. ActivityLog (走行ログ) のクエリ構築 ---
     activity_query = None
@@ -65,7 +66,11 @@ def activity_log():
         ).filter(TouringLog.user_id == current_user.id)
 
     # --- 3. フィルタリングの適用 ---
-    active_filters = {k: v for k, v in request.args.items() if k not in ['page', 'sort_by', 'order']}
+    filter_keys = {'start_date', 'end_date', 'vehicle_id', 'q', 'log_type', 'circuit_name'}
+    active_filters = {k: v for k, v in request.args.items() if k in filter_keys and v}
+    if circuit_name:
+        active_filters['log_type'] = 'activity'
+        activity_query = activity_query.filter(ActivityLog.circuit_name == circuit_name)
 
     try:
         if start_date_str:
@@ -203,12 +208,28 @@ def activity_log():
     from ...utils.pagination import SimplePagination
     pagination = SimplePagination(page, per_page, total_items, paginated_logs)
 
+    def activity_filter_url(**changes):
+        params = dict(active_filters, sort_by=sort_by, order=order)
+        if 'log_type' in changes and changes['log_type'] != 'activity':
+            params.pop('circuit_name', None)
+        params.update(changes)
+        return url_for('activity.activity_log', **{key: value for key, value in params.items() if value})
+
+    circuit_names = [row[0] for row in db.session.query(ActivityLog.circuit_name).filter(
+        ActivityLog.user_id == current_user.id,
+        ActivityLog.circuit_name.isnot(None), ActivityLog.circuit_name != '',
+    ).distinct().order_by(ActivityLog.circuit_name).all()]
+    list_url = url_for('activity.activity_log', page=page, sort_by=sort_by, order=order, **active_filters)
+
     is_filter_active = bool(active_filters)
 
     template_name = 'beta/activity_log_beta.html' if current_user.use_beta_ui else 'activity/activity_log.html'
 
     return render_template(template_name,
                            logs=paginated_logs,
+                           activity_filter_url=activity_filter_url,
+                           current_list_url=list_url,
+                           circuit_names=circuit_names,
                            pagination=pagination,
                            motorcycles=user_motorcycles,
                            request_args=active_filters,
@@ -440,6 +461,14 @@ def detail_activity(activity_id):
         session.has_gps_tracks = has_gps
         sessions.append(session)
 
+    default_back_url = url_for('activity.activity_log')
+    if request.referrer and '/teams' in request.referrer:
+        default_back_url = safe_local_url(request.referrer, default_back_url)
+    back_url = safe_local_url(request.args.get('return_to'), default_back_url)
+    selected_session_id = request.args.get('session_id', type=int)
+    if selected_session_id not in {session.id for session in sessions}:
+        selected_session_id = sessions[-1].id if sessions else None
+
     sort_order = request.args.get('sort', 'record_asc')
 
     for session in sessions:
@@ -493,6 +522,11 @@ def detail_activity(activity_id):
     
     session_form = SessionLogForm()
     import_form = LapTimeImportForm()
+    activity_import_form = ActivityLapTimeImportForm()
+    activity_import_form.target_session.choices = [('new', '新しいセッションを作成')] + [
+        (str(session.id), session.session_name) for session in sessions
+    ]
+    activity_import_form.new_session_name.data = f'Session {len(sessions) + 1}'
 
     # GETリクエスト時は、既存のセッション数に基づいて連番のデフォルト名をセットする
     # POSTリクエスト時はユーザーが入力した値をそのまま保持するため、条件分岐で制御する
@@ -564,6 +598,9 @@ def detail_activity(activity_id):
                            motorcycle=motorcycle,
                            session_form=session_form,
                            import_form=import_form,
+                           activity_import_form=activity_import_form,
+                           selected_session_id=selected_session_id,
+                           back_url=back_url,
                            setting_key_map=SETTING_KEY_MAP,
                            current_sort=sort_order,
                            is_owner=is_owner,

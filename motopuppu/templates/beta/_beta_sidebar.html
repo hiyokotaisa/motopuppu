@@ -115,10 +115,10 @@
         <div class="beta-nav-section">
             <div class="beta-nav-section-label">活動</div>
             <a href="{{ url_for('activity.activity_log') }}" class="beta-nav-item {{ 'active' if beta_nav_active == 'activity' }}">
-                <i class="fas fa-flag-checkered"></i> 活動ログ
+                <i class="fas fa-flag-checkered"></i> 走行ログ
             </a>
             <a href="{{ url_for('circuit_dashboard.index') }}" class="beta-nav-item {{ 'active' if beta_nav_active == 'circuit' }}">
-                <i class="fas fa-chart-line"></i> サーキット
+                <i class="fas fa-chart-line"></i> サーキット分析
             </a>
             <a href="{{ url_for('event.events_index') }}" class="beta-nav-item {{ 'active' if beta_nav_active == 'event' }}">
                 <i class="fas fa-calendar-alt"></i> イベント

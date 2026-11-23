@@ -217,14 +217,24 @@ def index():
     
     # 2. ダッシュボードに表示するデータを整形
     circuit_data = []
-    
+    latest_activity_rows = db.session.query(
+        ActivityLog.circuit_name, ActivityLog.id, ActivityLog.activity_date, ActivityLog.motorcycle_id,
+        func.row_number().over(partition_by=ActivityLog.circuit_name,
+            order_by=(ActivityLog.activity_date.desc(), ActivityLog.created_at.desc(), ActivityLog.id.desc())).label('rn')
+    ).filter(ActivityLog.user_id == current_user.id, ActivityLog.circuit_name.isnot(None),
+             ActivityLog.circuit_name != '').subquery()
+    latest_activities = {row.circuit_name: row for row in db.session.query(
+        latest_activity_rows.c.circuit_name, latest_activity_rows.c.id,
+        latest_activity_rows.c.activity_date, latest_activity_rows.c.motorcycle_id,
+    ).filter(latest_activity_rows.c.rn == 1).order_by(latest_activity_rows.c.circuit_name).all()}
+
     # グラフ用データ取得のために全データを取得（N+1回避のためeager load）
     # 重いJSON列 (lap_times, gps_tracks) は defer して読み込まない (OOM対策)
     all_sessions_for_graph = base_query.options(
         joinedload(SessionLog.activity),
         defer(SessionLog.lap_times),
         defer(SessionLog.gps_tracks),
-    ).order_by(ActivityLog.activity_date.asc()).all()
+    ).order_by(ActivityLog.activity_date.asc(), ActivityLog.created_at.asc(), SessionLog.id.asc()).all()
 
     today = date.today()
     schedule_horizon = today + timedelta(days=30)
@@ -459,6 +469,8 @@ def index():
 
         circuit_data.append({
             'name': circuit_name,
+            'latest_activity_id': latest_activities.get(circuit_name, best_session.activity).id,
+            'latest_activity_date': latest_activities.get(circuit_name, best_session.activity).activity_date,
             'best_session': best_session,
             'latest_session': latest_session_obj,
             'latest_vehicle_id': latest_vehicle_id,
@@ -534,11 +546,15 @@ def index():
     heatmap_data = {d.isoformat(): c for d, c in heatmap_query}
     # ▲▲▲【追加】ヒートマップここまで ▲▲▲
 
+    measured_names = {item['name'] for item in circuit_data}
+    unmeasured_circuits = [row for name, row in latest_activities.items() if name not in measured_names]
+
     template_name = 'beta/circuit_dashboard_beta.html' if current_user.use_beta_ui else 'circuit_dashboard/index.html'
     return render_template(
         template_name,
         summary_stats=summary_stats,
         circuit_data=circuit_data,
+        unmeasured_circuits=unmeasured_circuits,
         format_seconds_to_time=format_seconds_to_time,
         heatmap_data=heatmap_data
     )

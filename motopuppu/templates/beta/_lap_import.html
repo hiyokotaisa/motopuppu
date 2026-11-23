@@ -1,0 +1,44 @@
+{% macro fields(form, prefix) %}
+{{ form.hidden_tag() }}
+<div class="mb-3">
+  <label for="{{ prefix }}-device" class="form-label beta-text-secondary">{{ form.device_type.label.text }}</label>
+  {{ form.device_type(id=prefix ~ '-device', class='form-select') }}
+</div>
+<div class="mb-3">
+  <label for="{{ prefix }}-file" class="form-label beta-text-secondary">{{ form.csv_file.label.text }}</label>
+  {{ form.csv_file(id=prefix ~ '-file', class='form-control', accept='.csv,.txt') }}
+  <div class="form-text beta-text-secondary">CSV・TXT形式、最大150MB。機種に合うファイルを選択してください。</div>
+</div>
+<div class="circuit-import-modes" data-import-mode>
+  <label class="circuit-import-mode"><input type="radio" name="append_mode" value="true" checked><span>後ろに追記<small>現在のラップを残して追加します。</small></span></label>
+  <label class="circuit-import-mode"><input type="radio" name="append_mode" value="false"><span>置き換える<small>現在のラップとGPSを上書きします。</small></span></label>
+</div>
+<details class="circuit-details mb-3"><summary>外れ値の除外・詳細設定</summary>
+  <div class="form-check mb-2">
+    {{ form.remove_outliers(id=prefix ~ '-outliers', class='form-check-input', **{'data-bs-target':'#' ~ prefix ~ '-threshold'}) }}
+    <label for="{{ prefix }}-outliers" class="form-check-label beta-text-secondary">極端に遅い周を除外する</label>
+  </div>
+  <div id="{{ prefix }}-threshold" class="collapse show">
+    <label for="{{ prefix }}-multiplier" class="form-label small beta-text-secondary">中央値の何倍まで残すか</label>
+    {{ form.outlier_threshold(id=prefix ~ '-multiplier', class='form-control') }}
+    <p class="form-text beta-text-secondary mb-0">標準は2倍です。ピットインなどの遅い周と、そのGPSを除外します。</p>
+  </div>
+</details>
+{% endmacro %}
+
+{% macro feedback() %}
+<div class="import-progress-display d-none" role="status" aria-live="polite">
+  <div class="text-center mb-3"><h6 class="import-progress-stage-text beta-text-primary">準備中...</h6><p class="import-progress-detail small beta-text-secondary"></p></div>
+  <div class="progress" style="height:24px"><div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width:0%" aria-valuemin="0" aria-valuemax="100">0%</div></div>
+  <p class="circuit-import-help mt-3 mb-0">取り込みが終わるまで、この画面を開いたままお待ちください。</p>
+</div>
+<div class="import-error-display d-none alert alert-danger mt-3 mb-0" role="alert"><span class="import-error-text"></span></div>
+<section class="import-success-display d-none" aria-live="polite">
+  <h6 class="fw-bold beta-text-primary"><i class="fas fa-check-circle me-2" style="color:var(--beta-accent-emerald)"></i>取り込みが完了しました</h6>
+  <dl class="import-result-grid">
+    <div><dt>取り込んだラップ</dt><dd data-import-laps>—</dd></div><div><dt>除外したラップ</dt><dd data-import-removed>—</dd></div>
+    <div><dt>GPS付きラップ</dt><dd data-import-gps>—</dd></div><div><dt>セッションベスト</dt><dd data-import-best>—</dd></div>
+  </dl>
+  <div class="d-grid gap-2"><a class="beta-btn beta-btn-solid justify-content-center" data-import-gps-link>走行ラインを見る</a><a class="beta-btn justify-content-center" data-import-detail-link>セッションを確認する</a></div>
+</section>
+{% endmacro %}

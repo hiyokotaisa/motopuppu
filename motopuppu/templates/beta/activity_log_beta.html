@@ -8,6 +8,7 @@
 {% block styles %}
 {{ super() }}
 {% include 'beta/_beta_layout_head.html' %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/circuit_ui.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -55,7 +56,7 @@
 
     <main class="beta-main-content">
         {% set beta_topbar_title = '走行ログ一覧' %}
-        {% set beta_topbar_subtitle = 'サーキット走行とツーリングの記録をまとめて管理' %}
+        {% set beta_topbar_subtitle = 'サーキットや車両で絞り込み、走行日の記録へ' %}
         {% include 'beta/_beta_topbar.html' %}
 
         {# Flash Messages #}
@@ -133,26 +134,32 @@
             </div>
         </div>
 
+        <nav class="circuit-breadcrumb" aria-label="パンくず"><a href="{{ url_for('circuit_dashboard.index') }}">サーキット分析</a><span aria-hidden="true">/</span><span>走行ログ</span></nav>
         {# Vehicle Switcher #}
         <div class="d-flex flex-wrap gap-2 mb-4">
-            <a href="{{ url_for('activity.activity_log') }}" class="beta-btn {{ 'beta-btn-solid' if not request_args.get('vehicle_id') and not request_args.get('log_type') }}">
+            <a href="{{ activity_filter_url(log_type=None) }}" class="beta-btn {{ 'beta-btn-solid' if not request_args.get('vehicle_id') and not request_args.get('log_type') }}">
                 <i class="fas fa-layer-group me-1"></i> すべて
             </a>
-            <a href="{{ url_for('activity.activity_log', log_type='activity') }}" class="beta-btn {{ 'beta-btn-solid' if request_args.get('log_type') == 'activity' }}" style="{% if request_args.get('log_type') == 'activity' %}background: rgba(220, 53, 69, 0.15); color: #dc3545; border-color: rgba(220, 53, 69, 0.3);{% endif %}">
+            <a href="{{ activity_filter_url(log_type='activity') }}" class="beta-btn {{ 'beta-btn-solid' if request_args.get('log_type') == 'activity' }}" style="{% if request_args.get('log_type') == 'activity' %}background: rgba(220, 53, 69, 0.15); color: #dc3545; border-color: rgba(220, 53, 69, 0.3);{% endif %}">
                 <i class="fas fa-stopwatch me-1"></i> サーキット
             </a>
-            <a href="{{ url_for('activity.activity_log', log_type='touring') }}" class="beta-btn {{ 'beta-btn-solid' if request_args.get('log_type') == 'touring' }}" style="{% if request_args.get('log_type') == 'touring' %}background: rgba(25, 135, 84, 0.15); color: #198754; border-color: rgba(25, 135, 84, 0.3);{% endif %}">
+            <a href="{{ activity_filter_url(log_type='touring') }}" class="beta-btn {{ 'beta-btn-solid' if request_args.get('log_type') == 'touring' }}" style="{% if request_args.get('log_type') == 'touring' %}background: rgba(25, 135, 84, 0.15); color: #198754; border-color: rgba(25, 135, 84, 0.3);{% endif %}">
                 <i class="fas fa-map-marked-alt me-1"></i> ツーリング
             </a>
             <span class="beta-text-muted d-flex align-items-center mx-1" style="font-size: 0.7rem;">|</span>
             {% for motorcycle in motorcycles %}
-            <a href="{{ url_for('activity.activity_log', vehicle_id=motorcycle.id) }}"
+            <a href="{{ activity_filter_url(vehicle_id=motorcycle.id) }}"
                class="beta-btn {{ 'beta-btn-solid' if request_args.get('vehicle_id')|string == motorcycle.id|string }}">
                 <i class="fas fa-motorcycle me-1"></i> {{ motorcycle.name }}
             </a>
             {% endfor %}
         </div>
 
+        {% if request_args %}<div class="circuit-filter-chips" aria-label="適用中の条件">
+          {% if request_args.get('circuit_name') %}<a class="circuit-filter-chip" href="{{ activity_filter_url(circuit_name=None) }}">{{ request_args.circuit_name }} <span aria-label="この条件を外す">×</span></a>{% endif %}
+          {% if request_args.get('start_date') or request_args.get('end_date') %}<a class="circuit-filter-chip" href="{{ activity_filter_url(start_date=None, end_date=None) }}">{{ request_args.get('start_date') or '指定なし' }} ～ {{ request_args.get('end_date') or '指定なし' }} ×</a>{% endif %}
+          {% if request_args.get('q') %}<a class="circuit-filter-chip" href="{{ activity_filter_url(q=None) }}">検索: {{ request_args.q }} ×</a>{% endif %}
+        </div>{% endif %}
         {# Filter Panel #}
         <div class="mb-3">
             <button class="beta-btn" type="button" data-bs-toggle="collapse" data-bs-target="#filterCollapse"
@@ -190,6 +197,11 @@
                                 <option value="activity" {% if request_args.get('log_type')=='activity' %}selected{% endif %}>サーキット</option>
                                 <option value="touring" {% if request_args.get('log_type')=='touring' %}selected{% endif %}>ツーリング</option>
                             </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="filter-circuit" class="form-label small beta-text-muted">サーキット</label>
+                            <select id="filter-circuit" class="form-select form-select-sm" name="circuit_name"><option value="">すべてのサーキット</option>
+                            {% for name in circuit_names %}<option value="{{ name }}" {% if request_args.get('circuit_name') == name %}selected{% endif %}>{{ name }}</option>{% endfor %}</select>
                         </div>
                         <div class="col-md-4">
                             <label for="q" class="form-label small beta-text-muted">キーワード</label>
@@ -287,7 +299,7 @@
 
                         <h6 class="fw-bold beta-text-secondary mb-2">
                             {% if log.type == 'activity' %}
-                            <a href="{{ url_for('activity.detail_activity', activity_id=log.obj.id) }}"
+                            <a href="{{ url_for('activity.detail_activity', activity_id=log.obj.id, return_to=current_list_url) }}"
                                 class="text-decoration-none beta-text-primary">
                                 {{ log.title }}
                             </a>
@@ -408,7 +420,7 @@
                             <td>{{ log.vehicle.name }}</td>
                             <td>
                                 {% if log.type == 'activity' %}
-                                <a href="{{ url_for('activity.detail_activity', activity_id=log.obj.id) }}"
+                                <a href="{{ url_for('activity.detail_activity', activity_id=log.obj.id, return_to=current_list_url) }}"
                                     class="text-decoration-none fw-bold beta-text-primary">
                                     {{ log.title }}
                                 </a>
@@ -458,12 +470,12 @@
         {% if pagination.pages > 1 %}
         <nav aria-label="Page navigation" class="mt-4">
             <ul class="pagination justify-content-center">
-                <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}"><a class="page-link" href="{{ url_for('activity.activity_log', page=pagination.prev_num, **request_args) }}">&laquo;</a></li>
+                <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}"><a class="page-link" href="{{ url_for('activity.activity_log', page=pagination.prev_num, sort_by=current_sort_by, order=current_order, **request_args) }}">&laquo;</a></li>
                 {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=1) %}
-                {% if page_num %}<li class="page-item {% if page_num == pagination.page %}active{% endif %}"><a class="page-link" href="{{ url_for('activity.activity_log', page=page_num, **request_args) }}">{{ page_num }}</a></li>
+                {% if page_num %}<li class="page-item {% if page_num == pagination.page %}active{% endif %}"><a class="page-link" href="{{ url_for('activity.activity_log', page=page_num, sort_by=current_sort_by, order=current_order, **request_args) }}">{{ page_num }}</a></li>
                 {% else %}<li class="page-item disabled"><span class="page-link">...</span></li>{% endif %}
                 {% endfor %}
-                <li class="page-item {% if not pagination.has_next %}disabled{% endif %}"><a class="page-link" href="{{ url_for('activity.activity_log', page=pagination.next_num, **request_args) }}">&raquo;</a></li>
+                <li class="page-item {% if not pagination.has_next %}disabled{% endif %}"><a class="page-link" href="{{ url_for('activity.activity_log', page=pagination.next_num, sort_by=current_sort_by, order=current_order, **request_args) }}">&raquo;</a></li>
             </ul>
         </nav>
         {% endif %}

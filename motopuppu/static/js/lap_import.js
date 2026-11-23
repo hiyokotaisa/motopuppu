@@ -10,8 +10,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const progressBar = form.querySelector('.progress-bar');
         const submitBtn = form.querySelector('input[type="submit"], button[type="submit"]');
         let inProgress = false;
+        let completed = false;
         const cancelBtn = form.querySelector('.import-cancel-btn');
         const closeBtn = form.querySelector('.import-close-btn');
+        const modal = form.closest('.modal');
+        modal?.addEventListener('hide.bs.modal', event => {
+            if (inProgress && !completed) event.preventDefault();
+        });
 
         const STAGE_LABELS = {
             uploading: 'ファイルをアップロード中',
@@ -75,6 +80,36 @@ document.addEventListener('DOMContentLoaded', () => {
                 detailTextEl.textContent = evt.message || '';
                 setProgress(100, false, false);
                 progressBar.classList.add('bg-success');
+                const result = form.querySelector('.import-success-display');
+                if (result) {
+                    completed = true;
+                    progressContainer.classList.add('d-none');
+                    result.classList.remove('d-none');
+                    const summary = evt.summary || {};
+                    for (const [selector, value] of [
+                        ['[data-import-laps]', summary.imported_laps],
+                        ['[data-import-removed]', summary.removed_laps],
+                        ['[data-import-gps]', summary.gps_laps],
+                        ['[data-import-best]', summary.best_lap],
+                    ]) {
+                        const element = result.querySelector(selector);
+                        if (element) element.textContent = value ?? '—';
+                    }
+                    const detailLink = result.querySelector('[data-import-detail-link]');
+                    if (detailLink) detailLink.href = evt.redirect_url || window.location.href;
+                    const gpsLink = result.querySelector('[data-import-gps-link]');
+                    if (gpsLink) {
+                        gpsLink.hidden = !evt.gps_url;
+                        if (evt.gps_url) gpsLink.href = evt.gps_url;
+                    }
+                    if (closeBtn) closeBtn.disabled = false;
+                    if (cancelBtn) { cancelBtn.disabled = false; cancelBtn.textContent = '閉じて反映'; }
+                    if (submitBtn) submitBtn.hidden = true;
+                    modal?.addEventListener('hidden.bs.modal', () => {
+                        window.location.href = evt.redirect_url || window.location.href;
+                    }, {once: true});
+                    return;
+                }
                 setTimeout(() => {
                     if (evt.redirect_url) {
                         window.location.href = evt.redirect_url;
@@ -100,12 +135,15 @@ document.addEventListener('DOMContentLoaded', () => {
             event.preventDefault();
             if (inProgress) return;
 
-            const appendModeCheckbox = this.querySelector('input[name="append_mode"]');
-            const isAppend = appendModeCheckbox ? appendModeCheckbox.checked : false;
+            const appendMode = this.querySelector('input[name="append_mode"]:checked');
+            const isAppend = Boolean(appendMode && appendMode.value !== 'false');
 
             let message = '既存のラップタイムは上書きされます。よろしいですか？';
             if (isAppend) {
                 message = '既存の記録の後ろに追記します。よろしいですか？\n(この操作は取り消せません)';
+            }
+            if (this.querySelector('[name="target_session"]')?.value === 'new') {
+                message = 'CSVから新しいセッションを作成します。よろしいですか？';
             }
             if (!confirm(message)) return;
 

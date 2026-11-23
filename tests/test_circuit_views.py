@@ -1,8 +1,12 @@
 """手動実行するPostgreSQL連携試験。専用DBは既存の環境変数で指定する。"""
 import os
+import io
+import json
+from html import unescape
 from datetime import date
 import unittest
 import uuid
+from urllib.parse import parse_qs, urlsplit
 
 from flask import template_rendered
 from sqlalchemy import event, inspect
@@ -71,6 +75,151 @@ class CircuitViewTests(unittest.TestCase):
         with self.app.app_context():
             db.session.get(ActivityLog, self.activity_id).share_with_teams = shared
             db.session.commit()
+
+    def enable_beta(self):
+        with self.app.app_context():
+            db.session.get(User, self.owner_id).use_beta_ui = True
+            db.session.commit()
+
+    def test_beta_course_filter_and_navigation_preserve_list_conditions(self):
+        self.enable_beta()
+        with self.app.app_context():
+            activity = db.session.get(ActivityLog, self.activity_id)
+            course, bike_id = activity.circuit_name, activity.motorcycle_id
+            another = ActivityLog(user_id=self.owner_id, motorcycle_id=bike_id,
+                                  activity_date=date(2026, 11, 22), location_type='circuit',
+                                  circuit_name=course + ' 別コース')
+            db.session.add(another)
+            db.session.commit()
+        captured = {}
+
+        def capture(sender, template, context, **extra):
+            if 'logs' in context:
+                captured['ids'] = [log['obj'].id for log in context['logs']]
+                captured['list_url'] = context['current_list_url']
+                captured['bike_url'] = context['activity_filter_url'](vehicle_id=bike_id)
+                captured['touring_url'] = context['activity_filter_url'](log_type='touring')
+
+        client = self.client_for(self.owner_id)
+        with template_rendered.connected_to(capture, self.app):
+            response = client.get('/activity/', query_string={
+                'circuit_name': course, 'start_date': '2026-11-01',
+                'sort_by': 'vehicle', 'order': 'asc', 'page': 1,
+            })
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(captured['ids'], [self.activity_id])
+        params = parse_qs(urlsplit(captured['bike_url']).query)
+        self.assertEqual(params['circuit_name'], [course])
+        self.assertEqual(params['start_date'], ['2026-11-01'])
+        self.assertEqual(params['sort_by'], ['vehicle'])
+        self.assertEqual(params['vehicle_id'], [str(bike_id)])
+        self.assertNotIn('page', params)
+        self.assertNotIn('circuit_name', parse_qs(urlsplit(captured['touring_url']).query))
+        response = client.get(self.detail_url, query_string={'return_to': captured['list_url'],
+                                                             'session_id': self.session_id})
+        self.assertIn('href="' + captured['list_url'] + '"', unescape(response.get_data(as_text=True)))
+        self.assertIn(f'id="collapseSession{self.session_id}" class="accordion-collapse collapse show"',
+                      response.get_data(as_text=True))
+
+    def test_return_url_rejects_external_and_preserves_team_navigation(self):
+        self.enable_beta()
+        seen = []
+
+        def capture(sender, template, context, **extra):
+            seen.append(context['back_url'])
+
+        client = self.client_for(self.owner_id)
+        with template_rendered.connected_to(capture, self.app):
+            for value in ('https://outside.test/', '//outside.test/', '/\\outside.test/'):
+                client.get(self.detail_url, query_string={'return_to': value})
+            client.get(self.detail_url, headers={'Referer': 'http://localhost/teams/1'})
+        self.assertEqual(seen[:3], ['/activity/'] * 3)
+        self.assertEqual(seen[3], 'http://localhost/teams/1')
+
+    def test_import_script_is_available_without_google_maps_in_both_uis(self):
+        self.app.config['GOOGLE_MAPS_API_KEY'] = ''
+        for beta in (False, True):
+            with self.app.app_context():
+                db.session.get(User, self.owner_id).use_beta_ui = beta
+                db.session.commit()
+            html = self.client_for(self.owner_id).get(self.detail_url).get_data(as_text=True)
+            self.assertIn('/static/js/lap_import.js', html)
+
+    def test_new_session_import_returns_summary_and_focused_gps_link(self):
+        from test_lap_import import drogger_csv
+        response = self.client_for(self.owner_id).post(f'/activity/{self.activity_id}/import_laps', data={
+            'target_session': 'new', 'new_session_name': 'CSVで作成', 'device_type': 'drogger',
+            'csv_file': (io.BytesIO(drogger_csv()), 'track.csv'), 'remove_outliers': 'y',
+            'outlier_threshold': '2.0', 'append_mode': 'true',
+        }, headers={'Accept': 'application/x-ndjson'})
+        events = [json.loads(line) for line in response.get_data(as_text=True).splitlines()]
+        done = events[-1]
+        self.assertEqual(done['stage'], 'done')
+        self.assertEqual(done['summary'], {'imported_laps': 3, 'removed_laps': 1,
+                                          'gps_laps': 3, 'best_lap': '1:00.000'})
+        self.assertEqual(parse_qs(urlsplit(done['gps_url']).query)['gps'], ['1'])
+        self.assertEqual(urlsplit(done['redirect_url']).fragment, f"session-{done['session_id']}")
+        with self.app.app_context():
+            saved = db.session.get(SessionLog, done['session_id'])
+            self.assertEqual(saved.activity_log_id, self.activity_id)
+            self.assertEqual(saved.session_name, 'CSVで作成')
+            self.assertEqual(len(saved.lap_times), 3)
+
+    def test_invalid_new_import_and_wrong_target_do_not_create_sessions(self):
+        with self.app.app_context():
+            count = SessionLog.query.filter_by(activity_log_id=self.activity_id).count()
+        for target, expected in (('new', 200), ('99999999', 400)):
+            response = self.client_for(self.owner_id).post(f'/activity/{self.activity_id}/import_laps', data={
+                'target_session': target, 'device_type': 'drogger',
+                'csv_file': (io.BytesIO(b'invalid CSV'), 'track.csv'), 'outlier_threshold': '2.0',
+            }, headers={'Accept': 'application/x-ndjson'})
+            self.assertEqual(response.status_code, expected)
+            self.assertIn('error', response.get_data(as_text=True))
+            with self.app.app_context():
+                self.assertEqual(SessionLog.query.filter_by(activity_log_id=self.activity_id).count(), count)
+        response = self.client_for(self.member_id).post(f'/activity/{self.activity_id}/import_laps')
+        self.assertEqual(response.status_code, 404)
+
+    def test_activity_import_can_append_and_replace_the_selected_session(self):
+        client = self.client_for(self.owner_id)
+        for append, expected_count in (('true', 6), ('false', 2)):
+            response = client.post(f'/activity/{self.activity_id}/import_laps', data={
+                'target_session': str(self.session_id), 'device_type': 'simple_csv',
+                'csv_file': (io.BytesIO(b'1:05.000\n1:06.000\n'), 'times.csv'),
+                'outlier_threshold': '2.0', 'append_mode': append,
+            }, headers={'Accept': 'application/x-ndjson'})
+            done = json.loads(response.get_data(as_text=True).splitlines()[-1])
+            self.assertEqual(done['stage'], 'done')
+            self.assertEqual(done['session_id'], self.session_id)
+            with self.app.app_context():
+                saved = db.session.get(SessionLog, self.session_id)
+                self.assertEqual(len(saved.lap_times), expected_count)
+                self.assertEqual(bool(saved.gps_tracks), append == 'true')
+
+    def test_beta_dashboard_links_latest_untimed_log_and_unmeasured_course(self):
+        self.enable_beta()
+        with self.app.app_context():
+            activity = db.session.get(ActivityLog, self.activity_id)
+            latest = ActivityLog(user_id=self.owner_id, motorcycle_id=activity.motorcycle_id,
+                                 activity_date=date(2026, 11, 23), location_type='circuit',
+                                 circuit_name=activity.circuit_name)
+            unmeasured = ActivityLog(user_id=self.owner_id, motorcycle_id=activity.motorcycle_id,
+                                     activity_date=date(2026, 11, 23), location_type='circuit',
+                                     circuit_name='未計測コース')
+            db.session.add_all([latest, unmeasured])
+            db.session.commit()
+            latest_id, unmeasured_id = latest.id, unmeasured.id
+        seen = {}
+
+        def capture(sender, template, context, **extra):
+            seen.update(context)
+
+        with template_rendered.connected_to(capture, self.app):
+            response = self.client_for(self.owner_id).get('/circuit-dashboard/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(seen['circuit_data'][0]['latest_activity_id'], latest_id)
+        self.assertEqual(seen['unmeasured_circuits'][0].id, unmeasured_id)
+        self.assertIn('import_csv=1', response.get_data(as_text=True))
 
     def test_team_members_cannot_open_unshared_log_or_any_gps_variant(self):
         client = self.client_for(self.member_id)

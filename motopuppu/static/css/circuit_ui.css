@@ -1,0 +1,88 @@
+/* サーキット分析・走行ログのBeta UI。通常UIの配色には影響しない。 */
+.beta-ui-body .circuit-page-heading { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem; margin-bottom:1.5rem; }
+.beta-ui-body .circuit-breadcrumb { display:flex; flex-wrap:wrap; align-items:center; gap:.5rem; font-size:.85rem; color:var(--beta-text-muted); margin-bottom:1rem; }
+.circuit-breadcrumb a { color:var(--beta-text-secondary); text-decoration:none; }
+.circuit-breadcrumb a:hover { color:var(--beta-accent-blue); }
+.beta-ui-body .circuit-summary-card { padding:1.5rem; display:flex; flex-direction:column; gap:1.1rem; }
+.circuit-card-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:.75rem; }
+.circuit-card-heading h2 { font-size:1.05rem; line-height:1.6; margin:0; overflow-wrap:anywhere; }
+.circuit-eyebrow { font-size:.8rem; font-weight:600; color:var(--beta-text-muted); margin-bottom:.35rem; }
+.circuit-personal-best { font:700 clamp(1.8rem,3vw,2.35rem)/1.2 ui-monospace,monospace; letter-spacing:-.06em; color:var(--beta-text-primary); font-variant-numeric:tabular-nums; }
+.circuit-summary-pair { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+.circuit-summary-value { color:var(--beta-text-primary); font-variant-numeric:tabular-nums; font-weight:600; }
+.circuit-card-actions { display:grid; grid-template-columns:1fr 1fr; gap:.5rem; }
+.circuit-card-actions .circuit-history { grid-column:1/-1; }
+.beta-ui-body .circuit-card-actions .beta-btn, .beta-ui-body .circuit-lap-nav .beta-btn { min-height:42px; justify-content:center; text-align:center; }
+.beta-ui-body .circuit-details { border-top:1px solid var(--beta-border); padding-top:.9rem; }
+.circuit-details > summary { cursor:pointer; color:var(--beta-text-secondary); font-size:.85rem; font-weight:600; padding:.2rem 0; }
+.circuit-details[open] > summary { margin-bottom:1rem; }
+.circuit-details .growth-node { font-size:.85rem; }
+.circuit-target-gap { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:.5rem; font-size:.85rem; }
+.beta-ui-body .circuit-empty { text-align:center; padding:2rem 1.5rem; border:1px dashed var(--beta-border); border-radius:var(--beta-radius); }
+.circuit-empty p { color:var(--beta-text-secondary); max-width:36rem; margin:.75rem auto 1.25rem; }
+.circuit-filter-chips { display:flex; flex-wrap:wrap; gap:.5rem; margin-bottom:1rem; }
+.circuit-filter-chip { display:inline-flex; align-items:center; gap:.5rem; padding:.4rem .7rem; border:1px solid var(--beta-border); border-radius:999px; color:var(--beta-text-secondary); font-size:.8rem; text-decoration:none; }
+.beta-ui-body .session-card { scroll-margin-top:6rem; }
+.beta-ui-body .circuit-activity-meta > summary { cursor:pointer; justify-content:flex-start; flex-wrap:wrap; }
+.beta-ui-body .circuit-activity-meta > summary::before { content:'▸'; color:var(--beta-text-muted); margin-right:.6rem; }
+.beta-ui-body .circuit-activity-meta[open] > summary::before { content:'▾'; }
+.beta-ui-body .circuit-activity-meta > summary::-webkit-details-marker { display:none; }
+.beta-ui-body .beta-topbar-actions { flex-shrink:0; }
+.beta-ui-body .beta-topbar-actions .beta-btn { white-space:nowrap; }
+.beta-ui-body .session-card .accordion-button { padding:1rem; }
+.beta-ui-body .session-card .session-header-content { flex-wrap:wrap; gap:.75rem; }
+.beta-ui-body .session-card .session-actions { flex-wrap:wrap; }
+.beta-ui-body .session-card .session-actions .beta-btn { min-height:36px; font-size:.8rem !important; padding:.4rem .6rem !important; }
+.beta-ui-body .lap-time-table { max-height:min(52vh,28rem); overscroll-behavior:contain; }
+.beta-ui-body .circuit-lap-row td { background:transparent; color:var(--beta-text-primary); padding:.65rem .75rem; font-size:.9rem; }
+.beta-ui-body .circuit-lap-row.is-best td { background:color-mix(in srgb,var(--beta-accent-emerald) 9%,transparent); }
+.beta-ui-body .circuit-lap-row.is-best td:first-child { box-shadow:inset 3px 0 var(--beta-accent-emerald); }
+.beta-ui-body .circuit-lap-row .view-track-btn { min-height:36px; font-size:.8rem; padding:.35rem .6rem; }
+.beta-ui-body .lap-time-table thead { background:var(--beta-bg-secondary); }
+.beta-ui-body .lap-time-table th { font-size:.8rem !important; text-transform:none; }
+.circuit-import-destination { background:var(--beta-bg-card); border:1px solid var(--beta-border); border-radius:var(--beta-radius); padding:1rem; margin-bottom:1rem; }
+.circuit-import-modes { display:grid; grid-template-columns:1fr 1fr; gap:.5rem; margin-bottom:1rem; }
+.circuit-import-mode { display:flex; align-items:flex-start; gap:.6rem; border:1px solid var(--beta-border); border-radius:var(--beta-radius); padding:.85rem; cursor:pointer; font-size:.85rem; }
+.circuit-import-mode:has(input:checked) { border-color:var(--beta-accent-blue); background:color-mix(in srgb,var(--beta-accent-blue) 8%,transparent); }
+.circuit-import-mode input { margin-top:.2rem; }
+.circuit-import-mode small { display:block; margin-top:.25rem; color:var(--beta-text-muted); line-height:1.5; }
+.circuit-import-help { color:var(--beta-text-secondary); font-size:.85rem; line-height:1.7; }
+.import-success-display { border:1px solid color-mix(in srgb,var(--beta-accent-emerald) 40%,transparent); background:color-mix(in srgb,var(--beta-accent-emerald) 6%,transparent); padding:1.25rem; border-radius:var(--beta-radius); }
+.import-result-grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin:1.25rem 0; }
+.import-result-grid dt { font-size:.8rem; color:var(--beta-text-secondary); font-weight:400; }
+.import-result-grid dd { margin:0; font-size:1.2rem; font-weight:700; font-variant-numeric:tabular-nums; color:var(--beta-text-primary); }
+.circuit-lap-nav { display:grid; grid-template-columns:1fr 1.2fr 1fr; gap:.35rem; margin-top:.75rem; }
+.circuit-lap-nav .beta-btn { padding:.5rem .2rem; font-size:.8rem; }
+.circuit-metrics { display:flex; flex-wrap:wrap; gap:.35rem; padding:.65rem .75rem; border-top:1px solid var(--beta-border); }
+.circuit-metrics button { min-height:36px; font-size:.8rem; padding:.4rem .65rem; }
+.circuit-metrics button[aria-pressed=true] { background:var(--beta-accent-blue); color:white; border-color:var(--beta-accent-blue); }
+.beta-ui-body #telemetry-graphs { height:210px; background:var(--beta-bg-secondary); }
+.beta-ui-body #telemetry-graphs .chart-container { min-height:180px; padding:.25rem .75rem .5rem; flex:1; }
+.beta-ui-body #telemetry-controls h6 { font-size:.9rem; }
+.beta-ui-body #telemetry-controls select { font-size:.9rem; }
+.beta-ui-body .circuit-graph-section { display:flex; flex-direction:column; min-height:0; }
+.beta-ui-body .circuit-graph-section[hidden], .beta-ui-body .circuit-metrics[hidden] { display:none !important; }
+.beta-ui-body #telemetry-main { flex:1; }
+.beta-ui-body .beta-btn:focus-visible, .circuit-details summary:focus-visible, .session-card [role=button]:focus-visible { outline:2px solid var(--beta-accent-blue); outline-offset:3px; }
+@media(max-width:767.98px) {
+ .beta-ui-body .beta-topbar { flex-wrap:wrap; gap:.75rem; }
+ .beta-ui-body .beta-topbar > div:first-child { flex-basis:100%; }
+ .beta-ui-body .beta-topbar-actions { margin-left:auto; }
+ .beta-ui-body .circuit-summary-card { padding:1.15rem; }
+ .beta-ui-body .session-card .session-actions { width:100%; margin-left:0 !important; padding-left:0 !important; }
+ .beta-ui-body .session-card .session-actions .beta-btn { min-height:42px; flex:1; }
+ .beta-ui-body .circuit-page-heading > .beta-btn { width:100%; justify-content:center; }
+ .beta-ui-body #telemetry-controls { padding:.8rem; }
+ .beta-ui-body #telemetry-controls hr { margin:.7rem 0; }
+ .beta-ui-body #telemetry-main { height:auto; min-height:52vh; }
+ .beta-ui-body #map-wrapper { min-height:40vh; }
+ .beta-ui-body #telemetry-graphs { height:210px; }
+ .beta-ui-body #mapModal .modal-body { overflow:auto; }
+ .beta-ui-body #mapModal .modal-dialog { margin:.5rem; }
+ .beta-ui-body #mapModal .modal-dialog.modal-fullscreen { margin:0; }
+ .circuit-import-modes { grid-template-columns:1fr; }
+}
+@media(prefers-reduced-motion:reduce) { .beta-circuit-card, .target-progress-bar { transition:none !important; } .pb-fresh-indicator { animation:none !important; } }
+.beta-ui-body [hidden] { display:none !important; }
+.beta-ui-body .beta-stats-grid .text-uppercase, .beta-ui-body .session-card .text-uppercase { font-size:.8rem !important; text-transform:none !important; }
+@media(max-width:767.98px) { .beta-ui-body .circuit-lap-row td { padding:.6rem .4rem; font-size:.85rem; } }
